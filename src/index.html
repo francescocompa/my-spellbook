@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My Spellbook</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>My Spellbook</h1>
+    <span class="spacer"></span>
+    <div class="tabs"><button id="tabBuild" class="on">Build</button><button id="tabTable">Spell table</button></div>
+    <div class="menu">
+      <button class="btn iconbtn" id="menuBtn" title="Settings" aria-label="Settings">⋯</button>
+      <div class="menupop hidden" id="menuPop">
+        <button id="sourcesBtn">⚙ Sources…</button>
+        <button id="themeBtn">◐ Toggle theme</button>
+        <div class="sep"></div>
+        <button id="resetBtn" class="danger">Reset build</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="layout" id="buildView">
+    <div class="col-left">
+      <!-- CHARACTER -->
+      <div class="card">
+        <h2>Character <span class="count" id="clvlChip"></span></h2>
+        <div class="body">
+          <div class="fieldset">
+            <label class="fld">Classes &amp; levels</label>
+            <div id="classRows"></div>
+            <input id="addClass" list="classList" placeholder="+ add a class… (type to search)" autocomplete="off">
+            <datalist id="classList"></datalist>
+          </div>
+          <div class="fieldset">
+            <label class="fld">Species / lineage</label>
+            <select id="speciesSel"><option value="">— none —</option></select>
+          </div>
+          <div class="fieldset">
+            <label class="fld">Feats that grant spells</label>
+            <select id="addFeat"><option value="">+ add a feat…</option></select>
+            <div class="chips" id="featChips"></div>
+          </div>
+          <div class="fieldset">
+            <label class="fld">Manual extras (any source)</label>
+            <div class="twocol">
+              <div><label class="fld" style="text-transform:none;letter-spacing:0">Extra cantrips</label>
+                <input type="number" id="extraCantrips" min="0" max="20" value="0"></div>
+              <div><label class="fld" style="text-transform:none;letter-spacing:0">Extra prepared</label>
+                <input type="number" id="extraSpells" min="0" max="40" value="0"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CHOICES -->
+      <div class="card hidden" id="choicesCard">
+        <h2>Choices to make <span class="count" id="choicesChip"></span></h2>
+        <div class="body" id="choicesBody"></div>
+      </div>
+
+      <!-- SLOTS -->
+      <div class="card">
+        <h2>Slots &amp; casts</h2>
+        <div class="body">
+          <div class="stats" id="statGrid"></div>
+          <div style="margin-top:12px"><label class="fld">Spell slots</label><div class="slots" id="slotRow"></div></div>
+          <div id="castsWrap" style="margin-top:14px"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-right">
+      <!-- CART / BUDGET -->
+      <div class="card">
+        <h2>Prepared budget &amp; picks <span class="count" id="cartChip"></span></h2>
+        <div class="body" id="cartBody"></div>
+      </div>
+
+      <!-- SPELLS -->
+      <div class="card">
+        <h2>Eligible spells <span class="count" id="spCount"></span></h2>
+        <div class="body">
+          <div class="filters">
+            <input type="search" id="fq" placeholder="filter by name…">
+            <button class="btn" id="filterBtn">Filters</button>
+            <button class="cbtn" id="fChosen">✓ picked</button>
+          </div>
+          <div class="filterpanel hidden" id="filterPanel">
+            <div class="full"><label class="fld">Level</label><div class="cbrow" id="fLevel"></div></div>
+            <div><label class="fld">School</label><select id="fSchool"><option value="">all schools</option></select></div>
+            <div><label class="fld">Class / list</label><select id="fClass"><option value="">all classes</option></select></div>
+            <div><label class="fld">Source book</label><select id="fBook"><option value="">any book</option></select></div>
+            <div><label class="fld">Casting time</label><div class="cbrow" id="fTime"></div></div>
+            <div><label class="fld">Components</label><div class="cbrow" id="fComp"></div></div>
+            <div><label class="fld">Tags</label><div class="cbrow" id="fTags"></div></div>
+            <div><label class="fld">Saving throw</label><select id="fSave"><option value="">any save</option></select></div>
+            <div><label class="fld">Damage type</label><select id="fDmg"><option value="">any damage</option></select></div>
+            <div><label class="fld">Editions</label><select id="fReprint">
+              <option value="dedupe">Hide reprinted (newest only)</option>
+              <option value="all">Show all versions</option></select></div>
+            <div class="full" style="text-align:right"><button class="btn" id="clearFilters">Clear filters</button></div>
+          </div>
+          <div id="spellList"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tableView" class="hidden">
+    <div class="card"><h2>Selected spells <span class="count" id="tableChip"></span></h2>
+      <div class="body">
+        <div class="tableopts">
+          <label>Group by
+            <select id="tGroup"><option value="level">Spell level</option><option value="ability">Casting ability</option><option value="source">Source</option></select></label>
+          <label id="tShowWrap"><input type="checkbox" id="tShowAll"> Show all eligible (daily casters)</label>
+        </div>
+        <div class="tablewrap"><table class="spelltable" id="spellTable"></table></div>
+        <p class="note" id="tableEmpty"></p></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal hidden" id="pickModal"><div class="box">
+  <div class="mh"><h2 id="pickTitle">Choose spells</h2><span class="sub" id="pickSub" style="color:var(--muted);font-size:12px"></span><button class="x" id="pickClose">×</button></div>
+  <div class="mb"><input type="search" id="pickSearch" placeholder="filter by name…" style="margin-bottom:11px"><div id="pickList" style="max-height:52vh;overflow:auto"></div></div>
+</div></div>
+
+<div class="modal hidden" id="srcModal"><div class="box">
+  <div class="mh"><h2>Sources</h2><span class="sub" id="srcSub" style="color:var(--muted);font-size:12px"></span><button class="x" id="srcClose">×</button></div>
+  <div class="mb">
+    <div class="quick">
+      <button class="btn" id="srcAll">Enable all</button>
+      <button class="btn" id="srcNone">Disable all</button>
+      <button class="btn" id="src2024">2024 core only</button>
+    </div>
+    <div id="srcList"></div>
+  </div>
+</div></div>
+<script src="../data/data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
