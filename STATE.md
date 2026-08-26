@@ -453,6 +453,40 @@ stays out. Server sync or accounts. Sharing a build as a rendered page, or via a
   *Rejected:* the bare level (two forks from different versions at the same level collide);
   the character name (it already sits above the version in the manager).
 
+- **D76 (2026-08-27) Magical Secrets weighs on the TOP of your list, not just its own count**
+  — an off-list spell can only have been taken from the feature's level on, so every off-list
+  spell you hold **below** level L has already spent one of the acquisition events at levels
+  ≥ onset — the same events that buy you spells at level L. Best case those are the earliest
+  such events (the window between onset and your first L-level slot); the shortfall comes out of
+  `cap[L]` itself, and the per-level tiles and over-flags follow the narrowed ceiling. Two things
+  fall out: one off-list **1st**-level spell costs a slot of "spells at level ≥ 2" (it cannot
+  have been learned before the feature), and it does **not** cost 8th-level capacity unless the
+  off-list picks outnumber the window — the tool reports the BEST case (D18), so "I retrained at
+  15" and "I could have retrained at 10" are the same build to it. *Rejected:* stamping each pick
+  with the level it was taken at, which would price the retrain exactly — that is D64, rejected
+  because a stamp cannot express retraining intervals.
+- **D77 (2026-08-27) A grouping header carries no accent** — the source group ran accent text on
+  an accent-soft band while the ability names carry the six ability hues, so two colour systems
+  fought inside one table. The outer group keeps a neutral `--panel-2` fill with ink text and its
+  **casting-stat chip** (never a book chip — the stat is what you group on); the level sub-header
+  drops to a quiet muted sans label. The ability names are now the table's only hue. *Rejected:*
+  no fill with a rule above (lighter but the groups read loose in a long table); a small-caps
+  label over a hairline (quieter still, same problem).
+- **D78 (2026-08-27) A spell can print a CAST, not just a creature** — some spells name a whole
+  group: Find Familiar lists eleven forms and then says "or any beast of CR 0". Both extractors
+  resolve `{@creature Name|SRC}` refs and `{@filter …|bestiary|challenge rating=[&0]|type=…}`
+  into a list of monster keys on `sp.creatures`, against a shared `DATA.monsters` map — so a
+  monster referenced twice is stored once. The stat block section becomes a **carousel** (prev /
+  position / next + a book filter) whenever the set holds more than one, and it respects the
+  global Sources list like everything else. **SCOPE:** the monsters carried out of a bestiary are
+  `summonedBySpell` blocks plus **CR 0 non-swarm beasts** — exactly Find Familiar's set in both
+  editions — and filters expand for **XPHB spells only**. That is 65 monsters, +48 KB to the
+  offline digest and +16 KB to the SRD subset. *Rejected:* expanding the 2014 Conjure spells'
+  CR ≤ 2 filters (219 beasts + 58 fey + 36 elementals — ~450 KB, for spells the Editions filter
+  hides by default); named refs only (drops the CR 0 set that was the point).
+  → widening is a change to `carried_monster()` / `carriedMonster()` in the two extractors and
+  nowhere else. A ref to a creature outside the carried set silently doesn't resolve.
+
 ### Settled — recorded so they aren't re-proposed
 Headline + rejected options only; reasoning → `ARCHIVE.md#rationale`.
 - **D7** Source counts in chips — per-source `n/cap` on take chips, red over forecast.
@@ -692,6 +726,16 @@ Headline + rejected options only; reasoning → `ARCHIVE.md#rationale`.
 - **Custom sources (D65)** synthesize grants via `customSourceGrants` + `resolveGrants` (tok
   `x<id>`), EXCEPT `mode:"list"`, which widens the eligible pool instead. Per-grant extras
   (DC, attack, fixed cast level) ride through `spellOut`'s `extra` argument.
+- **`.tk.over` must not eat `.tk.on` (D72/D79).** A selected take chip on an over-budget class
+  used to render entirely red, because `.tk.over` follows `.tk.on` at equal specificity — which
+  is why selection "sometimes didn't highlight". Selection owns the **border and the icon**;
+  `.over` owns the text. `.tk.on.over` restates the green border after both.
+- **A creature set is `sp.creatures` (keys) + `DATA.monsters` (blocks), never inlined (D78).**
+  `spellCreatures(sp)` = the spell's own summon block, then every carried monster whose book is
+  on. `carried_monster()` in extract.py and `carriedMonster()` in extract.js **must stay
+  identical** — the Node harness in `scratchpad/cparity.js` diffs both sides and must report
+  `diffs=0`. An import built before D78 carries no `monsters`, so `assembleData` keeps the BAKED
+  map underneath it; **per-spell `creatures` cannot be back-filled — a re-import is needed.**
 - **A ratio widget may never print a denominator below its numerator (D70).** Being over a shared
   TOTAL drives every per-level `room` negative at once; clamping that at 0 produced "4 of up to 0".
   `free` (real room) and `ceil` (what is displayed) are separate values now — `free` still drives
@@ -728,6 +772,11 @@ Headline + rejected options only; reasoning → `ARCHIVE.md#rationale`.
 - v7 note batch 5 (2026-08-27) — the `x/0` tile clamp bug, level cards as tinted tiles + feat
   chip, spell rows on a rail instead of a fill, the prepare modal tabbed by set with a Granted
   tab, the spell modal's stat block and access chips, preview-version naming. **D70–D75.**
+- v7 note batch 6 (2026-08-27) — the Magical Secrets level weighting (D76), grouping headers off
+  the accent (D77), creature sets + the stat block carousel (D78), the selected-chip highlight
+  bug, level tiles de-tinted, feats back in the level prose, spellbook-not-prepared dimming,
+  "Spell preparation" with a per-tab subtitle and a three-state counter, and per-version action
+  menus in the build switcher. **D76–D78.**
 
 ⟳ Rename previous session → "Level preview, custom sources, build export" · **NOT APPLIED**
 (2026-08-26): the newest session in this cwd is "Character sheet UI refinements", last active

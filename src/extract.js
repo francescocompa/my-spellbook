@@ -333,9 +333,19 @@ function statblock(m){
     sections:sec.filter(x=>x[1]&&x[1].length).map(([label,arr])=>({label,items:sbEntries(arr)}))};}
 // keep only the monsters a spell actually prints — a full bestiary file is ~MBs and
 // none of the rest is used, so it must never reach IMPORT_STAGE or localStorage
-function slimJson(j){ if(j&&Array.isArray(j.monster)){const keep=j.monster.filter(m=>m&&m.summonedBySpell);
+const monType=m=>{const t=m&&m.type;return((t&&typeof t==="object")?t.type:t)||"";};
+const monCr=m=>{const c=m&&m.cr;const v=(c&&typeof c==="object")?c.cr:c;return v==null?"":String(v);};
+// D78 — the predicate that decides what leaves a bestiary. MUST stay identical to
+// extract.py's carried_monster(): summon blocks, plus CR 0 non-swarm beasts (which is
+// exactly Find Familiar's set in both editions).
+function carriedMonster(m){ if(!m)return false; if(m.summonedBySpell)return true;
+  return monType(m)==="beast"&&monCr(m)==="0"&&!/swarm/i.test(m.name||"");}
+function slimJson(j){ if(j&&Array.isArray(j.monster)){const keep=j.monster.filter(carriedMonster);
     if(keep.length!==j.monster.length){j=Object.assign({},j);j.monster=keep;}}
   return j;}
+const CREATURE_RE=/\{@creature ([^}|]+)(?:\|([^}|]*))?[^}]*\}/g;
+const BFILTER_RE=/\{@filter [^|}]*\|bestiary\|([^}]*)\}/g;
+const monKey=(name,src)=>String(name).trim()+"|"+String(src||"").trim().toUpperCase();
 
 function buildDigest(files){
   const books={};
@@ -367,7 +377,10 @@ function buildDigest(files){
           comp:components(sp),ritual:!!((sp.meta||{}).ritual),conc:!!dur.concentration,
           dmg:uniqSort(sp.damageInflict),cond:uniqSort(sp.conditionInflict),save:uniqSort(sp.savingThrow),
           atk:!!sp.spellAttack,durTxt:durationText(sp),desc:flattenEntries(sp.entries),
-          higher:flattenEntries(sp.entriesHigherLevel),reprinted:reprinted(sp),page:sp.page,cls:[],sub:[],feat:[],race:[]};});
+          higher:flattenEntries(sp.entriesHigherLevel),reprinted:reprinted(sp),page:sp.page,cls:[],sub:[],feat:[],race:[],
+          // raw entries, popped once creature sets are resolved — richStrip eats the
+          // {@creature}/{@filter} tags on the way into `desc` (mirrors extract.py)
+          _raw:JSON.stringify([sp.entries,sp.entriesHigherLevel])};});
       (j.class||[]).forEach(c=>{if(EXCLUDE_CLASS(c.name))return;   // sidekicks aren't player classes
         const cp=c.casterProgression,prepared=c.preparedSpellsProgression,known=c.spellsKnownProgression;
         const change=c.preparedSpellsChange;const isStatic=(change==="level")||(!!known&&!prepared);
@@ -449,14 +462,40 @@ function buildDigest(files){
   races.forEach(r=>cnt(r.source,"species",counter));
   const sources={};Object.entries(counter).forEach(([src,c])=>{sources[src]={name:bname(src),group:bgroup(src),counts:c};});
 
+  const monPool={},monByName={};
   files.forEach(f=>{const j=f.json;if(!j||!Array.isArray(j.monster))return;
-    j.monster.forEach(m=>{const ref=m&&m.summonedBySpell;if(!ref)return;
-      const parts=String(ref).split("|");
-      const sp=spells[spellKey(parts[0],parts[1]||m.source||"")];
-      if(sp)sp.statblock=statblock(m);});});
+    j.monster.forEach(m=>{ const ref=m&&m.summonedBySpell;
+      if(ref){const parts=String(ref).split("|");
+        const sp=spells[spellKey(parts[0],parts[1]||m.source||"")];
+        if(sp)sp.statblock=statblock(m);}
+      if(carriedMonster(m)){const k=monKey(m.name,m.source||"");monPool[k]=m;
+        const ln=String(m.name).trim().toLowerCase();(monByName[ln]=monByName[ln]||[]).push(k);}});});
+  // `{@filter …|bestiary|challenge rating=[&0]|type=beast|…}` — only the single-value CR
+  // form is expanded; a RANGE would pull in hundreds of monsters (D78)
+  const filterMatches=spec=>{const parts={};
+    String(spec).split("|").forEach(ch=>{const i=ch.indexOf("=");if(i<0)return;
+      parts[ch.slice(0,i).trim().toLowerCase()]=ch.slice(i+1).trim();});
+    const wantType=(parts.type||"").toLowerCase();
+    const m=/^\[&(\d+)\]$/.exec(parts["challenge rating"]||"");
+    if(!wantType||!m)return [];
+    return Object.keys(monPool).filter(k=>monType(monPool[k])===wantType&&monCr(monPool[k])===m[1]).sort();};
+  Object.values(spells).forEach(sp=>{
+    const txt=sp._raw||""; const keys=[],seen={};
+    let mm; CREATURE_RE.lastIndex=0;
+    while((mm=CREATURE_RE.exec(txt))){
+      const cands=mm[2]?[monKey(mm[1],mm[2])]:(monByName[String(mm[1]).trim().toLowerCase()]||[]);
+      cands.forEach(k=>{if(monPool[k]&&!seen[k]){seen[k]=1;keys.push(k);}});}
+    if(sp.source==="XPHB"){ let fm; BFILTER_RE.lastIndex=0;
+      while((fm=BFILTER_RE.exec(txt)))filterMatches(fm[1]).forEach(k=>{if(!seen[k]){seen[k]=1;keys.push(k);}});}
+    const own=sp.statblock?monKey(sp.statblock.name,sp.statblock.source||""):null;
+    const out=keys.filter(k=>k!==own);
+    if(out.length)sp.creatures=out;
+    delete sp._raw;});
+  const referenced={};Object.values(spells).forEach(sp=>(sp.creatures||[]).forEach(k=>{referenced[k]=1;}));
+  const monsters={};Object.keys(referenced).sort().forEach(k=>{monsters[k]=statblock(monPool[k]);});
 
   const digest={meta:{spellCount:Object.keys(spells).length,imported:true},sources,
-    spells:Object.values(spells),classes,subclasses,feats,races,optfeats};
+    spells:Object.values(spells),classes,subclasses,feats,races,optfeats,monsters};
   return {digest,report};
 }
 function looksLikeLookup(j){const ks=Object.keys(j);if(!ks.length)return false;
@@ -476,7 +515,7 @@ function zipWanted(path){
   if(/(^|\/)(generated|roll20|foundry|makebrew|partnered)\//.test(p))return false;
   if(/(^|\/)(adventure|book)\//.test(p))return false;   // long-form prose
   return true;}
-function usefulJson(j){return !!(j&&typeof j==="object"&&((Array.isArray(j.monster)&&j.monster.some(m=>m&&m.summonedBySpell))||Array.isArray(j.spell)||Array.isArray(j.class)||Array.isArray(j.subclass)||Array.isArray(j.feat)||Array.isArray(j.race)||Array.isArray(j.subrace)||Array.isArray(j.optionalfeature)||Array.isArray(j.book)||looksLikeLookup(j)));}
+function usefulJson(j){return !!(j&&typeof j==="object"&&((Array.isArray(j.monster)&&j.monster.some(carriedMonster))||Array.isArray(j.spell)||Array.isArray(j.class)||Array.isArray(j.subclass)||Array.isArray(j.feat)||Array.isArray(j.race)||Array.isArray(j.subrace)||Array.isArray(j.optionalfeature)||Array.isArray(j.book)||looksLikeLookup(j)));}
 async function unzipJsonFiles(buf,onFile){
   if(typeof DecompressionStream==="undefined")throw new Error("This browser can’t unzip files. Upload the .json files individually instead.");
   const dv=new DataView(buf),bytes=new Uint8Array(buf),n=buf.byteLength,td=new TextDecoder();

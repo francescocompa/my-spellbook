@@ -130,6 +130,10 @@ function assembleData(){
   DATA={meta:base.meta||{},sources:Object.assign({},base.sources),
     spells:(base.spells||[]).slice(),classes:base.classes||[],subclasses:base.subclasses||[],
     feats:base.feats||[],races:base.races||[],optfeats:base.optfeats||[],
+    // "Name|SRC" -> stat block (D78). The BAKED blocks are kept underneath an import so
+    // an older import (built before creature sets existed) doesn't blank the summon blocks
+    // the app already shipped with; the import's own map wins where they collide.
+    monsters:Object.assign({},(BAKED&&BAKED.monsters)||{},base.monsters||{}),
     fullMc:base.fullMc||FULL_MC,pact:base.pact||PACT};
   const csp=(CUSTOM&&CUSTOM.spells)||[];
   if(csp.length){ DATA.spells=DATA.spells.concat(csp);
@@ -558,30 +562,56 @@ function compute(){
     const overLevels={};
     if(known&&known.book){
       if(spItems.some(sp=>sp.level>known.maxL))overLevels[known.maxL+1]=true;
-    } else if(cp){ let ge=0;
-      for(let L=cp.maxL;L>=1;L--){ ge+=spItems.filter(sp=>sp.level===L).length;
-        const capL=cp.cap[L]!=null?cp.cap[L]:cp.total;
-        if(ge>capL)overLevels[L]=true; }
-      if(spItems.some(sp=>sp.level>cp.maxL))overLevels[cp.maxL+1]=true;
-    }
+    } else if(cp){ /* filled in below — the ceiling may be narrowed by Magical Secrets */ }
     // Magical-Secrets style expansion: spells drawn from OTHER lists are capped
     // at (prepared gained since the feature) + (retrains since the feature).
     // Only genuine other-list expansions count — a subclass whose expansion is
     // its own list (e.g. Eldritch Knight → Wizard) is NOT Magical Secrets.
     const ownCls=r.listClass[0].toLowerCase();
     const offExps=(recExp[r.idx]||[]).filter(f=>String(f.class||"").split(";").some(cn=>{const c=cn.trim().toLowerCase();return c&&c!==ownCls;}));
-    let ms=null;
+    let ms=null,capAdj=null;
     if(offExps.length && r.prepArr){
-      const offCount=spItems.filter(sp=>!sp.cls.some(([cn,cs])=>cn.toLowerCase()===ownCls&&srcOn(cs))).length;
+      const offItems=spItems.filter(sp=>!sp.cls.some(([cn,cs])=>cn.toLowerCase()===ownCls&&srcOn(cs)));
+      const offCount=offItems.length;
       const onset=Math.max(1,Math.min(...offExps.map(f=>f._atLevel||1)));
       const before=onset>=2?(r.prepArr[onset-2]||0):0;
       const newSince=Math.max(0,(r.prepArr[r.level-1]||0)-before);
       const retrains=Math.max(0,r.level-onset+1);
       const cap=Math.min(r.prepared,newSince+retrains);
-      ms={offCount,cap,onset,over:offCount>cap};
+      // An off-list spell can only have been taken from `onset` on — that is the whole
+      // point of the feature. So every off-list spell you hold BELOW level L has spent one
+      // of the acquisition events at levels >= onset, and those are the same events that
+      // buy you spells at level L. Best case they are the EARLIEST such events (the window
+      // between onset and the level you first got L-level slots); anything past that window
+      // comes out of the level-L capacity itself. Two consequences worth knowing:
+      //   • one off-list 1st-level spell costs you one slot of "spells at level >= 2",
+      //     because it can't have been learned before you had the feature;
+      //   • it does NOT cost you 8th-level capacity unless your off-list picks outnumber
+      //     the events between the feature and your first 8th-level slot — the tool reports
+      //     the BEST case (D18), and best case is that you took it the level you could.
+      let weighs=0;
+      if(cp&&cp.static&&offCount){
+        capAdj={};
+        const priorAt=k=>k>=2?(r.prepArr[k-2]||0):0;
+        for(let L=1;L<=cp.maxL;L++){
+          let first=r.level; for(let k=1;k<=r.level;k++){if(maxLvlAt(r.caster,k)>=L){first=k;break;}}
+          const early=Math.max(0,priorAt(first)-priorAt(onset))+Math.max(0,first-onset);
+          const offBelow=offItems.filter(sp=>sp.level<L).length;
+          const pen=Math.max(0,offBelow-early);
+          if(pen>weighs)weighs=pen;
+          capAdj[L]=Math.max(0,(cp.cap[L]!=null?cp.cap[L]:cp.total)-pen);
+        }
+      }
+      ms={offCount,cap,onset,over:offCount>cap,weighs};
+    }
+    if(!(known&&known.book)&&cp){ let ge=0;
+      for(let L=cp.maxL;L>=1;L--){ ge+=spItems.filter(sp=>sp.level===L).length;
+        const capL=(capAdj&&capAdj[L]!=null)?capAdj[L]:(cp.cap[L]!=null?cp.cap[L]:cp.total);
+        if(ge>capL)overLevels[L]=true; }
+      if(spItems.some(sp=>sp.level>cp.maxL))overLevels[cp.maxL+1]=true;
     }
     const spellCap=known?known.total:r.prepared;
-    cart[r.idx]={cantrips:ch.cantrips||[],spells:ch.spells||[],prep:ch.prep||[],caps:cp,ms,known,
+    cart[r.idx]={cantrips:ch.cantrips||[],spells:ch.spells||[],prep:ch.prep||[],caps:cp,ms,known,capAdj,
       cantOver:(ch.cantrips||[]).length>r.cantrips, spellOver:(ch.spells||[]).length>spellCap, overLevels};
   });
 
@@ -1079,16 +1109,41 @@ function renderBswPop(){
     pop.append(el("div","bswgrp",char));
     buildsOf(char).forEach(b=>{
       const on=b.id===BUILDS.activeId;
-      const r=el("button","bswrow"+(on?" on":""));
+      // a row is no longer ONE button: it carries its own actions, and a button cannot
+      // nest a button. The switch action is the main child; the ⋯ menu is its sibling.
+      const r=el("div","bswrow"+(on?" on":""));
+      const main=el("button","bswmain");
       const t=el("div","bswrowt");
       t.append(el("span","bswn",b.meta.name));
       if(on)t.append(el("span","bswcur","current"));
-      r.append(t);
-      r.append(el("div","bsws",describeBuild(b.state)+" · "+agoText(b.meta.updated)));
-      r.onclick=()=>{closeMenu(); if(!on)switchBuild(b.id);};
+      main.append(t);
+      main.append(el("div","bsws",describeBuild(b.state)+" · "+agoText(b.meta.updated)));
+      main.onclick=()=>{closeMenu(); if(!on)switchBuild(b.id);};
+      r.append(main);
+      const dots=el("button","bswdots ico");dots.append(icoEl("dots"));
+      dots.setAttribute("aria-label","Actions for this version");
+      dots.title="Export, duplicate or delete this version";
+      const menu=el("div","bswmenu hidden");
+      const mi=(ico,label,fn)=>{const x=el("button","bswmi");x.append(icoEl(ico,"mi"));
+        x.append(document.createTextNode(label));
+        x.onclick=e=>{e.stopPropagation();fn(x);};return x;};
+      menu.append(mi("download","Export",()=>{exportBuild(b.id);closeMenu();}));
+      menu.append(mi("copy","Duplicate",()=>{duplicateBuild(b.id);closeMenu();}));
+      const del=mi("trash","Delete",()=>{});
+      del.classList.add("danger"); armConfirm(del,null,()=>{deleteBuild(b.id);closeMenu();});
+      menu.append(del);
+      dots.onclick=e=>{e.stopPropagation();
+        pop.querySelectorAll(".bswmenu").forEach(m=>{if(m!==menu)m.classList.add("hidden");});
+        menu.classList.toggle("hidden");
+        // the popover scrolls and clips — a menu on one of the last rows opens upward
+        if(!menu.classList.contains("hidden")){menu.classList.remove("up");
+          const mb=menu.getBoundingClientRect(), pb=pop.getBoundingClientRect();
+          if(mb.bottom>pb.bottom-4)menu.classList.add("up");}};
+      r.append(dots,menu);
       pop.append(r);});});
   pop.append(el("div","sep"));
-  const nb=el("button","bswact");nb.append(icoEl("plus","mi"));nb.append(document.createTextNode("New build"));
+  // creating a character is the one ACTION here, not another place to navigate to
+  const nb=el("button","bswact primary");nb.append(icoEl("plus","mi"));nb.append(document.createTextNode("New build"));
   nb.onclick=()=>openNewBuild();
   const man=el("button","bswact");man.append(icoEl("stack","mi"));man.append(document.createTextNode("Manage builds…"));
   man.onclick=()=>{closeMenu();openBuilds();};
@@ -1461,17 +1516,22 @@ const prepRec=()=>{const st=prepStep();return st&&st.type==="class"?R.casters.fi
 function renderPrepStep(){
   const st=prepStep(); if(!st){ $("#prepModal").classList.add("hidden"); return; }
   $("#prepSearch").value=PREP.search||""; PREP.levelSet=new Set();
+  // one generic title; the TAB says which set you are in and the subtitle says what kind
+  // of preparation it is and when you may change it — the two facts that differ per tab
+  $("#prepTitle").textContent="Spell preparation";
+  let sub="";
   if(st.type==="granted"){
-    $("#prepTitle").textContent="Granted spell choices";
+    sub="Spells you chose from a grant rather than from a class list. Some sources — the 2024 "
+      +"species lineages among them — let you replace the choice after every long rest.";
   } else {
     const rec=prepRec(); if(!rec){ $("#prepModal").classList.add("hidden"); return; }
     const bk=R.cart[rec.idx]&&R.cart[rec.idx].known&&R.cart[rec.idx].known.book;
-    $("#prepTitle").textContent=classLabel(rec)+(bk?" — prepare from your spellbook":" — prepare spells");
+    sub=bk
+      ? `Prepared from your spellbook — pick which of the book's spells are live. Change them after every long rest; the book itself only grows on level-up.`
+      : `Prepared from the ${classLabel(rec)} list — any mix of levels up to ${ROMAN[rec.maxLvl]}. Change them freely after every long rest.`;
   }
+  const ps=$("#prepSub"); if(ps)ps.textContent=sub;
   const steps=$("#prepSteps"); steps.innerHTML="";
-  // the tabs are how you move BETWEEN sets — with one, the single chip just repeats
-  // what the title already names
-  steps.classList.toggle("hidden",PREP.steps.length<2);
   PREP.steps.forEach((x,i)=>{
     const b=el("button","prepstep"+(i===PREP.step?" on":""),x.label);
     b.onclick=()=>{PREP.step=i;PREP.search="";renderPrepStep();};steps.append(b);});
@@ -1481,6 +1541,8 @@ function renderPrepStep(){
   $("#prepDone").style.display=last?"":"none";
   renderPrepList();
 }
+// short of the target, exactly on it, or past it — the three states worth a colour
+const cntState=(n,cap)=>n>cap?"over":(cap>0&&n===cap)?"ok":"under";
 // one spell row, shared by both tabs — name, meta, and an icon-only take button
 function prepRow(sp,on,label,onClick){
   const d=el("div","sp"+(on?" chosen":""));
@@ -1526,7 +1588,7 @@ function renderGrantedList(){
         state.choices[c.id]=a; render(); renderPrepStep();}));});
     list.append(box);
   });
-  $("#prepCount").innerHTML=`<b class="${held>want?"over":""}">${held} / ${want}</b> <small>chosen</small>`;
+  $("#prepCount").innerHTML=`<b class="${cntState(held,want)}">${held} / ${want}</b> <small>chosen</small>`;
   const qo=$("#prepOnly");if(qo){qo.classList.toggle("on",!!PREP.onlyPicked);
     qo.innerHTML=`Picked${held?` <span class="badge">${held}</span>`:""}`;}
   prepLevelFilter(picks.flatMap(c=>filterSpells(c.filter)).map(sp=>sp.level));
@@ -1552,7 +1614,7 @@ function renderPrepList(){
   const cap=book?cart.known.prepares:rec.prepared;
   const cur=new Set((state.chosen[rec.idx]||{})[field]||[]);
   const have=[...cur].map(k=>SPELL_BY[k]).filter(s=>s&&s.level>=1).length, over=have>cap;
-  $("#prepCount").innerHTML=`<b class="${over?"over":""}">${have} / ${cap}</b> <small>prepared</small>`;
+  $("#prepCount").innerHTML=`<b class="${cntState(have,cap)}">${have} / ${cap}</b> <small>prepared</small>`;
   let base=book
     ? ((state.chosen[rec.idx]||{}).spells||[]).map(k=>SPELL_BY[k]).filter(sp=>sp&&sp.level>=1)
     : [...R.pool.values()].filter(e=>e.takers.some(t=>t.idx===rec.idx)&&!(e.always&&e.always.has(rec.idx))&&e.sp.level>=1&&e.sp.level<=rec.maxLvl).map(e=>e.sp);
@@ -1851,7 +1913,8 @@ function renderTable(){
       const gr=el("tr","grouphdr lvl");const td=el("td");td.colSpan=span;
       td.append(el("span",null,sp.level===0?"Cantrips":ROMAN[sp.level]+" level"));
       gr.append(td);tbl.append(gr);}
-    const tr=el("tr",sel?"":"unsel");
+    // in the book but not prepared today: real, castable-if-you-prepare-it, but not live
+    const tr=el("tr",!sel?"unsel":(row.inBook&&!row.prepared)?"unprep":"");
     cols.forEach(k=>{const td=cellFor(k,row);
       if(td.textContent==="—")td.classList.add("nil");   // an empty slot reads quieter than a value
       tr.append(td);});
@@ -2059,20 +2122,18 @@ function renderLevelChip(){
 // Not derived counts: "Arcane Recovery" says more than "+1 prepared". Spellcasting is
 // deliberately NOT here — see levelCasting.
 function levelGains(row,cl){
-  const c=CLS_BY[row.clsKey]; if(!c)return {feats:[],chips:[]};
+  const c=CLS_BY[row.clsKey]; if(!c)return [];
   const sub=row.subKey?SUB_BY[row.subKey]:null;
-  const feats=[],chips=[];
+  const feats=[];
   (c.features||[]).forEach(f=>{if(f.level===cl)feats.push(f.name);});
   if(sub&&cl>=(c.subclassLevel||3))(sub.features||[]).forEach(f=>{if(f.level===cl)feats.push(f.name);});
   if(c.subclassLevel===cl&&!sub)feats.push("subclass — not chosen");
-  // budget, not a feature — it gets a chip beside the class name instead of sitting in
-  // the prose run where it read as just another feature you gain
-  if([4,8,12,16].concat(ASI_EXTRA[c.name]||[]).includes(cl))chips.push("feat");
-  if(cl===19)chips.push("epic boon");
+  if([4,8,12,16].concat(ASI_EXTRA[c.name]||[]).includes(cl))feats.push("Feat / ASI");
+  if(cl===19)feats.push("Epic Boon");
   [c,sub].forEach(src=>{ if(!src||!src.optFeatures)return;
     src.optFeatures.forEach(p=>{const d=(p.counts[cl-1]||0)-(cl>1?(p.counts[cl-2]||0):0);
       if(d>0)feats.push(`+${d} ${p.name.toLowerCase()}`);});});
-  return {feats,chips};
+  return feats;
 }
 // Spellcasting runs on TWO clocks, and a caster-caster multiclass pulls them apart:
 //   • MAX SPELL LEVEL is set by that class's OWN level — multiclassing never raises it.
@@ -2140,14 +2201,13 @@ function renderLvlOrder(){
     top.append(el("span","lolv","L"+(i+1)));
     top.append(el("b","locls",(c?c.name:"?")+" "+cl));
     body.append(top);
-    const g=levelGains(row,cl);
-    g.chips.forEach(t=>top.append(el("span","featchip",t)));
+    const feats=levelGains(row,cl);
     // the slot table is read across the WHOLE plan up to here, never from this class alone
     const before=planSlots(perClass); perClass.set(id,cl);
     const after=planSlots(perClass);
     const cast=levelCasting(row,cl,before,after);
-    if(g.feats.length)body.append(Object.assign(el("div","logains"),{textContent:g.feats.join(" · ")}));
-    else if(!g.chips.length)body.append(Object.assign(el("div","logains dim"),{textContent:"no new features"}));
+    if(feats.length)body.append(Object.assign(el("div","logains"),{textContent:feats.join(" · ")}));
+    else body.append(Object.assign(el("div","logains dim"),{textContent:"no new features"}));
     let tiles=null;
     if(cast){tiles=el("div","lotiles");
       tiles.append(lvTile("spell",cast.spell,cast.spellUp,
@@ -2245,7 +2305,8 @@ function renderCart(){
     }
     if(c.ms){b.append(meter("Off-list",c.ms.offCount,c.ms.cap));
       const sn=el("div","note");sn.style.margin="2px 0 0";
-      sn.innerHTML=`Magical Secrets: up to <b style="color:var(--ink)">${c.ms.cap}</b> of your prepared spells may come from other lists (from L${c.ms.onset} on: new picks + retrains).`;b.append(sn);}
+      sn.innerHTML=`Magical Secrets: up to <b style="color:var(--ink)">${c.ms.cap}</b> of your prepared spells may come from other lists (from L${c.ms.onset} on: new picks + retrains).`
+        +(c.ms.weighs?` An off-list spell can only have been taken from L${c.ms.onset} on, so the low-level ones you hold have already spent <b style="color:var(--accent)">${c.ms.weighs}</b> of the picks that would otherwise reach your top spell levels — the tiles above are narrowed to match.`:"");b.append(sn);}
     // Per-level tiles. Denominator = how many you can hold at that level right now:
     // (picked here) + (room still addable). Daily preparers have a flat cap (free spread).
     // Known/level-swap and wizard books have a progressive cap[L] = max at level ≥ L
@@ -2254,7 +2315,10 @@ function renderCart(){
     const totalCap = kn ? kn.total : r.prepared;
     if(r.maxLvl>=1 && totalCap>0){const dist=el("div","dist");
       const lvlOf=k=>{const s=SPELL_BY[k];return s?s.level:-1;};
-      const capAt=j=>wiz?(kn.cap[j]!=null?kn.cap[j]:kn.total):(kn?kn.total:(cp&&cp.cap[j]!=null?cp.cap[j]:totalCap));
+      const capAt=j=>wiz?(kn.cap[j]!=null?kn.cap[j]:kn.total)
+        :kn?kn.total
+        :(c.capAdj&&c.capAdj[j]!=null)?c.capAdj[j]
+        :(cp&&cp.cap[j]!=null?cp.cap[j]:totalCap);
       const geAt=j=>c.spells.filter(k=>lvlOf(k)>=j).length;
       for(let L=r.maxLvl;L>=1;L--){
         const atL=c.spells.filter(k=>lvlOf(k)===L).length;
@@ -2521,8 +2585,15 @@ function accessHTML(sp){
 const abMod=v=>{const m=Math.floor((v-10)/2);return (m>=0?"+":"−")+Math.abs(m);};
 const AB_ORDER=["str","dex","con","int","wis","cha"];
 // a summon spell prints its creature's stat block beside it (D50) — collapsed by default
-function statblockHTML(sp){
-  const b=sp.statblock; if(!b)return "";
+// Every stat block a spell can print: its own summon first, then the creature SET it
+// names or filters for (D78). More than one and the section becomes a carousel with a
+// source filter — Find Familiar alone reaches 65 forms across a dozen books.
+function spellCreatures(sp){
+  const out=sp.statblock?[sp.statblock]:[];
+  (sp.creatures||[]).forEach(k=>{const m=(DATA.monsters||{})[k]; if(m&&srcOn(m.source))out.push(m);});
+  return out;}
+// the body of ONE stat block — the carousel repaints just this when you step
+function sbBodyHTML(b){
   const line=(k,v)=>v?`<div class="sbr"><b>${k}</b><span>${ccText(v)}</span></div>`:"";
   const kv=o=>Object.entries(o||{}).map(([k,v])=>`${k} ${v}`).join(", ");
   // the monster-forge ability table: two ability columns, each score / mod / save. A save
@@ -2546,21 +2617,35 @@ function statblockHTML(sp){
   const secs=(b.sections||[]).map(sec=>`<div class="sbsec"><h5>${esc(sec.label)}</h5>`
     +sec.items.map(it=>`<p>${it.name?`<b>${esc(it.name)}.</b> `:""}${it.text.map(ccText).join(" ")}</p>`).join("")
     +`</div>`).join("");
-  return `<div class="sblock" data-exp="0">`
+  return `<div class="sb-kind">${esc([b.kind,b.align].filter(Boolean).join(", "))}</div>`
+    +line("AC",b.ac)+line("HP",b.hp)+line("Speed",b.speed)
+    +(abils?`<div class="sbabs">${abils}</div>`:"")
+    +line("Skills",kv(b.skills))
+    +line("Vulnerabilities",b.vulnerable)+line("Resistances",b.resist)
+    +line("Immunities",[b.immune,b.condImmune].filter(Boolean).join(", "))
+    +line("Senses",b.senses)+line("Languages",b.languages)
+    +line("CR",b.cr)+line("Prof. Bonus",b.pb)
+    +secs;
+}
+function statblockHTML(sp){
+  const all=spellCreatures(sp); if(!all.length)return "";
+  const b=all[0];
+  // only the FIRST frame is built as markup; stepping repaints the body in place, which
+  // keeps the modal cheap when a spell reaches 65 forms
+  const srcs=[...new Set(all.map(x=>x.source).filter(Boolean))].sort();
+  const nav=all.length<2?"":`<div class="sb-nav">`
+    +`<button class="sb-prev" type="button" aria-label="Previous creature">‹</button>`
+    +`<span class="sb-pos">1 / ${all.length}</span>`
+    +`<button class="sb-next" type="button" aria-label="Next creature">›</button>`
+    +(srcs.length>1?`<select class="sb-src" aria-label="Filter by book"><option value="">all books</option>`
+       +srcs.map(x=>`<option value="${esc(x)}">${esc(bookName(x))}</option>`).join("")+`</select>`:"")
+    +`</div>`;
+  return `<div class="sblock" data-exp="0" data-i="0">`
     +`<button class="sb-head" type="button" aria-expanded="false">`
       +`<span class="secttl">${esc(b.name)}</span>`
-      +`<span class="sb-who">stat block</span><span class="sb-caret"></span></button>`
-    +`<div class="sb-body">`
-      +`<div class="sb-kind">${esc([b.kind,b.align].filter(Boolean).join(", "))}</div>`
-      +line("AC",b.ac)+line("HP",b.hp)+line("Speed",b.speed)
-      +(abils?`<div class="sbabs">${abils}</div>`:"")
-      +line("Skills",kv(b.skills))
-      +line("Vulnerabilities",b.vulnerable)+line("Resistances",b.resist)
-      +line("Immunities",[b.immune,b.condImmune].filter(Boolean).join(", "))
-      +line("Senses",b.senses)+line("Languages",b.languages)
-      +line("CR",b.cr)+line("Prof. Bonus",b.pb)
-      +secs
-    +`</div></div>`;}
+      +`<span class="sb-who">stat block${all.length>1?` · ${all.length} forms`:""}</span><span class="sb-caret"></span></button>`
+    +nav
+    +`<div class="sb-body">${sbBodyHTML(b)}</div></div>`;}
 function modalHTML(sp){
   // the subtitle already reads "3rd-level Evocation" / "Evocation cantrip", so Level and
   // School as their own rows were the top of the grid saying nothing twice (D49, widened
@@ -2581,6 +2666,7 @@ function openSpellModal(sp){hideTip();SPMODAL.innerHTML=modalHTML(sp);
   const sb=SPMODAL.querySelector(".sb-head");
   if(sb)sb.onclick=()=>{const w=sb.closest(".sblock");const open=w.dataset.exp!=="1";
     w.dataset.exp=open?"1":"0";sb.setAttribute("aria-expanded",String(open));};
+  wireCreatureNav(sp);
   // chips written as markup still get the popover treatment
   SPMODAL.querySelectorAll(".bchip[data-book]").forEach(c=>attachTip(c,bookTip(c.dataset.book,c.dataset.page)));
   if(sp.source===HB_SRC){const mb=SPMODAL.querySelector(".mb");if(mb){const row=el("div","hbtools");
@@ -2589,6 +2675,30 @@ function openSpellModal(sp){hideTip();SPMODAL.innerHTML=modalHTML(sp);
     const d=armConfirm(el("button","btn danger"),"Delete",()=>{deleteCustom(sp);SPMODAL.classList.add("hidden");});
     row.append(e,d);mb.append(row);}}
   SPMODAL.classList.remove("hidden");}
+// the carousel: step through a spell's creature set in place, filtered by book
+function wireCreatureNav(sp){
+  const wrap=SPMODAL.querySelector(".sblock"); if(!wrap)return;
+  const nav=wrap.querySelector(".sb-nav"); if(!nav)return;
+  const all=spellCreatures(sp); const sel=nav.querySelector(".sb-src");
+  const shown=()=>{const f=sel&&sel.value; return f?all.filter(x=>x.source===f):all;};
+  const paint=()=>{
+    const list=shown(); if(!list.length)return;
+    let i=Math.max(0,Math.min(+wrap.dataset.i||0,list.length-1)); wrap.dataset.i=String(i);
+    const b=list[i];
+    wrap.querySelector(".secttl").textContent=b.name;
+    wrap.querySelector(".sb-who").textContent=`stat block · ${list.length} form${list.length>1?"s":""}`;
+    nav.querySelector(".sb-pos").textContent=`${i+1} / ${list.length}`;
+    const body=wrap.querySelector(".sb-body"); if(body)body.innerHTML=sbBodyHTML(b);
+    nav.querySelector(".sb-prev").disabled=list.length<2;
+    nav.querySelector(".sb-next").disabled=list.length<2;
+  };
+  const step=d=>{const list=shown(); if(!list.length)return;
+    wrap.dataset.i=String(((+wrap.dataset.i||0)+d+list.length)%list.length); paint();};
+  nav.querySelector(".sb-prev").onclick=e=>{e.stopPropagation();step(-1);};
+  nav.querySelector(".sb-next").onclick=e=>{e.stopPropagation();step(1);};
+  if(sel)sel.onchange=e=>{e.stopPropagation();wrap.dataset.i="0";paint();};
+  nav.onclick=e=>e.stopPropagation();
+}
 function attachSpell(elm,sp){elm.classList.add("nmlink");
   elm.addEventListener("mouseenter",e=>showTip(sp,e));elm.addEventListener("mousemove",posTip);
   elm.addEventListener("mouseleave",hideTip);

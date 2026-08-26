@@ -216,12 +216,16 @@
   /* the take-chip is shared: pick chips in the build panel AND picker-row select buttons */
   .tk{font:inherit;font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:14px;border:1px solid var(--line-strong);background:var(--panel);cursor:pointer;color:var(--muted);white-space:nowrap}
   .tk:hover{border-color:var(--accent);color:var(--accent)}
-  /* picked reads on the ICON alone — as a filled pill it read as a badge, not a button.
-     The chip itself only gains ink-weight text, so it stays a control. */
-  .tk.on{color:var(--ink)}
+  /* picked reads on the BORDER and the ICON — never as a filled pill, which read as a
+     badge rather than a button. `.over` (the class is past its forecast) owns the text
+     colour, but it must NOT eat the selection: a selected chip on an over-budget class
+     used to render entirely red, which is why selection "sometimes didn't highlight". */
+  .tk.on{border-color:var(--good);color:var(--ink)}
   .tk.on .ico{color:var(--good)}
   .tk.gr{background:var(--good-soft);border-color:transparent;color:var(--good);cursor:default}
   .tk.over{background:var(--bad-soft);border-color:var(--bad);color:var(--bad)}
+  .tk.on.over{border-color:var(--good)}
+  .tk.on.over .ico{color:var(--good)}
   .tk .c{font-variant-numeric:tabular-nums;font-weight:700;opacity:.85;margin-left:1px}
   .empty{color:var(--muted);text-align:center;padding:36px 20px;font-size:13px}
   .empty b{color:var(--ink);font-family:var(--font)}
@@ -270,7 +274,10 @@
   table.spelltable .nm{font-weight:600}
   .srcbadge{font-size:10px;font-weight:600;padding:1px 7px;border-radius:12px;background:var(--panel-2);color:var(--muted);white-space:nowrap}
   .srcbadge.free{background:var(--good-soft);color:var(--good)} .srcbadge.cast{background:var(--gold-soft);color:var(--gold)}
-  .tablewrap{overflow-x:auto} .grouphdr td{background:var(--panel-2)!important;font-family:var(--font);font-weight:600;font-size:13px;color:var(--accent)}
+  /* D77: no accent on a grouping header — the ability names are the table's only hue, and
+     an accent band fought them. The outer group keeps a neutral fill, the level sub-header
+     drops to a quiet sans label. */
+  .tablewrap{overflow-x:auto} .grouphdr td{background:transparent!important;font-family:var(--font);font-weight:600;font-size:13px;color:var(--ink)}
 
 /* ── v4: overflow menu, left scroll, spell detail, table tweaks ── */
 .menu{position:relative}
@@ -301,13 +308,30 @@
 .bswpop{left:0;right:auto;min-width:min(300px,86vw);max-height:min(60vh,420px);overflow:auto;padding:6px}
 .bswgrp{font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);
   font-weight:700;padding:7px 9px 3px}
-.bswpop button.bswrow{display:block;width:100%;padding:6px 9px}
+.bswpop .bswrow{position:relative;display:flex;align-items:center;gap:4px;
+  width:100%;border-radius:8px}
+.bswpop button.bswmain{flex:1;min-width:0;display:block;width:auto;padding:6px 9px;text-align:left}
+.bswdots{flex:0 0 auto;width:26px;height:26px;margin-right:4px;border:none;background:none;
+  color:var(--muted);cursor:pointer;border-radius:6px;display:flex;align-items:center;justify-content:center}
+.bswdots:hover{color:var(--ink);background:var(--panel-2)}
+.bswdots svg{width:14px;height:14px}
+.bswmenu{position:absolute;right:6px;top:calc(100% - 4px);z-index:5;min-width:150px;padding:4px;
+  background:var(--panel);border:1px solid var(--line-strong);border-radius:9px;box-shadow:var(--shadow)}
+.bswmi{display:flex;align-items:center;gap:9px;width:100%;padding:6px 9px;border:none;
+  background:none;color:var(--muted);font:inherit;font-size:12.5px;cursor:pointer;border-radius:6px;text-align:left}
+.bswmi:hover{color:var(--ink);background:var(--panel-2)}
+.bswmi.danger:hover{color:var(--bad)}
+.bswmi.armed{background:var(--bad-soft);color:var(--bad)}
+.bswmenu.up{top:auto;bottom:calc(100% - 4px)}
 .bswrowt{display:flex;align-items:center;gap:7px}
 .bswrow .bswn{font-size:12.5px;font-weight:600}
 .bswrow .bswcur{font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;
   color:var(--accent);background:var(--accent-soft);border-radius:8px;padding:1px 6px}
 .bswrow .bsws{font-size:11px;color:var(--muted);margin-top:1px}
 .bswrow.on{background:var(--accent-soft)}
+/* the one ACTION in this menu, rather than another place to navigate to */
+.bswpop button.bswact.primary{color:var(--accent);font-weight:600}
+.bswpop button.bswact.primary:hover{color:var(--accent);background:var(--accent-soft)}
 .bswpop button.bswact{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--muted)}
 .bswpop button.bswact:hover{color:var(--ink)}
 .bswpop .mi{font-size:12px;width:14px;display:inline-block;text-align:center}
@@ -391,6 +415,17 @@
   transform:translate(-50%,-50%) translateY(-2.5px) rotate(45deg)}
 .spmodal .sb-head:hover{color:var(--accent)} .spmodal .sb-head:hover .sb-caret{color:var(--accent)}
 .spmodal .sblock[data-exp="1"] .sb-caret{transform:rotate(180deg)}
+/* D78 — the creature carousel: prev / position / next, plus a book filter when the set
+   spans more than one. It lives under the head, so it folds away with the body. */
+.spmodal .sblock[data-exp="0"] .sb-nav{display:none}
+.spmodal .sb-nav{display:flex;align-items:center;gap:8px;margin-top:8px}
+.spmodal .sb-prev,.spmodal .sb-next{width:26px;height:26px;flex:0 0 auto;border:1px solid var(--line-strong);
+  background:var(--panel);color:var(--muted);border-radius:7px;cursor:pointer;font:inherit;
+  font-size:15px;line-height:1;display:flex;align-items:center;justify-content:center}
+.spmodal .sb-prev:hover:not(:disabled),.spmodal .sb-next:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.spmodal .sb-prev:disabled,.spmodal .sb-next:disabled{opacity:.35;cursor:default}
+.spmodal .sb-pos{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;min-width:52px;text-align:center}
+.spmodal .sb-src{margin-left:auto;width:auto;max-width:190px;font-size:12px;padding:4px 26px 4px 8px}
 .spmodal .sblock[data-exp="0"] .sb-body{display:none}
 .spmodal .sb-body{margin-top:9px;padding:11px 13px;border:1px solid var(--line);
   border-radius:10px;background:var(--panel-2)}
@@ -438,6 +473,8 @@
 .tableopts select{width:auto;min-width:120px}
 .tableopts label{display:inline-flex;gap:6px;align-items:center;cursor:pointer}
 table.spelltable tr.unsel td{opacity:.42}
+/* in your spellbook but not prepared today — real, but not live (D62) */
+table.spelltable tr.unprep td{opacity:.58}
 table.spelltable .pickcell{width:26px;text-align:center;color:var(--muted);font-size:12px}
 table.spelltable .pickcell.on{color:var(--accent)}
 table.spelltable .pickcell.always{color:var(--good)}
@@ -546,7 +583,9 @@ table.spelltable td.cmp .l:focus-visible{outline:2px solid var(--accent);outline
 .entrow{display:flex;align-items:center;gap:10px;padding:8px 8px;border-bottom:1px solid var(--line)}
 /* a row directly above a group box would double its top border — drop the divider */
 .entrow.nodiv{border-bottom:none}
-.entrow:hover,.entrow.on{background:var(--accent-soft);border-radius:6px}
+/* selection tints, hover does not — the fill fought the row dividers exactly as it did
+   in the spell list (D72) */
+.entrow.on{background:var(--accent-soft);border-radius:6px}
 .entmain{flex:1;min-width:0}
 .entname{font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px}
 /* ONE source-book chip for the whole app (the picker's treatment, promoted).
@@ -676,8 +715,9 @@ table.spelltable td.cmp .l:focus-visible{outline:2px solid var(--accent);outline
 select.alert{border-color:var(--bad);box-shadow:0 0 0 2px var(--bad-soft)}
 label.fld.alert{color:var(--bad)}
 /* table: nested grouping, tallies, asterisk */
-.grouphdr.outer td{background:var(--accent-soft)!important;color:var(--accent);font-size:14px;letter-spacing:.02em}
-.grouphdr.lvl td{padding-top:6px;padding-bottom:6px}
+.grouphdr.outer td{background:var(--panel-2)!important;color:var(--ink);font-size:14px;letter-spacing:.02em}
+.grouphdr.lvl td{padding-top:9px;padding-bottom:5px;font-family:var(--sans);font-size:10.5px;
+  text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:var(--muted)}
 .lvltally{margin-left:10px;font-family:var(--sans);font-size:10.5px;font-weight:600;text-transform:none;letter-spacing:0;color:var(--muted)}
 .lvltally.over{color:var(--bad)}
 .lvltally.muted{font-weight:400;font-style:italic;opacity:.85}
@@ -766,6 +806,7 @@ table.spelltable .pickcell{cursor:help}
 /* prepare-daily button + multi-step modal */
 #prepDailyBtn{margin-left:8px}
 .prepsteps{display:flex;flex-wrap:wrap;gap:6px}
+.mh-stack #prepSub{margin-top:7px}
 .prepstep{font:inherit;font-size:11.5px;padding:4px 10px;border-radius:16px;border:1px solid var(--line-strong);background:var(--panel);color:var(--muted);cursor:pointer;transition:background .12s,color .12s,border-color .12s}
 .prepstep:hover{border-color:var(--accent);color:var(--accent)}
 .prepstep.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:600}
@@ -775,6 +816,8 @@ table.spelltable .pickcell{cursor:help}
 /* the count sits in the footer, centred — it is the answer to "am I done", not a filter */
 .prepcount{flex:1;text-align:center;font-size:12px;color:var(--muted);white-space:nowrap}
 .prepcount b{font-family:var(--font);font-size:16px;color:var(--ink);font-variant-numeric:tabular-nums;margin-right:2px}
+.prepcount b.under{color:var(--accent)}
+.prepcount b.ok{color:var(--good)}
 .prepcount b.over{color:var(--bad)}
 .prepfiltermenu{position:relative;flex:none}
 .prepfiltermenu .menupop{right:0;left:auto;min-width:180px;padding:10px}
@@ -860,19 +903,17 @@ table.spelltable .pickcell{cursor:help}
    straight down the column. Each keeps its own hue at all times — the tint IS the label —
    and the level that RAISED it takes the full colour and a border. */
 .lotiles{flex:0 0 auto;display:flex;gap:5px}
-.lt{min-width:44px;text-align:center;border:1px solid transparent;border-radius:8px;
+.lt{min-width:44px;text-align:center;border:1px solid var(--line);border-radius:8px;
   padding:3px 6px;cursor:help}
 .lt b{display:block;font-size:12px;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums}
 .lt small{display:block;font-size:9px;text-transform:uppercase;letter-spacing:.04em;
-  font-weight:700;margin-top:1px;opacity:.8}
-.lt-spell{background:var(--accent-soft)} .lt-spell small{color:var(--accent)}
-.lt-slot{background:var(--gold-soft)}    .lt-slot small{color:var(--gold)}
+  font-weight:700;margin-top:1px}
+/* no fill anywhere: at rest the two tiles differ only by a hue mixed a third of the way
+   into the muted label, and the level that RAISED one states it with a border */
+.lt-spell small{color:color-mix(in srgb,var(--accent) 38%,var(--muted))}
+.lt-slot small{color:color-mix(in srgb,var(--gold) 38%,var(--muted))}
 .lt-spell.up{border-color:var(--accent)} .lt-spell.up b{color:var(--accent)}
 .lt-slot.up{border-color:var(--gold)}    .lt-slot.up b{color:var(--gold)}
-/* a feat / epic boon is budget you owe, not a feature — its own chip beside the class */
-.featchip{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;
-  color:var(--gold);background:var(--gold-soft);border:1px solid var(--gold);
-  border-radius:7px;padding:0 5px}
 
 /* ── build export / import (T5) ───────────────────────────────────────────── */
 /* the base .importdrop is a centred row for the big data drop zone — this one is a

@@ -149,6 +149,9 @@ for f in glob.glob(os.path.join(MIRROR, "spells", "spells-*.json")):
             "page": sp.get("page"),
             "srd": bool(sp.get("srd52")),
             "cls": [], "sub": [], "feat": [], "race": [],
+            # raw entries, kept only until creature sets are resolved (popped before emit):
+            # rich_strip() eats {@creature}/{@filter} on the way into `desc`
+            "_raw": json.dumps([sp.get("entries"), sp.get("entriesHigherLevel")], ensure_ascii=False),
         }
 
 # ---- spell -> source access lookup -----------------------------------------
@@ -306,18 +309,101 @@ def statblock(m):
         "sections": [{"label": lbl, "items": sb_entries(arr)} for lbl, arr in sec if arr],
     }
 
+# ---- creature SETS -------------------------------------------------------
+# Some spells name a whole GROUP of creatures rather than one: Find Familiar lists
+# eleven forms and then says "or any beast of Challenge Rating 0". 5etools writes both
+# shapes into the spell text — `{@creature Bat|XMM}` for a named form and
+# `{@filter …|bestiary|challenge rating=[&0]|type=beast|miscellaneous=!swarm}` for the
+# open-ended one. We resolve both into a list of monster keys and ship the union.
+#
+# SCOPE (D78): the monsters we carry are `summonedBySpell` blocks plus **CR 0 non-swarm
+# beasts** — that is exactly Find Familiar's set in both editions (its named forms are all
+# CR 0 beasts) and it keeps the digest to ~90 stat blocks. Filters are expanded for XPHB
+# spells only; a named ref to a creature outside that set simply doesn't resolve. Widening
+# the set later is a change here and in extract.js, and nowhere else.
+def _cr_of(m):
+    cr = m.get("cr")
+    c = cr.get("cr") if isinstance(cr, dict) else cr
+    return str(c) if c is not None else ""
+
+def _type_of(m):
+    t = m.get("type")
+    return (t.get("type") if isinstance(t, dict) else t) or ""
+
+def carried_monster(m):
+    """The predicate BOTH extractors use to decide what leaves the bestiary."""
+    if m.get("summonedBySpell"): return True
+    return (_type_of(m) == "beast" and _cr_of(m) == "0"
+            and "swarm" not in (m.get("name") or "").lower())
+
+CREATURE_RE = re.compile(r"\{@creature ([^}|]+)(?:\|([^}|]*))?[^}]*\}")
+BFILTER_RE = re.compile(r"\{@filter [^|}]*\|bestiary\|([^}]*)\}")
+
+def _mon_key(name, src):
+    return f"{name.strip()}|{(src or '').strip().upper()}"
+
 sb_count = 0
+mon_pool = {}          # "Name|SRC" -> raw monster, every candidate we may ship
+mon_by_name = {}       # lowercased name -> [keys], for resolving a ref with no source
 for f in glob.glob(os.path.join(MIRROR, "bestiary", "bestiary-*.json")):
     if os.path.basename(f).lower().startswith("foundry"): continue
     for m in load(f).get("monster", []):
         ref = m.get("summonedBySpell")
-        if not ref: continue
-        nm = ref.split("|")[0]
-        src = ref.split("|")[1] if "|" in ref else m.get("source", "")
-        sp = spells.get(spell_key(nm, src))
-        if not sp: continue
-        sp["statblock"] = statblock(m)
-        sb_count += 1
+        if ref:
+            nm = ref.split("|")[0]
+            src = ref.split("|")[1] if "|" in ref else m.get("source", "")
+            sp = spells.get(spell_key(nm, src))
+            if sp:
+                sp["statblock"] = statblock(m)
+                sb_count += 1
+        if carried_monster(m):
+            k = _mon_key(m["name"], m.get("source", ""))
+            mon_pool[k] = m
+            mon_by_name.setdefault(m["name"].strip().lower(), []).append(k)
+
+def _filter_matches(spec):
+    """`challenge rating=[&0]|type=beast|miscellaneous=!swarm` -> matching keys."""
+    parts = dict()
+    for chunk in spec.split("|"):
+        if "=" not in chunk: continue
+        k, v = chunk.split("=", 1)
+        parts[k.strip().lower()] = v.strip()
+    want_type = (parts.get("type") or "").lower()
+    cr = parts.get("challenge rating") or ""
+    # only the single-value form `[&0]` is expanded: a range would pull in hundreds
+    m_cr = re.fullmatch(r"\[&(\d+)\]", cr)
+    if not want_type or not m_cr: return []
+    want_cr = m_cr.group(1)
+    return sorted(k for k, m in mon_pool.items()
+                  if _type_of(m) == want_type and _cr_of(m) == want_cr)
+
+def _entry_text(sp):
+    return sp.get("_raw", "")
+
+creature_sets = 0
+for sp in spells.values():
+    txt = _entry_text(sp)
+    keys, seen = [], set()
+    for name, src in CREATURE_RE.findall(txt):
+        cands = [_mon_key(name, src)] if src else mon_by_name.get(name.strip().lower(), [])
+        for k in cands:
+            if k in mon_pool and k not in seen:
+                seen.add(k); keys.append(k)
+    if sp.get("source") == "XPHB":          # filters expand for 2024 spells only
+        for spec in BFILTER_RE.findall(txt):
+            for k in _filter_matches(spec):
+                if k not in seen:
+                    seen.add(k); keys.append(k)
+    own = sp.get("statblock")
+    if own:                                  # the spell's own block leads, never repeats
+        keys = [k for k in keys if k != _mon_key(own["name"], own.get("source", ""))]
+    if keys:
+        sp["creatures"] = keys
+        creature_sets += 1
+
+for sp in spells.values(): sp.pop("_raw", None)
+referenced = {k for sp in spells.values() for k in sp.get("creatures", [])}
+monsters = {k: statblock(mon_pool[k]) for k in sorted(referenced)}
 
 # ---- classes (casters AND non-casters) -------------------------------------
 def slot_table(groups):
@@ -835,7 +921,7 @@ digest = {
     "meta": {"mirror": os.path.basename(os.path.dirname(MIRROR)), "spellCount": len(spells)},
     "sources": sources, "spells": list(spells.values()), "classes": classes,
     "subclasses": subclasses, "feats": feats, "races": races, "optfeats": optfeats,
-    "fullMc": FULL_MC, "pact": PACT,
+    "monsters": monsters, "fullMc": FULL_MC, "pact": PACT,
 }
 out_path = os.path.join(os.path.dirname(__file__), "data", "data.json")
 with open(out_path, "w", encoding="utf-8") as f:
@@ -845,12 +931,19 @@ with open(out_path, "w", encoding="utf-8") as f:
 def _srd_subset():
     # an SRD spell may carry a stat block that is NOT itself SRD — drop those, or the
     # public build would redistribute unlicensed text under the CC-BY footer
+    smon = {k: v for k, v in monsters.items() if v.get("srd")}
     ss = []
     for sp in spells.values():
         if not sp.get("srd"): continue
         sb = sp.get("statblock")
         if sb and not sb.get("srd"):
             sp = dict(sp); sp.pop("statblock", None)
+        # same gate on the creature SET: a non-SRD stat block may not ride along
+        if sp.get("creatures"):
+            keep = [k for k in sp["creatures"] if k in smon]
+            sp = dict(sp)
+            if keep: sp["creatures"] = keep
+            else: sp.pop("creatures", None)
         ss.append(sp)
     sc = [c for c in classes if c.get("srd")]
     ssub = [s for s in subclasses if s.get("srd")]
@@ -867,7 +960,7 @@ def _srd_subset():
     srdsrc = {src: {"name": bname(src), "group": bgroup(src), "counts": c} for src, c in cnt.items()}
     return {"meta": {"srd": True, "spellCount": len(ss)}, "sources": srdsrc,
             "spells": ss, "classes": sc, "subclasses": ssub, "feats": sf, "races": sr,
-            "optfeats": so, "fullMc": FULL_MC, "pact": PACT}
+            "optfeats": so, "monsters": smon, "fullMc": FULL_MC, "pact": PACT}
 
 srd = _srd_subset()
 srd_path = os.path.join(os.path.dirname(__file__), "data", "data-srd.json")
@@ -877,7 +970,8 @@ print(f"SRD subset: spells={len(srd['spells'])} classes={len(srd['classes'])} "
       f"subclasses={len(srd['subclasses'])} feats={len(srd['feats'])} species={len(srd['races'])}"
       f" → {srd_path} ({os.path.getsize(srd_path)//1024} KB)")
 
-print(f"stat blocks attached to spells: {sb_count}")
+print(f"stat blocks attached to spells: {sb_count}; "
+      f"creature sets: {creature_sets} spells over {len(monsters)} monsters")
 print(f"spells={len(spells)} classes={len(classes)} (casters="
       f"{sum(1 for c in classes if c['caster'])}) subclasses={len(subclasses)} "
       f"feats={len(feats)} species={len(races)} sources={len(sources)}")
