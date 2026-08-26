@@ -2,28 +2,32 @@
 
 > Resume doc. One current-state block, edited in place. History → git log.
 
-## TL;DR (2026-08-26 · commit 34ea6f2 · v6.6 · **LIVE on GitHub Pages**)
-- **State:** working, committed + **pushed** (clean tree). This session cleared the whole
-  **v6.5 backlog** and then a second batch of Francesco's notes (**v6.6**): innate-cast fix
-  merged; `emanation` ranges; sidekicks dropped; upcast/consumed filters; styled prepare-marker
-  popover; **shared source checklist** in every picker; **one unified feat picker**;
-  **spell-table column rework** (registry + drag-to-reorder, global preference);
-  **optional features** (invocations/metamagic/pact boons, slots from data);
-  **prerequisites** end-to-end (extract → evaluate → sort → flag); **grouped choices** with
-  category tags; picker **overflow menus** + budget pills. Decisions D27–D31.
-  All verified in-browser; extract.py ↔ extract.js parity re-validated in Node.
+## TL;DR (2026-08-26 · commit 32b588d · v7 in progress · **LIVE on GitHub Pages**)
+- **State:** working, committed + **pushed** (clean tree). This session shipped **three of v7's
+  tasks** — **T1** storage + migration, **T3** the build manager, **T2** activation
+  reconciliation — so the app now holds **many characters, each with several versions**, and
+  **nothing is ever pruned behind your back** (D42). Around them, two batches of Francesco's
+  notes: prerequisites as per-part verdict chips with a **one-click fix** on the crossed ones;
+  the material popover reduced to cost/consumed/material; **eligibility made a default rather
+  than a wall** (an "every spell" option, and searches surfacing dimmed near-misses); one
+  source-book chip everywhere; the spell table centred with abbreviations restoring on hover;
+  and the `color-scheme` / drawn-caret fixes behind the "light scrollbars" and off-centre-icon
+  complaints. Decisions **D33–D42**. All verified in-browser; extract.py ↔ extract.js parity
+  re-validated in Node (276/276 feats, 213/213 optional features).
 - **Next action:** **v7 · T4 (switcher)** — getting between builds without opening the manager.
   **Done when:** the active build is visible and switchable from the main surface.
-  *(T1, T2, T3 landed 2026-08-26; D33–D42 settled the model; T6 closed. Then T5 export/import,
-  T7 storage pressure.)*
-- **Manual for Francesco:** ① 🔶 Four decisions gate v7 T1 — see "Next phase → Decisions
-  needed". ② Optional — ask GitHub Support to gc so the *old* unreachable commits (SHA
-  2c8bbb6 etc., held only in `backup/pre-purge-20260826` locally) stop being SHA-addressable.
+  *(Then T5 export/import, T7 storage pressure. T6 closed by D37.)*
+- **Manual for Francesco:** ① **Check the live site** once Pages rebuilds — this push changes
+  how storage works, and an existing browser session will run the one-time migration on first
+  load. ② Optional — ask GitHub Support to gc so the *old* unreachable commits (SHA 2c8bbb6
+  etc., held only in `backup/pre-purge-20260826` locally) stop being SHA-addressable.
   ③ To update the live site: `python3 extract.py` (if data changed) → `python3 build.py` →
   commit → push (Pages serves `main:/docs`). ④ `dist/`, `data/`, `data-srd.json` are
   gitignored (local only); public SRD data is inlined in committed `docs/`.
   ⑤ **The bare-list `innate` fix changes existing builds** — 42 grant blocks that were
   silently dropped now resolve, so a saved build may gain spells it should always have had.
+  ⑥ **Open question:** the spell-**pick** modal's rows still show the printed book, which D39
+  removed from the eligible list. Say if it should follow.
 
 ## What this is
 Offline single-page D&D 2024 spell planner. Two builds from one source:
@@ -352,6 +356,36 @@ Note-batch 3 (v6.1 — SRD, budget rework, zip):
   badge when any filter is off its default.
 - [x] **v7 planned** — see "Next phase" (shape, six tasks, four gating decisions).
 
+## Done — v7 tasks + note batches (2026-08-26; all verified in-browser)
+Saved builds — **T1** storage + migration · **T3** manager UI · **T2** activation
+reconciliation. Each task line under "Next phase" carries its own verification notes.
+Note-batch 1 (prerequisites, popovers, chrome):
+- [x] **Prerequisite section title removed**; prerequisites render as per-part **verdict chips**
+  visually distinct from the grants line. Level is verified and flagged (D31 extended).
+- [x] **Extractors emit `checks`** — the unverifiable parts of a prerequisite kept separate, so
+  the checkable ones get a real pass/fail instead of one undifferentiated "check …".
+- [x] **Material popover** → Cost / Consumed chip / Material, with the price-and-consume
+  restatement stripped from the material text (trailing clauses only; mid-sentence ones say
+  *which* component is spent and are left verbatim).
+- [x] 🐛 **`color-scheme` was missing entirely** — native scrollbars followed the OS, not the
+  theme toggle. Set in all three theme blocks + themed WebKit scrollbars.
+- [x] 🐛 **Carets are drawn, not typed** — `⌄` sat wherever its font put it; `.pk-caret` and
+  `.acc-toggle` now draw a border chevron, optically centred by construction.
+- [x] **Access section** hides its horizontal scrollbar; the expander is pinned right and
+  centred on the label.
+- [x] **Picked filter** in both spell modals (pick + prepare), with a count badge.
+Note-batch 2 (the spell list and table):
+- [x] **"Every spell (ignore eligibility)"** option on the class/list filter (D40).
+- [x] **Searches surface near-misses dimmed**, tagged "not on your lists" / "filtered out" (D40).
+- [x] **One source-book chip** (`.bchip`) everywhere a printed book is named (D39).
+- [x] **Book removed from the eligible-spell rows**, moved to the spell modal's title line; the
+  modal's **× was escaping its box** (no `position` on `.box`) — fixed.
+- [x] **Spell table centred**; abbreviated values restore in a hover popover (D38).
+- [x] **Cantrip group note removed** — the ● marker's popover already said it (D38).
+- [x] **"?" dropped from unverifiable prerequisite chips**; the dashed border carries it (D41).
+- [x] **Crossed prerequisites are actionable** — click to take the feat / option / species,
+  species swapping in place (D41).
+
 ## Next phase — v7: saved builds
 
 One character at a time is the last hard limit in the app. Everything else (content,
@@ -429,9 +463,10 @@ not character sheets. Sources join them, but every build remembers what it expec
 - [x] ~~**T6 · budget/choice reset semantics**~~ **Closed by D37** — picks survive a relevel
   untouched and the existing soft over-flag does the rest. No new machinery.
 
-### Decisions that gated T1 — all settled 2026-08-26
+### Decisions that shaped v7 — all settled 2026-08-26
 D33 sources · D34 auto-save + versions · D35 version shape · D36 file-only export ·
-D37 relevel + no cap. See the Decisions section above. **T1 is unblocked.**
+D37 relevel + no cap · D42 flag-don't-prune. See the Decisions section above.
+**Nothing gates the remaining tasks.**
 
 ### Non-goals
 ~~Level-up history/snapshots~~ — **superseded by D34/D35**: versions exist, but as *named copies*
@@ -542,3 +577,5 @@ stays out. Server sync or accounts. Sharing a build as a rendered page, or via a
 - **A `<select>` must always contain its own current value.** `classOptions(keep)` and the
   subclass list take the row's key so a hidden entry stays selectable; without that the browser
   silently selects option 0 and the next edit writes the wrong class into the build.
+
+⟳ Rename previous session → "Saved builds (T1–T3) and UI note batches"  · session: resolve by cwd + latest

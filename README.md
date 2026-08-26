@@ -13,6 +13,10 @@ no internet, no install. Also publishable as-is (single file).
   5etools-style; the *Editions* filter hides reprinted legacy entries by default.
 - **Build** any character: class + subclass + level rows (true multiclass;
   non-caster classes allowed), species, spell-granting feats, manual extras.
+- **Saved builds**: many characters, each with several versions, from one manager
+  (⋯ → Builds…). Everything auto-saves. Books are a global setting, but every build
+  remembers the ones it was made with and tells you when they're off — picks are
+  flagged, never removed.
 - **Choices to make** panel surfaces every spell choice a build implies —
   subclass options (Circle of the Land terrain), Magic Initiate's list, "choose N"
   picks (which open a filtered spell-pick modal), Fighting-Style spell options
@@ -54,8 +58,12 @@ dist/index.html   the built, offline, single-file deliverable
 ### Develop
 
 ```bash
-python3 -m http.server 8000      # then open http://localhost:8000/src/index.html
+python3 serve.py 8000            # then open http://localhost:8000/src/index.html
 ```
+
+Use `serve.py`, **not** `python3 -m http.server` — the latter evaluates `os.getcwd()`
+at argparse time, which the preview sandbox blocks. Hard-reload after editing
+`src/index.html` or `src/styles.css`; the static server caches them.
 
 ### Update the data (after refreshing your 5etools mirror) & rebuild
 
@@ -68,9 +76,12 @@ Built to match the `monster-forge` / `character-forge` house style: vanilla JS,
 5etools as the data source, no build framework.
 
 ## Known gaps / next
-- Some 2024 feature names aren't in 5etools' `additionalSpells` blocks (e.g.
-  Lore's "Magical Discoveries") — those choices fall back to the subclass name.
+`STATE.md` is the live plan — this list is only the long-standing ones.
+- Prerequisites the app can't verify (ability scores, proficiencies, backgrounds,
+  campaigns) read "can't check" rather than pass/fail; closing that means modelling
+  ability scores.
 - High Elf's swappable cantrip shows as prepared (●) but is swapped in the
   Choices panel, not toggled in the table.
-- No runtime "load 5etools files" panel yet (use the regenerate step above).
-- Per-source subclass de-duplication in the picker.
+- Imported data lives in localStorage, which a full multi-book import can overflow;
+  IndexedDB is the fix.
+- No custom-spell manager (homebrew is edited one spell at a time, from its modal).
