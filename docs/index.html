@@ -60,6 +60,11 @@
   .rqp .ico{margin-right:3px}
   .tk .ico svg{width:9px;height:9px}
   .tk .ico{margin-right:3px;vertical-align:-1px;display:inline-flex}
+  /* a button whose whole label IS its icon — the popover/title carries the meaning */
+  .tk.ico-only{padding:3px 7px;line-height:0}
+  .tk.ico-only .ico{margin-right:0}
+  .tk.ico-only .ico svg{width:12px;height:12px}
+  .tk.ico-only.armed{padding:2px 8px;line-height:normal}
   table.spelltable .pickcell svg{width:12px;height:12px;margin:0 auto}
   table.spelltable td.concmark svg{width:12px;height:12px;margin:0 auto}
   #entSub .ico{vertical-align:-2px} #entSub .ico svg{width:10px;height:10px}
@@ -92,7 +97,9 @@
   .btn:hover{border-color:var(--accent);color:var(--accent)}
   .btn.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
   .layout{display:grid;grid-template-columns:minmax(340px,400px) 1fr;gap:22px;align-items:start}
-  @media (max-width:920px){.layout{grid-template-columns:1fr}}
+  /* stacked, every card boundary is the card's own 18px margin — the grid row gap
+     would ADD to it and put Slots/Budget twice as far apart as the rest */
+  @media (max-width:920px){.layout{grid-template-columns:1fr;gap:0}}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:18px}
   .card h2{font-size:14.5px;padding:12px 15px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px}
   .card h2 .count{margin-left:auto;font-family:var(--sans);font-size:11px;font-weight:600;color:var(--muted);background:var(--panel-2);padding:2px 8px;border-radius:20px}
@@ -569,12 +576,12 @@ table.spelltable td.cmp .l:focus-visible{outline:2px solid var(--accent);outline
 .bldrow:hover{background:var(--accent-soft)}
 .bldrow.on{background:var(--accent-soft);box-shadow:inset 2px 0 0 var(--accent)}
 .bldmain{flex:1;min-width:0}
-.bldtop{display:flex;align-items:center;gap:7px}
+.bldtop{display:flex;align-items:center;gap:7px;min-width:0}
 .bldname{font:inherit;font-size:13px;font-weight:600;color:var(--ink);background:none;
-  border:1px solid transparent;border-radius:6px;padding:2px 6px;width:auto;max-width:180px}
+  border:1px solid transparent;border-radius:6px;padding:2px 6px;width:auto;max-width:180px;min-width:0}
 .bldname:hover{border-color:var(--line-strong)}
 .bldname:focus{border-color:var(--accent);background:var(--bg);outline:none}
-.bldcur{font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:var(--accent);
+.bldcur{flex:0 0 auto;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:var(--accent);
   background:var(--accent-soft);border-radius:10px;padding:1px 7px}
 .bldsum{font-size:11px;color:var(--muted);margin-top:1px;padding:0 6px;overflow:hidden;
   text-overflow:ellipsis;white-space:nowrap}
@@ -654,8 +661,9 @@ table.spelltable td.cmp .l:focus-visible{outline:2px solid var(--accent);outline
 /* the granting feature, named once above the run of rows it owns */
 .cgsub{font-size:11px;font-weight:600;color:var(--muted);margin:7px 0 1px;letter-spacing:.02em}
 .choicegroup .choicerow:last-child{border-bottom:none;padding-bottom:0}
-.ccat{font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);
-  border:1px solid var(--line-strong);border-radius:4px;padding:0 5px;font-weight:600}
+/* the category of the granting entity — a subtitle, so the book chip is the only
+   tag left in the head (the old .ccat tag competed with it) */
+.cgcat{font-size:10.5px;color:var(--muted);margin:4px 0 0;letter-spacing:.01em}
 /* subclass alert state (level ≥ unlock, none chosen) */
 select.alert{border-color:var(--bad);box-shadow:0 0 0 2px var(--bad-soft)}
 label.fld.alert{color:var(--bad)}
@@ -726,6 +734,8 @@ table.spelltable .pickcell.on:hover,table.spelltable .pickcell:hover{filter:brig
 .lvltools-n{font-size:10.5px;color:var(--muted);text-transform:none;letter-spacing:0;font-weight:600}
 .lvltools-btn{font:inherit;font-size:10.5px;padding:2px 8px;border-radius:12px;border:1px solid var(--line-strong);background:var(--panel);color:var(--muted);cursor:pointer;text-transform:none;letter-spacing:0}
 .lvltools-btn:hover:not(:disabled){border-color:var(--bad);color:var(--bad)}
+.lvltools-btn.ico-only{padding:3px 6px;line-height:0}
+.lvltools-btn.ico-only .ico svg{width:11px;height:11px}
 .lvltools-btn:disabled{opacity:.4;cursor:default}
 /* v7 tweaks */
 .budget .bh .kind.wiz{background:var(--gold-soft);color:var(--gold)}
@@ -807,13 +817,13 @@ table.spelltable .pickcell{cursor:help}
 .card h2 .count.prevable:hover{color:var(--accent);background:var(--accent-soft)}
 .card h2 .count.prevon{display:inline-flex;align-items:center;gap:5px;
   color:var(--accent);background:var(--accent-soft);padding:2px 6px 2px 9px}
-.count .pvlab{font-size:9px;text-transform:uppercase;letter-spacing:.06em;font-weight:700}
 .count .pvn{font-size:12px;font-variant-numeric:tabular-nums}
 .count .pvb{border:none;background:none;color:inherit;cursor:pointer;font:inherit;
   font-size:13px;font-weight:700;padding:0 3px;line-height:1;border-radius:5px}
 .count .pvb:hover{background:var(--panel)}
-.count .pvb.pvo{font-size:10px;font-weight:600;border:1px solid currentColor;
-  border-radius:8px;padding:1px 7px;margin-left:2px}
+.count .pvb.pvo{border:1px solid currentColor;border-radius:8px;margin-left:2px;
+  padding:2px 5px;display:inline-flex;align-items:center;line-height:0}
+.count .pvb.pvo .ico svg{width:11px;height:11px}
 .count .pvx{color:inherit;margin-left:1px}
 /* one column at every width: the list is a SEQUENCE, and columns break the reading of it */
 .lolist{display:flex;flex-direction:column;gap:6px;max-height:56vh;overflow:auto;padding:2px}
@@ -832,6 +842,8 @@ table.spelltable .pickcell{cursor:help}
 .logains{font-size:11px;color:var(--muted);line-height:1.45;margin-top:2px}
 .logains.dim{opacity:.6;font-style:italic}
 .locast{font-size:10.5px;color:var(--accent);line-height:1.45;margin-top:1px;font-weight:600}
+/* the other clock: what this class can now cast, not what it casts it with */
+.locast.lomax{color:var(--muted);font-weight:500}
 
 /* ── build export / import (T5) ───────────────────────────────────────────── */
 /* the base .importdrop is a centred row for the big data drop zone — this one is a
@@ -844,6 +856,7 @@ table.spelltable .pickcell{cursor:help}
   padding:8px;border-radius:8px;border:1px solid var(--line-strong);background:var(--bg);color:var(--ink)}
 .importdrop.bimport u{cursor:pointer}
 .bldacts .tk{white-space:nowrap}
+.bldacts .tk.del:not(.armed):hover{border-color:var(--bad);color:var(--bad)}
 
 /* "locked until level N" — an icon and the level, never prose that truncates (D60) */
 .lockchip{display:inline-flex;align-items:center;gap:3px;margin-left:5px;vertical-align:-1px;
@@ -1302,7 +1315,6 @@ label.fld .fldt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-wi
   </div>
   <div class="mb">
     <div id="loList" class="lolist"></div>
-    <p class="note" id="loSub"></p>
   </div>
 </div></div>
 <div class="modal hidden" id="prepModal"><div class="box">
@@ -1872,6 +1884,10 @@ const ICONS={
   grip:_I('<circle cx="6" cy="4" r="1.3"/><circle cx="10" cy="4" r="1.3"/><circle cx="6" cy="8" r="1.3"/><circle cx="10" cy="8" r="1.3"/><circle cx="6" cy="12" r="1.3"/><circle cx="10" cy="12" r="1.3"/>',1),
   book:_I('<path d="M3 3.2h4.2A1.8 1.8 0 0 1 9 5v8a1.4 1.4 0 0 0-1.4-1.4H3z"/><path d="M13 3.2H8.8A1.8 1.8 0 0 0 7 5v8a1.4 1.4 0 0 1 1.4-1.4H13z"/>'),
   lock:_I('<rect x="3.4" y="7" width="9.2" height="6.6" rx="1.6"/><path d="M5.6 7V5.2a2.4 2.4 0 0 1 4.8 0V7"/>'),
+  copy:_I('<rect x="5.6" y="5.6" width="8" height="8" rx="1.7"/><path d="M10.4 5.6V4.1A1.7 1.7 0 0 0 8.7 2.4H4.1A1.7 1.7 0 0 0 2.4 4.1v4.6a1.7 1.7 0 0 0 1.7 1.7h1.5"/>'),
+  trash:_I('<path d="M2.7 4.3h10.6M6.4 4.3V3.2a1 1 0 0 1 1-1h1.2a1 1 0 0 1 1 1v1.1"/><path d="m4.3 4.3.6 8.1a1.2 1.2 0 0 0 1.2 1.1h3.8a1.2 1.2 0 0 0 1.2-1.1l.6-8.1"/>'),
+  order:_I('<path d="M2.4 3.9h6.4M2.4 8h4.4M2.4 12.1h2.6"/><path d="M12.1 3.4v9.2M12.1 12.6 10.4 11M12.1 12.6 13.8 11"/>'),
+  bookmark:_I('<path d="M4.1 2.7h7.8v10.6L8 10.5l-3.9 2.8z"/>'),
 };
 // the small × remove button used inside chips and rows
 function xBtn(cls,onClick){const b=el("button",(cls||"")+" ico xsm");b.innerHTML=ICONS.x;
@@ -1925,6 +1941,16 @@ const EDITION_RANK={XPHB:100,XDMG:99,XMM:98,PHB:50,DMG:49,MM:48};
 const srcRank=s=>EDITION_RANK[s]!=null?EDITION_RANK[s]:10;
 // higher = preferred winner: real (non-reprint) always beats a reprint, then newest edition
 const dedupeScore=o=>(o.reprinted?0:1000)+srcRank(o.source);
+// A lineage can be RENAMED between editions ("Elf (High)" -> "Elf — High Elf"), so a
+// name match misses it and the picker lists Drow and High Elf twice. Collapse species on
+// base + lineage instead, with the base word stripped back off the lineage.
+function raceDedupeId(r){
+  const base=(r.base||r.name).toLowerCase();
+  let lin=(r.lineage||"").toLowerCase().trim();
+  if(lin){ const b=base.replace(/\s*\(.*\)$/,"").trim();
+    if(b&&lin.endsWith(" "+b))lin=lin.slice(0,-(b.length+1)).trim(); }
+  return base+"|"+lin;
+}
 function collapseEditions(list,idOf){
   const best={};
   list.forEach(o=>{ if(o.source===HB_SRC)return; const id=idOf(o);
@@ -1936,7 +1962,7 @@ function buildIndexes(){
   collapseEditions(DATA.classes, c=>c.name.toLowerCase());
   collapseEditions(DATA.subclasses, s=>(s.className+"|"+(s.shortName||s.name)).toLowerCase());
   collapseEditions(DATA.feats, f=>f.name.toLowerCase());
-  collapseEditions(DATA.races, r=>r.name.toLowerCase());
+  collapseEditions(DATA.races, raceDedupeId);
   collapseEditions(DATA.spells, s=>s.name.toLowerCase());
   collapseEditions(DATA.optfeats, o=>o.name.toLowerCase());
   CLS_BY={}; DATA.classes.forEach(c=>CLS_BY[key(c.name,c.source)]=c);
@@ -2436,6 +2462,17 @@ function render(){ maybeOnboard(); renderGapBar(); R=compute(); renderChoices();
   if(curTab==="table")renderTable(); save(); }
 
 // ── choices panel ──────────────────────────────────────────────────────────
+// What KIND of thing granted a run of choices, as a subtitle under its name rather than
+// a tag competing with the book chip. A feat also names its own TYPE — "feat" alone
+// doesn't say which of your slots it came out of.
+const FEAT_TYPE={origin:"origin feat",general:"general feat",epic:"epic boon"};
+function ownerCat(o){
+  if(!o||o.kind!=="feat")return (o&&o.kind)||"";
+  const f=FEAT_BY[key(o.name,o.src)];
+  if(!f)return "feat";
+  if(isFeatFS(f))return "fighting style";
+  return FEAT_TYPE[featCat(f)]||"feat";
+}
 function renderChoices(){
   const card=$("#choicesCard"), body=$("#choicesBody"); body.innerHTML="";
   const ch=R.choices;
@@ -2454,9 +2491,10 @@ function renderChoices(){
     const h=el("div","cghead");
     h.append(el("b",null,g.owner.name));
     if(g.owner.src)h.append(bookChip(g.owner.src));
-    if(g.owner.kind)h.append(el("span","ccat",g.owner.kind));
     h.append(el("span","cgn",g.items.length===1?"1 choice":`${g.items.length} choices`));
     box.append(h);
+    const cat=ownerCat(g.owner);
+    if(cat)box.append(el("div","cgcat",cat));
     // the granting FEATURE, named once per run — it used to repeat on the first two
     // rows and then vanish, which read as though later rows came from nowhere
     let lastSub=null;
@@ -2529,9 +2567,11 @@ function renderPickList(){
     const d=el("div","sp"+(on?" chosen":""));
     const nm=el("div","nm",sp.name); attachSpell(nm,sp); d.append(nm);
     const meta=el("div","meta");[ROMAN[sp.level],sp.school,sp.time,sp.range,sp.source!==CORE?sp.book:""].filter(Boolean).forEach(x=>meta.append(el("span",null,x)));d.append(meta);
-    const take=el("div","take");const b=el("button","tk"+(on?" on":""));
+    const take=el("div","take");const b=el("button","tk ico-only"+(on?" on":""));
     b.append(icoEl(on?"check":"plus"));
-    b.append(document.createTextNode(on?(isClass?"prepared":"picked"):(isClass?"prepare":"pick")));
+    const tlbl=on?(isClass?"Prepared — click to unprepare":"Picked — click to remove")
+                 :(isClass?"Prepare it":"Pick it");
+    b.title=tlbl; b.setAttribute("aria-label",tlbl);
     b.onclick=()=>{ if(isClass){ toggle(PICK.classIdx,k,false); renderPickList(); return; }
       let a=state.choices[PICK.id]||[];
       if(a.includes(k))a=a.filter(v=>v!==k); else if(a.length<PICK.count)a=[...a,k]; else return;
@@ -2654,9 +2694,11 @@ function renderEntityList(){
     const prev=grantPreview(it.grants);
     if(prev)main.append(Object.assign(el("div","entprev"),{textContent:prev,title:prev}));
     row.append(main);
-    const btn=el("button","tk"+(on?" on":""));
-    if(on)btn.append(icoEl("check"));btn.append(document.createTextNode(on?"selected":"select"));
-    if(pr.state==="no")btn.title="You don’t meet its prerequisites — you can still take it.";
+    const btn=el("button","tk ico-only"+(on?" on":""));
+    btn.append(icoEl(on?"check":"plus"));
+    const blbl=on?"Selected — click to remove":"Select";
+    btn.setAttribute("aria-label",blbl);
+    btn.title=blbl+(pr.state==="no"?" · you don’t meet its prerequisites, you can still take it":"");
     btn.onclick=()=>{
       // a local override can reveal a book the global selection has off; committing a pick
       // from it enables that book globally, otherwise afterSourceChange would prune the pick
@@ -2839,13 +2881,19 @@ function renderBuildList(){
         {textContent:sum+" · "+agoText(b.meta.updated)}));
       r.append(main);
       const acts=el("div","bldacts");
-      const dup=el("button","tk","duplicate");
-      dup.title="Copy it as a new version of this character";
-      dup.onclick=e=>{e.stopPropagation();duplicateBuild(b.id);};
-      const exp=el("button","tk","export");
-      exp.title="Download this build as a file you can keep or move to another machine";
-      exp.onclick=e=>{e.stopPropagation();exportBuild(b.id);};
-      const del=armConfirm(el("button","tk del"),"delete",()=>deleteBuild(b.id));
+      // three word-buttons ran into the `current` chip on a phone — icons + popovers
+      const act=(ico,label,tip,fn)=>{const btn=el("button","tk ico-only");btn.append(icoEl(ico));
+        btn.setAttribute("aria-label",label);
+        btn.onclick=e=>{e.stopPropagation();fn();};      // own handler BEFORE attachTip
+        attachTip(btn,tipBlock(label,tip)); return btn;};
+      const exp=act("download","Export",
+        "Downloads this build as a file you can keep, or move to another machine.",()=>exportBuild(b.id));
+      const dup=act("copy","Duplicate",
+        "Copies it as a new version of this character.",()=>duplicateBuild(b.id));
+      // the icon must be in place BEFORE armConfirm: it snapshots innerHTML to restore
+      const delBtn=el("button","tk del ico-only"); delBtn.append(icoEl("trash"));
+      delBtn.setAttribute("aria-label","Delete"); delBtn.title="Delete this version";
+      const del=armConfirm(delBtn,null,()=>deleteBuild(b.id));
       acts.append(exp,dup,del); r.append(acts); grp.append(r);
     });
     box.append(grp);
@@ -3210,7 +3258,9 @@ function openPrqPop(anchorEl,pick){
     const row=el("div","prqrow");
     row.append(el("span","prqnm",o.name));
     if(o.source!==CORE)row.append(bookChip(o.source,o.page));
-    const b=el("button","tk",cur?"switch":"select");
+    const b=el("button","tk ico-only");b.append(icoEl("check"));
+    const plbl=cur?"Switch to it":"Select";
+    b.setAttribute("aria-label",plbl); b.title=plbl;
     b.onclick=e=>{e.stopPropagation();prqTake(o,pick.kind);};
     row.append(b);PRQPOP.append(row);});
   PRQPOP.classList.remove("hidden");
@@ -3253,6 +3303,9 @@ function renderPrepStep(){
   const bk=R.cart[rec.idx]&&R.cart[rec.idx].known&&R.cart[rec.idx].known.book;
   $("#prepTitle").textContent=classLabel(rec)+(bk?" — prepare from your spellbook":" — prepare spells");
   const steps=$("#prepSteps"); steps.innerHTML="";
+  // the steps are how you move BETWEEN caster classes — with one, the single chip just
+  // repeats the class the title already names
+  steps.classList.toggle("hidden",PREP.idxs.length<2);
   PREP.idxs.forEach((idx,i)=>{const r=R.casters.find(x=>x.idx===idx); if(!r)return;
     const b=el("button","prepstep"+(i===PREP.step?" on":""),classLabel(r));
     b.onclick=()=>{PREP.step=i;PREP.search="";renderPrepStep();};steps.append(b);});
@@ -3288,9 +3341,10 @@ function renderPrepList(){
     const d=el("div","sp"+(on?" chosen":""));
     const nm=el("div","nm",sp.name);attachSpell(nm,sp);d.append(nm);
     const meta=el("div","meta");[ROMAN[sp.level],shortSchool(sp.school),shortTime(sp.time),shortRange(sp.range)].filter(Boolean).forEach(x=>meta.append(el("span",null,x)));d.append(meta);
-    const take=el("div","take");const b=el("button","tk"+(on?" on":"")+(on&&over?" over":""));
+    const take=el("div","take");const b=el("button","tk ico-only"+(on?" on":"")+(on&&over?" over":""));
     b.append(icoEl(on?"check":"plus"));
-    b.append(document.createTextNode(on?"prepared":"prepare"));
+    const tlbl=on?"Prepared — click to unprepare":"Prepare it";
+    b.title=tlbl; b.setAttribute("aria-label",tlbl);
     b.onclick=()=>{toggle(rec.idx,k,false,field);renderPrepList();};take.append(b);d.append(take);list.append(d);});
   if(!items.length)list.append(el("div","empty",PREP.onlyPicked?"Nothing prepared yet."
     :book?"Your spellbook is empty — copy spells into it first."
@@ -3764,24 +3818,29 @@ function renderLevelChip(){
   const mk=(lbl,fn,cls,tip)=>{const b=el("button","pvb"+(cls?" "+cls:""),lbl);
     b.onclick=e=>{e.stopPropagation();fn();};            // set BEFORE attachTip
     if(tip)attachTip(b,tip); return b;};
-  chip.append(el("span","pvlab","preview"));
+  // the two actions are icons: the chip sits in a card heading and the words pushed the
+  // level number off a phone. The popover carries the whole explanation (D57).
+  const mkIco=(ico,fn,label,tip)=>{const b=el("button","pvb pvo ico-only");b.append(icoEl(ico));
+    b.setAttribute("aria-label",label);
+    b.onclick=e=>{e.stopPropagation();fn();};            // set BEFORE attachTip
+    attachTip(b,tip); return b;};
   chip.append(mk("−",()=>setPreview(PREVIEW.level-1)));
   chip.append(el("b","pvn","L"+PREVIEW.level));
   chip.append(mk("+",()=>setPreview(PREVIEW.level+1)));
   if(state.classes.length>1)
-    chip.append(mk("order…",()=>openLvlOrder(),"pvo",
+    chip.append(mkIco("order",()=>openLvlOrder(),"Level order",
       tipBlock("Level order","Which class each character level is taken in — what the preview unlocks by.")));
-  chip.append(mk("save as version",()=>savePreviewAsVersion(),"pvo",
-    tipBlock("Fork this level into a version","Makes a real build at L"+PREVIEW.level+" that you can pick spells in freely, alongside the full-level one. Your picks come with it; anything over that level's budget is flagged, never dropped.")));
+  chip.append(mkIco("bookmark",()=>savePreviewAsVersion(),"Save as version",
+    tipBlock("Save this level as a version","Makes a real build at L"+PREVIEW.level+" that you can pick spells in freely, alongside the full-level one. Your picks come with it; anything over that level's budget is flagged, never dropped.")));
   chip.append(xBtn("pvx",()=>setPreview(null)));
 }
-// What a class level actually gives, NAMED: real class and subclass features (D63),
-// plus the spellcasting milestones a spell planner cares about — a new spell level or
-// a new slot tier. Not derived counts: "Arcane Recovery" says more than "+1 prepared".
+// What a class level actually gives, NAMED: real class and subclass features (D63).
+// Not derived counts: "Arcane Recovery" says more than "+1 prepared". Spellcasting is
+// deliberately NOT here — see levelCasting.
 function levelGains(row,cl){
-  const c=CLS_BY[row.clsKey]; if(!c)return {feats:[],cast:[]};
+  const c=CLS_BY[row.clsKey]; if(!c)return [];
   const sub=row.subKey?SUB_BY[row.subKey]:null;
-  const feats=[],cast=[];
+  const feats=[];
   (c.features||[]).forEach(f=>{if(f.level===cl)feats.push(f.name);});
   if(sub&&cl>=(c.subclassLevel||3))(sub.features||[]).forEach(f=>{if(f.level===cl)feats.push(f.name);});
   if(c.subclassLevel===cl&&!sub)feats.push("subclass — not chosen");
@@ -3790,14 +3849,57 @@ function levelGains(row,cl){
   [c,sub].forEach(src=>{ if(!src||!src.optFeatures)return;
     src.optFeatures.forEach(p=>{const d=(p.counts[cl-1]||0)-(cl>1?(p.counts[cl-2]||0):0);
       if(d>0)feats.push(`+${d} ${p.name.toLowerCase()}`);});});
-  if(c.caster){
-    const was=cl>1?maxLvlAt(c.caster,cl-1):0, now=maxLvlAt(c.caster,cl);
-    if(now>was)cast.push((was?"":"spellcasting · ")+ROMAN[now]+"-level slots");
-    const slots=c.slots&&c.slots[cl-1], prev=cl>1&&c.slots?c.slots[cl-2]:null;
-    if(slots&&prev){const gained=slots.reduce((a,v,i)=>a+Math.max(0,(+v||0)-(+prev[i]||0)),0);
-      if(gained&&now===was)cast.push(`+${gained} slot${gained>1?"s":""}`);}
+  return feats;
+}
+// Spellcasting runs on TWO clocks, and a caster-caster multiclass pulls them apart:
+//   • MAX SPELL LEVEL is set by that class's OWN level — multiclassing never raises it.
+//   • SLOTS come from the COMBINED caster level, so a Wizard 3 / Cleric 3 casts 2nd-level
+//     spells out of 3rd-level slots.
+// The cards used to derive both from the class's own slot table, which put the slot gain
+// on the wrong level for every multiclass. Both are shown, separately.
+function planSlots(levels){
+  let full=0,half=0,third=0,n=0,one=null,pact=null;
+  state.classes.forEach(r=>{
+    const lvl=levels.get(r.id)||0; if(!lvl)return;
+    const c=CLS_BY[r.clsKey]; if(!c)return;
+    const sub=r.subKey?SUB_BY[r.subKey]:null;
+    const caster=c.caster||(sub&&sub.caster)||null; if(!caster)return;
+    if(caster==="pact"){const p=DATA.pact[Math.min(lvl,20)-1];pact={num:p[0],lvl:p[1]};return;}
+    n++; one={c,caster,lvl};
+    if(caster==="full")full+=lvl;
+    else if(caster==="artificer"||caster==="1/2")half+=lvl;
+    else if(caster==="1/3")third+=lvl;
+  });
+  let slots=null;
+  if(n===1)slots=(one.c.slots&&one.c.slots[one.lvl-1])||DATA.fullMc[Math.min(ecl(one.caster,one.lvl),20)-1]||null;
+  else if(n>1){const mc=full+Math.floor(half/2)+Math.floor(third/3);
+    if(mc>0)slots=DATA.fullMc[Math.min(mc,20)-1];}
+  return {slots,pact};
+}
+const topSlot=a=>{let m=0;(a||[]).forEach((v,i)=>{if(v>0)m=i+1;});return m;};
+// what THIS character level changed about casting, given the plan either side of it
+function levelCasting(row,cl,before,after){
+  const c=CLS_BY[row.clsKey]; if(!c)return {slot:"",max:""};
+  const sub=row.subKey?SUB_BY[row.subKey]:null;
+  const caster=c.caster||(sub&&sub.caster)||null; if(!caster)return {slot:"",max:""};
+  let slot="",max="";
+  if(caster==="pact"){
+    // a warlock's pact slots ARE its max level, so naming both would say it twice
+    const p0=before.pact,p1=after.pact;
+    if(p1&&(!p0||p1.lvl>p0.lvl))slot=`pact slots now ${ROMAN[p1.lvl]}`;
+    else if(p1&&p0&&p1.num>p0.num)slot=`+${p1.num-p0.num} pact slot${p1.num-p0.num>1?"s":""}`;
+    return {slot,max};
   }
-  return {feats,cast};
+  const prev=before.slots||[],now=after.slots||[];
+  const gained=now.reduce((a,v,i)=>a+Math.max(0,(+v||0)-(+prev[i]||0)),0);
+  const t0=topSlot(prev),t1=topSlot(now);
+  const bits=[];
+  if(gained)bits.push(`+${gained} slot${gained>1?"s":""}`);
+  if(t1>t0)bits.push(`${ROMAN[t1]}-level slots unlocked`);
+  slot=bits.join(" · ");
+  const m0=cl>1?maxLvlAt(caster,cl-1):0, m1=maxLvlAt(caster,cl);
+  if(m1>m0)max=(m0?"":"spellcasting · ")+`max spell level ${ROMAN[m1]}`;
+  return {slot,max};
 }
 // One card per character level, in acquisition order: which class it was taken in and
 // what that level gave you. Drag a card by its handle to reorder — the class totals are
@@ -3812,7 +3914,7 @@ function renderLvlOrder(){
     if(PREVIEW.level!=null){refreshAll();render();}};
   plan.forEach((id,i)=>{
     const row=rowOf.get(id); if(!row)return;
-    const cl=(perClass.get(id)||0)+1; perClass.set(id,cl);
+    const cl=(perClass.get(id)||0)+1;      // advanced below, between the two slot reads
     const c=CLS_BY[row.clsKey];
     const card=el("div","locard"); card.draggable=true; card.dataset.i=String(i);
     card.append(icoEl("grip","logrip"));
@@ -3821,10 +3923,15 @@ function renderLvlOrder(){
     top.append(el("span","lolv","L"+(i+1)));
     top.append(el("b","locls",(c?c.name:"?")+" "+cl));
     body.append(top);
-    const g=levelGains(row,cl);
-    if(g.feats.length)body.append(Object.assign(el("div","logains"),{textContent:g.feats.join(" · ")}));
-    if(g.cast.length)body.append(Object.assign(el("div","locast"),{textContent:g.cast.join(" · ")}));
-    if(!g.feats.length&&!g.cast.length)
+    const feats=levelGains(row,cl);
+    // the slot table is read across the WHOLE plan up to here, never from this class alone
+    const before=planSlots(perClass); perClass.set(id,cl);
+    const after=planSlots(perClass);
+    const cast=levelCasting(row,cl,before,after);
+    if(feats.length)body.append(Object.assign(el("div","logains"),{textContent:feats.join(" · ")}));
+    if(cast.slot)body.append(Object.assign(el("div","locast"),{textContent:cast.slot}));
+    if(cast.max)body.append(Object.assign(el("div","locast lomax"),{textContent:cast.max}));
+    if(!feats.length&&!cast.slot&&!cast.max)
       body.append(Object.assign(el("div","logains dim"),{textContent:"no new features"}));
     card.append(body);
     card.ondragstart=e=>{dragFrom=i;e.dataTransfer.effectAllowed="move";
@@ -3841,10 +3948,6 @@ function renderLvlOrder(){
       o.splice(dragFrom<i?i-1:i,0,moved);
       commit(o);};
     box.append(card);});
-  const names=id=>(CLS_BY[(rowOf.get(id)||{}).clsKey]||{}).name||"?";
-  $("#loSub").textContent=state.classes
-    .map(r=>`${names(r.id)} ${plan.filter(x=>x===r.id).length}`).join(" · ")
-    +" — totals are set by the build; dragging only changes the order they are taken in";
 }
 function openLvlOrder(){ renderLvlOrder(); $("#lvlOrderModal").classList.remove("hidden"); }
 function renderSlots(){
@@ -4063,7 +4166,9 @@ function pickedAtLevel(l){return R.casters.reduce((a,rec)=>{const ch=state.chose
 function clearLevel(l){R.casters.forEach(rec=>{const ch=state.chosen[rec.idx];if(!ch)return;["cantrips","spells"].forEach(a=>{ch[a]=(ch[a]||[]).filter(k=>{const s=SPELL_BY[k];return !(s&&s.level===l);});});});save();render();}
 function lvlTools(l){const t=el("div","lvltools");const n=pickedAtLevel(l);
   t.append(el("span","lvltools-n",n+(l===0?" known":" picked")));
-  const clr=el("button","lvltools-btn",l===0?"clear cantrips":"clear");clr.title="Unpick all "+(l===0?"cantrips":ROMAN[l]+"-level picks");
+  const clr=el("button","lvltools-btn ico-only");clr.append(icoEl("x"));
+  const clbl="Unpick all "+(l===0?"cantrips":ROMAN[l]+"-level picks");
+  clr.title=clbl;clr.setAttribute("aria-label",clbl);
   clr.disabled=!n;clr.onclick=e=>{e.stopPropagation();clearLevel(l);};t.append(clr);return t;}
 function mkEmpty(){const e=el("div","empty");
   if(!R.casters.length){e.innerHTML="<b>Add a spellcasting class</b><br>Then its spells appear here to browse and pick.";return e;}

@@ -53,6 +53,11 @@
   .rqp .ico{margin-right:3px}
   .tk .ico svg{width:9px;height:9px}
   .tk .ico{margin-right:3px;vertical-align:-1px;display:inline-flex}
+  /* a button whose whole label IS its icon — the popover/title carries the meaning */
+  .tk.ico-only{padding:3px 7px;line-height:0}
+  .tk.ico-only .ico{margin-right:0}
+  .tk.ico-only .ico svg{width:12px;height:12px}
+  .tk.ico-only.armed{padding:2px 8px;line-height:normal}
   table.spelltable .pickcell svg{width:12px;height:12px;margin:0 auto}
   table.spelltable td.concmark svg{width:12px;height:12px;margin:0 auto}
   #entSub .ico{vertical-align:-2px} #entSub .ico svg{width:10px;height:10px}
@@ -85,7 +90,9 @@
   .btn:hover{border-color:var(--accent);color:var(--accent)}
   .btn.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
   .layout{display:grid;grid-template-columns:minmax(340px,400px) 1fr;gap:22px;align-items:start}
-  @media (max-width:920px){.layout{grid-template-columns:1fr}}
+  /* stacked, every card boundary is the card's own 18px margin — the grid row gap
+     would ADD to it and put Slots/Budget twice as far apart as the rest */
+  @media (max-width:920px){.layout{grid-template-columns:1fr;gap:0}}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:18px}
   .card h2{font-size:14.5px;padding:12px 15px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px}
   .card h2 .count{margin-left:auto;font-family:var(--sans);font-size:11px;font-weight:600;color:var(--muted);background:var(--panel-2);padding:2px 8px;border-radius:20px}
@@ -562,12 +569,12 @@ table.spelltable td.cmp .l:focus-visible{outline:2px solid var(--accent);outline
 .bldrow:hover{background:var(--accent-soft)}
 .bldrow.on{background:var(--accent-soft);box-shadow:inset 2px 0 0 var(--accent)}
 .bldmain{flex:1;min-width:0}
-.bldtop{display:flex;align-items:center;gap:7px}
+.bldtop{display:flex;align-items:center;gap:7px;min-width:0}
 .bldname{font:inherit;font-size:13px;font-weight:600;color:var(--ink);background:none;
-  border:1px solid transparent;border-radius:6px;padding:2px 6px;width:auto;max-width:180px}
+  border:1px solid transparent;border-radius:6px;padding:2px 6px;width:auto;max-width:180px;min-width:0}
 .bldname:hover{border-color:var(--line-strong)}
 .bldname:focus{border-color:var(--accent);background:var(--bg);outline:none}
-.bldcur{font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:var(--accent);
+.bldcur{flex:0 0 auto;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:var(--accent);
   background:var(--accent-soft);border-radius:10px;padding:1px 7px}
 .bldsum{font-size:11px;color:var(--muted);margin-top:1px;padding:0 6px;overflow:hidden;
   text-overflow:ellipsis;white-space:nowrap}
@@ -647,8 +654,9 @@ table.spelltable td.cmp .l:focus-visible{outline:2px solid var(--accent);outline
 /* the granting feature, named once above the run of rows it owns */
 .cgsub{font-size:11px;font-weight:600;color:var(--muted);margin:7px 0 1px;letter-spacing:.02em}
 .choicegroup .choicerow:last-child{border-bottom:none;padding-bottom:0}
-.ccat{font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);
-  border:1px solid var(--line-strong);border-radius:4px;padding:0 5px;font-weight:600}
+/* the category of the granting entity — a subtitle, so the book chip is the only
+   tag left in the head (the old .ccat tag competed with it) */
+.cgcat{font-size:10.5px;color:var(--muted);margin:4px 0 0;letter-spacing:.01em}
 /* subclass alert state (level ≥ unlock, none chosen) */
 select.alert{border-color:var(--bad);box-shadow:0 0 0 2px var(--bad-soft)}
 label.fld.alert{color:var(--bad)}
@@ -719,6 +727,8 @@ table.spelltable .pickcell.on:hover,table.spelltable .pickcell:hover{filter:brig
 .lvltools-n{font-size:10.5px;color:var(--muted);text-transform:none;letter-spacing:0;font-weight:600}
 .lvltools-btn{font:inherit;font-size:10.5px;padding:2px 8px;border-radius:12px;border:1px solid var(--line-strong);background:var(--panel);color:var(--muted);cursor:pointer;text-transform:none;letter-spacing:0}
 .lvltools-btn:hover:not(:disabled){border-color:var(--bad);color:var(--bad)}
+.lvltools-btn.ico-only{padding:3px 6px;line-height:0}
+.lvltools-btn.ico-only .ico svg{width:11px;height:11px}
 .lvltools-btn:disabled{opacity:.4;cursor:default}
 /* v7 tweaks */
 .budget .bh .kind.wiz{background:var(--gold-soft);color:var(--gold)}
@@ -800,13 +810,13 @@ table.spelltable .pickcell{cursor:help}
 .card h2 .count.prevable:hover{color:var(--accent);background:var(--accent-soft)}
 .card h2 .count.prevon{display:inline-flex;align-items:center;gap:5px;
   color:var(--accent);background:var(--accent-soft);padding:2px 6px 2px 9px}
-.count .pvlab{font-size:9px;text-transform:uppercase;letter-spacing:.06em;font-weight:700}
 .count .pvn{font-size:12px;font-variant-numeric:tabular-nums}
 .count .pvb{border:none;background:none;color:inherit;cursor:pointer;font:inherit;
   font-size:13px;font-weight:700;padding:0 3px;line-height:1;border-radius:5px}
 .count .pvb:hover{background:var(--panel)}
-.count .pvb.pvo{font-size:10px;font-weight:600;border:1px solid currentColor;
-  border-radius:8px;padding:1px 7px;margin-left:2px}
+.count .pvb.pvo{border:1px solid currentColor;border-radius:8px;margin-left:2px;
+  padding:2px 5px;display:inline-flex;align-items:center;line-height:0}
+.count .pvb.pvo .ico svg{width:11px;height:11px}
 .count .pvx{color:inherit;margin-left:1px}
 /* one column at every width: the list is a SEQUENCE, and columns break the reading of it */
 .lolist{display:flex;flex-direction:column;gap:6px;max-height:56vh;overflow:auto;padding:2px}
@@ -825,6 +835,8 @@ table.spelltable .pickcell{cursor:help}
 .logains{font-size:11px;color:var(--muted);line-height:1.45;margin-top:2px}
 .logains.dim{opacity:.6;font-style:italic}
 .locast{font-size:10.5px;color:var(--accent);line-height:1.45;margin-top:1px;font-weight:600}
+/* the other clock: what this class can now cast, not what it casts it with */
+.locast.lomax{color:var(--muted);font-weight:500}
 
 /* ── build export / import (T5) ───────────────────────────────────────────── */
 /* the base .importdrop is a centred row for the big data drop zone — this one is a
@@ -837,6 +849,7 @@ table.spelltable .pickcell{cursor:help}
   padding:8px;border-radius:8px;border:1px solid var(--line-strong);background:var(--bg);color:var(--ink)}
 .importdrop.bimport u{cursor:pointer}
 .bldacts .tk{white-space:nowrap}
+.bldacts .tk.del:not(.armed):hover{border-color:var(--bad);color:var(--bad)}
 
 /* "locked until level N" — an icon and the level, never prose that truncates (D60) */
 .lockchip{display:inline-flex;align-items:center;gap:3px;margin-left:5px;vertical-align:-1px;

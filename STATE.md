@@ -22,11 +22,20 @@
   to a file, import it back, never overwriting. Decisions **D43–D65**. Verified in-browser at
   375px and desktop; extractor parity exact (936 spells, 276/276 feats, 213/213 optional
   features, 24/24 stat blocks, class+subclass features byte-identical).
-- **Next action:** **v7 · T7 (storage-pressure reporting)** — no count cap (D37); catch the
-  quota failure on write and name the real cause. **Done when:** a failed save says what is using
-  the space, not "something went wrong". *(Last task in v7. T6 closed by D37.)*
-- **Manual for Francesco:** ⓪ **Push when ready** — the session's work is committed locally;
-  `git push` redeploys Pages from `main:/docs` (already rebuilt).
+- **Note batch 4 (2026-08-26, after the handoff):** icon-only action buttons everywhere the label
+  was a verb (D66); the Choices card's category became a subtitle and feats name their own type
+  (D67); the level cards now show **slots and max spell level as two separate clocks**, which fixes
+  the wrong-level slot gain in a caster-caster multiclass (D68); species lineages renamed between
+  editions stop appearing twice (D69); equal card spacing on a phone; the prepare-daily step row is
+  hidden when there is only one caster. Verified in-browser at 375px and desktop.
+- **Next action:** **custom sources — a dedicated back-and-forth design session** (Francesco's
+  call, note batch 4). The D55/D65 model is right; its UI is not. **Done when:** the surface is
+  interviewed end to end and the redesign is a decision entry with a task line behind it.
+  Then **v7 · T7 (storage-pressure reporting)** — no count cap (D37); catch the quota failure on
+  write and name the real cause. **Done when:** a failed save says what is using the space, not
+  "something went wrong". *(Last task in v7. T6 closed by D37.)*
+- **Manual for Francesco:** ⓪ **Push when ready** — `git push` redeploys Pages from `main:/docs`
+  (already rebuilt).
   ① **Check the live site** — the last push changes how storage works,
   and an existing browser session runs the one-time migration on first load. ② Optional — ask
   GitHub Support to gc so the *old* unreachable commits (SHA 2c8bbb6 etc., held only in
@@ -354,6 +363,40 @@ stays out. Server sync or accounts. Sharing a build as a rendered page, or via a
   — resolved by widening the eligible pool, not as a grant). *Rejected:* an attunement/active
   toggle (Francesco's call); a Kind dropdown.
 
+- **D66 (2026-08-26) An action button whose label is a verb is an icon** — extends D57 from
+  chrome to actions. `order…` / `save as version` on the level preview (which also drops the word
+  "preview" — the chip's context is the level), `export` / `duplicate` / `delete` in the build
+  manager (three word-buttons ran into the `current` chip on a phone), `select` in the species /
+  feat / spell pickers, and `clear` in an eligible-spells group header. One class, `.ico-only`, and
+  the meaning moves to the popover or `title`. A destructive icon still ARMS to the word
+  "confirm?" (D53) — the icon must be appended **before** `armConfirm`, which snapshots
+  `innerHTML` to restore. *Rejected:* keeping text on the destructive ones (the row's width was
+  the problem, and `delete` was the widest); icon + text (the same width back).
+- **D67 (2026-08-26) In "Choices to make" the category is a subtitle; the book chip is the only
+  tag** — two tags side by side on the group head read as equals when one names the *printing* and
+  the other names *what kind of thing this is*. The category drops to a quiet line under the name.
+  A **feat also names its own type** there — "origin feat", "general feat", "epic boon", "fighting
+  style" — because "feat" alone doesn't say which of your slots it came out of. Revises D30's "a
+  category tag on every row/group". *Rejected:* dropping the category (it is how you tell a
+  subclass choice from a species one at a glance).
+- **D68 (2026-08-26) Slots and max spell level are two clocks, and a level card shows both** —
+  the cards derived both from the class's own slot table, so in a caster-caster multiclass the
+  slot gain landed on the wrong level. **Max spell level** follows that class's OWN level;
+  **slots** follow the COMBINED caster level. A Bard 7 / Wizard 2 gets 5th-level slots at
+  character level 9 while the Bard's own max spell level is 4th — the card now says both, the slot
+  line in accent and the max line quiet. `planSlots()` reads the whole plan up to each card;
+  `levelGains()` is features-only. The panel's bottom note is gone (the modal's own subtitle
+  already said it). *Rejected:* one merged line (it is exactly the conflation that caused the bug).
+- **D69 (2026-08-26) Species collapse on base + lineage, not on name** — reverses the recorded
+  "different names, deliberately not normalized". A lineage can be RENAMED between editions
+  ("Elf (High)" → "Elf — High Elf"), so a name match missed it and the picker listed Drow and High
+  Elf twice. `raceDedupeId()` keys on `base|lineage` with the base word stripped back off the
+  lineage, and the existing Editions filter hides the older printing — `reprint→all` still reveals
+  it. Verified nothing over-collapses: the SCAG/MTF/ERLW variants and the Kaladesh/Zendikar
+  settings all survive. *Rejected:* nesting both printings under one row (one more level of
+  nesting for a duplicate nobody wants to see); a canonical key from both extractors (structurally
+  cleaner, but it is an extract.py + extract.js change plus a data rebuild for a display problem).
+
 ### Settled — recorded so they aren't re-proposed
 Headline + rejected options only; reasoning → `ARCHIVE.md#rationale`.
 - **D7** Source counts in chips — per-source `n/cap` on take chips, red over forecast.
@@ -443,6 +486,9 @@ Headline + rejected options only; reasoning → `ARCHIVE.md#rationale`.
   preset-library manager (monster-forge style ticking).
 - [x] ~~Wizard prepare-daily: separate **prepared subset** from the spellbook/known list~~
   **CLOSED 2026-08-26 → D62** — `chosen[idx].prep` is the daily subset, drawn from the book.
+- [ ] **Custom sources UI redesign** — Francesco: "still a UI mess, let's do a dedicated back and
+  forth design session". The MODEL (D55/D65) stands; this is the surface. It is the **next
+  action**, ahead of T7.
 - [ ] Custom-spell **manager** (list all homebrew to edit/delete without opening each).
 - [ ] High Elf true in-table cantrip swap; Human extra-origin restricted to origin cats.
 
@@ -479,9 +525,11 @@ Headline + rejected options only; reasoning → `ARCHIVE.md#rationale`.
   swap term), and exceeding a level's cap is **not an error** — it's the legal "copy into
   spellbook", shown in accent, not red. Enforcement everywhere is soft (flag, no hard block).
 - **Edition dedupe (D19):** `SHADOWED` (WeakSet, rebuilt each `buildIndexes`) hides duplicate
-  editions of the same element; `reprint→all` reveals them. HB never participates. Species named
-  differently across editions (`Elf — Drow` vs `Elf (Drow)`) aren't collapsed — different names,
-  deliberately not normalized.
+  editions of the same element; `reprint→all` reveals them. HB never participates. **Species do
+  NOT key on the name** (D69) — a lineage gets renamed between editions (`Elf (High)` →
+  `Elf — High Elf`), so `raceDedupeId()` keys on `base|lineage` with the base word stripped off
+  the lineage. Widen that normalization carefully: it is the only thing keeping the SCAG/MTF
+  variants and the Kaladesh/Zendikar settings from collapsing into the XPHB lineages.
 - **Prerequisites are advisory (D31).** `prereqState()` returns ok/maybe/no; "maybe" means the
   app can't verify (ability scores, proficiencies, backgrounds). Never turn "maybe" into "no" —
   it would hide legal picks. Nothing is ever blocked or auto-removed, only flagged.
@@ -583,6 +631,14 @@ Headline + rejected options only; reasoning → `ARCHIVE.md#rationale`.
 - **Custom sources (D65)** synthesize grants via `customSourceGrants` + `resolveGrants` (tok
   `x<id>`), EXCEPT `mode:"list"`, which widens the eligible pool instead. Per-grant extras
   (DC, attack, fixed cast level) ride through `spellOut`'s `extra` argument.
+- **Slots and max spell level are DIFFERENT clocks (D68).** Max spell level comes from a class's
+  OWN level (`maxLvlAt(caster,classLevel)`); slots come from the COMBINED caster level
+  (`planSlots()` over the whole level plan, or `R.mcSlots`). Deriving one from the other is what
+  put the slot gain on the wrong level card. Anything new that reports "what this level gave you"
+  must read both, separately.
+- **An icon-only button that ARMS needs its icon appended BEFORE `armConfirm`** (D66) —
+  `armConfirm` snapshots `innerHTML` as the restore state, so arming an empty button and
+  disarming it leaves it blank. Same call order rule as `attachTip` after `onclick`.
 - **History purge:** old data-bearing commits are unreachable on origin but GitHub may still serve
   them by exact SHA until it gc's. `backup/pre-purge-20260826` (local) has the original.
 
@@ -597,5 +653,13 @@ Headline + rejected options only; reasoning → `ARCHIVE.md#rationale`.
   manager, the header switcher, and export/import as files.
 - v7 note batches 2–3 (2026-08-26) — SVG icon sweep, mobile jump bar, level preview + level
   plan, custom spell sources, homebrew/UA import, wizard spellbook ≠ prepared. **D43–D65.**
+- v7 note batch 4 (2026-08-26) — icon-only actions, choices category as a subtitle, the level
+  card's two casting clocks, species lineage dedupe, equal card spacing on a phone, the
+  prepare-daily step row hidden for a single caster. **D66–D69.**
 
-⟳ Rename previous session → "Level preview, custom sources, build export"  · session: resolve by cwd + latest
+⟳ Rename previous session → "Level preview, custom sources, build export" · **NOT APPLIED**
+(2026-08-26): the newest session in this cwd is "Character sheet UI refinements", last active
+20:46, two hours before the 22:45 handoff commit — not clearly the right target, and its title
+does not look auto-generated. Renaming the wrong chat is worse than leaving a vague one. Ask
+Francesco, or drop this line.
+⟳ Rename previous session → "Icon sweep, choices subtitles, level-order fix" · session: resolve by cwd + latest
