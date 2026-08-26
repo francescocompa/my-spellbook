@@ -424,6 +424,63 @@ function renderPickList(){
   if(!items.length)list.append(el("div","empty",isClass?"No eligible spells at this level yet.":"No matching spells for this choice."));
 }
 
+// ── species / feat picker modal (search + source filter + grant preview) ─────
+let ENT=null;
+// a compact preview of what a species/feat grants, for the picker rows
+function grantPreview(grants){
+  if(!grantsAny(grants))return "";
+  const p=[];
+  // a fixed entry with no source is an extract artifact (innate cadence key misparsed
+  // as a spell name, e.g. "Daily"/"Rest") — skip it here.
+  (grants.fixed||[]).forEach(g=>{const nm=g.spell&&g.spell.name;if(nm&&g.spell.source&&!p.includes(nm))p.push(nm);});
+  (grants.picks||[]).forEach(pk=>p.push((pk.count>1?pk.count+"× ":"")+(fmtDesc(pk.desc)||"a spell")));
+  (grants.expansions||[]).forEach(()=>p.push("expanded spell list"));
+  (grants.optionGroups||[]).forEach(og=>p.push(og.options.map(o=>o.name).join(" / ")));
+  return p.filter(Boolean).join(" · ");
+}
+function entItems(){
+  if(ENT.kind==="species")return DATA.races.filter(visible);
+  return DATA.feats.filter(f=>visible(f)&&!isFeatFS(f)&&(
+    ENT.category==="origin"?isOriginFeat(f):ENT.category==="epic"?isEpicBoon(f):(!isOriginFeat(f)&&!isEpicBoon(f))));
+}
+function openEntityPicker(kind,category){
+  ENT={kind,category,q:"",book:"",grantsOnly:false};
+  $("#entTitle").textContent = kind==="species"?"Choose a species / lineage"
+    : category==="origin"?"Choose an origin feat" : category==="epic"?"Choose an epic boon" : "Choose a general feat";
+  $("#entSearch").value=""; $("#entBook").value=""; $("#entGrants").checked=false;
+  $("#entityModal").classList.remove("hidden"); renderEntityList();
+}
+function renderEntityList(){
+  if(!ENT)return;
+  const list=$("#entList"); list.innerHTML="";
+  let items=entItems();
+  const books=[...new Set(items.map(i=>i.source))].sort();
+  syncOpt($("#entBook"),books.map(s=>[s,DATA.sources[s]?.name||s]),ENT.book,"any book");
+  const q=ENT.q.toLowerCase();
+  items=items.filter(i=>(!q||i.name.toLowerCase().includes(q))&&(!ENT.book||i.source===ENT.book)&&(!ENT.grantsOnly||grantsAny(i.grants)));
+  items.sort((a,b)=>a.name.localeCompare(b.name)||a.source.localeCompare(b.source));
+  $("#entSub").textContent=`${items.length} ${ENT.kind==="species"?"species":"feats"} · ✦ grants spells`;
+  const curSel = ENT.kind==="species"?state.speciesKey:null;
+  if(!items.length){list.append(el("div","empty","Nothing matches those filters."));return;}
+  items.slice(0,400).forEach(it=>{const k=key(it.name,it.source);
+    const on = ENT.kind==="species"?curSel===k:state.feats.includes(k);
+    const row=el("div","entrow"+(on?" on":""));
+    const main=el("div","entmain");
+    const nm=el("div","entname");nm.append(document.createTextNode(it.name));
+    if(it.source!==CORE)nm.append(Object.assign(el("span","entsrc"),{textContent:it.source,title:bookName(it.source)}));
+    if(grantsAny(it.grants))nm.append(Object.assign(el("span","fmark"),{textContent:"✦"}));
+    main.append(nm);
+    const prev=grantPreview(it.grants);
+    if(prev)main.append(Object.assign(el("div","entprev"),{textContent:prev,title:prev}));
+    row.append(main);
+    const btn=el("button","tk"+(on?" on":""), on?"✓ selected":"select");
+    btn.onclick=()=>{ if(ENT.kind==="species"){state.speciesKey=on?"":k;}
+      else{ if(on)state.feats=state.feats.filter(x=>x!==k); else state.feats.push(k); }
+      save();refreshAll();render();renderEntityList(); };
+    row.append(btn); list.append(row);
+  });
+}
+
 // ── prepare-daily modal: one step per source that re-prepares each long rest ──
 let PREP=null;
 const prepCasters=()=>R.casters.filter(r=>!r.static);   // static (level-swap) lists don't re-prepare
@@ -1080,9 +1137,10 @@ function renderClassRows(){
 }
 function refreshAddClass(){const s=$("#addClass");s.innerHTML="";s.append(new Option("+ add a class…",""));
   classOptions().forEach(o=>s.append(new Option(o.t,o.v)));s.value="";}
-function refreshSpecies(){const s=$("#speciesSel");s.innerHTML="";s.append(new Option("— none —",""));
-  DATA.races.filter(visible).sort((a,b)=>a.name.localeCompare(b.name)).forEach(r=>s.append(new Option(r.name+(r.source!==CORE?` (${r.source})`:"")+(r.grants.length?" ✦":""),key(r.name,r.source))));
-  s.value=state.speciesKey&&[...s.options].some(o=>o.value===state.speciesKey)?state.speciesKey:"";state.speciesKey=s.value;}
+function refreshSpecies(){const r=state.speciesKey?RACE_BY[state.speciesKey]:null;
+  if(state.speciesKey&&!(r&&visible(r)))state.speciesKey="";   // drop a hidden/removed pick
+  const lbl=$("#speciesBtnLbl");if(lbl)lbl.textContent=(r&&visible(r))?(r.name+(r.source!==CORE?` (${r.source})`:"")):"— none —";
+  if(!ENT)return; if($("#entityModal")&&!$("#entityModal").classList.contains("hidden")&&ENT.kind==="species")renderEntityList();}
 // origin feats = from a background (Origin, Dragonmarks, Dark Gifts); general = ASI feats.
 const ORIGIN_CATS=new Set(["O","D","DG"]);
 const isOriginFeat=f=>ORIGIN_CATS.has(f.category);
@@ -1090,14 +1148,8 @@ const isFeatFS=f=>(f.category||"").startsWith("FS");
 const isEpicBoon=f=>f.category==="EB";   // gated: only via the level-19 Epic Boon feature
 const charLevel=()=>state.classes.reduce((a,r)=>a+(r.level||0),0);
 function refreshAddFeat(){
-  const origin=$("#addOrigin");origin.innerHTML="";origin.append(new Option("+ origin feat…",""));
-  const gen=$("#addFeat");gen.innerHTML="";gen.append(new Option("+ general feat…",""));
-  const epic=$("#addEpic");epic.innerHTML="";epic.append(new Option("+ epic boon…",""));
-  DATA.feats.filter(f=>visible(f)&&!isFeatFS(f)).sort((a,b)=>a.name.localeCompare(b.name)).forEach(f=>{
-    const lbl=f.name+(f.source!==CORE?` (${f.source})`:"")+(grantsAny(f.grants)?" ✦":"");
-    (isEpicBoon(f)?epic:isOriginFeat(f)?origin:gen).append(new Option(lbl,key(f.name,f.source)));});
   // Epic Boons unlock at character level 19 (the level-19 feat feature)
-  epic.classList.toggle("hidden",charLevel()<19);
+  const epic=$("#epicBtn");if(epic)epic.classList.toggle("hidden",charLevel()<19);
 }
 // feat budget: general feats from ASI levels (+Fighter/Rogue extras), 1 origin feat + 1 for Humans.
 // NOTE: data only carries spell-granting feats (extract.py filters the rest) — full feat lists need the mirror.
@@ -1160,10 +1212,15 @@ function refreshAll(){refreshAddClass();refreshSpecies();refreshAddFeat();render
 // ── events ───────────────────────────────────────────────────────────────
 $("#addClass").onchange=e=>{const clsKey=e.target.value;
   if(clsKey){state.classes.push({clsKey,subKey:null,level:1,id:state.nextRowId++});e.target.value="";renderClassRows();render();}};
-$("#speciesSel").onchange=e=>{state.speciesKey=e.target.value;render();};
-$("#addFeat").onchange=e=>{if(e.target.value&&!state.feats.includes(e.target.value)){state.feats.push(e.target.value);e.target.value="";renderFeatChips();render();}};
-$("#addOrigin").onchange=e=>{if(e.target.value&&!state.feats.includes(e.target.value)){state.feats.push(e.target.value);e.target.value="";renderFeatChips();render();}};
-$("#addEpic").onchange=e=>{if(e.target.value&&!state.feats.includes(e.target.value)){state.feats.push(e.target.value);e.target.value="";renderFeatChips();render();}};
+$("#speciesBtn").onclick=()=>openEntityPicker("species");
+$("#originBtn").onclick=()=>openEntityPicker("feat","origin");
+$("#generalBtn").onclick=()=>openEntityPicker("feat","general");
+$("#epicBtn").onclick=()=>openEntityPicker("feat","epic");
+$("#entClose").onclick=()=>$("#entityModal").classList.add("hidden");
+$("#entityModal").onclick=e=>{if(e.target.id==="entityModal")$("#entityModal").classList.add("hidden");};
+$("#entSearch").oninput=e=>{if(ENT){ENT.q=e.target.value;renderEntityList();}};
+$("#entBook").onchange=e=>{if(ENT){ENT.book=e.target.value;renderEntityList();}};
+$("#entGrants").onchange=e=>{if(ENT){ENT.grantsOnly=e.target.checked;renderEntityList();}};
 $("#fq").oninput=e=>{state.filters.q=e.target.value;render();};
 $("#filterBtn").onclick=()=>{$("#filterPanel").classList.toggle("hidden");$("#filterBtn").classList.toggle("on");};
 $("#clearFilters").onclick=()=>{const q=state.filters.q;state.filters=FILTER_DEFAULT();state.filters.q=q;$("#fReprint").value="dedupe";refreshAll();render();};

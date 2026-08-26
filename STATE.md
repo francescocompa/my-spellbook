@@ -16,15 +16,15 @@
   not an error); spell modal gained an **Access** section (class/subclass/species/feat
   chips, horizontal-scroll, edition-deduped); description **sub-headings styled distinctly**;
   grant level lists render as **ranges** (0-2 not 0;1;2). All verified in-browser.
-  v6.3 batch (committed locally, **push pending**): **grant feature names** extracted
-  (extract.py+extract.js correlate additionalSpells → subclass/class features, 93%
-  coverage — "Abjuration Savant", "Spell Breaker", "Life Domain Spells"); spell-description
-  **sub-headings restyled** to a quiet muted label (D24, option B — the accent-uppercase
-  was too flashy); spell-modal **Access collapsed by default** to one merged scrollable row
-  + expander (D25). **Still open from this batch:** species & feats selectors → dedicated
-  filtered modals with preview (Task 4, not started).
-- **Next action:** build the species/feats picker modals (filters + preview), then push
-  v6.2+v6.3 to deploy (Manual ②).
+  v6.3+v6.4 batch: **grant feature names** extracted (extract.py+extract.js correlate
+  additionalSpells → subclass/class features, 93% — "Abjuration Savant", "Spell Breaker",
+  "Life Domain Spells"); spell-description **sub-headings restyled** to a quiet muted label
+  (D24b, option B); spell-modal **Access collapsed by default** (D25); **species & feats
+  selectors → dedicated picker modals** with search + source filter + grants-only toggle +
+  per-row grant preview (D26). All verified in-browser.
+- **Next action:** push v6.2+v6.3+v6.4 to deploy (Manual ②). Then pick from Backlog
+  (IndexedDB for imported data). One spawned side-task: fix innate-cast parsing that emits
+  phantom "Daily"/"Rest" fixed grants (preview is guarded against it for now).
 - **Manual for Francesco:** ① Optional — ask GitHub Support to gc so the *old*
   unreachable commits (SHA 2c8bbb6 etc., held only in `backup/pre-purge-20260826`
   locally) stop being SHA-addressable on GitHub. ② To update the live site:
@@ -144,6 +144,13 @@ Note-batch 3 (v6.1 — SRD, budget rework, zip):
   "Title." desc line renders as `.spttl`: muted, sans, 11px/600, **sentence case** (not the
   accent-uppercase of D22 — Francesco: "too flashy"; hierarchy was off). Body stays the primary
   ink prose; the higher-levels block keeps its dashed-rule separation. Mockup A/B/C → B chosen.
+- **D26 (2026-08-26) Species & feats picker modals** — the species dropdown and the three
+  feat dropdowns (origin/general/epic) became trigger buttons (`.picksel`) opening a shared
+  `#entityModal` (`openEntityPicker(kind,category)` / `renderEntityList`): search + source-book
+  filter + "grants spells" toggle, each row showing name + source + ✦ + a `grantPreview()` of
+  what it grants; select commits (species = single, feats = multi). **Three entry points kept**
+  (each pre-scoped to its feat category — Francesco's call). `grantPreview` skips empty-source
+  fixed entries (extract innate-parsing artifact; spawned task task_b9736375).
 - **D25 (2026-08-26) Access collapsed by default** — the modal Access section shows one merged
   horizontal-scroll row of all sources inline with the label + a ⌄ expander that reveals the
   per-category line-up (`data-exp` toggle). Was always-expanded (D21).

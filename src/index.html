@@ -39,13 +39,13 @@
           </div>
           <div class="fieldset">
             <label class="fld">Species / lineage</label>
-            <select id="speciesSel"><option value="">— none —</option></select>
+            <button class="picksel" id="speciesBtn"><span id="speciesBtnLbl">— none —</span><span class="pk-caret">⌄</span></button>
           </div>
           <div class="fieldset">
             <label class="fld">Feats <span class="budgetnote" id="featBudget"></span></label>
-            <select id="addOrigin"><option value="">+ origin feat…</option></select>
-            <select id="addFeat"><option value="">+ general feat…</option></select>
-            <select id="addEpic" class="hidden"><option value="">+ epic boon…</option></select>
+            <button class="picksel ph" id="originBtn"><span>＋ origin feat…</span><span class="pk-caret">⌄</span></button>
+            <button class="picksel ph" id="generalBtn"><span>＋ general feat…</span><span class="pk-caret">⌄</span></button>
+            <button class="picksel ph hidden" id="epicBtn"><span>＋ epic boon…</span><span class="pk-caret">⌄</span></button>
             <div class="chips" id="featChips"></div>
           </div>
         </div>
@@ -139,6 +139,21 @@
       <button class="btn" id="pickClear" title="Clear all selections in this picker">Clear</button>
     </div>
     <div id="pickList"></div>
+  </div>
+</div></div>
+
+<div class="modal hidden" id="entityModal"><div class="box">
+  <div class="mh mh-stack">
+    <div class="mh-row"><h2 id="entTitle">Choose</h2><button class="x" id="entClose">×</button></div>
+    <div class="sub" id="entSub"></div>
+  </div>
+  <div class="mb">
+    <div class="pickbar">
+      <input type="search" id="entSearch" placeholder="filter by name…">
+      <select id="entBook"><option value="">any book</option></select>
+      <label class="cchk entgrants"><input type="checkbox" id="entGrants"><span>grants spells</span></label>
+    </div>
+    <div id="entList"></div>
   </div>
 </div></div>
 
