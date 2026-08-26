@@ -215,6 +215,66 @@ Note-batch 3 (v6.1 — SRD, budget rework, zip):
   produced nothing. Fixed in both extractors → 54/54. **This also affected feats/species/classes
   using the same shorthand**, so some grants that were silently missing now appear.
 
+## Next phase — v7: saved builds
+
+One character at a time is the last hard limit in the app. Everything else (content,
+sources, columns) is already multi-valued; the build isn't.
+
+### What exists now
+`state` is a single blob in `localStorage["spellForge.v2"]`: `classes, speciesKey, feats,
+optFeats, chosen, choices, enabledSources, filters, nextRowId`. Alongside it sit three
+other keys that are **not** part of a build: `spellForge.table.v1` (column layout),
+`spellForge.custom.v1` (homebrew spells), `spellForge.import.v1` (imported 5etools data).
+
+### Shape
+```
+spellForge.builds.v1 = { activeId, order:[id…], builds:{ id: {meta, state} } }
+meta = { name, created, updated, summary }      // summary = "Wizard 8 · Evocation", derived
+```
+`state` keeps its current shape verbatim inside each build, so `save()`/`load()` become
+"save/load the active build" and nothing downstream changes. Homebrew, imported data and
+the column layout stay global — they're content and preferences, not character sheets.
+
+### Tasks
+- [ ] **T1 · storage + migration** (`model`, ~M). New keys, `activeBuild()`, and a one-time
+  migration that lifts the existing `spellForge.v2` blob into build #1 named from its classes.
+  Keep the old key untouched for one release as a rollback. **Done when:** an existing session
+  reloads into a named build with nothing lost, and a fresh session gets one empty build.
+- [ ] **T2 · pruning hazard** (`correctness`, ~S). ⚠ `pruneState()` and `afterSourceChange()`
+  currently mutate the one live build. With several, disabling a book would quietly strip
+  picks from **inactive** builds too — or, if we only prune the active one, an inactive build
+  silently holds refs to content that no longer resolves. **Prune on activation, never in
+  bulk**, and show what was dropped. **Done when:** switching sources can't damage a build
+  you aren't looking at, and activating a build reports what it lost.
+- [ ] **T3 · manager UI** (`ui`, ~M). List with name, summary, last edited; switch, rename,
+  duplicate, delete (confirm), new. **Done when:** every operation works from one surface and
+  the active build is unmistakable.
+- [ ] **T4 · switcher** (`ui`, ~S). Getting between builds without opening the manager.
+- [ ] **T5 · export / import a build** (`data`, ~M). A build is currently one browser away
+  from gone — localStorage, one device, no backup. JSON download + file/paste import, with
+  the source list embedded so an imported build tells you which books it expects.
+  **Done when:** a build survives a round trip through a file on another machine.
+- [ ] **T6 · budget/choice reset semantics** (`model`, ~S). Duplicating a build then changing
+  its level: `chosen`/`choices` are keyed by row id and choice path, so they survive — confirm
+  that's wanted, or offer "reset picks" on duplicate.
+
+### 🔶 Decisions needed before T1 (these change the model, not just the UI)
+- **Does a build own its source selection?** `enabledSources` is inside `state` today, so it
+  would travel per build — a 2014 character and a 2024 one could each carry their own books.
+  The alternative is hoisting it out as a global preference, which matches D27's "one place
+  books are chosen". These two readings conflict; **D27 wins by default unless overridden.**
+- **Auto-save or explicit save?** Today every edit writes through. Auto-save into the active
+  build is the smaller change and keeps the app honest; explicit save needs a dirty state,
+  a discard path and an "unsaved changes" guard.
+- **Is sharing in scope?** A URL-encoded build (compressed into the hash) would make builds
+  shareable without a server, at the cost of a size ceiling. File export alone is simpler and
+  covers backup, which is the actual risk.
+- **Cap on builds?** localStorage is ~5 MB and already carries imported data; a build is a
+  few KB, so the cap is really about the list staying readable, not about bytes.
+
+### Non-goals
+Level-up history/snapshots. Server sync or accounts. Sharing a build as a rendered page.
+
 ## Backlog (next sessions)
 ### v6.5 leftovers
 - [ ] **Feat prerequisites are display-only** — optional features show `needs Warlock level 2, …`
