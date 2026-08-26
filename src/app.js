@@ -2665,12 +2665,8 @@ function statblockHTML(sp){
   // head stays a title rather than a control strip
   const booksBtn=(all.length<2||srcs.length<2)?"":
     `<button class="sb-books ico" type="button" title="Which books these forms come from" aria-label="Filter by book">${ICONS.book}</button>`;
-  const panel=(all.length<2||srcs.length<2)?"":`<div class="sb-bookpanel hidden">`
-    +srcs.map(x=>{const n=all.filter(y=>y.source===x).length;
-      return `<label class="sb-bk${srcOn(x)?"":" off"}"><input type="checkbox" data-src="${esc(x)}"${srcOn(x)?" checked":""}>`
-        +`<span class="sb-bkn">${esc(bookName(x))}</span><span class="sb-bkc">${n}</span>`
-        +(srcOn(x)?"":`<span class="sb-bkoff">off in your sources</span>`)+`</label>`;}).join("")
-    +`</div>`;
+  const panel=(all.length<2||srcs.length<2)?"":
+    `<div class="sb-bookpanel srcpanel hidden"><div class="sb-booknote"></div><div class="sb-booklist"></div></div>`;
   // controls sit BELOW the block: you read the creature, then step to the next one
   const nav=all.length<2?"":`<div class="sb-nav">`
     +`<button class="sb-prev" type="button" aria-label="Previous creature">‹</button>`
@@ -2683,7 +2679,7 @@ function statblockHTML(sp){
     +`<div class="sb-head">`
       +`<button class="sb-toggle" type="button" aria-expanded="false">`
         +`<span class="secttl">${esc(b.name)}</span>`
-        +`<span class="sb-who">stat block${all.length>1?` · ${all.length} forms`:""}</span></button>`
+        +`<span class="sb-who">stat block</span></button>`
       +booksBtn
       +`<button class="sb-caretbtn" type="button" aria-label="Expand stat block">`
         +`<span class="sb-caret"></span></button></div>`
@@ -2736,21 +2732,29 @@ function wireCreatureNav(sp){
   const nav=wrap.querySelector(".sb-nav"); if(!nav)return;
   const all=spellCreatures(sp);
   const panel=wrap.querySelector(".sb-bookpanel");
-  const boxes=panel?[...panel.querySelectorAll("input[data-src]")]:[];
-  const shown=()=>{ if(!boxes.length)return all;
-    const on=new Set(boxes.filter(b=>b.checked).map(b=>b.dataset.src));
-    const list=all.filter(x=>on.has(x.source));
+  const srcs=[...new Set(all.map(x=>x.source).filter(Boolean))].sort();
+  // seeded from the global Sources list, but LOCAL — ticking a book here never writes back
+  const bookSel=panel?new Set(srcs.filter(srcOn)):null;
+  const shown=()=>{ if(!bookSel)return all;
+    const list=all.filter(x=>bookSel.has(x.source));
     return list.length?list:all; };
+  // The controls sit under the block, so a taller or shorter creature would shove them —
+  // and the page — under the cursor. Pin the nav's viewport position across the repaint and
+  // give the difference to the scroller, so every size change is absorbed above it.
+  const scroller=SPMODAL.querySelector(".box");
   const paint=()=>{
     const list=shown(); if(!list.length)return;
+    const before=nav.getBoundingClientRect().top;
     let i=Math.max(0,Math.min(+wrap.dataset.i||0,list.length-1)); wrap.dataset.i=String(i);
     const b=list[i];
     wrap.querySelector(".secttl").textContent=b.name;
-    wrap.querySelector(".sb-who").textContent=`stat block · ${list.length} form${list.length>1?"s":""}`;
+
     nav.querySelector(".sb-pos").textContent=`${i+1} / ${list.length}`;
     const body=wrap.querySelector(".sb-body"); if(body)body.innerHTML=sbBodyHTML(b);
     nav.querySelector(".sb-prev").disabled=list.length<2;
     nav.querySelector(".sb-next").disabled=list.length<2;
+    if(scroller){const after=nav.getBoundingClientRect().top;
+      if(after!==before)scroller.scrollTop+=after-before;}
   };
   const step=d=>{const list=shown(); if(!list.length)return;
     wrap.dataset.i=String(((+wrap.dataset.i||0)+d+list.length)%list.length); paint();};
@@ -2760,9 +2764,17 @@ function wireCreatureNav(sp){
   const btn=wrap.querySelector(".sb-books");
   if(btn){btn.onclick=e=>{e.stopPropagation();panel.classList.toggle("hidden");
     if(wrap.dataset.exp!=="1"){wrap.dataset.exp="1";
-      const h=wrap.querySelector(".sb-head");if(h)h.setAttribute("aria-expanded","true");}};}
+      const t=wrap.querySelector(".sb-toggle");if(t)t.setAttribute("aria-expanded","true");}};}
   if(panel){panel.onclick=e=>e.stopPropagation();
-    boxes.forEach(b=>{b.onchange=()=>{wrap.dataset.i="0";paint();};});}
+    const list=panel.querySelector(".sb-booklist"), note=panel.querySelector(".sb-booknote");
+    const off=srcs.filter(x=>!srcOn(x));
+    note.textContent=off.length
+      ? `${off.length} of these books ${off.length===1?"is":"are"} off in your sources — tick one to include its forms here.`
+      : "";
+    const draw=()=>renderSourceChecklist(list,bookSel,()=>{draw();wrap.dataset.i="0";paint();},
+      new Set(srcs),code=>{const n=all.filter(y=>y.source===code).length;
+        return `${n} form${n===1?"":"s"}`;});
+    draw();}
   paint();
 }
 function attachSpell(elm,sp){elm.classList.add("nmlink");
@@ -3046,13 +3058,15 @@ function renderFeatChips(){const box=$("#featChips");box.innerHTML="";state.feat
   renderFeatBudget();}
 
 // ── sources modal ────────────────────────────────────────────────────────
-const GROUP_ORDER=["core","supplement","setting","brew","other"];
-const GROUP_NAME={core:"Core",supplement:"Supplements",setting:"Settings & adventures",brew:"Homebrew & UA",other:"Other"};
+const GROUP_ORDER=["core","supplement","supplement-alt","setting","setting-alt","brew","other"];
+const GROUP_NAME={core:"Core",supplement:"Supplements","supplement-alt":"Supplements (alternate)",
+  setting:"Settings & adventures","setting-alt":"Settings (alternate)",
+  brew:"Homebrew & UA",other:"Other"};
 // ── shared grouped source checklist (D27) ──────────────────────────────────
 // One component for every place books are chosen: the global ⚙ Sources modal and each
 // picker's local override. `sel` is a Set the caller owns; `onChange` runs after any
 // mutation. `codes` limits the list to the sources actually present in that picker.
-function renderSourceChecklist(wrap,sel,onChange,codes){
+function renderSourceChecklist(wrap,sel,onChange,codes,countOf){
   wrap.innerHTML="";
   const all=Object.entries(DATA.sources).filter(([code])=>!codes||codes.has(code));
   const byGroup={};all.forEach(([code,s])=>{(byGroup[s.group||"other"]=byGroup[s.group||"other"]||[]).push([code,s]);});
@@ -3068,7 +3082,8 @@ function renderSourceChecklist(wrap,sel,onChange,codes){
     byGroup[g].sort((a,b)=>(b[1].counts.spells)-(a[1].counts.spells)).forEach(([code,s])=>{
       const lab=el("label");const cb=el("input");cb.type="checkbox";cb.checked=sel.has(code);
       cb.onchange=()=>{cb.checked?sel.add(code):sel.delete(code);onChange();};
-      lab.append(cb);lab.append(el("span",null,s.name));lab.append(el("small",null,`${s.counts.spells}sp`));list.append(lab);});
+      lab.append(cb);lab.append(el("span",null,s.name));
+      lab.append(el("small",null,countOf?countOf(code):`${s.counts.spells}sp`));list.append(lab);});
     gd.append(list);wrap.append(gd);});
   return all.length;
 }

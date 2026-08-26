@@ -439,16 +439,12 @@
   color:var(--muted);cursor:pointer;border-radius:6px;display:flex;align-items:center;justify-content:center}
 .spmodal .sb-books:hover{color:var(--accent);background:var(--panel-2)}
 .spmodal .sb-books svg{width:14px;height:14px}
-.spmodal .sb-bookpanel{margin-top:8px;padding:7px 9px;border:1px solid var(--line);
-  border-radius:9px;background:var(--panel-2);display:grid;gap:2px}
-.spmodal .sb-bk{display:flex;align-items:center;gap:8px;font-size:12px;padding:3px 2px;cursor:pointer}
-.spmodal .sb-bk input{width:auto;margin:0;accent-color:var(--accent)}
-.spmodal .sb-bkn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.spmodal .sb-bkc{flex:0 0 auto;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+/* the SAME grouped checklist every other picker uses (D27), seeded from the global list
+   but local — ticking a book here never writes back */
+.spmodal .sb-bookpanel{margin-top:8px}
 /* a form from a book you have switched off is still one of the spell's forms (D42) */
-.spmodal .sb-bk.off .sb-bkn{color:var(--muted)}
-.spmodal .sb-bkoff{flex:0 0 auto;font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;
-  color:var(--gold)}
+.spmodal .sb-booknote{font-size:11px;color:var(--gold);margin:0 0 9px;line-height:1.45}
+.spmodal .sb-booknote:empty{display:none}
 .spmodal .sb-prev,.spmodal .sb-next{width:26px;height:26px;flex:0 0 auto;border:1px solid var(--line-strong);
   background:var(--panel);color:var(--muted);border-radius:7px;cursor:pointer;font:inherit;
   font-size:15px;line-height:1;display:flex;align-items:center;justify-content:center}
