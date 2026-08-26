@@ -130,18 +130,41 @@ const numOf=x=>{const m=String(x).replace(/\D/g,"");return m?parseInt(m,10):0;};
 const EXCLUDE_CLASS=n=>/ Sidekick$/.test(n||"");
 // optional features (invocations, metamagic, pact boons…) — D28. Extracted generically:
 // how many you get comes from each class/subclass's optionalfeatureProgression, not code.
-function prereqText(o){const out=[];
-  (o.prerequisite||[]).forEach(p=>{const bits=[];
-    const lv=p.level;
-    if(lv&&typeof lv==="object"){const cl=(lv.class||{}).name;bits.push(cl?`${cl} level ${lv.level}`:`level ${lv.level}`);}
-    else if(lv!=null)bits.push("level "+lv);
-    if(p.pact)bits.push("Pact of the "+p.pact);
-    (p.spell||[]).forEach(sp=>bits.push(typeof sp==="object"?(sp.entrySummary||sp.entry):richStrip(String(sp).split("#")[0])));
-    (p.item||[]).forEach(it=>bits.push(richStrip(it)));
-    (p.optionalfeature||[]).forEach(of=>bits.push(richStrip(String(of).split("|")[0])));
+// Prerequisites, for feats AND optional features. Each entry in `prerequisite` is an
+// alternative (OR), so we emit one record per alternative: a display string plus the
+// parts the app can check. `soft` marks an alternative that also carries something we
+// don't model (ability scores, proficiencies, backgrounds, campaigns).
+const SOFT_KEYS=new Set(["ability","proficiency","background","campaign","other","otherSummary",
+  "item","feature","exclusiveFeatCategory","featCategory"]);
+const plainRef=x=>typeof x==="object"&&x?richStrip(x.displayEntry||x.entrySummary||x.entry||x.name||"")
+  :richStrip(String(x).split("|")[0]);
+function prereqBlocks(o){const out=[];
+  (o.prerequisite||[]).forEach(p=>{
+    const b={text:"",level:null,cls:null,feats:[],optfeats:[],races:[],spells:[],spellcasting:false,pact:null,soft:false};
+    const bits=[];const lv=p.level;
+    if(lv&&typeof lv==="object"){b.cls=(lv.class||{}).name;b.level=lv.level;
+      bits.push(b.cls?`${b.cls} level ${b.level}`:`level ${b.level}`);}
+    else if(lv!=null){b.level=lv;bits.push("level "+lv);}
+    (p.feat||[]).forEach(x=>{const n=plainRef(x);b.feats.push(n);bits.push(n);});
+    (p.optionalfeature||[]).forEach(x=>{const n=plainRef(x);b.optfeats.push(n);bits.push(n);});
+    (p.race||[]).forEach(x=>{const n=plainRef(x);b.races.push(n);bits.push(n);});
+    (p.spell||[]).forEach(x=>{const n=plainRef(x);b.spells.push(n);bits.push(n);});
+    if(p.pact){b.pact=p.pact;bits.push("Pact of the "+p.pact);}
+    if(p.spellcasting||p.spellcasting2020||p.spellcastingFeature){b.spellcasting=true;bits.push("spellcasting");}
+    (p.ability||[]).forEach(ab=>Object.entries(ab).forEach(([k,v])=>bits.push(`${k.toUpperCase()} ${v}+`)));
+    (p.proficiency||[]).forEach(pr=>Object.entries(pr).forEach(([k,v])=>bits.push(`${v} ${k} proficiency`)));
+    (p.background||[]).forEach(x=>bits.push(plainRef(x)));
+    (p.feature||[]).forEach(x=>bits.push(plainRef(x)));
+    (p.item||[]).forEach(x=>bits.push(richStrip(x)));
+    (p.campaign||[]).forEach(x=>bits.push(x+" campaign"));
+    (p.exclusiveFeatCategory||[]).forEach(x=>bits.push(`no other ${x}-category feat`));
+    if(p.other)bits.push(richStrip(p.other));
     const os=p.otherSummary; if(os&&typeof os==="object")bits.push(richStrip(os.entrySummary||os.entry||""));
-    if(bits.length)out.push(bits.filter(Boolean).join(", "));});
-  return out.join(" or ")||null;}
+    b.soft=Object.keys(p).some(k=>SOFT_KEYS.has(k));
+    b.text=bits.filter(Boolean).join(", ");
+    if(b.text)out.push(b);});
+  return out;}
+const prereqText=o=>prereqBlocks(o).map(b=>b.text).join(" or ")||null;
 function optProgression(c){const out=[];
   (c.optionalfeatureProgression||[]).forEach(p=>{const prog=p.progression;const counts=new Array(20).fill(0);
     if(Array.isArray(prog)){for(let i=0;i<20;i++)counts[i]=+(prog[i]||0);}
@@ -246,11 +269,11 @@ function buildDigest(files){
       (j.feat||[]).forEach(ft=>{const cat=ft.category||"G";const hasSpells="additionalSpells"in ft;
         feats.push({name:ft.name,source:ft.source||"",group:bgroup(ft.source||""),book:bname(ft.source||""),reprinted:reprinted(ft),
           category:cat,fsClass:({"FS:R":"Ranger","FS:P":"Paladin","FS":"Fighter"})[cat]||null,hasSpells,
-          optFeatures:optProgression(ft),
+          optFeatures:optProgression(ft),prereq:prereqText(ft),prereqs:prereqBlocks(ft),
           grants:hasSpells?parseGrants(ft.additionalSpells):{fixed:[],picks:[],expansions:[],optionGroups:[],ability:null}});});
       (j.optionalfeature||[]).forEach(o=>{const hasSpells="additionalSpells"in o;
         optfeats.push({name:o.name,source:o.source||"",group:bgroup(o.source||""),book:bname(o.source||""),
-          reprinted:reprinted(o),types:o.featureType||[],prereq:prereqText(o),hasSpells,
+          reprinted:reprinted(o),types:o.featureType||[],prereq:prereqText(o),prereqs:prereqBlocks(o),hasSpells,
           grants:hasSpells?parseGrants(o.additionalSpells):{fixed:[],picks:[],expansions:[],optionGroups:[],ability:null}});});
       const emitSpecies=(name,source,blocks)=>{const named=(blocks||[]).filter(b=>b.name);
         if(named.length>1)named.forEach(b=>races.push({name:`${name} — ${b.name}`,source,group:bgroup(source),book:bname(source),reprinted:false,grants:parseGrants([b])}));

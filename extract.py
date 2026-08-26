@@ -476,6 +476,65 @@ for f in glob.glob(os.path.join(MIRROR, "class", "class-*.json")):
             rec["spellList"] = ["Wizard", "XPHB"]   # EK / AT use the Wizard list
         subclasses.append(rec)
 
+# Prerequisites, for feats AND optional features. Each entry in `prerequisite` is an
+# alternative (OR), so we emit one record per alternative: a display string plus the
+# parts the app can actually check. `soft` marks an alternative that also carries a
+# condition we don't model (ability scores, proficiencies, backgrounds, campaigns) —
+# those can never be proved unmet, only "can't tell".
+_SOFT_KEYS = {"ability", "proficiency", "background", "campaign", "other", "otherSummary",
+              "item", "feature", "exclusiveFeatCategory", "featCategory"}
+
+def _plain(x):
+    """A prerequisite reference -> its bare display name."""
+    if isinstance(x, dict):
+        return rich_strip(x.get("displayEntry") or x.get("entrySummary") or x.get("entry")
+                          or x.get("name") or "")
+    return rich_strip(str(x).split("|")[0])
+
+def _prereq_blocks(o):
+    out = []
+    for p in (o.get("prerequisite") or []):
+        b = {"text": "", "level": None, "cls": None, "feats": [], "optfeats": [],
+             "races": [], "spells": [], "spellcasting": False, "pact": None, "soft": False}
+        bits = []
+        lv = p.get("level")
+        if isinstance(lv, dict):
+            b["cls"] = (lv.get("class") or {}).get("name")
+            b["level"] = lv.get("level")
+            bits.append(f"{b['cls']} level {b['level']}" if b["cls"] else f"level {b['level']}")
+        elif lv is not None:
+            b["level"] = lv; bits.append(f"level {lv}")
+        for ft in (p.get("feat") or []):
+            n = _plain(ft); b["feats"].append(n); bits.append(n)
+        for of in (p.get("optionalfeature") or []):
+            n = _plain(of); b["optfeats"].append(n); bits.append(n)
+        for rc in (p.get("race") or []):
+            n = _plain(rc); b["races"].append(n); bits.append(n)
+        for sp in (p.get("spell") or []):
+            n = _plain(sp); b["spells"].append(n); bits.append(n)
+        if p.get("pact"): b["pact"] = p["pact"]; bits.append(f"Pact of the {p['pact']}")
+        if p.get("spellcasting") or p.get("spellcasting2020") or p.get("spellcastingFeature"):
+            b["spellcasting"] = True; bits.append("spellcasting")
+        for ab in (p.get("ability") or []):
+            bits += [f"{k.upper()} {v}+" for k, v in ab.items()]
+        for pr in (p.get("proficiency") or []):
+            bits += [f"{v} {k} proficiency" for k, v in pr.items()]
+        for bg in (p.get("background") or []): bits.append(_plain(bg))
+        for fe in (p.get("feature") or []): bits.append(_plain(fe))
+        for it in (p.get("item") or []): bits.append(rich_strip(it))
+        for cp in (p.get("campaign") or []): bits.append(f"{cp} campaign")
+        for fc in (p.get("exclusiveFeatCategory") or []): bits.append(f"no other {fc}-category feat")
+        if p.get("other"): bits.append(rich_strip(p["other"]))
+        osum = p.get("otherSummary")
+        if isinstance(osum, dict): bits.append(rich_strip(osum.get("entrySummary") or osum.get("entry") or ""))
+        b["soft"] = any(k in _SOFT_KEYS for k in p)
+        b["text"] = ", ".join(x for x in bits if x)
+        if b["text"]: out.append(b)
+    return out
+
+def _prereq_text(o):
+    return " or ".join(b["text"] for b in _prereq_blocks(o)) or None
+
 feats = []
 EMPTY_GRANTS = {"fixed": [], "picks": [], "expansions": [], "optionGroups": [], "ability": None}
 for ft in load(os.path.join(MIRROR, "feats.json")).get("feat", []):
@@ -488,33 +547,13 @@ for ft in load(os.path.join(MIRROR, "feats.json")).get("feat", []):
                   "srd": bool(ft.get("srd52")),
                   "hasSpells": has_spells,               # non-spell feats are build-choice-only
                   "optFeatures": opt_progression(ft),    # Eldritch Adept, Metamagic Adept… (D28)
+                  "prereq": _prereq_text(ft), "prereqs": _prereq_blocks(ft),
                   "grants": parse_grants(ft.get("additionalSpells")) if has_spells else dict(EMPTY_GRANTS)})
 
 # ---- optional features (invocations, metamagic, pact boons, maneuvers…) ----
 # Extracted generically: every featureType, with its prerequisites as display text.
 # How many you get is NOT hardcoded — it comes from each class/subclass's
 # optionalfeatureProgression (see opt_progression below), so slots are data.
-def _prereq_text(o):
-    out = []
-    for p in (o.get("prerequisite") or []):
-        bits = []
-        lv = p.get("level")
-        if isinstance(lv, dict):
-            cl = (lv.get("class") or {}).get("name")
-            bits.append(f"{cl} level {lv.get('level')}" if cl else f"level {lv.get('level')}")
-        elif lv is not None:
-            bits.append(f"level {lv}")
-        if p.get("pact"): bits.append(f"Pact of the {p['pact']}")
-        for sp in (p.get("spell") or []):
-            bits.append(sp.get("entrySummary") or sp.get("entry") if isinstance(sp, dict)
-                        else rich_strip(sp.split("#")[0]))
-        for it in (p.get("item") or []): bits.append(rich_strip(it))
-        for of in (p.get("optionalfeature") or []): bits.append(rich_strip(str(of).split("|")[0]))
-        osum = p.get("otherSummary")
-        if isinstance(osum, dict): bits.append(rich_strip(osum.get("entrySummary") or osum.get("entry") or ""))
-        if bits: out.append(", ".join(b for b in bits if b))
-    return " or ".join(out) or None
-
 optfeats = []
 _optpath = os.path.join(MIRROR, "optionalfeatures.json")
 for o in (load(_optpath).get("optionalfeature", []) if os.path.exists(_optpath) else []):
@@ -523,7 +562,7 @@ for o in (load(_optpath).get("optionalfeature", []) if os.path.exists(_optpath) 
                      "group": bgroup(o.get("source", "")), "book": bname(o.get("source", "")),
                      "reprinted": reprinted(o), "srd": bool(o.get("srd52")),
                      "types": o.get("featureType") or [],
-                     "prereq": _prereq_text(o),
+                     "prereq": _prereq_text(o), "prereqs": _prereq_blocks(o),
                      "hasSpells": has_spells,
                      "grants": parse_grants(o.get("additionalSpells")) if has_spells else dict(EMPTY_GRANTS)})
 

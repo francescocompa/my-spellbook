@@ -182,13 +182,19 @@ function resolveAbility(grants,tok,sharedStat,out){
   if(ab.inherit)return sharedStat||null;
   if(ab.choose){const id=tok+":ab";
     const val=state.choices[id]||(sharedStat&&ab.choose.includes(sharedStat)?sharedStat:ab.choose[0]);
-    if(out)out.choices.push({id,type:"ability",options:ab.choose,value:val,giver:out._giver||tok,giverSrc:out._giverSrc});
+    if(out)out.choices.push({id,type:"ability",options:ab.choose,value:val,giver:out._giver||tok,giverSrc:out._giverSrc,
+      owner:ownerOf(tok,out._giver||tok,out._giverSrc)});
     return val;}
   return sharedStat||null;
 }
 // walk a grants object (or an option), collecting fixed/freeCasts/expansions/choices into `out`
-function resolveGrants(grants,level,tok,giver,out,sharedStat,giverSrc){
+// `owner` is the entity the choices belong to — the class row, feat, species… — carried
+// unchanged through nested option groups so the choices panel can group by it (D30).
+const OWNER_KIND={c:"class",s:"subclass",f:"feat",o:"optional feature",r:"species"};
+const ownerOf=(tok,name,src)=>({id:tok.split(":")[0],name,src,kind:OWNER_KIND[tok[0]]||""});
+function resolveGrants(grants,level,tok,giver,out,sharedStat,giverSrc,owner){
   if(!grants)return;
+  owner=owner||ownerOf(tok,giver,giverSrc);
   out._giver=giver; out._giverSrc=giverSrc;
   const ability=resolveAbility(grants,tok,sharedStat,out);
   // `label` (the granting feature's name, when known) is preferred over the generic giver
@@ -198,13 +204,13 @@ function resolveGrants(grants,level,tok,giver,out,sharedStat,giverSrc){
   (grants.fixed||[]).forEach(g=>{ if((g.atLevel||0)>level)return; spellOut(grantRec(g.spell.name),g.kind,g.recharge,g.feature); });
   (grants.expansions||[]).forEach(e=>{ if((e.atLevel||0)<=level)out.expansions.push(Object.assign({},e.filter,{_atLevel:e.atLevel||0})); });
   (grants.picks||[]).forEach((p,j)=>{ if((p.atLevel||0)>level)return; const id=tok+":pk"+j;
-    out.choices.push({id,count:p.count,filter:p.filter,kind:p.kind,recharge:p.recharge,giver:p.feature||giver,giverSrc,desc:p.desc,type:"pick"});
+    out.choices.push({id,count:p.count,filter:p.filter,kind:p.kind,recharge:p.recharge,giver:p.feature||giver,giverSrc,desc:p.desc,type:"pick",owner});
     (state.choices[id]||[]).forEach(k=>spellOut(SPELL_BY[k],p.kind,p.recharge,p.feature)); });
   (grants.optionGroups||[]).forEach((og,i)=>{ const id=tok+":og"+i; const names=og.options.map(o=>o.name);
     const sel=state.choices[id]||names[0];
-    out.choices.push({id,type:"option",options:names,value:sel,giver,giverSrc});
+    out.choices.push({id,type:"option",options:names,value:sel,giver,giverSrc,owner});
     const opt=og.options.find(o=>o.name===sel)||og.options[0];
-    resolveGrants(opt,level,id,giver+" · "+sel,out,sharedStat,giverSrc); });
+    resolveGrants(opt,level,id,giver+" · "+sel,out,sharedStat,giverSrc,owner); });
 }
 
 // ── compute ──────────────────────────────────────────────────────────────
@@ -251,9 +257,10 @@ function compute(){
       const otherOrder=({"Divine Order":"Protector","Primal Order":"Warden"})[feat]||"Other benefit";
       const oid="c"+r.idx+":bo"+i, id="c"+r.idx+":bc"+i;
       const sel=state.choices[oid]||((state.choices[id]||[]).length?cantripOrder:otherOrder);
-      o.choices.push({id:oid,type:"option",options:[otherOrder,cantripOrder],value:sel,giver:feat,giverSrc:r.c.source});
+      const bowner=ownerOf("c"+r.idx,r.name,r.c.source);
+      o.choices.push({id:oid,type:"option",options:[otherOrder,cantripOrder],value:sel,giver:feat,giverSrc:r.c.source,owner:bowner});
       if(sel===cantripOrder){
-        o.choices.push({id,type:"pick",count:bc.count,filter:bc.filter,kind:"known",recharge:"cantrip",giver:feat+" · "+cantripOrder,giverSrc:r.c.source,desc:"choose a cantrip",optional:bc.optional});
+        o.choices.push({id,type:"pick",count:bc.count,filter:bc.filter,kind:"known",recharge:"cantrip",giver:feat+" · "+cantripOrder,giverSrc:r.c.source,desc:"choose a cantrip",optional:bc.optional,owner:bowner});
         (state.choices[id]||[]).forEach(k=>{const rec=SPELL_BY[k];if(rec)o.freeCasts.push({name:rec.name,level:rec.level,recharge:"always known",src:feat+" · "+cantripOrder,ability:rAb});});
       }
     });
@@ -370,26 +377,59 @@ function renderChoices(){
   card.classList.toggle("hidden",!ch.length);
   const pending=ch.filter(c=>c.type==="pick"&&!c.optional&&(state.choices[c.id]||[]).length<c.count).length;
   $("#choicesChip").textContent = ch.length? (pending?`${pending} pending`:"all set"):"";
-  ch.forEach(c=>{
-    const row=el("div","choicerow");
-    const srcTag=c.giverSrc?`<span class="csrc" title="${esc(bookName(c.giverSrc))}">${esc(c.giverSrc)}</span>`:"";
-    if(c.type==="option"||c.type==="ability"){
-      const isAb=c.type==="ability";
-      const cg=el("div","cg"); cg.innerHTML=`<b>${esc(c.giver)}</b>${srcTag}<span class="cwhat">${isAb?"casting ability":"choose one"}</span>`; row.append(cg);
-      const sel=el("select"); c.options.forEach(o=>sel.append(new Option(isAb?ABIL[o]||o:o,o)));
-      sel.value=c.value; sel.onchange=()=>{state.choices[c.id]=sel.value; render();}; row.append(sel);
-    } else { // pick
-      const have=(state.choices[c.id]||[]).length;
-      const cg=el("div","cg"); cg.innerHTML=`<b>${esc(c.giver)}</b>${srcTag}<span class="cwhat">${esc(fmtDesc(c.desc)||"choose")} <span class="need">${have}/${c.count}</span></span>`; row.append(cg);
-      const picks=el("div","picks");
-      (state.choices[c.id]||[]).forEach(k=>{const sp=SPELL_BY[k];if(!sp)return;
-        const chip=el("span","cartchip");chip.append(el("span","lv",sp.level===0?"C":String(sp.level)));const nm=el("span",null,sp.name);attachSpell(nm,sp);chip.append(nm);
-        const x=el("button",null,"×");x.onclick=()=>{state.choices[c.id]=(state.choices[c.id]||[]).filter(v=>v!==k);render();};chip.append(x);picks.append(chip);});
-      const btn=el("button","pickbtn"+(have>=c.count?" done":" needclr"), have>=c.count?"edit":`choose ${c.count-have}`);
-      btn.onclick=()=>openPick(c); picks.append(btn); row.append(picks);
-    }
-    body.append(row);
+  // group by the entity that granted them, in first-seen order (D30)
+  const groups=[]; const byId=new Map();
+  ch.forEach(c=>{const o=c.owner||{id:c.id,name:c.giver,src:c.giverSrc,kind:""};
+    let g=byId.get(o.id); if(!g){g={owner:o,items:[]};byId.set(o.id,g);groups.push(g);}
+    g.items.push(c);});
+  groups.forEach(g=>{
+    if(g.items.length>1){
+      const box=el("div","choicegroup");
+      const h=el("div","cghead");
+      h.append(el("b",null,g.owner.name));
+      if(g.owner.src)h.append(Object.assign(el("span","csrc"),{textContent:g.owner.src,title:bookName(g.owner.src)}));
+      if(g.owner.kind)h.append(el("span","ccat",g.owner.kind));
+      h.append(el("span","cgn",`${g.items.length} choices`));
+      box.append(h);
+      g.items.forEach(c=>box.append(choiceRow(c,true)));
+      body.append(box);
+    } else body.append(choiceRow(g.items[0],false));
   });
+}
+// one choice. `inGroup` drops the giver name (the group header already carries it) and
+// keeps only what this row is actually asking for.
+function choiceRow(c,inGroup){
+  const row=el("div","choicerow"+(inGroup?" ingroup":""));
+  const head=()=>{const h=document.createDocumentFragment();
+    if(!inGroup){
+      h.append(Object.assign(el("b"),{textContent:c.giver}));
+      if(c.giverSrc)h.append(Object.assign(el("span","csrc"),{textContent:c.giverSrc,title:bookName(c.giverSrc)}));
+      const k=c.owner&&c.owner.kind; if(k)h.append(el("span","ccat",k));
+    } else if(c.giver&&c.owner&&c.giver!==c.owner.name){
+      h.append(Object.assign(el("b","sub"),{textContent:c.giver.replace(c.owner.name+" · ","")}));
+    }
+    return h;};
+  if(c.type==="option"||c.type==="ability"){
+    const isAb=c.type==="ability";
+    const cg=el("div","cg");cg.append(head());
+    cg.append(el("span","cwhat",isAb?"casting ability":"choose one"));row.append(cg);
+    const sel=el("select"); c.options.forEach(o=>sel.append(new Option(isAb?ABIL[o]||o:o,o)));
+    sel.value=c.value; sel.onchange=()=>{state.choices[c.id]=sel.value; render();}; row.append(sel);
+  } else { // pick
+    const have=(state.choices[c.id]||[]).length;
+    const cg=el("div","cg");cg.append(head());
+    const what=el("span","cwhat");what.append(document.createTextNode((fmtDesc(c.desc)||"choose")+" "));
+    what.append(el("span","need",`${have}/${c.count}`));cg.append(what);row.append(cg);
+    const picks=el("div","picks");
+    (state.choices[c.id]||[]).forEach(k=>{const sp=SPELL_BY[k];if(!sp)return;
+      const chip=el("span","cartchip");chip.append(el("span","lv",sp.level===0?"C":String(sp.level)));
+      const nm=el("span",null,sp.name);attachSpell(nm,sp);chip.append(nm);
+      const x=el("button",null,"×");x.onclick=()=>{state.choices[c.id]=(state.choices[c.id]||[]).filter(v=>v!==k);render();};
+      chip.append(x);picks.append(chip);});
+    const btn=el("button","pickbtn"+(have>=c.count?" done":" needclr"), have>=c.count?"edit":`choose ${c.count-have}`);
+    btn.onclick=()=>openPick(c); picks.append(btn); row.append(picks);
+  }
+  return row;
 }
 
 // ── spell-pick modal ───────────────────────────────────────────────────────
@@ -463,13 +503,15 @@ function openEntityPicker(kind,category){
   // one shared picker for all three feat slots: `cats` is PRESET to the slot's kind but the
   // player can widen it (a general slot may take an origin feat). Budget attribution still
   // follows the feat's own category, so widening can show origin 2/1 — deliberate, soft-flagged.
-  ENT={kind,category,slot,q:"",books:new Set(state.enabledSources),grantsOnly:false,
-       cats:new Set(kind==="species"||kind==="opt"?[]:[category==="origin"?"origin":category==="epic"?"epic":"general"])};
+  const preset=new Set(kind==="species"||kind==="opt"?[]
+    :[category==="origin"?"origin":category==="epic"?"epic":"general"]);
+  ENT={kind,category,slot,q:"",books:new Set(state.enabledSources),grantsOnly:false,hideNo:false,
+       cats:new Set(preset),presetCats:preset};
   $("#entTitle").textContent = kind==="opt"?`Choose ${slot.name.replace(/s$/,"").toLowerCase()}`
     : kind==="species"?"Choose a species / lineage"
     : category==="origin"?"Choose an origin feat" : category==="epic"?"Choose an epic boon" : "Choose a general feat";
-  $("#entSearch").value=""; $("#entGrants").checked=false;
-  $("#entBooksPanel").classList.add("hidden"); $("#entBooksBtn").setAttribute("aria-expanded","false");
+  $("#entSearch").value=""; $("#entGrants").checked=false; $("#entHideNo").checked=false;
+  $("#entMenuPop").classList.add("hidden");
   $("#entityModal").classList.remove("hidden"); renderEntityList();
 }
 // the books present in the picker's own content — the override list never offers a book
@@ -480,41 +522,56 @@ function renderEntBooks(){
   const n=renderSourceChecklist($("#entSrcList"),ENT.books,()=>{renderEntityList();},codes);
   const on=[...ENT.books].filter(c=>codes.has(c)).length;
   $("#entBooksN").textContent=`${on}/${n}`;
-  $("#entBooksBtn").classList.toggle("on",on!==n);
 }
 function renderEntityList(){
   if(!ENT)return;
   const list=$("#entList"); list.innerHTML="";
-  $("#entCatRow").classList.toggle("hidden",ENT.kind!=="feat");
-  if(ENT.kind==="feat"){
-    const cats=charLevel()>=19?FEAT_CATS:FEAT_CATS.filter(([v])=>v!=="epic");
-    buildToggleRow($("#entCats"),cats,ENT.cats,false,()=>renderEntityList());
-  }
-  let items=entItems(ENT.books);
+  // feat kind: epic boon is always offered, just not preselected below level 19 (D31)
+  $("#entCatHead").classList.toggle("hidden",ENT.kind!=="feat");
+  $("#entCats").classList.toggle("hidden",ENT.kind!=="feat");
+  if(ENT.kind==="feat")buildToggleRow($("#entCats"),FEAT_CATS,ENT.cats,false,()=>renderEntityList());
   renderEntBooks();
+  renderEntBudget();
   const q=ENT.q.toLowerCase();
-  items=items.filter(i=>(!q||i.name.toLowerCase().includes(q))&&(!ENT.grantsOnly||grantsAny(i.grants)));
-  items.sort((a,b)=>a.name.localeCompare(b.name)||a.source.localeCompare(b.source));
-  $("#entSub").textContent=`${items.length} ${ENT.kind==="opt"?"options":ENT.kind==="species"?"species":"feats"} · ✦ grants spells`
-    +(ENT.kind==="opt"?` · ${state.optFeats.filter(k=>{const o=OPT_BY[k];return o&&o.types.some(t=>ENT.slot.types.includes(t));}).length}/${ENT.slot.cap} taken`:"")
+  let items=entItems(ENT.books)
+    .filter(i=>(!q||i.name.toLowerCase().includes(q))&&(!ENT.grantsOnly||grantsAny(i.grants)));
+  // eligible first, then the ones whose prerequisites you don't meet, dimmed at the bottom
+  const rank=it=>{const p=prereqState(it);return p.state==="no"?1:0;};
+  items.sort((a,b)=>rank(a)-rank(b)||a.name.localeCompare(b.name)||a.source.localeCompare(b.source));
+  const blocked=items.filter(i=>rank(i)===1);
+  if(ENT.hideNo)items=items.filter(i=>rank(i)===0);
+  const noun=ENT.kind==="opt"?"options":ENT.kind==="species"?"species":"feats";
+  $("#entSub").textContent=`${items.length} ${noun} · ✦ grants spells`
+    +(blocked.length&&!ENT.hideNo?` · ${blocked.length} need something you don’t have`:"")
     +(ENT.note?` · ${ENT.note}`:"");
+  const nf=[ENT.grantsOnly,ENT.hideNo,!sameSet(ENT.books,state.enabledSources)].filter(Boolean).length
+    +(ENT.kind==="feat"&&!sameSet(ENT.cats,ENT.presetCats)?1:0);
+  $("#entFiltN").textContent=nf?String(nf):"";
+  $("#entMenuBtn").classList.toggle("on",!!nf);
   const curSel = ENT.kind==="species"?state.speciesKey:null;
   if(!items.length){list.append(el("div","empty","Nothing matches those filters."));return;}
+  let sepDone=false;
   items.slice(0,400).forEach(it=>{const k=key(it.name,it.source);
+    const pr=prereqState(it);
+    if(pr.state==="no"&&!sepDone){sepDone=true;
+      list.append(el("div","entsep","Below: prerequisites you don’t meet yet"));}
     const on = ENT.kind==="species"?curSel===k:ENT.kind==="opt"?state.optFeats.includes(k):state.feats.includes(k);
-    const row=el("div","entrow"+(on?" on":""));
+    const row=el("div","entrow"+(on?" on":"")+(pr.state==="no"?" blocked":""));
     const main=el("div","entmain");
     const nm=el("div","entname");nm.append(document.createTextNode(it.name));
     if(it.source!==CORE)nm.append(Object.assign(el("span","entsrc"),{textContent:it.source,title:bookName(it.source)}));
     if(ENT.kind==="feat"){const c=featCat(it);
-      if(c!==(ENT.category==="origin"?"origin":ENT.category==="epic"?"epic":"general"))
-        nm.append(Object.assign(el("span","entcat"),{textContent:c}));}
+      if(!ENT.presetCats.has(c))nm.append(Object.assign(el("span","entcat"),{textContent:c}));}
     if(grantsAny(it.grants))nm.append(Object.assign(el("span","fmark"),{textContent:"✦"}));
+    if(pr.state==="no")nm.append(Object.assign(el("span","entwarn"),{textContent:"⚠"}));
     main.append(nm);
-    const prev=[it.prereq?"needs "+it.prereq:"",grantPreview(it.grants)].filter(Boolean).join(" · ");
-    if(prev)main.append(Object.assign(el("div","entprev"),{textContent:prev,title:prev}));
+    // a satisfied prerequisite is noise — only surface what's missing or unverifiable
+    const need=!it.prereq||pr.state==="ok"?"":(pr.state==="no"?"needs ":"check ")+it.prereq;
+    const prev=[need,grantPreview(it.grants)].filter(Boolean).join(" · ");
+    if(prev){const d=Object.assign(el("div","entprev"+(pr.state==="no"?" bad":"")),{textContent:prev,title:prev});main.append(d);}
     row.append(main);
     const btn=el("button","tk"+(on?" on":""), on?"✓ selected":"select");
+    if(pr.state==="no")btn.title="You don’t meet its prerequisites — you can still take it.";
     btn.onclick=()=>{
       // a local override can reveal a book the global selection has off; committing a pick
       // from it enables that book globally, otherwise afterSourceChange would prune the pick
@@ -525,6 +582,27 @@ function renderEntityList(){
       save();refreshAll();render();renderEntityList(); };
     row.append(btn); list.append(row);
   });
+}
+const sameSet=(a,b)=>!!a&&!!b&&a.size===b.size&&[...a].every(x=>b.has(x));
+// what the picker owes you at this level: the feat budget, or the slot's own count
+function renderEntBudget(){
+  const box=$("#entBudget");if(!box)return;
+  if(ENT.kind==="species"){box.classList.add("hidden");return;}
+  box.classList.remove("hidden");box.innerHTML="";
+  if(ENT.kind==="opt"){
+    const have=state.optFeats.filter(k=>{const o=OPT_BY[k];return o&&o.types.some(t=>ENT.slot.types.includes(t));}).length;
+    box.append(budgetPill(ENT.slot.name.toLowerCase(),have,ENT.slot.cap,have<ENT.slot.cap));
+    return;}
+  const b=featBudget();
+  box.append(budgetPill("origin",b.originPicked,b.origin,b.originPicked<b.origin));
+  box.append(budgetPill("general",b.generalPicked,b.general,b.generalPicked<b.general));
+  if(b.epic)box.append(budgetPill("epic boon",b.epicPicked,b.epic,b.epicPicked<b.epic));
+}
+function budgetPill(label,have,cap,owed){
+  const p=el("span","bpill"+(owed?" owed":have>cap?" over":" done"));
+  p.append(el("span","bl",label));p.append(el("span","bv",`${have}/${cap}`));
+  p.title=owed?`You still owe ${cap-have} ${label} at this level`:have>cap?`One too many ${label}`:`${label} filled`;
+  return p;
 }
 
 // ── prepare-daily modal: one step per source that re-prepares each long rest ──
@@ -737,8 +815,8 @@ const TABLE_COLS={
   conc:  {label:"Conc"},
   casts: {label:"Casts"},
   ability:{label:"Ability"},
-  build: {label:"In build"},
-  book:  {label:"Book"},
+  build: {label:"Source"},
+  book:  {label:"Book"},   // the book the spell is printed in, vs `build` = who grants it
 };
 const COL_ORDER_DEFAULT=["mark","name","save","school","time","range","comp","dur","conc","casts","ability","build","book"];
 const tableOpts={group:"level",order:[...COL_ORDER_DEFAULT],hidden:new Set()};
@@ -893,7 +971,7 @@ function cellFor(k,row){
   if(k==="school")return el("td",null,shortSchool(sp.school));
   if(k==="time")return el("td",null,shortTime(sp.time));
   if(k==="range")return el("td",null,shortRange(sp.range));
-  if(k==="comp"){const td=el("td","cmp");td.innerHTML=compCellHTML(sp);return td;}
+  if(k==="comp")return compCell(sp);
   if(k==="dur")return el("td",null,shortDuration(sp.durTxt));
   if(k==="conc")return Object.assign(el("td",sp.conc?"concmark":""),{textContent:sp.conc?"✓":"—"});
   if(k==="ability"){const td=el("td");td.innerHTML=row.ability?abChip(row.ability):"—";return td;}
@@ -909,16 +987,27 @@ function cellFor(k,row){
   if(k==="book"){const td=el("td");td.append(Object.assign(el("span","csrc"),{textContent:sp.source,title:bookName(sp.source)}));return td;}
   return el("td",null,"—");
 }
-// V S M, then the price (D29): gold when the material survives, accent + ⊗ when the
-// spell consumes it. gp is the readable unit — 5etools stores cost in copper.
-const gpOf=c=>{const gp=c/100;return (gp>=1?(Number.isInteger(gp)?gp:+gp.toFixed(2)):+(gp).toFixed(2))+"gp";};
-function compCellHTML(sp){
-  const c=sp.comp||{};
-  const l=(on,t)=>`<span class="l${on?" on":""}">${t}</span>`;
-  let out=[l(c.v,"V"),l(c.s,"S"),l(c.m,"M")].join(" ");
-  if(c.m&&c.cost)out+=` <span class="cost${c.consume?" eat":""}">${gpOf(c.cost)}${c.consume?" ⊗":""}</span>`;
-  else if(c.m&&c.consume)out+=` <span class="cost eat">⊗</span>`;
-  return out;
+// V S M as plain letters. The M carries the state: gold when the material has a price
+// you keep, accent when the spell consumes it. What the material actually IS, and what it
+// costs, lives in a popover on the M — the column stays narrow. gp is the readable unit
+// (5etools stores cost in copper).
+const gpOf=c=>{const gp=c/100;return (gp>=1?(Number.isInteger(gp)?gp:+gp.toFixed(2)):+gp.toFixed(2))+"gp";};
+function compCell(sp){
+  const c=sp.comp||{};const td=el("td","cmp");
+  [["v","V"],["s","S"]].forEach(([k,t])=>{td.append(el("span","l"+(c[k]?" on":""),t));td.append(document.createTextNode(" "));});
+  const m=el("span","l"+(c.m?" on":"")+(c.m?(c.consume?" eat":c.cost?" costly":""):""),"M");
+  if(c.m){
+    // the 5etools material text usually already states the price and whether it's consumed;
+    // only add what it doesn't say
+    const what=(c.mat||"a material component").replace(/\.\s*$/,"");
+    const saysCost=/\d\s*(?:\+\s*)?(?:gp|sp|cp|gold)/i.test(what);
+    const saysEat=/consum/i.test(what);
+    const cost=c.cost&&!saysCost?` Worth ${gpOf(c.cost)}.`:"";
+    const fate=c.consume?(saysEat?"":" The spell consumes it.")
+      :c.cost?" You keep it — one component covers every casting.":"";
+    attachTip(m,tipBlock("Material component",what+"."+cost+fate));
+  }
+  td.append(m);return td;
 }
 function switchTab(t){curTab=t;$("#tabBuild").classList.toggle("on",t==="build");$("#tabTable").classList.toggle("on",t==="table");
   $("#buildView").classList.toggle("hidden",t!=="build");$("#tableView").classList.toggle("hidden",t!=="table");
@@ -1029,7 +1118,9 @@ function renderCart(){
   });
   // granted free spells summary (from subclass/feat/species prepared grants)
   const granted=[...R.pool.values()].filter(e=>e.grants.length);
-  if(granted.length){const g=el("div","budget");const gbh=el("div","bh");gbh.append(el("span","kind daily","always prepared · free"));g.append(gbh);
+  if(granted.length){const g=el("div","budget");const gbh=el("div","bh");
+    gbh.append(el("span","nm","Always prepared"));
+    gbh.append(el("span","ml","granted — they don’t use your prepared slots"));g.append(gbh);
     const cc=el("div","cartchips");granted.sort((a,b)=>a.sp.level-b.sp.level||a.sp.name.localeCompare(b.sp.name)).forEach(e=>{
       const chip=el("span","cartchip gr");chip.append(el("span","lv",e.sp.level===0?"C":ROMAN[e.sp.level].replace(/\D/g,"")));
       const nm=el("span",null,e.sp.name);attachSpell(nm,e.sp);chip.append(nm);cc.append(chip);});
@@ -1117,7 +1208,8 @@ function mkEmpty(){const e=el("div","empty");
 const SPTIP=el("div","sptip");document.body.appendChild(SPTIP);
 const SPMODAL=el("div","spmodal hidden");document.body.appendChild(SPMODAL);
 SPMODAL.onclick=e=>{if(e.target===SPMODAL||e.target.classList.contains("x"))SPMODAL.classList.add("hidden");};
-document.addEventListener("keydown",e=>{if(e.key==="Escape")SPMODAL.classList.add("hidden");});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){SPMODAL.classList.add("hidden");hideTip();}});
+document.addEventListener("click",()=>hideTip(),true);   // a tap elsewhere dismisses a tapped tip
 function esc(s){return (s||"").replace(/[&<>]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[m]));}
 // ── spell text highlighting (monster-forge cc-* convention, read-only) ──────
 const CC_DMG=["acid","bludgeoning","cold","fire","force","lightning","necrotic","piercing","poison","psychic","radiant","slashing","thunder"];
@@ -1159,8 +1251,14 @@ function hideTip(){SPTIP.classList.remove("show");}
 // generic styled hover popover for anything that isn't a spell (markers, chips…).
 // Replaces a native `title`, which the OS renders slowly and unstyled.
 function attachTip(node,html){
-  node.onmouseenter=ev=>{SPTIP.innerHTML=html;SPTIP.classList.add("show");posTip(ev);};
-  node.onmousemove=posTip; node.onmouseleave=hideTip;}
+  const show=ev=>{SPTIP.innerHTML=html;SPTIP.classList.add("show");posTip(ev);};
+  node.onmouseenter=show; node.onmousemove=posTip; node.onmouseleave=hideTip;
+  // touch has no hover: tap to show, tap anywhere else (or Esc) to dismiss
+  node.tabIndex=0; node.onfocus=ev=>show(ev.clientX!=null?ev:tipAnchor(node));
+  node.onblur=hideTip;
+  node.onclick=ev=>{ev.stopPropagation();show(ev);};}
+// a synthetic pointer at the node, for keyboard focus where there is no cursor
+const tipAnchor=n=>{const r=n.getBoundingClientRect();return {clientX:r.left,clientY:r.bottom};};
 const tipBlock=(title,body)=>`<h4>${esc(title)}</h4><p style="margin-top:5px">${esc(body)}</p>`;
 // a description paragraph that is really a sub-heading (the extractor emits a named
 // entry's name as its own short "Title." line) — render it distinctly, not as body.
@@ -1298,6 +1396,55 @@ const isOriginFeat=f=>ORIGIN_CATS.has(f.category);
 const isFeatFS=f=>(f.category||"").startsWith("FS");
 const isEpicBoon=f=>f.category==="EB";   // gated: only via the level-19 Epic Boon feature
 const featCat=f=>isEpicBoon(f)?"epic":isOriginFeat(f)?"origin":"general";
+// ── prerequisites (D31) ────────────────────────────────────────────────────
+// 5etools stores `prerequisite` as a list of ALTERNATIVES, so one satisfied block is
+// enough. We can check level, other feats, optional features, species, spellcasting and
+// pact; ability scores, proficiencies and backgrounds we don't model, so a block carrying
+// one of those can only ever be "maybe" — never a hard no. That asymmetry is deliberate:
+// the app should never hide something the player is actually allowed to take.
+const lc=x=>String(x||"").toLowerCase();
+const classLevelOf=name=>state.classes.reduce((a,r)=>{const c=CLS_BY[r.clsKey];
+  return a+(c&&lc(c.name)===lc(name)?(r.level||0):0);},0);
+const hasCaster=()=>state.classes.some(r=>{const c=CLS_BY[r.clsKey];return c&&c.caster;});
+const pickedFeatNames=()=>state.feats.map(k=>FEAT_BY[k]).filter(Boolean).map(f=>lc(f.name));
+const pickedOptNames=()=>state.optFeats.map(k=>OPT_BY[k]).filter(Boolean).map(o=>lc(o.name));
+const pickedSpellNames=()=>{const out=new Set();
+  Object.values(state.chosen).forEach(c=>[...(c.cantrips||[]),...(c.spells||[])].forEach(k=>{
+    const sp=SPELL_BY[k];if(sp)out.add(lc(sp.name));}));
+  Object.values(state.choices).forEach(v=>(Array.isArray(v)?v:[]).forEach(k=>{
+    const sp=SPELL_BY[k];if(sp)out.add(lc(sp.name));}));
+  return out;};
+function prereqBlockState(b){
+  if(b.level!=null){
+    const lv=b.cls?classLevelOf(b.cls):charLevel();
+    if(lv<b.level)return "no";
+  }
+  if(b.feats&&b.feats.length){const have=pickedFeatNames();
+    if(!b.feats.some(n=>have.includes(lc(n))))return "no";}
+  if(b.optfeats&&b.optfeats.length){const have=pickedOptNames();
+    if(!b.optfeats.some(n=>have.includes(lc(n))))return "no";}
+  if(b.pact&&!pickedOptNames().includes(lc("Pact of the "+b.pact)))return "no";
+  if(b.races&&b.races.length){const r=RACE_BY[state.speciesKey];
+    if(!r||!b.races.some(n=>lc(r.name).includes(lc(n))))return "no";}
+  if(b.spellcasting&&!hasCaster())return "no";
+  if(b.spells&&b.spells.length){
+    // a named spell we know can be checked against the build; a prose description can't
+    const known=b.spells.filter(n=>SPELL_BY_NAME[lc(n)]);
+    if(known.length<b.spells.length)return "maybe";
+    const have=pickedSpellNames();
+    if(!known.some(n=>have.has(lc(n))))return "no";
+  }
+  return b.soft?"maybe":"ok";
+}
+// "ok" | "maybe" | "no", plus the text of what is missing
+function prereqState(ent){
+  const bs=(ent&&ent.prereqs)||[];
+  if(!bs.length)return {state:"ok",why:""};
+  let best="no";
+  for(const b of bs){const r=prereqBlockState(b); if(r==="ok")return {state:"ok",why:""};
+    if(r==="maybe")best="maybe";}
+  return {state:best,why:bs.map(b=>b.text).join(" or ")};
+}
 const FEAT_CATS=[["origin","Origin"],["general","General"],["epic","Epic boon"]];
 const charLevel=()=>state.classes.reduce((a,r)=>a+(r.level||0),0);
 function refreshAddFeat(){
@@ -1368,7 +1515,10 @@ function renderOptFeats(){
     box.append(btn);
     const chips=el("div","chips");
     sl.picked.forEach(k=>{const o=OPT_BY[k];if(!o)return;
-      const c=el("span","chip"+(grantsAny(o.grants)?" hasspell":""));
+      const pr=prereqState(o);
+      const c=el("span","chip"+(grantsAny(o.grants)?" hasspell":"")+(pr.state==="no"?" unmet":""));
+      if(pr.state==="no"){const w=el("span","warn","⚠");
+        attachTip(w,tipBlock("Prerequisite not met",`${o.name} needs ${pr.why}. Kept in the build — nothing is removed.`));c.append(w);}
       c.append(el("span",null,o.name));
       const b=el("button",null,"×");b.onclick=()=>{state.optFeats=state.optFeats.filter(x=>x!==k);save();refreshAll();render();};
       c.append(b);chips.append(c);});
@@ -1376,7 +1526,10 @@ function renderOptFeats(){
   });
 }
 function renderFeatChips(){const box=$("#featChips");box.innerHTML="";state.feats.forEach((fk,i)=>{const f=FEAT_BY[fk];if(!f)return;
-  const c=el("span","chip"+(isEpicBoon(f)?" epic":isOriginFeat(f)?" origin":"")+(grantsAny(f.grants)?" hasspell":""));
+  const pr=prereqState(f);
+  const c=el("span","chip"+(isEpicBoon(f)?" epic":isOriginFeat(f)?" origin":"")+(grantsAny(f.grants)?" hasspell":"")
+    +(pr.state==="no"?" unmet":""));
+  if(pr.state==="no"){const w=el("span","warn","⚠");attachTip(w,tipBlock("Prerequisite not met",`${f.name} needs ${pr.why}. Kept in the build — nothing is removed.`));c.append(w);}
   if(grantsAny(f.grants))c.append(Object.assign(el("span","fmark"),{textContent:"✦"}));
   c.append(el("span",null,f.name));const b=el("button",null,"×");b.onclick=()=>{state.feats.splice(i,1);renderFeatChips();render();};c.append(b);box.append(c);});
   renderFeatBudget();}
@@ -1447,8 +1600,8 @@ $("#fBooksBtn").onclick=()=>{const p=$("#fBooksPanel");const nowHidden=p.classLi
 {const F=()=>state.filters.books,q=()=>srcQuick(F(),renderSpells);
  $("#fSrcAll").onclick=()=>q().all(); $("#fSrcNone").onclick=()=>q().none(); $("#fSrc2024").onclick=()=>q().core();
  $("#fSrcReset").onclick=()=>{state.filters.books=new Set(state.enabledSources);renderSpells();};}
-$("#entBooksBtn").onclick=()=>{const p=$("#entBooksPanel"),open=p.classList.toggle("hidden");
-  $("#entBooksBtn").setAttribute("aria-expanded",String(!open));};
+$("#entMenuBtn").onclick=e=>{e.stopPropagation();toggleMenu("#entMenuPop");};
+$("#entHideNo").onchange=e=>{if(ENT){ENT.hideNo=e.target.checked;renderEntityList();}};
 {const q=()=>srcQuick(ENT.books,renderEntityList,entBookCodes());
  $("#entSrcAll").onclick=()=>q().all(); $("#entSrcNone").onclick=()=>q().none(); $("#entSrc2024").onclick=()=>q().core();
  $("#entSrcReset").onclick=()=>{ENT.books=new Set(state.enabledSources);renderEntityList();};}

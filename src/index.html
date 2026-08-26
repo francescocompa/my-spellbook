@@ -160,22 +160,30 @@
   <div class="mh mh-stack">
     <div class="mh-row"><h2 id="entTitle">Choose</h2><button class="x" id="entClose">×</button></div>
     <div class="sub" id="entSub"></div>
+    <div class="pickbudget hidden" id="entBudget"></div>
   </div>
   <div class="mb">
     <div class="pickbar">
       <input type="search" id="entSearch" placeholder="filter by name…">
-      <button class="btn srctoggle" id="entBooksBtn" aria-expanded="false">Books <span class="badge" id="entBooksN"></span></button>
-      <label class="cchk entgrants"><input type="checkbox" id="entGrants"><span>grants spells</span></label>
-    </div>
-    <div class="pickbar entcats" id="entCatRow"><label class="fld">Feat kind</label><div class="cbrow" id="entCats"></div></div>
-    <div class="srcpanel hidden" id="entBooksPanel">
-      <div class="quick">
-        <button class="btn" id="entSrcAll">Enable all</button>
-        <button class="btn" id="entSrcNone">Disable all</button>
-        <button class="btn" id="entSrc2024">2024 core only</button>
-        <button class="btn" id="entSrcReset">Reset to my sources</button>
+      <div class="menu pickermenu">
+        <button class="btn iconbtn" id="entMenuBtn" title="Filters" aria-label="Filters">⋯<span class="badge" id="entFiltN"></span></button>
+        <div class="menupop hidden" id="entMenuPop">
+          <div class="mopt colhead" id="entCatHead">Feat kind</div>
+          <div class="cbrow" id="entCats"></div>
+          <div class="sep"></div>
+          <label class="mopt"><span>Only ones that grant spells</span><input type="checkbox" id="entGrants"></label>
+          <label class="mopt"><span>Hide ones I can’t take</span><input type="checkbox" id="entHideNo"></label>
+          <div class="sep"></div>
+          <div class="mopt colhead">Books <span class="badge" id="entBooksN"></span></div>
+          <div class="quick">
+            <button class="btn tiny" id="entSrcAll">All</button>
+            <button class="btn tiny" id="entSrcNone">None</button>
+            <button class="btn tiny" id="entSrc2024">2024 core</button>
+            <button class="btn tiny" id="entSrcReset">My sources</button>
+          </div>
+          <div class="srcscroll" id="entSrcList"></div>
+        </div>
       </div>
-      <div id="entSrcList"></div>
     </div>
     <div id="entList"></div>
   </div>
