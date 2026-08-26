@@ -487,6 +487,32 @@ stays out. Server sync or accounts. Sharing a build as a rendered page, or via a
   → widening is a change to `carried_monster()` / `carriedMonster()` in the two extractors and
   nowhere else. A ref to a creature outside the carried set silently doesn't resolve.
 
+- **D79 (2026-08-27) A grant may be prose-only, and a grant may modify how you cast** — two
+  gaps in 5etools' model, both fixed at the extractor. ① **Prose-only grants**: Mystic Arcanum
+  ("Choose one level 6 Warlock spell") carries `additionalSpells: null`, so there was nothing to
+  parse and the Warlock simply never got its arcana. A hand-authored `PROSE_GRANTS` table emits
+  the same shape `parse_grants()` does — Warlock's four arcana, the Cleric capstone's Wish, the
+  four Wizard school Savants, and Knowledge Domain's Mind Magic. ② **Modification notes**: a
+  feature often changes HOW you cast what it grants ("without expending a spell slot", "you
+  automatically succeed on the save") and 5etools carries that in prose only. `MOD_RE` lifts just
+  those sentences onto the grant as `note`, shown as a bordered block in the spell modal and a
+  dotted-underline popover on the table's source badge. The regex is deliberately **narrow**: the
+  first cut matched "you always have these prepared" and produced 470 notes of boilerplate for
+  something "Always prepared" already says — it is 44 now. *Rejected:* shipping each granting
+  feature's full text (most of it is not a modification).
+- **D80 (2026-08-27) Magical Secrets gets its own picker** — the off-list meter had no way to act
+  on it, so adding an off-list spell meant hunting the eligible list. "Add an off-list spell"
+  opens the spell-pick modal scoped to the lists the feature opened (the class's own list is
+  filtered OUT), mirroring the wizard's "Copy a spell into your book".
+- **D81 (2026-08-27) A creature set is filtered in the carousel, never pruned by it** — extends
+  D42 to D78's creature sets. `spellCreatures()` no longer drops forms whose book is off; the
+  carousel's own **book panel** (a ghost icon before the head's chevron) lists every book in the
+  set with its count and marks the ones off in your Sources, so you can tick them in locally.
+  This is what "Find Familiar is missing most base MM25 options" turned out to be — all 24 XMM
+  CR 0 beasts were in the data, XMM was simply switched off. The carousel's controls also moved
+  BELOW the block: you read the creature, then step. *Rejected:* the `<select>` book filter it
+  replaces (it sat in the head and could only narrow to one book at a time).
+
 ### Settled — recorded so they aren't re-proposed
 Headline + rejected options only; reasoning → `ARCHIVE.md#rationale`.
 - **D7** Source counts in chips — per-source `n/cap` on take chips, red over forecast.
@@ -579,6 +605,18 @@ Headline + rejected options only; reasoning → `ARCHIVE.md#rationale`.
 - [ ] **Custom sources UI redesign** — Francesco: "still a UI mess, let's do a dedicated back and
   forth design session". The MODEL (D55/D65) stands; this is the surface. It is the **next
   action**, ahead of T7.
+- [ ] **Polymorph / Shapechange / True Polymorph as creature sets** — Francesco: "technically a
+  spell with multiple stat block options, but perhaps it would require full monster catalogue".
+  Correct: their filters are open-ended (any Beast of CR ≤ your level, any creature of CR ≤ …),
+  which is the whole bestiary — 4,458 monsters. D78's carried set is 65. Out of scope until
+  there is a reason to ship the catalogue; a CR-capped subset would still be hundreds.
+  ⚑ (owner: Francesco, 2026-08-27)
+- [ ] **Free-cast modifications that are not grants** — D79's notes only reach spells a feature
+  GRANTS. A dozen 2024 features let you cast a spell you already have for free (Paladin's Smite,
+  Ranger's Favored Enemy, Bard/Glamour's Mantle of Majesty, Druid/Stars' Star Map,
+  Warlock/Archfey's Steps of the Fey and Bewitching Magic, Wizard/Diviner's The Third Eye,
+  Wizard/Illusionist's Phantasmal Creatures, Cleric's Divine Intervention). They are listed in
+  the sweep below and would need the same note attached to a spell the build merely knows.
 - [ ] **Detect a real long-rest spell swap in the extractors** — D73's Granted tab lists every
   `kind:"known"` pick because the digest has no flag for "you may replace this on a long rest".
   The 2024 lineages say it in prose ("Whenever you finish a Long Rest, you can replace that
@@ -730,6 +768,16 @@ Headline + rejected options only; reasoning → `ARCHIVE.md#rationale`.
   used to render entirely red, because `.tk.over` follows `.tk.on` at equal specificity — which
   is why selection "sometimes didn't highlight". Selection owns the **border and the icon**;
   `.over` owns the text. `.tk.on.over` restates the green border after both.
+- **Two extractor tables are hand-authored and must stay in lockstep (D79):** `PROSE_GRANTS`
+  (features that grant spells in prose with no `additionalSpells` — Mystic Arcanum and friends)
+  and `MOD_RE` (the sentences that become a grant's `note`). Both exist in extract.py AND
+  extract.js; `scratchpad/gparity.js` diffs the notes and must report `diffs=0` for classes.
+  Subclasses show 2 diffs from `RHW`, a **pre-existing** walker-scope difference — extract.py's
+  `class/class-*.json` glob reads partnered content that the zip reader excludes.
+- **The audit that found these:** two sweeps over the mirror — ① features whose prose names a
+  `{@spell}` the digest doesn't grant (mostly false positives: "Spellcasting" prose lists example
+  spells), ② features with NO `additionalSpells` whose prose says "choose … spell" or "cast …
+  without expending". Sweep ② is the one that matters; rerun it after any 5etools update.
 - **A creature set is `sp.creatures` (keys) + `DATA.monsters` (blocks), never inlined (D78).**
   `spellCreatures(sp)` = the spell's own summon block, then every carried monster whose book is
   on. `carried_monster()` in extract.py and `carriedMonster()` in extract.js **must stay
@@ -777,6 +825,9 @@ Headline + rejected options only; reasoning → `ARCHIVE.md#rationale`.
   bug, level tiles de-tinted, feats back in the level prose, spellbook-not-prepared dimming,
   "Spell preparation" with a per-tab subtitle and a three-state counter, and per-version action
   menus in the build switcher. **D76–D78.**
+- v7 note batch 7 (2026-08-27) — prose-only grants and grant modification notes (D79), the
+  Magical Secrets picker (D80), the carousel's book panel and bottom controls (D81), plus a
+  two-pass audit of every XPHB class and subclass for missing spell sources. **D79–D81.**
 
 ⟳ Rename previous session → "Level preview, custom sources, build export" · **NOT APPLIED**
 (2026-08-26): the newest session in this cwd is "Character sheet UI refinements", last active

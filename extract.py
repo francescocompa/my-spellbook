@@ -469,14 +469,22 @@ def choose_filter(choose):
 def add_spell_entry(bucket, kind, at, recharge, s, feature=None, feats=None):
     """Route one spell reference into fixed (named) or picks (choose)."""
     ref = spell_ref(s)
-    if feature is None and feats is not None:
-        feature = resolve_feature(feats, at, s)
+    note = None
+    if feats is not None:
+        frec = resolve_feature_rec(feats, at, s)
+        if frec:
+            if feature is None: feature = frec["name"]
+            note = frec.get("note")
     if ref.get("choice"):
         f, c = choose_filter(s)          # pass the whole ref so count survives
-        bucket["picks"].append({"kind": kind, "atLevel": at, "recharge": recharge,
-                                "count": c, "filter": f, "desc": ref["desc"], "feature": feature})
+        e = {"kind": kind, "atLevel": at, "recharge": recharge,
+             "count": c, "filter": f, "desc": ref["desc"], "feature": feature}
+        if note: e["note"] = note
+        bucket["picks"].append(e)
     else:
-        bucket["fixed"].append({"kind": kind, "atLevel": at, "recharge": recharge, "spell": ref, "feature": feature})
+        e = {"kind": kind, "atLevel": at, "recharge": recharge, "spell": ref, "feature": feature}
+        if note: e["note"] = note
+        bucket["fixed"].append(e)
 
 CADENCE_KEYS = set(RECHARGE)   # will/daily/rest/resource -> a cadence map, not a spell list
 
@@ -591,6 +599,24 @@ def _choose_kv(s):
         if "=" in p: k, v = p.split("=", 1); kv[k.strip()] = v.strip()
     return tuple(sorted(kv.items()))
 
+# A feature often changes HOW you cast the spell it grants — "without expending a spell
+# slot", "once per Long Rest", "you automatically succeed on the save". 5etools carries
+# none of that structurally (Warlock's Contact Patron has `prepared` and nothing else), so
+# we lift the sentences that say it and hang them on the grant as a note (D79).
+# Deliberately NARROW: "you always have these spells prepared" and "it doesn't count
+# against the number you can prepare" are what "Always prepared" already means in this UI,
+# so matching them produced 470 notes of pure boilerplate. Only a change to HOW you cast
+# earns a note.
+MOD_RE = re.compile(
+    r"without expending|no spell slot|automatically succeed|"
+    r"can'?t do so|can'?t (?:cast|use) it (?:this way|in this way)|"
+    r"once you cast|twice without|as part of the same",
+    re.I)
+_SENT_RE = re.compile(r"(?<=[.!?])\s+")
+def _mod_note(txt):
+    keep = [x.strip() for x in _SENT_RE.split(txt or "") if x.strip() and MOD_RE.search(x)]
+    return rich_strip(" ".join(keep)) if keep else None
+
 def _feat_record(f):
     buf = []; _walk_text(f.get("entries"), buf); txt = " ".join(buf); low = txt.lower()
     spells = set(m.group(1).split("|")[0].strip().lower() for m in re.finditer(r"\{@spell ([^}]+)\}", txt))
@@ -603,7 +629,7 @@ def _feat_record(f):
     grants = (("spellbook" in low and "add" in low) or "always have" in low or "have the following"
               in low or bool(filters) or bool(spells) or ("spell" in (f.get("name") or "").lower()))
     return {"name": f.get("name"), "level": f.get("level"), "spells": spells,
-            "filters": filters, "grants": bool(grants)}
+            "filters": filters, "grants": bool(grants), "note": _mod_note(txt)}
 
 SUBFEAT_INDEX = {}   # (className, subclassShortName, subclassSource) -> [feature records]
 CLSFEAT_INDEX = {}   # (className, classSource) -> [feature records]
@@ -638,8 +664,8 @@ def feature_list(recs, drop_prefix=None):
     # case-insensitive, to match extract.js's localeCompare (parity is byte-for-byte)
     return sorted(out, key=lambda x: (x["level"], x["name"].lower()))
 
-def resolve_feature(feats, at, s):
-    """Name the feature that grants spell/pick `s` at level `at`, or None."""
+def resolve_feature_rec(feats, at, s):
+    """The feature record that grants spell/pick `s` at level `at`, or None."""
     if not feats: return None
     gf = [f for f in feats if f["grants"]]
     if not gf: return None
@@ -647,15 +673,19 @@ def resolve_feature(feats, at, s):
     if isinstance(s, dict) and "choose" in s:
         kv = _choose_kv(s["choose"])
         for f in same + gf:
-            if kv in f["filters"]: return f["name"]
-        if len(same) == 1: return same[0]["name"]
+            if kv in f["filters"]: return f
+        if len(same) == 1: return same[0]
     else:
         sn = (s.split("#")[0].split("|")[0].strip().lower()) if isinstance(s, str) else ""
         for f in same + gf:
-            if sn and sn in f["spells"]: return f["name"]
-        if len(same) == 1: return same[0]["name"]
-    if len(gf) == 1: return gf[0]["name"]
+            if sn and sn in f["spells"]: return f
+        if len(same) == 1: return same[0]
+    if len(gf) == 1: return gf[0]
     return None
+
+def resolve_feature(feats, at, s):
+    r = resolve_feature_rec(feats, at, s)
+    return r["name"] if r else None
 
 def parse_grants(add, feats=None):
     """Whole additionalSpells -> {fixed, picks, expansions, optionGroups}.
@@ -769,6 +799,62 @@ for f in glob.glob(os.path.join(MIRROR, "class", "class-*.json")):
             rec["static"] = (sc.get("preparedSpellsChange") == "level")
             rec["spellList"] = ["Wizard", "XPHB"]   # EK / AT use the Wizard list
         subclasses.append(rec)
+
+# ---- prose-only grants (D79) ----------------------------------------------
+# A few 2024 features grant spells in PROSE and carry no `additionalSpells` at all, so
+# there is nothing to parse: Mystic Arcanum ("Choose one level 6 Warlock spell"), the four
+# Wizard school Savants, Knowledge Domain's Mind Magic, and the Cleric capstone. They are
+# hand-authored here to exactly the shape parse_grants() emits.
+# **extract.js carries the same table — keep the two identical.**
+def _arcanum(level, spell_level):
+    return {"kind": "known", "atLevel": level, "recharge": "per long rest", "count": 1,
+            "filter": {"level": str(spell_level), "class": "Warlock"},
+            "desc": f"a level {spell_level} Warlock spell",
+            "feature": f"Mystic Arcanum (level {spell_level})",
+            "note": "You can cast it once without expending a spell slot, and must finish a "
+                    "Long Rest before casting it that way again. Whenever you gain a Warlock "
+                    "level you can replace it with another Warlock spell of the same level."}
+
+def _savant(school, name):
+    return {"kind": "prepared", "atLevel": 3, "recharge": None, "count": 2,
+            "filter": {"class": "Wizard", "school": school},
+            "desc": f"two {name} spells for your spellbook", "feature": f"{name} Savant",
+            "note": "Added to your spellbook for free when you take the subclass — they "
+                    "don't count against the book's normal growth."}
+
+PROSE_GRANTS = {
+    ("class", "Warlock", "XPHB"): {"picks": [_arcanum(11, 6), _arcanum(13, 7),
+                                             _arcanum(15, 8), _arcanum(17, 9)]},
+    ("class", "Cleric", "XPHB"): {"fixed": [
+        {"kind": "innate", "atLevel": 20, "recharge": "per long rest",
+         "spell": {"name": "Wish", "source": "XPHB"},
+         "feature": "Greater Divine Intervention",
+         "note": "Once you use this feature you can't do so again until you finish 2d4 Long Rests."}]},
+    ("subclass", "Abjurer", "XPHB"): {"picks": [_savant("A", "Abjuration")]},
+    ("subclass", "Diviner", "XPHB"): {"picks": [_savant("D", "Divination")]},
+    ("subclass", "Evoker", "XPHB"): {"picks": [_savant("V", "Evocation")]},
+    ("subclass", "Illusionist", "XPHB"): {"picks": [_savant("I", "Illusion")]},
+    ("subclass", "Knowledge", "XPHB"): {"picks": [
+        {"kind": "prepared", "atLevel": 3, "recharge": None, "count": 1,
+         "filter": {"class": "Cleric", "school": "D"},
+         "desc": "one Divination spell", "feature": "Mind Magic",
+         "note": "Always prepared, and it doesn't count against the number of spells you "
+                 "can prepare."}]},
+}
+
+def merge_prose_grants(rec, kind, ident):
+    extra = PROSE_GRANTS.get((kind, ident, rec.get("source", "")))
+    if not extra: return
+    g = rec.get("grants")
+    if not g:
+        g = {"fixed": [], "picks": [], "expansions": [], "optionGroups": [], "ability": None}
+        rec["grants"] = g
+    for k, v in extra.items():
+        g.setdefault(k, [])
+        g[k] = list(g[k]) + [dict(x) for x in v]
+
+for _c in classes: merge_prose_grants(_c, "class", _c["name"])
+for _s in subclasses: merge_prose_grants(_s, "subclass", _s.get("shortName") or _s["name"])
 
 # Prerequisites, for feats AND optional features. Each entry in `prerequisite` is an
 # alternative (OR), so we emit one record per alternative: a display string plus the

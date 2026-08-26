@@ -372,6 +372,14 @@
 .spmodal p.spttl:first-child{margin-top:0}
 /* access: collapsed = one merged scrollable row inline with the label + an expander;
    expanded = per-category rows. Both scroll horizontally, never widen the modal. */
+/* D79 — what your build changes about casting this spell: "without expending a spell
+   slot", "you automatically succeed on the save". Only shown when a grant says so. */
+.spmodal .gnote{margin-top:11px;padding:9px 12px;border-left:2px solid var(--gold);
+  background:var(--gold-soft);border-radius:0 8px 8px 0}
+.spmodal .gnote b{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.05em;
+  color:var(--gold);margin-bottom:3px}
+.spmodal .gnote p{margin:0;font-size:12.5px;line-height:1.5}
+.srcbadge.hasnote{cursor:help;text-decoration:underline dotted currentColor;text-underline-offset:2px}
 .spmodal .access{margin-top:12px;padding-top:10px;border-top:1px dashed var(--line)}
 /* a SECTION heading (Access, Stat block) is a level above the labels inside it:
    the house display face, ink, sentence case. The per-category labels below stay
@@ -415,17 +423,30 @@
   transform:translate(-50%,-50%) translateY(-2.5px) rotate(45deg)}
 .spmodal .sb-head:hover{color:var(--accent)} .spmodal .sb-head:hover .sb-caret{color:var(--accent)}
 .spmodal .sblock[data-exp="1"] .sb-caret{transform:rotate(180deg)}
-/* D78 — the creature carousel: prev / position / next, plus a book filter when the set
-   spans more than one. It lives under the head, so it folds away with the body. */
-.spmodal .sblock[data-exp="0"] .sb-nav{display:none}
-.spmodal .sb-nav{display:flex;align-items:center;gap:8px;margin-top:8px}
+/* D78 — the creature carousel. The controls sit BELOW the block: you read the creature,
+   then step to the next. The book filter is a ghost icon just before the chevron. */
+.spmodal .sblock[data-exp="0"] .sb-nav,.spmodal .sblock[data-exp="0"] .sb-bookpanel{display:none}
+.spmodal .sb-nav{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:9px}
+.spmodal .sb-books{flex:0 0 auto;width:24px;height:24px;border:none;background:none;padding:0;
+  color:var(--muted);cursor:pointer;border-radius:6px;display:flex;align-items:center;justify-content:center}
+.spmodal .sb-books:hover{color:var(--accent);background:var(--panel-2)}
+.spmodal .sb-books svg{width:14px;height:14px}
+.spmodal .sb-bookpanel{margin-top:8px;padding:7px 9px;border:1px solid var(--line);
+  border-radius:9px;background:var(--panel-2);display:grid;gap:2px}
+.spmodal .sb-bk{display:flex;align-items:center;gap:8px;font-size:12px;padding:3px 2px;cursor:pointer}
+.spmodal .sb-bk input{width:auto;margin:0;accent-color:var(--accent)}
+.spmodal .sb-bkn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.spmodal .sb-bkc{flex:0 0 auto;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+/* a form from a book you have switched off is still one of the spell's forms (D42) */
+.spmodal .sb-bk.off .sb-bkn{color:var(--muted)}
+.spmodal .sb-bkoff{flex:0 0 auto;font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;
+  color:var(--gold)}
 .spmodal .sb-prev,.spmodal .sb-next{width:26px;height:26px;flex:0 0 auto;border:1px solid var(--line-strong);
   background:var(--panel);color:var(--muted);border-radius:7px;cursor:pointer;font:inherit;
   font-size:15px;line-height:1;display:flex;align-items:center;justify-content:center}
 .spmodal .sb-prev:hover:not(:disabled),.spmodal .sb-next:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
 .spmodal .sb-prev:disabled,.spmodal .sb-next:disabled{opacity:.35;cursor:default}
 .spmodal .sb-pos{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;min-width:52px;text-align:center}
-.spmodal .sb-src{margin-left:auto;width:auto;max-width:190px;font-size:12px;padding:4px 26px 4px 8px}
 .spmodal .sblock[data-exp="0"] .sb-body{display:none}
 .spmodal .sb-body{margin-top:9px;padding:11px 13px;border:1px solid var(--line);
   border-radius:10px;background:var(--panel-2)}

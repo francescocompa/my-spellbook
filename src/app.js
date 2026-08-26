@@ -345,16 +345,16 @@ function resolveGrants(grants,level,tok,giver,out,sharedStat,giverSrc,owner){
   out._giver=giver; out._giverSrc=giverSrc;
   const ability=resolveAbility(grants,tok,sharedStat,out);
   // `label` (the granting feature's name, when known) is preferred over the generic giver
-  const spellOut=(rec,kind,recharge,label,extra)=>{ if(!rec)return; const src=label||giver;
-    const e=kind==="prepared"?{rec,src,recharge,ability}
-      :{name:rec.name,level:rec.level,recharge,src,ability,swappable:kind==="known"};
+  const spellOut=(rec,kind,recharge,label,extra,note)=>{ if(!rec)return; const src=label||giver;
+    const e=kind==="prepared"?{rec,src,recharge,ability,note}
+      :{name:rec.name,level:rec.level,recharge,src,ability,swappable:kind==="known",note};
     if(extra)Object.assign(e,extra);      // custom sources: own DC/attack, fixed cast level
     (kind==="prepared"?out.fixed:out.freeCasts).push(e); };
-  (grants.fixed||[]).forEach(g=>{ if((g.atLevel||0)>level)return; spellOut(grantRec(g.spell.name),g.kind,g.recharge,g.feature,g.extra); });
+  (grants.fixed||[]).forEach(g=>{ if((g.atLevel||0)>level)return; spellOut(grantRec(g.spell.name),g.kind,g.recharge,g.feature,g.extra,g.note); });
   (grants.expansions||[]).forEach(e=>{ if((e.atLevel||0)<=level)out.expansions.push(Object.assign({},e.filter,{_atLevel:e.atLevel||0})); });
   (grants.picks||[]).forEach((p,j)=>{ if((p.atLevel||0)>level)return; const id=tok+":pk"+j;
-    out.choices.push({id,count:p.count,filter:p.filter,kind:p.kind,recharge:p.recharge,giver:p.feature||giver,giverSrc,desc:p.desc,type:"pick",owner});
-    (state.choices[id]||[]).forEach(k=>spellOut(SPELL_BY[k],p.kind,p.recharge,p.feature)); });
+    out.choices.push({id,count:p.count,filter:p.filter,kind:p.kind,recharge:p.recharge,giver:p.feature||giver,giverSrc,desc:p.desc,type:"pick",owner,note:p.note});
+    (state.choices[id]||[]).forEach(k=>spellOut(SPELL_BY[k],p.kind,p.recharge,p.feature,null,p.note)); });
   (grants.optionGroups||[]).forEach((og,i)=>{ const id=tok+":og"+i; const names=og.options.map(o=>o.name);
     const sel=state.choices[id]||names[0];
     out.choices.push({id,type:"option",options:names,value:sel,giver,giverSrc,owner});
@@ -525,7 +525,7 @@ function compute(){
 
   // fixed grants become always-prepared/free picks in the pool
   const freeCasts=gout.freeCasts;
-  gout.fixed.forEach(g=>{const e=want(g.rec);e.srcs.add(g.src);if(!e.grants.some(x=>x.src===g.src))e.grants.push({src:g.src,recharge:g.recharge,ability:g.ability});
+  gout.fixed.forEach(g=>{const e=want(g.rec);e.srcs.add(g.src);if(!e.grants.some(x=>x.src===g.src))e.grants.push({src:g.src,recharge:g.recharge,ability:g.ability,note:g.note});
     if(g.srcIdx!=null)e.always.add(g.srcIdx);});   // its own class can't re-prepare an always-prepared spell
   freeCasts.forEach(fc=>{const rec=grantRec(fc.name);if(rec){want(rec).srcs.add(fc.src);}});
   const choices=gout.choices;
@@ -719,6 +719,16 @@ function openPick(choice){ PICK={...choice,levelSet:new Set(),onlyPicked:false};
   $("#pickTitle").textContent="Choose "+choice.count+(choice.count>1?" spells":" spell");
   $("#pickSub").textContent=choice.giver+(choice.desc?" · "+fmtDesc(choice.desc):"");
   $("#pickModal").classList.remove("hidden"); renderPickList(); }
+// Magical Secrets: the same one-click add the wizard's spellbook has, scoped to the lists
+// the feature opens up rather than to a spell level (D80).
+function openOffListPick(idx){
+  const rec=R.casters.find(r=>r.idx===idx); if(!rec)return;
+  PICK={classIdx:idx,maxLevel:rec.maxLvl,offList:true,levelSet:new Set(),onlyPicked:false};
+  $("#pickSearch").value="";
+  $("#pickTitle").textContent=classLabel(rec)+" — Magical Secrets";
+  const c=R.cart[idx];
+  $("#pickSub").textContent=`spells from other lists · ${(c.ms&&c.ms.offCount)||0} of ${(c.ms&&c.ms.cap)||0} used`;
+  $("#pickModal").classList.remove("hidden"); renderPickList(); }
 // prepare-by-level: click a level tile → prepare from that class's eligible spells (levels 1..maxLevel)
 function openLevelPick(idx,maxLevel){ const rec=R.casters.find(r=>r.idx===idx); if(!rec)return;
   PICK={classIdx:idx,maxLevel,levelSet:new Set(),onlyPicked:false}; $("#pickSearch").value="";
@@ -731,6 +741,10 @@ function renderPickList(){
   let base = isClass
     ? [...R.pool.values()].filter(e=>e.takers.some(t=>t.idx===PICK.classIdx)&&!(e.always&&e.always.has(PICK.classIdx))&&e.sp.level>=1&&e.sp.level<=PICK.maxLevel).map(e=>e.sp)
     : filterSpells(PICK.filter);
+  // Magical Secrets draws from the OTHER lists the feature opened, not the class's own
+  if(PICK.offList){const rec=R.casters.find(r=>r.idx===PICK.classIdx);
+    const own=rec?rec.listClass[0].toLowerCase():"";
+    base=base.filter(sp=>!sp.cls.some(([cn,cs])=>cn.toLowerCase()===own&&srcOn(cs)));}
   // quick level filters (present levels only)
   const presentLevels=[...new Set(base.map(s=>s.level))].sort((a,b)=>a-b);
   const lvBox=$("#pickLevels");
@@ -1874,11 +1888,11 @@ function renderTable(){
   });
   // always-prepared (free) grants
   [...R.pool.values()].filter(e=>e.grants.length).forEach(e=>{const g=e.grants[0];
-    push({sp:e.sp,src:srcTidy(g.src),type:"free",ability:g.ability,recharge:null,sel:true});});
+    push({sp:e.sp,src:srcTidy(g.src),type:"free",ability:g.ability,recharge:null,sel:true,note:g.note});});
   // innate / free casts
   R.freeCasts.forEach(fc=>{if(fc.choice)return;const sp=grantRec(fc.name);if(sp)
     push({sp,src:srcTidy(fc.src),type:fc.swappable?"swap":"cast",ability:fc.ability,
-      recharge:fc.recharge,sel:true,dc:fc.dc,atk:fc.atk,castLv:fc.castLv});});
+      recharge:fc.recharge,sel:true,dc:fc.dc,atk:fc.atk,castLv:fc.castLv,note:fc.note});});
 
   const tbl=$("#spellTable");tbl.innerHTML="";
   $("#tableChip").textContent=rows.length?rows.length+" spells":"";
@@ -2002,7 +2016,10 @@ function cellFor(k,row){
       td.classList.add("hasast");td.onclick=()=>{td.firstChild.textContent=lab+" (also with your spell slots)";td.classList.remove("hasast");};
     } else td.textContent=lab;
     return td;}
-  if(k==="build"){const td=el("td");td.append(el("span","srcbadge"+(type==="free"?" free":type==="cast"?" cast":""),src));return td;}
+  if(k==="build"){const td=el("td");
+    const b=el("span","srcbadge"+(type==="free"?" free":type==="cast"?" cast":""),src);
+    if(row.note){b.classList.add("hasnote");attachTip(b,tipBlock(src,row.note));}
+    td.append(b);return td;}
   if(k==="book"){const td=el("td");td.append(bookChip(sp.source,sp.page));return td;}
   return el("td",null,"—");
 }
@@ -2304,6 +2321,10 @@ function renderCart(){
       b.append(meter(kn?"Known":"Prepared",c.spells.length,kn?kn.total:r.prepared));
     }
     if(c.ms){b.append(meter("Off-list",c.ms.offCount,c.ms.cap));
+      const msb=el("button","btn lbl-ico");msb.append(icoEl("plus"),document.createTextNode("Add an off-list spell"));
+      msb.style.cssText="margin-top:8px;font-size:12px";
+      msb.title="Magical Secrets: pick from the lists this feature opens up, at any level you can cast.";
+      msb.onclick=()=>openOffListPick(r.idx);b.append(msb);
       const sn=el("div","note");sn.style.margin="2px 0 0";
       sn.innerHTML=`Magical Secrets: up to <b style="color:var(--ink)">${c.ms.cap}</b> of your prepared spells may come from other lists (from L${c.ms.onset} on: new picks + retrains).`
         +(c.ms.weighs?` An off-list spell can only have been taken from L${c.ms.onset} on, so the low-level ones you hold have already spent <b style="color:var(--accent)">${c.ms.weighs}</b> of the picks that would otherwise reach your top spell levels — the tiles above are narrowed to match.`:"");b.append(sn);}
@@ -2588,9 +2609,11 @@ const AB_ORDER=["str","dex","con","int","wis","cha"];
 // Every stat block a spell can print: its own summon first, then the creature SET it
 // names or filters for (D78). More than one and the section becomes a carousel with a
 // source filter — Find Familiar alone reaches 65 forms across a dozen books.
+// Flag, don't prune (D42): a form from a book you have switched off is still one of the
+// spell's forms — it is filtered in the carousel's own book panel, not deleted here.
 function spellCreatures(sp){
   const out=sp.statblock?[sp.statblock]:[];
-  (sp.creatures||[]).forEach(k=>{const m=(DATA.monsters||{})[k]; if(m&&srcOn(m.source))out.push(m);});
+  (sp.creatures||[]).forEach(k=>{const m=(DATA.monsters||{})[k]; if(m)out.push(m);});
   return out;}
 // the body of ONE stat block — the carousel repaints just this when you step
 function sbBodyHTML(b){
@@ -2633,19 +2656,37 @@ function statblockHTML(sp){
   // only the FIRST frame is built as markup; stepping repaints the body in place, which
   // keeps the modal cheap when a spell reaches 65 forms
   const srcs=[...new Set(all.map(x=>x.source).filter(Boolean))].sort();
+  // the book panel is opened from a ghost icon that sits just before the chevron, so the
+  // head stays a title rather than a control strip
+  const booksBtn=(all.length<2||srcs.length<2)?"":
+    `<button class="sb-books ico" type="button" title="Which books these forms come from" aria-label="Filter by book">${ICONS.book}</button>`;
+  const panel=(all.length<2||srcs.length<2)?"":`<div class="sb-bookpanel hidden">`
+    +srcs.map(x=>{const n=all.filter(y=>y.source===x).length;
+      return `<label class="sb-bk${srcOn(x)?"":" off"}"><input type="checkbox" data-src="${esc(x)}"${srcOn(x)?" checked":""}>`
+        +`<span class="sb-bkn">${esc(bookName(x))}</span><span class="sb-bkc">${n}</span>`
+        +(srcOn(x)?"":`<span class="sb-bkoff">off in your sources</span>`)+`</label>`;}).join("")
+    +`</div>`;
+  // controls sit BELOW the block: you read the creature, then step to the next one
   const nav=all.length<2?"":`<div class="sb-nav">`
     +`<button class="sb-prev" type="button" aria-label="Previous creature">‹</button>`
     +`<span class="sb-pos">1 / ${all.length}</span>`
-    +`<button class="sb-next" type="button" aria-label="Next creature">›</button>`
-    +(srcs.length>1?`<select class="sb-src" aria-label="Filter by book"><option value="">all books</option>`
-       +srcs.map(x=>`<option value="${esc(x)}">${esc(bookName(x))}</option>`).join("")+`</select>`:"")
-    +`</div>`;
+    +`<button class="sb-next" type="button" aria-label="Next creature">›</button></div>`;
   return `<div class="sblock" data-exp="0" data-i="0">`
     +`<button class="sb-head" type="button" aria-expanded="false">`
       +`<span class="secttl">${esc(b.name)}</span>`
-      +`<span class="sb-who">stat block${all.length>1?` · ${all.length} forms`:""}</span><span class="sb-caret"></span></button>`
-    +nav
-    +`<div class="sb-body">${sbBodyHTML(b)}</div></div>`;}
+      +`<span class="sb-who">stat block${all.length>1?` · ${all.length} forms`:""}</span>`
+      +booksBtn+`<span class="sb-caret"></span></button>`
+    +panel
+    +`<div class="sb-body">${sbBodyHTML(b)}</div>`+nav+`</div>`;}
+// What this BUILD changes about casting a granted spell — "without expending a spell
+// slot", "you automatically succeed on the save" (D79). Empty for a spell you simply know.
+function grantNotes(sp){
+  if(!R)return [];
+  const k=key(sp.name,sp.source), out=[], seen=new Set();
+  const add=(src,note)=>{if(!note)return;const kk=src+"|"+note;if(seen.has(kk))return;seen.add(kk);out.push({src,note});};
+  const e=R.pool&&R.pool.get(k); if(e)(e.grants||[]).forEach(g=>add(g.src,g.note));
+  (R.freeCasts||[]).forEach(fc=>{if(fc.name===sp.name)add(fc.src,fc.note);});
+  return out;}
 function modalHTML(sp){
   // the subtitle already reads "3rd-level Evocation" / "Evocation cantrip", so Level and
   // School as their own rows were the top of the grid saying nothing twice (D49, widened
@@ -2659,6 +2700,7 @@ function modalHTML(sp){
     +`<div class="grid">${grid.map(([k,v])=>`<b>${k}</b><span>${v}</span>`).join("")}</div>`
     +(sp.desc||[]).map(descP).join("")
     +((sp.higher||[]).length?`<div class="hl">${sp.higher.map(descP).join("")}</div>`:"")
+    +grantNotes(sp).map(n=>`<div class="gnote"><b>${esc(n.src)}</b><p>${ccText(n.note)}</p></div>`).join("")
     +statblockHTML(sp)+accessHTML(sp)+`</div></div>`;}
 function openSpellModal(sp){hideTip();SPMODAL.innerHTML=modalHTML(sp);
   const at=SPMODAL.querySelector(".acc-toggle");
@@ -2679,8 +2721,13 @@ function openSpellModal(sp){hideTip();SPMODAL.innerHTML=modalHTML(sp);
 function wireCreatureNav(sp){
   const wrap=SPMODAL.querySelector(".sblock"); if(!wrap)return;
   const nav=wrap.querySelector(".sb-nav"); if(!nav)return;
-  const all=spellCreatures(sp); const sel=nav.querySelector(".sb-src");
-  const shown=()=>{const f=sel&&sel.value; return f?all.filter(x=>x.source===f):all;};
+  const all=spellCreatures(sp);
+  const panel=wrap.querySelector(".sb-bookpanel");
+  const boxes=panel?[...panel.querySelectorAll("input[data-src]")]:[];
+  const shown=()=>{ if(!boxes.length)return all;
+    const on=new Set(boxes.filter(b=>b.checked).map(b=>b.dataset.src));
+    const list=all.filter(x=>on.has(x.source));
+    return list.length?list:all; };
   const paint=()=>{
     const list=shown(); if(!list.length)return;
     let i=Math.max(0,Math.min(+wrap.dataset.i||0,list.length-1)); wrap.dataset.i=String(i);
@@ -2696,8 +2743,14 @@ function wireCreatureNav(sp){
     wrap.dataset.i=String(((+wrap.dataset.i||0)+d+list.length)%list.length); paint();};
   nav.querySelector(".sb-prev").onclick=e=>{e.stopPropagation();step(-1);};
   nav.querySelector(".sb-next").onclick=e=>{e.stopPropagation();step(1);};
-  if(sel)sel.onchange=e=>{e.stopPropagation();wrap.dataset.i="0";paint();};
   nav.onclick=e=>e.stopPropagation();
+  const btn=wrap.querySelector(".sb-books");
+  if(btn){btn.onclick=e=>{e.stopPropagation();panel.classList.toggle("hidden");
+    if(wrap.dataset.exp!=="1"){wrap.dataset.exp="1";
+      const h=wrap.querySelector(".sb-head");if(h)h.setAttribute("aria-expanded","true");}};}
+  if(panel){panel.onclick=e=>e.stopPropagation();
+    boxes.forEach(b=>{b.onchange=()=>{wrap.dataset.i="0";paint();};});}
+  paint();
 }
 function attachSpell(elm,sp){elm.classList.add("nmlink");
   elm.addEventListener("mouseenter",e=>showTip(sp,e));elm.addEventListener("mousemove",posTip);

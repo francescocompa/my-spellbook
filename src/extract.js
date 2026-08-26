@@ -96,29 +96,72 @@ function walkText(e,out){ if(typeof e==="string")out.push(e);
 function chooseKv(s){ if(s&&typeof s==="object")s=s.choose!=null?s.choose:"";
   const kv=[]; String(s).split("|").forEach(p=>{const i=p.indexOf("=");if(i>=0)kv.push([p.slice(0,i).trim(),p.slice(i+1).trim()]);});
   return kv.sort((a,b)=>a[0]<b[0]?-1:1).map(x=>x[0]+"="+x[1]).join("|"); }
+// D79 — a feature often changes HOW you cast the spell it grants ("without expending a
+// spell slot", "you automatically succeed on the save"). 5etools carries none of that
+// structurally, so the sentences that say it become a note on the grant. Deliberately
+// NARROW: "you always have these prepared" is what "Always prepared" already means here.
+// **Keep identical to extract.py's MOD_RE.**
+const MOD_RE=/without expending|no spell slot|automatically succeed|can'?t do so|can'?t (?:cast|use) it (?:this way|in this way)|once you cast|twice without|as part of the same/i;
+function modNote(txt){
+  const keep=String(txt||"").split(/(?<=[.!?])\s+/).map(x=>x.trim()).filter(x=>x&&MOD_RE.test(x));
+  return keep.length?richStrip(keep.join(" ")):null;}
 function featRecord(f){ const buf=[]; walkText(f.entries,buf); const txt=buf.join(" "),low=txt.toLowerCase();
   const spells=new Set(); let m; const rs=/\{@spell ([^}]+)\}/g; while((m=rs.exec(txt)))spells.add(m[1].split("|")[0].trim().toLowerCase());
   const filters=new Set(); const rf=/\{@filter [^|}]*\|([^}]+)\}/g;
   while((m=rf.exec(txt))){const kv=[];m[1].split("|").forEach(p=>{const i=p.indexOf("=");if(i>=0)kv.push([p.slice(0,i).trim(),p.slice(i+1).trim()]);});
     if(kv.length)filters.add(kv.sort((a,b)=>a[0]<b[0]?-1:1).map(x=>x[0]+"="+x[1]).join("|"));}
   const grants=(low.indexOf("spellbook")>=0&&low.indexOf("add")>=0)||low.indexOf("always have")>=0||low.indexOf("have the following")>=0||filters.size>0||spells.size>0||String(f.name||"").toLowerCase().indexOf("spell")>=0;
-  return {name:f.name,level:f.level,spells,filters,grants:!!grants}; }
-function resolveFeature(feats,at,s){ if(!feats||!feats.length)return null;
+  return {name:f.name,level:f.level,spells,filters,grants:!!grants,note:modNote(txt)}; }
+function resolveFeatureRec(feats,at,s){ if(!feats||!feats.length)return null;
   const gf=feats.filter(f=>f.grants); if(!gf.length)return null;
   const same=gf.filter(f=>f.level===at);
   if(s&&typeof s==="object"&&"choose"in s){ const kv=chooseKv(s.choose);
-    for(const f of same.concat(gf)) if(f.filters.has(kv))return f.name;
-    if(same.length===1)return same[0].name;
+    for(const f of same.concat(gf)) if(f.filters.has(kv))return f;
+    if(same.length===1)return same[0];
   } else { const sn=typeof s==="string"?s.split("#")[0].split("|")[0].trim().toLowerCase():"";
-    for(const f of same.concat(gf)) if(sn&&f.spells.has(sn))return f.name;
-    if(same.length===1)return same[0].name; }
-  if(gf.length===1)return gf[0].name; return null; }
+    for(const f of same.concat(gf)) if(sn&&f.spells.has(sn))return f;
+    if(same.length===1)return same[0]; }
+  if(gf.length===1)return gf[0]; return null; }
+function resolveFeature(feats,at,s){const r=resolveFeatureRec(feats,at,s);return r?r.name:null;}
 function addSpellEntry(bucket,kind,at,recharge,s,feature,feats){
-  const ref=spellRef(s);
-  if(feature==null&&feats!=null)feature=resolveFeature(feats,at,s);
+  const ref=spellRef(s); let note=null;
+  if(feats!=null){const fr=resolveFeatureRec(feats,at,s);
+    if(fr){ if(feature==null)feature=fr.name; note=fr.note; }}
   if(ref.choice){const fc=chooseFilter(s);
-    bucket.picks.push({kind,atLevel:at,recharge,count:fc[1],filter:fc[0],desc:ref.desc,feature});}
-  else bucket.fixed.push({kind,atLevel:at,recharge,spell:ref,feature});}
+    const e={kind,atLevel:at,recharge,count:fc[1],filter:fc[0],desc:ref.desc,feature};
+    if(note)e.note=note; bucket.picks.push(e);}
+  else {const e={kind,atLevel:at,recharge,spell:ref,feature}; if(note)e.note=note; bucket.fixed.push(e);}}
+// ---- prose-only grants (D79) ---------------------------------------------
+// Features that grant spells in PROSE with no `additionalSpells` to parse. Hand-authored
+// to the shape parseGrants() emits. **Keep identical to extract.py's PROSE_GRANTS.**
+const _arcanum=(level,sl)=>({kind:"known",atLevel:level,recharge:"per long rest",count:1,
+  filter:{level:String(sl),class:"Warlock"},desc:`a level ${sl} Warlock spell`,
+  feature:`Mystic Arcanum (level ${sl})`,
+  note:"You can cast it once without expending a spell slot, and must finish a Long Rest "
+      +"before casting it that way again. Whenever you gain a Warlock level you can replace "
+      +"it with another Warlock spell of the same level."});
+const _savant=(school,name)=>({kind:"prepared",atLevel:3,recharge:null,count:2,
+  filter:{class:"Wizard",school},desc:`two ${name} spells for your spellbook`,
+  feature:`${name} Savant`,
+  note:"Added to your spellbook for free when you take the subclass — they don't count "
+      +"against the book's normal growth."});
+const PROSE_GRANTS={
+  "class|Warlock|XPHB":{picks:[_arcanum(11,6),_arcanum(13,7),_arcanum(15,8),_arcanum(17,9)]},
+  "class|Cleric|XPHB":{fixed:[{kind:"innate",atLevel:20,recharge:"per long rest",
+    spell:{name:"Wish",source:"XPHB"},feature:"Greater Divine Intervention",
+    note:"Once you use this feature you can't do so again until you finish 2d4 Long Rests."}]},
+  "subclass|Abjurer|XPHB":{picks:[_savant("A","Abjuration")]},
+  "subclass|Diviner|XPHB":{picks:[_savant("D","Divination")]},
+  "subclass|Evoker|XPHB":{picks:[_savant("V","Evocation")]},
+  "subclass|Illusionist|XPHB":{picks:[_savant("I","Illusion")]},
+  "subclass|Knowledge|XPHB":{picks:[{kind:"prepared",atLevel:3,recharge:null,count:1,
+    filter:{class:"Cleric",school:"D"},desc:"one Divination spell",feature:"Mind Magic",
+    note:"Always prepared, and it doesn't count against the number of spells you can prepare."}]},
+};
+function mergeProseGrants(rec,kind,ident){
+  const extra=PROSE_GRANTS[kind+"|"+ident+"|"+(rec.source||"")]; if(!extra)return;
+  if(!rec.grants)rec.grants={fixed:[],picks:[],expansions:[],optionGroups:[],ability:null};
+  Object.keys(extra).forEach(k=>{rec.grants[k]=(rec.grants[k]||[]).concat(extra[k].map(x=>Object.assign({},x)));});}
 const CADENCE_KEYS=new Set(Object.keys(RECHARGE));   // will/daily/rest/resource -> a cadence map, not a spell list
 function emitCadence(b,at,cadmap,feature,feats){
   // Route a {cadence: payload} innate-cast map into innate grants. Shared by the
@@ -395,7 +438,7 @@ function buildDigest(files){
         const okey=c.name+"|"+(c.source||"");
         if(ORDER_CANTRIP[okey])rec.bonusChoices.push(ORDER_CANTRIP[okey]);
         if(FS_CLASS_LEVEL[c.name]&&c.source==="XPHB")rec.grantsFightingStyle=FS_CLASS_LEVEL[c.name];
-        classes.push(rec);});
+        mergeProseGrants(rec,"class",rec.name); classes.push(rec);});
       (j.subclass||[]).forEach(sc=>{if(EXCLUDE_CLASS(sc.className||""))return;
         const rec={name:sc.name||"",shortName:sc.shortName||sc.name||"",source:sc.source||"",
         group:bgroup(sc.source||""),book:bname(sc.source||""),reprinted:reprinted(sc),page:sc.page,
@@ -407,7 +450,7 @@ function buildDigest(files){
         if(sc.casterProgression){rec.caster=sc.casterProgression;rec.ability=sc.spellcastingAbility;
           rec.cantrips=sc.cantripProgression;rec.prepared=sc.preparedSpellsProgression||sc.spellsKnownProgression;
           rec.static=(sc.preparedSpellsChange==="level");rec.spellList=["Wizard","XPHB"];}
-        subclasses.push(rec);});
+        mergeProseGrants(rec,"subclass",sc.shortName||sc.name||""); subclasses.push(rec);});
       (j.feat||[]).forEach(ft=>{const cat=ft.category||"G";const hasSpells="additionalSpells"in ft;
         feats.push({name:ft.name,source:ft.source||"",group:bgroup(ft.source||""),book:bname(ft.source||""),reprinted:reprinted(ft),page:ft.page,
           category:cat,fsClass:({"FS:R":"Ranger","FS:P":"Paladin","FS":"Fighter"})[cat]||null,hasSpells,
