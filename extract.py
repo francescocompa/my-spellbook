@@ -213,9 +213,11 @@ def choose_filter(choose):
                 k, v = part.split("=", 1); filt[k.strip()] = v.strip()
     return filt, count
 
-def add_spell_entry(bucket, kind, at, recharge, s, feature=None):
+def add_spell_entry(bucket, kind, at, recharge, s, feature=None, feats=None):
     """Route one spell reference into fixed (named) or picks (choose)."""
     ref = spell_ref(s)
+    if feature is None and feats is not None:
+        feature = resolve_feature(feats, at, s)
     if ref.get("choice"):
         f, c = choose_filter(s)          # pass the whole ref so count survives
         bucket["picks"].append({"kind": kind, "atLevel": at, "recharge": recharge,
@@ -229,26 +231,28 @@ def norm_ability(a):
     if isinstance(a, dict) and "choose" in a: return {"choose": a["choose"]}
     return None
 
-def parse_block(block):
+def parse_block(block, feats=None):
     """One additionalSpells block -> {fixed, picks, expansions, ability}.
-       block['name'] (when present) is the granting feature's name."""
+       block['name'] (when present) is the granting feature's name; otherwise each
+       grant is matched back to its feature via `feats` (resolve_feature)."""
     ft = block.get("name")
     b = {"fixed": [], "picks": [], "expansions": [], "ability": norm_ability(block.get("ability"))}
     for lvl, arr in (block.get("prepared") or {}).items():
         at = int(re.sub(r"\D", "", str(lvl)) or 0)
-        for s in arr: add_spell_entry(b, "prepared", at, "prepared (free)", s, ft)
+        for s in arr: add_spell_entry(b, "prepared", at, "prepared (free)", s, ft, feats)
     for lvl, arr in (block.get("expanded") or {}).items():
         at = SLOT_LEVEL_KEY.get(str(lvl), int(re.sub(r"\D", "", str(lvl)) or 0))
         for s in arr:
             if isinstance(s, dict) and "all" in s:          # list expansion (Magical Secrets)
                 f, _ = choose_filter({"choose": s["all"]})
-                b["expansions"].append({"atLevel": at, "filter": f, "feature": ft})
+                b["expansions"].append({"atLevel": at, "filter": f,
+                                        "feature": ft or resolve_feature(feats, at, {"choose": s["all"]})})
             else:
-                add_spell_entry(b, "prepared", at, "expanded list", s, ft)
+                add_spell_entry(b, "prepared", at, "expanded list", s, ft, feats)
     for lvl, arr in (block.get("known") or {}).items():
         at = int(re.sub(r"\D", "", str(lvl)) or 0)
         arr = arr if isinstance(arr, list) else [arr]
-        for s in arr: add_spell_entry(b, "known", at, "always known", s, ft)
+        for s in arr: add_spell_entry(b, "known", at, "always known", s, ft, feats)
     for lvlkey, cadmap in (block.get("innate") or {}).items():
         at = 0 if str(lvlkey) in ("_", "") else int(re.sub(r"\D", "", str(lvlkey)) or 0)
         if not isinstance(cadmap, dict): continue
@@ -256,31 +260,94 @@ def parse_block(block):
             base = RECHARGE.get(cadence, cadence)
             if cadence == "will" or isinstance(payload, list):
                 for s in (payload if isinstance(payload, list) else [payload]):
-                    add_spell_entry(b, "innate", at, "at will", s, ft)
+                    add_spell_entry(b, "innate", at, "at will", s, ft, feats)
             elif isinstance(payload, dict):
                 for freq, arr in payload.items():
                     n = int(re.sub(r"\D", "", str(freq)) or 1)
                     label = base if n == 1 else f"{n}× {base}"
                     for s in (arr if isinstance(arr, list) else [arr]):
-                        add_spell_entry(b, "innate", at, label, s, ft)
+                        add_spell_entry(b, "innate", at, label, s, ft, feats)
     return b
 
 # 's6'..'s9' expanded keys = "when you can cast Nth-level spells" (full caster levels)
 SLOT_LEVEL_KEY = {"s6": 11, "s7": 13, "s8": 15, "s9": 17}
 
-def parse_grants(add):
+# ---- feature-name resolution ----------------------------------------------
+# additionalSpells blocks rarely carry a `name`, but the granting FEATURE is detailed
+# in the subclass/class feature entries (e.g. Abjurer's "Abjuration Savant" holds the
+# same @filter; "Spell Breaker" names Counterspell/Dispel Magic). Index those features
+# and match each grant back to the feature that describes it, so the UI can label it.
+def _walk_text(e, out):
+    if isinstance(e, str): out.append(e)
+    elif isinstance(e, list):
+        for x in e: _walk_text(x, out)
+    elif isinstance(e, dict):
+        for k in ("entries", "entry", "items", "rows", "row"): _walk_text(e.get(k), out)
+
+def _choose_kv(s):
+    if isinstance(s, dict): s = s.get("choose", "")
+    kv = {}
+    for p in str(s).split("|"):
+        if "=" in p: k, v = p.split("=", 1); kv[k.strip()] = v.strip()
+    return tuple(sorted(kv.items()))
+
+def _feat_record(f):
+    buf = []; _walk_text(f.get("entries"), buf); txt = " ".join(buf); low = txt.lower()
+    spells = set(m.group(1).split("|")[0].strip().lower() for m in re.finditer(r"\{@spell ([^}]+)\}", txt))
+    filters = set()
+    for m in re.finditer(r"\{@filter [^|}]*\|([^}]+)\}", txt):
+        kv = {}
+        for p in m.group(1).split("|"):
+            if "=" in p: k, v = p.split("=", 1); kv[k.strip()] = v.strip()
+        if kv: filters.add(tuple(sorted(kv.items())))
+    grants = (("spellbook" in low and "add" in low) or "always have" in low or "have the following"
+              in low or bool(filters) or bool(spells) or ("spell" in (f.get("name") or "").lower()))
+    return {"name": f.get("name"), "level": f.get("level"), "spells": spells,
+            "filters": filters, "grants": bool(grants)}
+
+SUBFEAT_INDEX = {}   # (className, subclassShortName, subclassSource) -> [feature records]
+CLSFEAT_INDEX = {}   # (className, classSource) -> [feature records]
+for _f in glob.glob(os.path.join(MIRROR, "class", "class-*.json")):
+    _d = load(_f)
+    for _x in _d.get("subclassFeature", []):
+        SUBFEAT_INDEX.setdefault((_x.get("className"), _x.get("subclassShortName"),
+                                  _x.get("subclassSource")), []).append(_feat_record(_x))
+    for _x in _d.get("classFeature", []):
+        CLSFEAT_INDEX.setdefault((_x.get("className"), _x.get("classSource")), []).append(_feat_record(_x))
+
+def resolve_feature(feats, at, s):
+    """Name the feature that grants spell/pick `s` at level `at`, or None."""
+    if not feats: return None
+    gf = [f for f in feats if f["grants"]]
+    if not gf: return None
+    same = [f for f in gf if f["level"] == at]
+    if isinstance(s, dict) and "choose" in s:
+        kv = _choose_kv(s["choose"])
+        for f in same + gf:
+            if kv in f["filters"]: return f["name"]
+        if len(same) == 1: return same[0]["name"]
+    else:
+        sn = (s.split("#")[0].split("|")[0].strip().lower()) if isinstance(s, str) else ""
+        for f in same + gf:
+            if sn and sn in f["spells"]: return f["name"]
+        if len(same) == 1: return same[0]["name"]
+    if len(gf) == 1: return gf[0]["name"]
+    return None
+
+def parse_grants(add, feats=None):
     """Whole additionalSpells -> {fixed, picks, expansions, optionGroups}.
-       Named sibling blocks become one optionGroup (terrain / MI list / lineage)."""
+       Named sibling blocks become one optionGroup (terrain / MI list / lineage).
+       `feats` (granting-feature records) name grants whose block has no name."""
     out = {"fixed": [], "picks": [], "expansions": [], "optionGroups": [], "ability": None}
     named = [blk for blk in (add or []) if blk.get("name")]
     if len(named) > 1:
         out["optionGroups"].append({"options": [
-            {"name": blk["name"], **parse_block(blk)} for blk in named]})
+            {"name": blk["name"], **parse_block(blk, feats)} for blk in named]})
         rest = [blk for blk in (add or []) if not blk.get("name")]
     else:
         rest = add or []
     for blk in rest:
-        pb = parse_block(blk)
+        pb = parse_block(blk, feats)
         out["fixed"] += pb["fixed"]; out["picks"] += pb["picks"]; out["expansions"] += pb["expansions"]
         if pb["ability"] and not out["ability"]: out["ability"] = pb["ability"]
     return out
@@ -311,7 +378,8 @@ for f in glob.glob(os.path.join(MIRROR, "class", "class-*.json")):
             "prepared": prepared or known,      # the per-level count array
             "spellbook": c.get("spellsKnownProgressionFixed"),  # Wizard-style pool
             "slots": slot_table(c.get("classTableGroups")),
-            "grants": parse_grants(c.get("additionalSpells")),  # Bard Magical Secrets
+            "grants": parse_grants(c.get("additionalSpells"),   # Bard Magical Secrets
+                                    CLSFEAT_INDEX.get((c["name"], c.get("source", "")))),
             "grantsFightingStyle": None,  # filled below for FS-granting classes
             "bonusChoices": [],           # extra-cantrip order features etc.
         })
@@ -340,7 +408,9 @@ for f in glob.glob(os.path.join(MIRROR, "class", "class-*.json")):
                "book": bname(sc.get("source", "")), "reprinted": reprinted(sc),
                "srd": bool(sc.get("srd52")),
                "className": sc.get("className", ""), "classSource": sc.get("classSource", ""),
-               "grants": parse_grants(sc.get("additionalSpells"))}
+               "grants": parse_grants(sc.get("additionalSpells"),
+                          SUBFEAT_INDEX.get((sc.get("className", ""),
+                                             sc.get("shortName", sc.get("name", "")), sc.get("source", ""))))}
         if sc.get("casterProgression"):
             rec["caster"] = sc["casterProgression"]; rec["ability"] = sc.get("spellcastingAbility")
             rec["cantrips"] = sc.get("cantripProgression")

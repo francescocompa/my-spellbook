@@ -16,8 +16,15 @@
   not an error); spell modal gained an **Access** section (class/subclass/species/feat
   chips, horizontal-scroll, edition-deduped); description **sub-headings styled distinctly**;
   grant level lists render as **ranges** (0-2 not 0;1;2). All verified in-browser.
-- **Next action:** commit + push v6.2 to deploy (see Manual ②), then pick from Backlog
-  (likely **IndexedDB** for imported data — localStorage may overflow on a full import).
+  v6.3 batch (committed locally, **push pending**): **grant feature names** extracted
+  (extract.py+extract.js correlate additionalSpells → subclass/class features, 93%
+  coverage — "Abjuration Savant", "Spell Breaker", "Life Domain Spells"); spell-description
+  **sub-headings restyled** to a quiet muted label (D24, option B — the accent-uppercase
+  was too flashy); spell-modal **Access collapsed by default** to one merged scrollable row
+  + expander (D25). **Still open from this batch:** species & feats selectors → dedicated
+  filtered modals with preview (Task 4, not started).
+- **Next action:** build the species/feats picker modals (filters + preview), then push
+  v6.2+v6.3 to deploy (Manual ②).
 - **Manual for Francesco:** ① Optional — ask GitHub Support to gc so the *old*
   unreachable commits (SHA 2c8bbb6 etc., held only in `backup/pre-purge-20260826`
   locally) stop being SHA-addressable on GitHub. ② To update the live site:
@@ -127,6 +134,19 @@ Note-batch 3 (v6.1 — SRD, budget rework, zip):
   NOT in the 5etools `additionalSpells` data (only 17/925 carry one) — the giver falls back to the
   **subclass name** ("Abjurer"), which is what shows now. True feature names would need a separate
   subclassFeature-correlation pass in extract.py (deferred → Backlog).
+- **D24 (2026-08-26) Grant feature names** — extract.py/js build a feature index from each
+  class file's `subclassFeature`/`classFeature` entries and match every additionalSpells grant
+  back to the feature that describes it (same @filter, or a named @spell, else the sole
+  spell-granting feature at that level; incl. table rows). ~93% named; rest fall back to the
+  subclass name. app.js `resolveGrants.spellOut` now prefers `g.feature`/`p.feature` for the
+  src label. Closes the D23 backlog item.
+- **D24b (2026-08-26) Description sub-heading style = quiet label (option B)** — a short
+  "Title." desc line renders as `.spttl`: muted, sans, 11px/600, **sentence case** (not the
+  accent-uppercase of D22 — Francesco: "too flashy"; hierarchy was off). Body stays the primary
+  ink prose; the higher-levels block keeps its dashed-rule separation. Mockup A/B/C → B chosen.
+- **D25 (2026-08-26) Access collapsed by default** — the modal Access section shows one merged
+  horizontal-scroll row of all sources inline with the label + a ⌄ expander that reveals the
+  per-category line-up (`data-exp` toggle). Was always-expanded (D21).
 - **D19 (2026-08-26) Edition de-duplication** — `buildIndexes` builds a `SHADOWED` set:
   group every class/subclass/feat/species/spell by identity (name; subclass = className+
   shortName), keep the highest-ranked (non-reprint beats reprint, then 2024 core `EDITION_RANK`

@@ -185,14 +185,15 @@ function resolveGrants(grants,level,tok,giver,out,sharedStat,giverSrc){
   if(!grants)return;
   out._giver=giver; out._giverSrc=giverSrc;
   const ability=resolveAbility(grants,tok,sharedStat,out);
-  const spellOut=(rec,kind,recharge)=>{ if(!rec)return;
-    if(kind==="prepared")out.fixed.push({rec,src:giver,recharge,ability});
-    else out.freeCasts.push({name:rec.name,level:rec.level,recharge,src:giver,ability,swappable:kind==="known"}); };
-  (grants.fixed||[]).forEach(g=>{ if((g.atLevel||0)>level)return; spellOut(grantRec(g.spell.name),g.kind,g.recharge); });
+  // `label` (the granting feature's name, when known) is preferred over the generic giver
+  const spellOut=(rec,kind,recharge,label)=>{ if(!rec)return; const src=label||giver;
+    if(kind==="prepared")out.fixed.push({rec,src,recharge,ability});
+    else out.freeCasts.push({name:rec.name,level:rec.level,recharge,src,ability,swappable:kind==="known"}); };
+  (grants.fixed||[]).forEach(g=>{ if((g.atLevel||0)>level)return; spellOut(grantRec(g.spell.name),g.kind,g.recharge,g.feature); });
   (grants.expansions||[]).forEach(e=>{ if((e.atLevel||0)<=level)out.expansions.push(Object.assign({},e.filter,{_atLevel:e.atLevel||0})); });
   (grants.picks||[]).forEach((p,j)=>{ if((p.atLevel||0)>level)return; const id=tok+":pk"+j;
     out.choices.push({id,count:p.count,filter:p.filter,kind:p.kind,recharge:p.recharge,giver:p.feature||giver,giverSrc,desc:p.desc,type:"pick"});
-    (state.choices[id]||[]).forEach(k=>spellOut(SPELL_BY[k],p.kind,p.recharge)); });
+    (state.choices[id]||[]).forEach(k=>spellOut(SPELL_BY[k],p.kind,p.recharge,p.feature)); });
   (grants.optionGroups||[]).forEach((og,i)=>{ const id=tok+":og"+i; const names=og.options.map(o=>o.name);
     const sel=state.choices[id]||names[0];
     out.choices.push({id,type:"option",options:names,value:sel,giver,giverSrc});
@@ -958,19 +959,27 @@ function hideTip(){SPTIP.classList.remove("show");}
 const _TITLE_RE=/^[A-Z][A-Za-z0-9'’/\- ]{0,48}\.$/;
 const isDescTitle=p=>_TITLE_RE.test(p)&&p.split(/\s+/).length<=5;
 const descP=p=>isDescTitle(p)?`<p class="spttl">${esc(p.replace(/\.\s*$/,""))}</p>`:`<p>${ccText(p)}</p>`;
-// who grants access to this spell, grouped by category, each a horizontal-scroll chip row.
-// Collapse edition duplicates (prefer newest source via srcRank).
+// who grants access to this spell. Collapsed by default: a single scrollable row of all
+// sources inline with the label, an expander at the end reveals the per-category line-up.
+// Edition duplicates collapsed (prefer newest source via srcRank).
 function accessHTML(sp){
   const ded=(arr,keyf,labf,srcf)=>{const best={};(arr||[]).forEach(x=>{const k=keyf(x).toLowerCase();if(!best[k]||srcRank(srcf(x))>srcRank(srcf(best[k])))best[k]=x;});
     return Object.values(best).map(x=>({t:labf(x),src:srcf(x)})).sort((a,b)=>a.t.localeCompare(b.t));};
-  const row=(label,items)=>items.length?`<div class="acat"><span class="acl">${label}</span><div class="achips">`
-    +items.map(x=>`<span class="achip"${x.src&&x.src!==CORE?` title="${esc(bookName(x.src))}"`:""}>${esc(x.t)}</span>`).join("")+`</div></div>`:"";
-  const cls =ded(sp.cls,  x=>x[0],           x=>x[0],            x=>x[1]);
-  const sub =ded(sp.sub,  x=>x[0]+"|"+x[1],  x=>`${x[1]} · ${x[0]}`, x=>x[2]);
-  const race=ded(sp.race, x=>x[0],           x=>x[0],            x=>x[1]);
-  const feat=ded(sp.feat, x=>x[0],           x=>x[0],            x=>x[1]);
-  const inner=row("Classes",cls)+row("Subclasses",sub)+row("Species",race)+row("Feats",feat);
-  return inner?`<div class="access"><div class="accessh">Access</div>${inner}</div>`:"";}
+  const chip=(x,k)=>`<span class="achip ${k}"${x.src&&x.src!==CORE?` title="${esc(bookName(x.src))}"`:""}>${esc(x.t)}</span>`;
+  const cats=[
+    ["Classes",   ded(sp.cls,  x=>x[0],          x=>x[0],               x=>x[1]), "cls"],
+    ["Subclasses",ded(sp.sub,  x=>x[0]+"|"+x[1], x=>`${x[1]} · ${x[0]}`, x=>x[2]), "sub"],
+    ["Species",   ded(sp.race, x=>x[0],          x=>x[0],               x=>x[1]), "race"],
+    ["Feats",     ded(sp.feat, x=>x[0],          x=>x[0],               x=>x[1]), "feat"],
+  ].filter(c=>c[1].length);
+  if(!cats.length)return "";
+  const merged=[].concat(...cats.map(([,items,k])=>items.map(x=>chip(x,k)))).join("");
+  const rows=cats.map(([label,items,k])=>`<div class="acat"><span class="acl">${label}</span><div class="achips">${items.map(x=>chip(x,k)).join("")}</div></div>`).join("");
+  return `<div class="access" data-exp="0">`
+    +`<div class="acc-row"><span class="accessh">Access</span>`
+    +`<div class="achips acc-merged">${merged}</div>`
+    +`<button class="acc-toggle" type="button" title="Show by category" aria-label="Show by category">⌄</button></div>`
+    +`<div class="acc-cats">${rows}</div></div>`;}
 function modalHTML(sp){
   const grid=[["Level",sp.level===0?"Cantrip":ROMAN[sp.level]],["School",sp.school],["Casting time",sp.time],
     ["Range",sp.range],["Components",compText(sp)],["Duration",(sp.conc?"Concentration, up to ":"")+sp.durTxt]];
@@ -981,6 +990,8 @@ function modalHTML(sp){
     +((sp.higher||[]).length?`<div class="hl">${sp.higher.map(descP).join("")}</div>`:"")
     +accessHTML(sp)+`</div></div>`;}
 function openSpellModal(sp){hideTip();SPMODAL.innerHTML=modalHTML(sp);
+  const at=SPMODAL.querySelector(".acc-toggle");
+  if(at)at.onclick=()=>{const a=at.closest(".access");a.dataset.exp=a.dataset.exp==="1"?"0":"1";};
   if(sp.source===HB_SRC){const mb=SPMODAL.querySelector(".mb");if(mb){const row=el("div","hbtools");
     row.append(el("span","hbtag","Homebrew"));const sp2=el("span");sp2.style.flex="1";row.append(sp2);
     const e=el("button","btn","Edit");e.onclick=()=>{SPMODAL.classList.add("hidden");openCustom(customFromSpell(sp),true);};
