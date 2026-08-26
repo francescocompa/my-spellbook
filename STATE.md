@@ -2,35 +2,25 @@
 
 > Resume doc. One current-state block, edited in place. History → git log.
 
-## TL;DR (2026-08-26 · commit cbf150d + uncommitted v6.2 fixes · **LIVE on GitHub Pages**)
-- **State:** working. v6.1 (SRD embed, importer, custom spells, Pages) **plus**
-  two uncommitted fixes this session (v6.2, in `src/` + rebuilt `dist`/`docs`, **not
-  yet committed/pushed**): ① **per-spell-level caps reconnected** for known/level-swap
-  casters — an L8 Bard now shows IV 0/4, III 0/9, II/I 0/12 (was a flat 0/12 on every
-  tile); daily preparers stay free. ② **edition de-duplication** — same-named classes/
-  subclasses/feats/species/spells collapse to the newest edition (2024 XPHB wins), so
-  pickers no longer list Bard/Lore/Life twice; "show all editions" via the reprint→all
-  filter is the escape hatch. Both verified in-browser (L8 Bard + L8 Cleric).
-  Follow-up batch (same v6.2): **wizard spellbook** now a progressive per-level book cap
-  (fixed growth, no retrain) + a **copy-beyond-limits** option (extra shows as "copied",
-  not an error); spell modal gained an **Access** section (class/subclass/species/feat
-  chips, horizontal-scroll, edition-deduped); description **sub-headings styled distinctly**;
-  grant level lists render as **ranges** (0-2 not 0;1;2). All verified in-browser.
-  v6.3+v6.4 batch: **grant feature names** extracted (extract.py+extract.js correlate
-  additionalSpells → subclass/class features, 93% — "Abjuration Savant", "Spell Breaker",
-  "Life Domain Spells"); spell-description **sub-headings restyled** to a quiet muted label
-  (D24b, option B); spell-modal **Access collapsed by default** (D25); **species & feats
-  selectors → dedicated picker modals** with search + source filter + grants-only toggle +
-  per-row grant preview (D26). All verified in-browser.
-- **Next action:** push v6.2+v6.3+v6.4 to deploy (Manual ②). Then pick from Backlog
-  (IndexedDB for imported data). One spawned side-task: fix innate-cast parsing that emits
-  phantom "Daily"/"Rest" fixed grants (preview is guarded against it for now).
-- **Manual for Francesco:** ① Optional — ask GitHub Support to gc so the *old*
-  unreachable commits (SHA 2c8bbb6 etc., held only in `backup/pre-purge-20260826`
-  locally) stop being SHA-addressable on GitHub. ② To update the live site:
-  `python3 extract.py` (if data changed) → `python3 build.py` → commit → push
-  (Pages serves `main:/docs`). ③ `dist/`, `data/`, `data-srd.json` are gitignored
-  (local only); the public SRD data lives inlined inside the committed `docs/index.html`.
+## TL;DR (2026-08-26 · commit 575ce5c · v6.4 · **LIVE on GitHub Pages**)
+- **State:** working, committed + **deployed** (clean tree, pushed). This session shipped
+  v6.2→v6.4 on top of v6.1: per-level **budget caps** for known/level-swap casters (L8 Bard
+  IV/III/II/I = 4/9/12/12; daily preparers free); **wizard spellbook** = progressive book cap
+  + copy-beyond-limits; **edition de-dup** (same-named entities collapse to 2024, reprint→all
+  reveals older); **grant feature names** (93% — "Abjuration Savant", "Spell Breaker"); spell
+  modal **Access** section (collapsed, per-category chips); quiet **description sub-headings**;
+  grant **level ranges** (0-2); **species & feats picker modals** (filters + grant preview).
+  Decisions D18–D26. All verified in-browser.
+- **Next action:** pick from the **v6.5 backlog** (Francesco's 2026-08-26 notes — top of Backlog):
+  the shared feat picker + player-editable source-filter presets, and the spell-table column
+  rework are the biggest. Two quick bugs first (prepare-state hover popover; Thunderclap range).
+- **Manual for Francesco:** ① Optional — ask GitHub Support to gc so the *old* unreachable
+  commits (SHA 2c8bbb6 etc., held only in `backup/pre-purge-20260826` locally) stop being
+  SHA-addressable on GitHub. ② To update the live site: `python3 extract.py` (if data changed)
+  → `python3 build.py` → commit → push (Pages serves `main:/docs`). ③ `dist/`, `data/`,
+  `data-srd.json` are gitignored (local only); public SRD data is inlined in committed `docs/`.
+  ④ A background task (task_b9736375) is fixing the innate-cast parsing (phantom "Daily"/"Rest"
+  grants) in its own session — merge/branch it when it reports back.
 
 ## What this is
 Offline single-page D&D 2024 spell planner. Two builds from one source:
@@ -54,7 +44,7 @@ https://claude.ai/code/artifact/47dbe945-a18a-4444-af21-c0143faa2eb0
   `node -e "new Function(fs…app.js)"`, `node -e "new Function(fs…extract.js)"`, json load.
 - Deploy: commit + push `main`; Pages builds `main:/docs` (has `.nojekyll`).
 
-## Done (this session — v6)
+## Done — v6 / v6.1 (shipped + deployed; candidates for /clean → ARCHIVE)
 Note-batch 1 (table + choices + feats):
 - [x] Subclass "pick one" aligned under the subclass field (grid-column 2).
 - [x] Picker chips show per-source `n/cap` counts, red when over forecast (D7).
@@ -86,7 +76,7 @@ Note-batch 3 (v6.1 — SRD, budget rework, zip):
 - [x] **Empty-search custom CTA** — "Create <query> as a custom spell", prefilled.
 - [x] **🎲 random build hidden on the public build** (`window.__PUBLIC__`) (D17).
 
-## Decisions (this session)
+## Decisions (v6 → v6.4)
 - **D7 (2026-08-26) Source counts in chips** — per-source `n/cap` on the take chips
   (cantrips vs prepared/known bucket), red over forecast. *Rejected:* per-source counts in the group toolbar (too complex for multi-source).
 - **D8 (2026-08-26) Prepare-daily** — one modal step per **non-static** caster (daily +
@@ -169,14 +159,35 @@ Note-batch 3 (v6.1 — SRD, budget rework, zip):
   app hides the 🎲 random-build helper when set.
 
 ## Backlog (next sessions)
+### v6.5 — Francesco's notes (2026-08-26)
+- [ ] **Design-system polish** on the new modals — some buttons and checkmarks in the feat /
+  species picker rows still don't match the design system (the `.tk` select buttons + ✓ states).
+- [ ] **Unify the feat picker across types** — one shared picker (not three separate scopes),
+  opened with a **preset** filter per slot but the presets **editable by the player**: a general
+  feat slot may also take an **origin feat if prerequisites are met**. Filters stay **grouped**.
+- [ ] **Player-editable source-filter presets** — the source selection filtered in the pickers
+  (feat *and* spell pickers) should be editable in **settings**, and reused as the preset.
+- [ ] **Warlock invocations as choices** — invocations often grant spells or even origin feats;
+  when Warlock / Eldritch Adept / any invocation source is picked, surface those as choices to make.
+- [ ] **Spell filters: upcast + consumed components** — add filters for whether a spell **upcasts**
+  (if the data carries it) and whether it has a **material component it consumes** (vs not).
+- [ ] **Remove sidekicks** from the class options (Expert/Spellcaster/Warrior Sidekick).
+- [ ] 🐛 **Prepare-state hover popover** in the spell table isn't working — the per-marker tooltip.
+- [ ] 🐛 **Thunderclap range** shows "emanation" with no feet — missing distance in range parse/format.
+- [ ] **Spell-table column rework** — order: spell · save · school · time · range · components
+  (make **cost** explicit if present, and whether the costly component is **consumed**, via icon/
+  text style) · duration · concentration · casts · **source (in the build)** · **source (book)**.
+  Overflow-menu option to **show/hide** columns and, if feasible, **rearrange** them.
+### earlier
 - [ ] **IndexedDB** for imported data — localStorage may overflow on a full multi-book import (importer reports quota errors but can't store).
 - [ ] Importer UI polish — a "clear imported data" button, per-source enable after import, a preset-library manager (monster-forge style ticking).
 - [ ] Wizard prepare-daily: separate **prepared subset** from the spellbook/known list (partly
   addressed by D20 — book cap + copy modelled; the daily prepared *subset* pick is still flat).
-- [ ] **Grant feature names** — correlate `additionalSpells` to subclassFeatures in extract.py so
-  grants show e.g. "Abjuration Savant" instead of the subclass name (D23; only 17/925 have names now).
+- [x] ~~**Grant feature names** — correlate `additionalSpells` to subclassFeatures.~~ Done (D24, ~93%).
+- [ ] 🐛 **Innate-cast parsing** — feats' innate/at-will blocks emit phantom "Daily"/"Rest" fixed
+  grants (empty source). Preview guarded; real fix in flight (background task task_b9736375).
 - [ ] Custom-spell **manager** (list all homebrew to edit/delete without opening each).
-- [ ] Feature names for 2024 blocks (Lore's "Magical Discoveries" → subclass name fallback).
+- [x] ~~Feature names for 2024 blocks (Lore's "Magical Discoveries" → subclass name fallback).~~ Done (D24).
 - [ ] High Elf true in-table cantrip swap; Human extra-origin restricted to origin cats.
 - [x] ~~Per-source subclass de-duplication in the picker (2014 + 2024 both show).~~ Done (D19).
 
@@ -206,3 +217,5 @@ Note-batch 3 (v6.1 — SRD, budget rework, zip):
 - Cart/choices keyed by stable row id (`state.nextRowId`), never array index.
 - **History purge:** old data-bearing commits are unreachable on origin but GitHub may
   still serve them by exact SHA until it gc's. `backup/pre-purge-20260826` (local) has the original.
+
+⟳ Rename previous session → "Budget caps, wizard book, feature names, pickers"  · session: resolve by cwd + latest
