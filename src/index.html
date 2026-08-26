@@ -13,24 +13,24 @@
     <!-- v7 · T4: the active build, named and switchable without opening the manager -->
     <div class="menu buildswitch">
       <button class="bswitch" id="bswBtn" aria-haspopup="true" aria-expanded="false">
-        <span class="mi">▤</span><span class="bswchar" id="bswChar"></span><span class="bswver" id="bswVer"></span><span class="pk-caret">⌄</span>
+        <span class="mi ico" data-ico="stack"></span><span class="bswchar" id="bswChar"></span><span class="bswver" id="bswVer"></span><span class="pk-caret">⌄</span>
       </button>
       <div class="menupop bswpop hidden" id="bswPop"></div>
     </div>
     <span class="spacer"></span>
-    <button class="btn iconbtn" id="testBtn" title="Populate a random test build (local only)">🎲</button>
-    <div class="tabs"><button id="tabBuild" class="on">Build</button><button id="tabTable"><span class="full">Spell table</span><span class="short">Table</span></button></div>
+    <button class="btn iconbtn ico" id="testBtn" data-ico="dice" title="Populate a random test build (local only)" aria-label="Random test build"></button>
+    <div class="tabs"><button id="tabBuild" class="on"><span class="tl" data-t="Build">Build</span></button><button id="tabTable"><span class="tl full" data-t="Spell table">Spell table</span><span class="tl short" data-t="Table">Table</span></button></div>
     <div class="menu">
-      <button class="btn iconbtn" id="menuBtn" title="Settings" aria-label="Settings">⋯</button>
+      <button class="btn iconbtn ico" id="menuBtn" data-ico="dots" title="Settings" aria-label="Settings"></button>
       <div class="menupop hidden" id="menuPop">
-        <button id="buildsBtn"><span class="mi">▤</span>Builds…</button>
+        <button id="buildsBtn"><span class="mi ico" data-ico="stack"></span>Builds…</button>
         <div class="sep"></div>
-        <button id="customBtn"><span class="mi">✎</span>Custom spell…</button>
-        <button id="importBtn"><span class="mi">⭳</span>Import 5etools…</button>
-        <button id="sourcesBtn"><span class="mi">⚙</span>Sources…</button>
-        <button id="themeBtn"><span class="mi">◐</span>Toggle theme</button>
+        <button id="customBtn"><span class="mi ico" data-ico="pencil"></span>Custom spell…</button>
+        <button id="importBtn"><span class="mi ico" data-ico="download"></span>Import 5etools…</button>
+        <button id="sourcesBtn"><span class="mi ico" data-ico="gear"></span>Sources…</button>
+        <button id="themeBtn"><span class="mi ico" data-ico="theme"></span>Toggle theme</button>
         <div class="sep"></div>
-        <button id="resetBtn" class="danger"><span class="mi">⟲</span>Reset build</button>
+        <button id="resetBtn" class="danger"><span class="mi ico" data-ico="reset"></span>Reset build</button>
       </div>
     </div>
   </header>
@@ -56,12 +56,18 @@
           <div class="fieldset">
             <label class="fld">Feats</label>
             <!-- each slot carries its own count, in line with its field (D44) -->
-            <div class="fldrow"><button class="picksel ph" id="originBtn"><span>＋ origin feat…</span><span class="pk-caret">⌄</span></button><span class="cnt" id="originCnt"></span></div>
-            <div class="fldrow"><button class="picksel ph" id="generalBtn"><span>＋ general feat…</span><span class="pk-caret">⌄</span></button><span class="cnt" id="generalCnt"></span></div>
-            <div class="fldrow hidden" id="epicRow"><button class="picksel ph" id="epicBtn"><span>＋ epic boon…</span><span class="pk-caret">⌄</span></button><span class="cnt" id="epicCnt"></span></div>
+            <div class="fldrow"><button class="picksel ph" id="originBtn"><span class="lbl-ico"><span class="ico" data-ico="plus"></span>origin feat…</span><span class="pk-caret">⌄</span></button><span class="cnt" id="originCnt"></span></div>
+            <div class="fldrow"><button class="picksel ph" id="generalBtn"><span class="lbl-ico"><span class="ico" data-ico="plus"></span>general feat…</span><span class="pk-caret">⌄</span></button><span class="cnt" id="generalCnt"></span></div>
+            <div class="fldrow hidden" id="epicRow"><button class="picksel ph" id="epicBtn"><span class="lbl-ico"><span class="ico" data-ico="plus"></span>epic boon…</span><span class="pk-caret">⌄</span></button><span class="cnt" id="epicCnt"></span></div>
             <div class="chips" id="featChips"></div>
           </div>
           <div class="fieldset hidden" id="optFeatBlock"></div>
+          <!-- custom spell sources: magic items, boons… (D55) -->
+          <div class="fieldset">
+            <label class="fld">Spell sources <span class="fldnote">items, boons…</span></label>
+            <button class="picksel ph" id="csrcAdd"><span class="lbl-ico"><span class="ico" data-ico="plus"></span>custom source…</span></button>
+            <div class="chips" id="csrcChips"></div>
+          </div>
         </div>
       </div>
 
@@ -96,7 +102,7 @@
           <div class="filters">
             <input type="search" id="fq" placeholder="filter by name…">
             <button class="btn" id="filterBtn">Filters</button>
-            <button class="cbtn" id="fChosen">✓ picked</button>
+            <button class="cbtn lbl-ico" id="fChosen"><span class="ico" data-ico="check"></span>picked</button>
           </div>
           <div class="filterpanel hidden" id="filterPanel">
             <div class="full"><label class="fld">Level</label><div class="cbrow" id="fLevel"></div></div>
@@ -131,9 +137,9 @@
 
   <div id="tableView" class="hidden">
     <div class="card"><h2><span class="ttl">Selected spells</span> <span class="count" id="tableChip"></span>
-      <button class="btn prepbtn" id="prepDailyBtn" aria-label="Prepare daily"><span class="lbl">Prepare daily</span><span class="ico" aria-hidden="true">☾</span></button>
+      <button class="btn prepbtn" id="prepDailyBtn" aria-label="Prepare daily"><span class="lbl">Prepare daily</span><span class="ico picoi" data-ico="moon" aria-hidden="true"></span></button>
       <div class="menu tablemenu">
-        <button class="btn iconbtn" id="tMenuBtn" title="Table options" aria-label="Table options">⋯</button>
+        <button class="btn iconbtn ico" id="tMenuBtn" data-ico="dots" title="Table options" aria-label="Table options"></button>
         <div class="menupop hidden" id="tMenuPop">
           <label class="mopt">Group by
             <select id="tGroup"><option value="level">Level only</option><option value="ability">Casting ability</option><option value="source">Source</option></select></label>
@@ -157,7 +163,7 @@
 
 <div class="modal hidden" id="pickModal"><div class="box">
   <div class="mh mh-stack">
-    <div class="mh-row"><h2 id="pickTitle">Choose spells</h2><button class="x" id="pickClose">×</button></div>
+    <div class="mh-row"><h2 id="pickTitle">Choose spells</h2><button class="x ico" id="pickClose" data-ico="x" aria-label="Close"></button></div>
     <div class="sub" id="pickSub"></div>
   </div>
   <div class="mb">
@@ -175,7 +181,7 @@
 
 <div class="modal hidden" id="entityModal"><div class="box">
   <div class="mh mh-stack">
-    <div class="mh-row"><h2 id="entTitle">Choose</h2><button class="x" id="entClose">×</button></div>
+    <div class="mh-row"><h2 id="entTitle">Choose</h2><button class="x ico" id="entClose" data-ico="x" aria-label="Close"></button></div>
     <div class="sub" id="entSub"></div>
     <div class="pickbudget hidden" id="entBudget"></div>
   </div>
@@ -183,7 +189,7 @@
     <div class="pickbar">
       <input type="search" id="entSearch" placeholder="filter by name…">
       <div class="menu pickermenu">
-        <button class="btn iconbtn" id="entMenuBtn" title="Filters" aria-label="Filters">⋯<span class="badge" id="entFiltN"></span></button>
+        <button class="btn iconbtn ico" id="entMenuBtn" data-ico="dots" title="Filters" aria-label="Filters"><span class="badge" id="entFiltN"></span></button>
         <div class="menupop hidden" id="entMenuPop">
           <div class="mopt colhead" id="entCatHead">Feat kind</div>
           <div class="cbrow" id="entCats"></div>
@@ -208,7 +214,7 @@
 
 <div class="modal hidden" id="customModal"><div class="box">
   <div class="mh mh-stack">
-    <div class="mh-row"><h2 id="customTitle">New custom spell</h2><button class="x" id="customClose">×</button></div>
+    <div class="mh-row"><h2 id="customTitle">New custom spell</h2><button class="x ico" id="customClose" data-ico="x" aria-label="Close"></button></div>
     <div class="prepsteps" id="customSteps"></div>
   </div>
   <div class="mb" id="customBody"></div>
@@ -222,13 +228,19 @@
 </div></div>
 
 <div class="modal hidden" id="importModal"><div class="box">
-  <div class="mh"><h2 id="importTitle">Import 5etools data</h2><button class="x" id="importClose">×</button></div>
+  <div class="mh"><h2 id="importTitle">Import 5etools data</h2><button class="x ico" id="importClose" data-ico="x" aria-label="Close"></button></div>
   <div class="mb">
     <p class="importwelcome hidden" id="importWelcome">This planner ships without spell data. Load a 5etools <code>data</code> export to fill it with spells, classes, subclasses, feats and species. Everything is parsed and stored in your browser — nothing is uploaded.</p>
-    <p class="note" style="margin-top:0">Drop the whole 5etools <code>data</code> folder as a <b>.zip</b> (fastest), or individual JSON files. For per-file loads, include <code>generated/gendata-spell-source-lookup.json</code> so spells know which classes can cast them.</p>
+    <p class="note" style="margin-top:0">Drop the whole 5etools <code>data</code> folder as a <b>.zip</b> (fastest), or individual JSON files. For per-file loads, include <code>generated/gendata-spell-source-lookup.json</code> so spells know which classes can cast them.
+    <br><b>Homebrew &amp; Unearthed Arcana work too:</b> download any brew as JSON from the
+    <a href="https://github.com/TheGiddyLimit/homebrew" target="_blank" rel="noopener">5etools homebrew repository</a>
+    (D&amp;D Beyond drops live there) or UA from the
+    <a href="https://github.com/TheGiddyLimit/unearthed-arcana" target="_blank" rel="noopener">prerelease repository</a>,
+    and stage it here alongside your other files — its books appear under “Homebrew &amp; UA” in Sources.
+    Building replaces everything imported, so stage core data and brews together.</p>
     <div class="importdrop" id="importDrop">
       <input type="file" id="importFiles" accept=".json,.zip,application/json,application/zip" multiple hidden>
-      <span class="mi" style="font-size:26px">⭳</span>
+      <span class="mi ico icobig" data-ico="download"></span>
       <div><b>Drop a 5etools .zip or JSON files here</b><br><span style="color:var(--muted)">or <u id="importPick">browse…</u> · the full data.zip, or spells-*.json / class-*.json / feats.json / races.json / books.json + the lookup</span></div>
     </div>
     <p class="fld" style="margin:12px 0 4px">Or paste one file's JSON</p>
@@ -245,7 +257,7 @@
 </div></div>
 
 <div class="modal hidden" id="srcModal"><div class="box">
-  <div class="mh"><h2>Sources</h2><span class="sub" id="srcSub" style="color:var(--muted);font-size:12px"></span><button class="x" id="srcClose">×</button></div>
+  <div class="mh"><h2>Sources</h2><span class="sub" id="srcSub" style="color:var(--muted);font-size:12px"></span><button class="x ico" id="srcClose" data-ico="x" aria-label="Close"></button></div>
   <div class="mb">
     <div class="quick">
       <button class="btn" id="srcAll">Enable all</button>
@@ -272,20 +284,109 @@
 </div></div>
 <div class="modal hidden" id="buildModal"><div class="box">
   <div class="mh mh-stack">
-    <div class="mh-row"><h2>Builds</h2><button class="x" id="buildClose">×</button></div>
+    <div class="mh-row"><h2>Builds</h2><button class="x ico" id="buildClose" data-ico="x" aria-label="Close"></button></div>
     <div class="sub" id="buildSub"></div>
   </div>
   <div class="mb">
     <div class="pickbar">
       <input type="search" id="buildSearch" placeholder="filter by name…">
-      <button class="btn on" id="buildNew">＋ New build</button>
+      <button class="btn lbl-ico" id="buildImport"><span class="ico" data-ico="download"></span>Import…</button>
+      <button class="btn on lbl-ico" id="buildNew"><span class="ico" data-ico="plus"></span>New build</button>
+    </div>
+    <div class="importdrop bimport hidden" id="bImportBox">
+      <input type="file" id="bImportFile" accept=".json,application/json" hidden>
+      <p class="note" style="margin:0 0 8px">Drop a <code>.spellbook.json</code> file here, <u id="bImportPick">browse…</u>, or paste it below. Importing adds a build — it never replaces one.</p>
+      <textarea id="bImportPaste" placeholder="paste an exported build here…"></textarea>
+      <div class="prepnav" style="border:none;padding:8px 0 0">
+        <span class="cverr" id="bImportErr"></span>
+        <span class="prepnav-sp"></span>
+        <button class="btn" id="bImportCancel">Cancel</button>
+        <button class="btn on" id="bImportGo">Add build</button>
+      </div>
     </div>
     <div id="buildList"></div>
   </div>
 </div></div>
+<div class="modal hidden" id="newBuildModal"><div class="box narrow">
+  <div class="mh mh-stack">
+    <div class="mh-row"><h2>New build</h2><button class="x ico" id="nbClose" data-ico="x" aria-label="Close"></button></div>
+    <div class="sub">Both can be renamed later in the manager.</div>
+  </div>
+  <div class="mb">
+    <div class="fieldset">
+      <label class="fld" for="nbChar">Character name</label>
+      <input type="text" id="nbChar" placeholder="follows the classes you pick…" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="fieldset">
+      <label class="fld" for="nbVer">Version name</label>
+      <input type="text" id="nbVer" placeholder="v1" autocomplete="off" spellcheck="false">
+    </div>
+  </div>
+  <div class="prepnav">
+    <span class="prepnav-sp"></span>
+    <button class="btn on" id="nbCreate">Create build</button>
+  </div>
+</div></div>
+<div class="modal hidden" id="csrcModal"><div class="box narrow">
+  <div class="mh mh-stack">
+    <div class="mh-row"><h2 id="csrcTitle">Custom spell source</h2><button class="x ico" id="csrcClose" data-ico="x" aria-label="Close"></button></div>
+    <div class="sub">A thing this character owns that grants spells — a magic item, a boon, a blessing.</div>
+  </div>
+  <div class="mb">
+    <div class="twocol">
+      <div><label class="fld" for="csrcName">Name</label>
+        <input type="text" id="csrcName" placeholder="Staff of Fire" autocomplete="off" spellcheck="false"></div>
+      <div><label class="fld" for="csrcKind">Kind</label>
+        <input type="text" id="csrcKind" placeholder="magic item, boon, blessing…" autocomplete="off" spellcheck="false"></div>
+    </div>
+    <div class="fieldset" style="margin-top:12px">
+      <label class="fld">How its spells work</label>
+      <div class="cbrow" id="csrcMode"></div>
+    </div>
+    <div class="fieldset hidden" id="csrcUsesBlock">
+      <label class="fld">Uses</label>
+      <div class="cbrow" id="csrcUses"></div>
+      <div class="poolrow hidden" id="csrcPoolRow">
+        <input type="number" id="csrcPool" min="0" max="99" placeholder="10">
+        <span class="poollbl">charges · regains</span>
+        <input type="text" id="csrcRecharge" placeholder="1d6+4 at dawn" autocomplete="off" spellcheck="false">
+      </div>
+    </div>
+    <div class="fieldset">
+      <label class="fld">Its own numbers <span class="fldnote">blank = use mine</span></label>
+      <div class="csnums">
+        <label class="csnum"><span>Save DC</span><input type="text" id="csrcDC" placeholder="15" autocomplete="off"></label>
+        <label class="csnum"><span>Attack</span><input type="text" id="csrcAtk" placeholder="+7" autocomplete="off"></label>
+        <label class="csnum wide"><span>Casting ability</span><select id="csrcAbility"></select></label>
+      </div>
+    </div>
+    <div class="fieldset">
+      <label class="fld">Spells</label>
+      <div id="csrcRows"></div>
+      <input type="search" id="csrcSearch" placeholder="add a spell by name…" autocomplete="off">
+      <div id="csrcHits"></div>
+    </div>
+  </div>
+  <div class="prepnav">
+    <button class="btn danger hidden" id="csrcDelete">Delete source</button>
+    <span class="cverr" id="csrcErr"></span>
+    <span class="prepnav-sp"></span>
+    <button class="btn on" id="csrcSave">Save</button>
+  </div>
+</div></div>
+<div class="modal hidden" id="lvlOrderModal"><div class="box">
+  <div class="mh mh-stack">
+    <div class="mh-row"><h2>Level order</h2><button class="x ico" id="loClose" data-ico="x" aria-label="Close"></button></div>
+    <div class="sub">Which class each character level is taken in. The preview unlocks in this order; totals always match the build.</div>
+  </div>
+  <div class="mb">
+    <div id="loList" class="lolist"></div>
+    <p class="note" id="loSub"></p>
+  </div>
+</div></div>
 <div class="modal hidden" id="prepModal"><div class="box">
   <div class="mh mh-stack">
-    <div class="mh-row"><h2 id="prepTitle">Prepare spells</h2><button class="x" id="prepClose">×</button></div>
+    <div class="mh-row"><h2 id="prepTitle">Prepare spells</h2><button class="x ico" id="prepClose" data-ico="x" aria-label="Close"></button></div>
     <div class="prepsteps" id="prepSteps"></div>
   </div>
   <div class="mb">

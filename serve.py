@@ -19,6 +19,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=ROOT, **kwargs)
 
+    def end_headers(self):
+        # dev server: never let the browser cache. Without this, app.js/styles.css get
+        # heuristically cached (SimpleHTTP sends only Last-Modified) and edits appear
+        # to do nothing — the old "hard-reload after editing" gotcha.
+        self.send_header("Cache-Control", "no-store")
+        super().end_headers()
+
 
 class Server(socketserver.TCPServer):
     allow_reuse_address = True

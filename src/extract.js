@@ -191,6 +191,20 @@ function optProgression(c){const out=[];
     if(counts.some(Boolean))out.push({name:p.name||"Optional features",types:p.featureType||[],counts});});
   return out;}
 const asArr=x=>Array.isArray(x)?x:(x==null?[]:[x]);   // 5etools sometimes uses a bare value, not a list
+// what a class/subclass gives at each level, by NAME — mirrors extract.py's
+// feature_list (D63). ASI/boon and "<Class> Subclass" placeholders are dropped.
+const FEAT_SKIP=/^(ability score improvement|epic boon|subclass feature|.+ subclass|.+ subclass feature)$/i;
+function featureList(recs,dropPrefix){
+  const out=[],seen=new Set();
+  (recs||[]).forEach(f=>{let nm=f&&f.name;const lv=f&&f.level;
+    if(!nm||!lv)return;
+    if(FEAT_SKIP.test(String(nm).trim()))return;
+    if(dropPrefix&&String(nm).trim().toLowerCase()===String(dropPrefix).trim().toLowerCase())return;
+    if(dropPrefix&&nm.toLowerCase().startsWith(dropPrefix.toLowerCase()+" "))
+      nm=nm.slice(dropPrefix.length).replace(/^[\s:\-—]+/,"");
+    const k=lv+"|"+nm.toLowerCase(); if(seen.has(k))return;
+    seen.add(k); out.push({level:lv,name:nm});});
+  return out.sort((a,b)=>a.level-b.level||a.name.localeCompare(b.name));}
 function parseBlock(block,feats){const ft=block.name;
   const b={fixed:[],picks:[],expansions:[],ability:normAbility(block.ability)};
   Object.entries(block.prepared||{}).forEach(([lvl,arr])=>{const at=numOf(lvl);
@@ -333,6 +347,10 @@ function buildDigest(files){
   const subfeatIdx={}, clsfeatIdx={};   // keyed like extract.py's SUB/CLSFEAT_INDEX
   files.forEach(f=>{const j=f.json;if(!j||typeof j!=="object")return;
     if(Array.isArray(j.book)){j.book.forEach(b=>{if(b.source)books[b.source]={name:b.name||b.source,group:b.group||"other"};});report.books+=j.book.length;}
+    // homebrew / UA files carry no book entry — their identity is _meta.sources
+    // ({json: code, full: name}). Grouped under "brew" so the checklist shelves them.
+    const metaSrc=j._meta&&Array.isArray(j._meta.sources)?j._meta.sources:[];
+    metaSrc.forEach(m=>{if(m&&m.json&&!books[m.json])books[m.json]={name:m.full||m.abbreviation||m.json,group:"brew"};});
     if(/spell-source-lookup/i.test(f.name)||(!j.spell&&!j.class&&!j.subclass&&!j.feat&&!j.race&&!j.optionalfeature&&!j.book&&looksLikeLookup(j))){lookup=j;report.lookup=true;}
     (j.subclassFeature||[]).forEach(x=>{const k=x.className+"|"+x.subclassShortName+"|"+x.subclassSource;(subfeatIdx[k]=subfeatIdx[k]||[]).push(featRecord(x));});
     (j.classFeature||[]).forEach(x=>{const k=x.className+"|"+x.classSource;(clsfeatIdx[k]=clsfeatIdx[k]||[]).push(featRecord(x));});
@@ -359,7 +377,8 @@ function buildDigest(files){
           subclassLevel:subclassLevel(c),cantrips:c.cantripProgression,prepared:prepared||known,
           spellbook:c.spellsKnownProgressionFixed,slots:slotTable(c.classTableGroups),
           grants:parseGrants(c.additionalSpells,clsfeatIdx[c.name+"|"+(c.source||"")]),grantsFightingStyle:null,bonusChoices:[],
-          optFeatures:optProgression(c)};
+          optFeatures:optProgression(c),
+          features:featureList(clsfeatIdx[c.name+"|"+(c.source||"")])};
         const okey=c.name+"|"+(c.source||"");
         if(ORDER_CANTRIP[okey])rec.bonusChoices.push(ORDER_CANTRIP[okey]);
         if(FS_CLASS_LEVEL[c.name]&&c.source==="XPHB")rec.grantsFightingStyle=FS_CLASS_LEVEL[c.name];
@@ -369,7 +388,9 @@ function buildDigest(files){
         group:bgroup(sc.source||""),book:bname(sc.source||""),reprinted:reprinted(sc),page:sc.page,
         className:sc.className||"",classSource:sc.classSource||"",
         grants:parseGrants(sc.additionalSpells,subfeatIdx[(sc.className||"")+"|"+(sc.shortName||sc.name||"")+"|"+(sc.source||"")]),
-        optFeatures:optProgression(sc)};
+        optFeatures:optProgression(sc),
+        features:featureList(subfeatIdx[(sc.className||"")+"|"+(sc.shortName||sc.name||"")+"|"+(sc.source||"")],
+                             sc.shortName||"")};
         if(sc.casterProgression){rec.caster=sc.casterProgression;rec.ability=sc.spellcastingAbility;
           rec.cantrips=sc.cantripProgression;rec.prepared=sc.preparedSpellsProgression||sc.spellsKnownProgression;
           rec.static=(sc.preparedSpellsChange==="level");rec.spellList=["Wizard","XPHB"];}
@@ -393,6 +414,16 @@ function buildDigest(files){
         if(!rc.additionalSpells)return;emitSpecies(nm?`${base} (${nm})`:base,rc.source||"",rc.additionalSpells,rc.page,base||null,nm||null);});
     }catch(e){report.errors.push(f.name+": "+e.message);}
   });
+
+  // homebrew spells carry their access INLINE (classes.fromClassList /
+  // classes.fromSubclass) — the generated lookup only covers site data
+  files.forEach(f=>{const j=f.json;if(!j||!Array.isArray(j.spell))return;
+    j.spell.forEach(raw=>{const sp=spells[spellKey(raw.name,raw.source||"")];
+      const cl=raw.classes; if(!sp||!cl||typeof cl!=="object")return;
+      (cl.fromClassList||[]).forEach(c=>{if(c&&c.name)sp.cls.push([c.name,c.source||""]);});
+      (cl.fromClassListVariant||[]).forEach(c=>{if(c&&c.name)sp.cls.push([c.name,c.source||""]);});
+      (cl.fromSubclass||[]).forEach(x=>{const c=x&&x.class,sub=x&&x.subclass;
+        if(c&&c.name&&sub&&sub.name)sp.sub.push([c.name,sub.name,sub.source||""]);});});});
 
   // spell → class/subclass/feat/race access from the generated lookup
   if(lookup){Object.entries(lookup).forEach(([srcL,byname])=>{

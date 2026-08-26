@@ -529,6 +529,29 @@ for _f in glob.glob(os.path.join(MIRROR, "class", "class-*.json")):
     for _x in _d.get("classFeature", []):
         CLSFEAT_INDEX.setdefault((_x.get("className"), _x.get("classSource")), []).append(_feat_record(_x))
 
+# what a class/subclass actually gives at each level, by NAME — the level-order cards
+# name real features ("Arcane Recovery"), not derived spell counts (D63). Subclass
+# feature names repeat the subclass, so they are trimmed for display.
+# ASI/boon levels the UI derives itself; "<Class> Subclass" / "Subclass Feature" are
+# placeholders whose real content lives on the subclass record.
+_FEAT_SKIP = re.compile(r"^(ability score improvement|epic boon|subclass feature|"
+                        r".+ subclass|.+ subclass feature)$", re.I)
+def feature_list(recs, drop_prefix=None):
+    out, seen = [], set()
+    for f in recs or []:
+        nm, lv = f.get("name"), f.get("level")
+        if not nm or not lv: continue
+        if _FEAT_SKIP.match(nm.strip()): continue
+        # a subclass's own name repeated as a feature says nothing the card doesn't show
+        if drop_prefix and nm.strip().lower() == drop_prefix.strip().lower(): continue
+        if drop_prefix and nm.lower().startswith(drop_prefix.lower()+" "):
+            nm = nm[len(drop_prefix):].strip(" :-—")
+        k = (lv, nm.lower())
+        if k in seen: continue
+        seen.add(k); out.append({"level": lv, "name": nm})
+    # case-insensitive, to match extract.js's localeCompare (parity is byte-for-byte)
+    return sorted(out, key=lambda x: (x["level"], x["name"].lower()))
+
 def resolve_feature(feats, at, s):
     """Name the feature that grants spell/pick `s` at level `at`, or None."""
     if not feats: return None
@@ -617,6 +640,7 @@ for f in glob.glob(os.path.join(MIRROR, "class", "class-*.json")):
             "grantsFightingStyle": None,  # filled below for FS-granting classes
             "bonusChoices": [],           # extra-cantrip order features etc.
             "optFeatures": opt_progression(c),   # invocations / metamagic / boons (D28)
+            "features": feature_list(CLSFEAT_INDEX.get((c["name"], c.get("source", "")))),
         })
 
 # 2024 order features that grant an extra cantrip (text-only in the source),
@@ -647,7 +671,11 @@ for f in glob.glob(os.path.join(MIRROR, "class", "class-*.json")):
                "grants": parse_grants(sc.get("additionalSpells"),
                           SUBFEAT_INDEX.get((sc.get("className", ""),
                                              sc.get("shortName", sc.get("name", "")), sc.get("source", "")))),
-               "optFeatures": opt_progression(sc)}
+               "optFeatures": opt_progression(sc),
+               "features": feature_list(
+                   SUBFEAT_INDEX.get((sc.get("className", ""),
+                                      sc.get("shortName", sc.get("name", "")), sc.get("source", ""))),
+                   sc.get("shortName", ""))}
         if sc.get("casterProgression"):
             rec["caster"] = sc["casterProgression"]; rec["ability"] = sc.get("spellcastingAbility")
             rec["cantrips"] = sc.get("cantripProgression")

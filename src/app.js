@@ -9,6 +9,51 @@ function fmtLevelList(str){const nums=String(str).split(/[;,]/).map(s=>s.trim())
   const out=[];let i=0;while(i<nums.length){let j=i;while(j+1<nums.length&&nums[j+1]===nums[j]+1)j++;out.push(i===j?`${nums[i]}`:`${nums[i]}-${nums[j]}`);i=j+1;}return out.join(", ");}
 // tidy a human descriptor that embeds a semicolon level list ("level 0;1;2, …" -> "level 0-2, …")
 const fmtDesc=s=>String(s||"").replace(/\blevel\s+(\d+(?:[;,]\d+)+)/gi,(m,g)=>"level "+fmtLevelList(g));
+// ── icons ───────────────────────────────────────────────────────────────────
+// Real SVG icons, never font glyphs (monster-forge convention: 16×16, stroke
+// currentColor). Sized by CSS (`.ico svg` defaults to 14px; contexts override) so
+// one path serves every size. Static HTML sites carry `data-ico`; boot fills them.
+const _I=(inner,fill)=>`<svg viewBox="0 0 16 16" ${fill?'fill="currentColor"':'fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${inner}</svg>`;
+const ICONS={
+  dice:_I('<rect x="2" y="2" width="12" height="12" rx="2.6"/><g fill="currentColor" stroke="none"><circle cx="5.5" cy="5.5" r="1.4"/><circle cx="10.5" cy="5.5" r="1.4"/><circle cx="5.5" cy="10.5" r="1.4"/><circle cx="10.5" cy="10.5" r="1.4"/></g>'),
+  dots:_I('<circle cx="3.2" cy="8" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="12.8" cy="8" r="1.4"/>',1),
+  stack:_I('<rect x="2.2" y="2.7" width="11.6" height="10.6" rx="1.6"/><path d="M2.2 6.4h11.6M2.2 9.9h11.6"/>'),
+  pencil:_I('<path d="M11.1 2.9a1.4 1.4 0 0 1 2 2L5.4 12.6 2.6 13.4l.8-2.8z"/>'),
+  download:_I('<path d="M8 2.2v7.2M8 9.4 5.4 6.8M8 9.4l2.6-2.6M2.6 11.4v1a1.6 1.6 0 0 0 1.6 1.6h7.6a1.6 1.6 0 0 0 1.6-1.6v-1"/>'),
+  gear:_I('<circle cx="8" cy="8" r="2.3"/><path d="M8 1.8v2M8 12.2v2M1.8 8h2M12.2 8h2M3.6 3.6l1.4 1.4M11 11l1.4 1.4M12.4 3.6 11 5M5 11l-1.4 1.4"/>'),
+  theme:_I('<circle cx="8" cy="8" r="5.6"/><path d="M8 2.4a5.6 5.6 0 0 1 0 11.2z" fill="currentColor" stroke="none"/>'),
+  reset:_I('<path d="M3.2 8a4.8 4.8 0 1 0 1.4-3.4"/><path d="M4.6 1.9v2.7H1.9"/>'),
+  moon:_I('<path d="M9.4 2.4a5.9 5.9 0 1 0 4.2 8.9A6.6 6.6 0 0 1 9.4 2.4z"/>'),
+  plus:_I('<path d="M8 3v10M3 8h10"/>'),
+  x:_I('<path d="M4 4l8 8M12 4l-8 8"/>'),
+  check:_I('<path d="M3 8.6 6.4 12 13 4.6"/>'),
+  warn:_I('<path d="M8 2.4 14.6 13.4H1.4z"/><path d="M8 6.6v3"/><circle cx="8" cy="11.4" r=".2"/>'),
+  spark:_I('<path d="M8 1.6 9.7 6.3 14.4 8 9.7 9.7 8 14.4 6.3 9.7 1.6 8 6.3 6.3z"/>',1),
+  dot:_I('<circle cx="8" cy="8" r="3.4"/>',1),
+  grip:_I('<circle cx="6" cy="4" r="1.3"/><circle cx="10" cy="4" r="1.3"/><circle cx="6" cy="8" r="1.3"/><circle cx="10" cy="8" r="1.3"/><circle cx="6" cy="12" r="1.3"/><circle cx="10" cy="12" r="1.3"/>',1),
+  book:_I('<path d="M3 3.2h4.2A1.8 1.8 0 0 1 9 5v8a1.4 1.4 0 0 0-1.4-1.4H3z"/><path d="M13 3.2H8.8A1.8 1.8 0 0 0 7 5v8a1.4 1.4 0 0 1 1.4-1.4H13z"/>'),
+  lock:_I('<rect x="3.4" y="7" width="9.2" height="6.6" rx="1.6"/><path d="M5.6 7V5.2a2.4 2.4 0 0 1 4.8 0V7"/>'),
+};
+// the small × remove button used inside chips and rows
+function xBtn(cls,onClick){const b=el("button",(cls||"")+" ico xsm");b.innerHTML=ICONS.x;
+  b.setAttribute("aria-label","Remove");
+  // ALWAYS stop the click here: if the handler re-renders, the original event would
+  // keep bubbling into a freshly-attached parent handler (that is how dismissing the
+  // level preview immediately re-armed it)
+  if(onClick)b.onclick=e=>{e.stopPropagation();onClick(e);};
+  return b;}
+// a span.ico holding one icon — the unit every dynamic call site appends
+function icoEl(name,cls){const sp=el("span","ico"+(cls?" "+cls:""));sp.innerHTML=ICONS[name]||"";return sp;}
+// "locked until level N", as an icon + level rather than prose that gets truncated (D60).
+// Reuse this wherever something is gated on a level.
+function lockChip(level,what){
+  const c=el("span","lockchip"); c.append(icoEl("lock")); c.append(el("span",null,"L"+level));
+  attachTip(c,tipBlock("Unlocks at level "+level,(what||"This")+" becomes available once the class reaches level "+level+"."));
+  return c;}
+// static markup declares `data-ico` and gets filled once at boot
+function fillIcons(root){(root||document).querySelectorAll("[data-ico]").forEach(n=>{
+  if(!n.querySelector("svg"))n.insertAdjacentHTML("afterbegin",ICONS[n.dataset.ico]||"");});}
+
 const ABIL={int:"Intelligence",wis:"Wisdom",cha:"Charisma",str:"Strength",dex:"Dexterity",con:"Constitution"};
 const ABIL_SHORT={int:"Int",wis:"Wis",cha:"Cha",str:"Str",dex:"Dex",con:"Con"};
 const CORE="XPHB";
@@ -112,18 +157,20 @@ let bidSeq=0;
 const newBuildId=()=>"b"+Date.now().toString(36)+(bidSeq++).toString(36);
 const activeBuild=()=>BUILDS.builds[BUILDS.activeId];
 
-const blankBuildState=()=>({classes:[],speciesKey:"",feats:[],optFeats:[],
+const blankBuildState=()=>({classes:[],speciesKey:"",feats:[],optFeats:[],levelOrder:[],customSources:[],
   chosen:{},choices:{},nextRowId:1,filters:null});
 // the live `state` <-> the plain object stored in a build
 function serializeState(){ const f=state.filters; return {
   classes:state.classes, speciesKey:state.speciesKey, feats:state.feats, optFeats:state.optFeats,
   nextRowId:state.nextRowId, chosen:state.chosen, choices:state.choices,
+  levelOrder:state.levelOrder||[], customSources:state.customSources||[],
   filters:{...f,levels:[...f.levels],time:[...f.time],comp:[...f.comp],tags:[...f.tags],
            books:f.books?[...f.books]:null},
 };}
 function applyState(s){ s=s||blankBuildState();
   Object.assign(state,{classes:s.classes||[],speciesKey:s.speciesKey||"",feats:s.feats||[],
-    optFeats:s.optFeats||[],chosen:s.chosen||{},choices:s.choices||{},nextRowId:s.nextRowId||1});
+    optFeats:s.optFeats||[],chosen:s.chosen||{},choices:s.choices||{},nextRowId:s.nextRowId||1,
+    levelOrder:s.levelOrder||[],customSources:s.customSources||[]});
   state.filters=s.filters
     ? Object.assign(FILTER_DEFAULT(),s.filters,{levels:new Set(s.filters.levels||[]),
         time:new Set(s.filters.time||[]),comp:new Set(s.filters.comp||[]),tags:new Set(s.filters.tags||[]),
@@ -133,12 +180,14 @@ function applyState(s){ s=s||blankBuildState();
   state.classes.forEach(r=>{if(r.id==null)r.id=state.nextRowId++;});
 }
 // derived labels — a build never stores what can be computed from its own picks
+// "Glory Paladin 5 / Abjurer Wizard 3" — each class carries ITS OWN subclass, so the
+// summary is also what the manager's search matches (searching a class finds the build)
 function describeBuild(st){
   const rows=(st&&st.classes)||[];
   if(!rows.length)return "Empty build";
-  const parts=rows.map(r=>{const c=CLS_BY[r.clsKey];return (c?c.name:"?")+" "+(r.level||0);});
-  const sub=rows.map(r=>r.subKey&&SUB_BY[r.subKey]).filter(Boolean)[0];
-  return parts.join(" / ")+(sub?" · "+(sub.shortName||sub.name):"");
+  const parts=rows.map(r=>{const c=CLS_BY[r.clsKey],sub=r.subKey&&SUB_BY[r.subKey];
+    return ((sub?(sub.shortName||sub.name)+" ":"")+(c?c.name:"?")+" "+(r.level||0));});
+  return parts.join(" / ");
 }
 // the character label carries NO level — versions of one character can sit at different
 // levels (D35), so the level belongs in the version summary, not the group heading
@@ -270,7 +319,7 @@ function resolveAbility(grants,tok,sharedStat,out){
 // walk a grants object (or an option), collecting fixed/freeCasts/expansions/choices into `out`
 // `owner` is the entity the choices belong to — the class row, feat, species… — carried
 // unchanged through nested option groups so the choices panel can group by it (D30).
-const OWNER_KIND={c:"class",s:"subclass",f:"feat",o:"optional feature",r:"species"};
+const OWNER_KIND={c:"class",s:"subclass",f:"feat",o:"optional feature",r:"species",x:"custom source"};
 const ownerOf=(tok,name,src)=>({id:tok.split(":")[0],name,src,kind:OWNER_KIND[tok[0]]||""});
 function resolveGrants(grants,level,tok,giver,out,sharedStat,giverSrc,owner){
   if(!grants)return;
@@ -278,10 +327,12 @@ function resolveGrants(grants,level,tok,giver,out,sharedStat,giverSrc,owner){
   out._giver=giver; out._giverSrc=giverSrc;
   const ability=resolveAbility(grants,tok,sharedStat,out);
   // `label` (the granting feature's name, when known) is preferred over the generic giver
-  const spellOut=(rec,kind,recharge,label)=>{ if(!rec)return; const src=label||giver;
-    if(kind==="prepared")out.fixed.push({rec,src,recharge,ability});
-    else out.freeCasts.push({name:rec.name,level:rec.level,recharge,src,ability,swappable:kind==="known"}); };
-  (grants.fixed||[]).forEach(g=>{ if((g.atLevel||0)>level)return; spellOut(grantRec(g.spell.name),g.kind,g.recharge,g.feature); });
+  const spellOut=(rec,kind,recharge,label,extra)=>{ if(!rec)return; const src=label||giver;
+    const e=kind==="prepared"?{rec,src,recharge,ability}
+      :{name:rec.name,level:rec.level,recharge,src,ability,swappable:kind==="known"};
+    if(extra)Object.assign(e,extra);      // custom sources: own DC/attack, fixed cast level
+    (kind==="prepared"?out.fixed:out.freeCasts).push(e); };
+  (grants.fixed||[]).forEach(g=>{ if((g.atLevel||0)>level)return; spellOut(grantRec(g.spell.name),g.kind,g.recharge,g.feature,g.extra); });
   (grants.expansions||[]).forEach(e=>{ if((e.atLevel||0)<=level)out.expansions.push(Object.assign({},e.filter,{_atLevel:e.atLevel||0})); });
   (grants.picks||[]).forEach((p,j)=>{ if((p.atLevel||0)>level)return; const id=tok+":pk"+j;
     out.choices.push({id,count:p.count,filter:p.filter,kind:p.kind,recharge:p.recharge,giver:p.feature||giver,giverSrc,desc:p.desc,type:"pick",owner});
@@ -293,11 +344,87 @@ function resolveGrants(grants,level,tok,giver,out,sharedStat,giverSrc,owner){
     resolveGrants(opt,level,id,giver+" · "+sel,out,sharedStat,giverSrc,owner); });
 }
 
+// ── level preview (D54) ────────────────────────────────────────────────────
+// Plan at full level, LOOK at any level below it. View-only: PREVIEW is never saved
+// and releasing it touches nothing. What makes multiclass previewable is the LEVEL
+// PLAN (`state.levelOrder`, saved): which class each character level was taken in.
+const PREVIEW={level:null};
+// normalized acquisition order — always valid: the stored order is filtered against
+// the build's actual class levels, then topped up per class in row order. Any edit
+// normalizes through here, so there is no invalid state to guard against.
+function classLevelPlan(){
+  const want=new Map(state.classes.map(r=>[r.id,r.level||0]));
+  const taken=new Map(state.classes.map(r=>[r.id,0]));
+  const out=[];
+  (state.levelOrder||[]).forEach(id=>{
+    if(want.has(id)&&taken.get(id)<want.get(id)){out.push(id);taken.set(id,taken.get(id)+1);}});
+  state.classes.forEach(r=>{for(let i=taken.get(r.id);i<(r.level||0);i++)out.push(r.id);});
+  return out;
+}
+function previewLevels(){ if(PREVIEW.level==null)return null;
+  const m=new Map();
+  classLevelPlan().slice(0,PREVIEW.level).forEach(id=>m.set(id,(m.get(id)||0)+1));
+  return m;
+}
+// a class row's level as the current view sees it — every level consumer goes through this
+function effLevel(row){const m=previewLevels();return m?(m.get(row.id)||0):(row.level||0);}
+function setPreview(l){
+  const total=state.classes.reduce((a,r)=>a+(r.level||0),0);
+  PREVIEW.level=(l==null||l>=total)?null:Math.max(1,l);
+  document.body.classList.toggle("previewing",PREVIEW.level!=null);
+  refreshAll();render();
+}
+
+// ── custom spell sources (D55) ─────────────────────────────────────────────
+// A named thing the character OWNS that grants spells — a magic item, a boon, a
+// blessing. Lives inside the build (it travels with export), and resolves through
+// the same grants machinery as a species or feat: no new downstream paths.
+const CSRC_UNITS=[["lr","per long rest"],["sr","per short rest"],["dawn","per dawn"],
+                  ["will","at will"]];
+const CSRC_MODES=[["innate","cast without preparing"],["always","always prepared"],
+                  ["list","added to my spell list"]];
+function csrcCadence(e){ if(e.unit==="will")return "at will";
+  const u=(CSRC_UNITS.find(x=>x[0]===e.unit)||[])[1]||e.unit;
+  const n=Math.max(1,e.count||1);
+  return n===1?u:`${n}× ${u}`;}
+// A source spends EITHER a shared pool of charges (most magic items: "10 charges, regains
+// 1d6+4 at dawn", each spell costing some) OR per-spell uses (a boon's 1/long rest). D65.
+function csrcRecharge(cs,e){
+  if(cs.mode==="always")return "always prepared";
+  if(cs.uses==="pool"){const n=Math.max(1,e.cost||1);return `${n} charge${n>1?"s":""}`;}
+  return csrcCadence(e);
+}
+function customSourceGrants(cs){
+  const fixed=(cs.spells||[]).map(e=>{const sp=SPELL_BY[e.key]; if(!sp)return null;
+    const extra={};
+    if(cs.dc)extra.dc=cs.dc;
+    if(cs.atk)extra.atk=cs.atk;
+    if(e.level)extra.castLv=+e.level;
+    extra.csrc=cs.name;
+    return {kind:cs.mode==="always"?"prepared":"innate",atLevel:0,
+            recharge:csrcRecharge(cs,e),
+            spell:{name:sp.name,source:sp.source},feature:cs.name,extra};}).filter(Boolean);
+  return {fixed,picks:[],expansions:[],optionGroups:[],
+          ability:cs.ability?{fixed:cs.ability}:null};
+}
+// a one-line description of how the source is powered, for its chip and the casts list
+function csrcPower(cs){
+  if(cs.mode==="always")return "always prepared";
+  if(cs.mode==="list")return "added to your spell list";
+  if(cs.uses==="pool")return `${cs.pool||0} charges`+(cs.recharge?" · regains "+cs.recharge:"");
+  return "per-spell uses";
+}
+
 // ── compute ──────────────────────────────────────────────────────────────
 function compute(){
-  const records=state.classes.map(resolveRow).filter(Boolean);
+  const eff=previewLevels();
+  // a class not yet taken at the preview level simply isn't there — its picks are
+  // kept in state and come back the moment the preview releases
+  const rows=eff?state.classes.map(r=>({...r,level:eff.get(r.id)||0})).filter(r=>r.level>0)
+                :state.classes;
+  const records=rows.map(resolveRow).filter(Boolean);
   const casters=records.filter(r=>r.caster);
-  const charLevel=state.classes.reduce((a,r)=>a+r.level,0);
+  const charLevel=eff?PREVIEW.level:state.classes.reduce((a,r)=>a+r.level,0);
   // multiclass slots
   const nonPact=casters.filter(r=>!r.isPact);
   let mcSlots=null,mcLevel=0;
@@ -351,6 +478,9 @@ function compute(){
   state.feats.forEach(fk=>{const f=FEAT_BY[fk];if(f)resolveGrants(f.grants,charLevel,"f"+fk,f.name,gout,sharedStat,f.source);});
   state.optFeats.forEach(ok=>{const o=OPT_BY[ok];if(o)resolveGrants(o.grants,charLevel,"o"+ok,o.name,gout,sharedStat,o.source);});
   if(state.speciesKey){const sp=RACE_BY[state.speciesKey];if(sp)resolveGrants(sp.grants,charLevel,"r",sp.name,gout,sharedStat,sp.source);}
+  (state.customSources||[]).forEach(cs=>{
+    if(cs.mode==="list")return;          // not a grant — it widens the eligible pool below
+    resolveGrants(customSourceGrants(cs),charLevel,"x"+cs.id,cs.name,gout,sharedStat,null);});
 
   // eligible pool = each caster's own list + its active expansions
   const pool=new Map(); // spellKey -> {sp,takers:[{idx,name,cantrip}],grants:[],srcs:Set}
@@ -365,6 +495,16 @@ function compute(){
         if(sp.cls.some(([cn,cs])=>cn.toLowerCase()===a.cls&&srcOn(cs))){ const e=want(sp); e.takers.push({idx:r.idx,name:r.name,cantrip:sp.level===0}); if(a.off)e.srcs.add("Magical Secrets"); break; } }
     });
   });
+  // "added to my spell list" (D65): eligible to prepare with any caster that can reach
+  // its level — it costs a prepared slot like anything else on your list
+  (state.customSources||[]).filter(cs=>cs.mode==="list").forEach(cs=>{
+    (cs.spells||[]).forEach(e=>{const sp=SPELL_BY[e.key]; if(!sp||!visible(sp))return;
+      const en=want(sp);
+      casters.forEach(r=>{ if(sp.level>r.maxLvl)return;
+        if(!en.takers.some(t=>t.idx===r.idx))
+          en.takers.push({idx:r.idx,name:r.name,cantrip:sp.level===0});});
+      en.srcs.add(cs.name);});});
+
   // fixed grants become always-prepared/free picks in the pool
   const freeCasts=gout.freeCasts;
   gout.fixed.forEach(g=>{const e=want(g.rec);e.srcs.add(g.src);if(!e.grants.some(x=>x.src===g.src))e.grants.push({src:g.src,recharge:g.recharge,ability:g.ability});
@@ -427,7 +567,7 @@ function compute(){
       ms={offCount,cap,onset,over:offCount>cap};
     }
     const spellCap=known?known.total:r.prepared;
-    cart[r.idx]={cantrips:ch.cantrips||[],spells:ch.spells||[],caps:cp,ms,known,
+    cart[r.idx]={cantrips:ch.cantrips||[],spells:ch.spells||[],prep:ch.prep||[],caps:cp,ms,known,
       cantOver:(ch.cantrips||[]).length>r.cantrips, spellOver:(ch.spells||[]).length>spellCap, overLevels};
   });
 
@@ -435,15 +575,21 @@ function compute(){
 }
 
 // ── toggling picks ───────────────────────────────────────────────────────
-function toggle(idx,spellKey,cantrip){
+// `arr` is "cantrips" | "spells" | "prep". A wizard is the one caster where the last two
+// differ: `spells` IS the spellbook (what it knows) and `prep` is the daily subset drawn
+// from it (D62). For every other caster `prep` is unused — picking IS preparing.
+function toggle(idx,spellKey,cantrip,which){
   const ch=state.chosen[idx]=state.chosen[idx]||{cantrips:[],spells:[]};
-  const arr=cantrip?"cantrips":"spells";
+  const arr=which||(cantrip?"cantrips":"spells");
+  ch[arr]=ch[arr]||[];
   const i=ch[arr].indexOf(spellKey);
   if(i>=0)ch[arr].splice(i,1); else ch[arr].push(spellKey);
+  // dropping a spell from the book must not leave it prepared
+  if(arr==="spells"&&i>=0&&ch.prep){const j=ch.prep.indexOf(spellKey);if(j>=0)ch.prep.splice(j,1);}
   save(); render();
 }
 function removeChosen(idx,spellKey){ const ch=state.chosen[idx];if(!ch)return;
-  ["cantrips","spells"].forEach(a=>{const i=ch[a].indexOf(spellKey);if(i>=0)ch[a].splice(i,1);});save();render(); }
+  ["cantrips","spells","prep"].forEach(a=>{if(!ch[a])return;const i=ch[a].indexOf(spellKey);if(i>=0)ch[a].splice(i,1);});save();render(); }
 
 // ── render ───────────────────────────────────────────────────────────────
 let R=null, curTab="build";
@@ -503,7 +649,7 @@ function choiceRow(c){
     (state.choices[c.id]||[]).forEach(k=>{const sp=SPELL_BY[k];if(!sp)return;
       const chip=el("span","cartchip");chip.append(el("span","lv",sp.level===0?"C":String(sp.level)));
       const nm=el("span",null,sp.name);attachSpell(nm,sp);chip.append(nm);
-      const x=el("button",null,"×");x.onclick=()=>{state.choices[c.id]=(state.choices[c.id]||[]).filter(v=>v!==k);render();};
+      const x=xBtn(null,()=>{state.choices[c.id]=(state.choices[c.id]||[]).filter(v=>v!==k);render();});
       chip.append(x);picks.append(chip);});
     const btn=el("button","pickbtn"+(have>=c.count?" done":" needclr"), have>=c.count?"edit":`choose ${c.count-have}`);
     btn.onclick=()=>openPick(c); picks.append(btn); row.append(picks);
@@ -544,7 +690,9 @@ function renderPickList(){
     const d=el("div","sp"+(on?" chosen":""));
     const nm=el("div","nm",sp.name); attachSpell(nm,sp); d.append(nm);
     const meta=el("div","meta");[ROMAN[sp.level],sp.school,sp.time,sp.range,sp.source!==CORE?sp.book:""].filter(Boolean).forEach(x=>meta.append(el("span",null,x)));d.append(meta);
-    const take=el("div","take");const b=el("button","tk"+(on?" on":""),on?(isClass?"✓ prepared":"✓ picked"):(isClass?"+ prepare":"+ pick"));
+    const take=el("div","take");const b=el("button","tk"+(on?" on":""));
+    b.append(icoEl(on?"check":"plus"));
+    b.append(document.createTextNode(on?(isClass?"prepared":"picked"):(isClass?"prepare":"pick")));
     b.onclick=()=>{ if(isClass){ toggle(PICK.classIdx,k,false); renderPickList(); return; }
       let a=state.choices[PICK.id]||[];
       if(a.includes(k))a=a.filter(v=>v!==k); else if(a.length<PICK.count)a=[...a,k]; else return;
@@ -624,9 +772,9 @@ function renderEntityList(){
   const blocked=items.filter(i=>rank(i)===1);
   if(ENT.hideNo)items=items.filter(i=>rank(i)===0);
   const noun=ENT.kind==="opt"?"options":ENT.kind==="species"?"species":"feats";
-  $("#entSub").textContent=`${items.length} ${noun} · ✦ grants spells`
+  $("#entSub").innerHTML=`${items.length} ${noun} · <span class="ico">${ICONS.spark}</span> grants spells`
     +(blocked.length&&!ENT.hideNo?` · ${blocked.length} need something you don’t have`:"")
-    +(ENT.note?` · ${ENT.note}`:"");
+    +(ENT.note?` · ${esc(ENT.note)}`:"");
   const nf=[ENT.grantsOnly,ENT.hideNo,!sameSet(ENT.books,SRC)].filter(Boolean).length
     +(ENT.kind==="feat"&&!sameSet(ENT.cats,ENT.presetCats)?1:0);
   $("#entFiltN").textContent=nf?String(nf):"";
@@ -645,17 +793,19 @@ function renderEntityList(){
     if(it.source!==CORE)nm.append(bookChip(it.source,it.page));
     if(ENT.kind==="feat"){const c=featCat(it);
       if(!ENT.presetCats.has(c))nm.append(Object.assign(el("span","entcat"),{textContent:c}));}
-    if(grantsAny(it.grants))nm.append(Object.assign(el("span","fmark"),{textContent:"✦"}));
-    if(pr.state==="no")nm.append(Object.assign(el("span","entwarn"),{textContent:"⚠"}));
+    if(grantsAny(it.grants))nm.append(icoEl("spark","fmark"));
+    if(pr.state==="no")nm.append(icoEl("warn","entwarn"));
     main.append(nm);
     // prerequisites are a different kind of fact from what an entry grants, so they get
     // their own row of per-part verdict chips instead of being merged into the grants line
     if(pr.state!=="ok"&&pr.parts.length){
       const rq=el("div","entreq");rq.title=it.prereq||"";
       rq.append(el("span","rql","Requires"));
-      const mark={ok:"✓ ",no:"✗ ","?":""};
       pr.parts.forEach(pt=>{
-        const chip=el("span","rqp "+(pt.s==="ok"?"met":pt.s==="no"?"unmet":"unk"),mark[pt.s]+pt.t);
+        const chip=el("span","rqp "+(pt.s==="ok"?"met":pt.s==="no"?"unmet":"unk"));
+        if(pt.s==="ok")chip.append(icoEl("check"));
+        if(pt.s==="no")chip.append(icoEl("x"));
+        chip.append(document.createTextNode(pt.t));
         // a crossed part that names something takeable is a one-click fix, not just a verdict
         if(pt.s==="no"&&pt.pick&&prqCandidates(pt.pick).length){
           chip.classList.add("act");chip.title="Click to take it";
@@ -665,7 +815,8 @@ function renderEntityList(){
     const prev=grantPreview(it.grants);
     if(prev)main.append(Object.assign(el("div","entprev"),{textContent:prev,title:prev}));
     row.append(main);
-    const btn=el("button","tk"+(on?" on":""), on?"✓ selected":"select");
+    const btn=el("button","tk"+(on?" on":""));
+    if(on)btn.append(icoEl("check"));btn.append(document.createTextNode(on?"selected":"select"));
     if(pr.state==="no")btn.title="You don’t meet its prerequisites — you can still take it.";
     btn.onclick=()=>{
       // a local override can reveal a book the global selection has off; committing a pick
@@ -690,6 +841,8 @@ function renderEntityList(){
     h.append(el("span","cgn",g.items.length===1?"1 lineage":`${g.items.length} lineages`));
     box.append(h);
     g.items.forEach(it=>box.append(entRow(it,it.lineage||it.name)));
+    const prev=list.lastElementChild;      // its divider would sit on the box's own border
+    if(prev&&prev.classList.contains("entrow"))prev.classList.add("nodiv");
     list.append(box);});
 }
 // ── build manager (v7 · T3) ────────────────────────────────────────────────
@@ -732,6 +885,27 @@ function switchBuild(id){
     activateBuild(id);});
   else activateBuild(id);
 }
+// The preview answers "what did this look like at L5"; this answers "let me BUILD an
+// L5 loadout". It forks the current build at the previewed level split — a real version
+// you can then pick freely in, with that level's budgets (D64). Deliberately NOT
+// per-pick level stamping: a stamp cannot express retraining (a spell gained, dropped
+// and regained), and planning at 20 first would leave every pick unstamped.
+function savePreviewAsVersion(){
+  const src=activeBuild(); if(!src||PREVIEW.level==null)return;
+  const lv=PREVIEW.level, eff=previewLevels();
+  const st=JSON.parse(JSON.stringify(src.state));
+  st.classes=(st.classes||[]).map(r=>({...r,level:eff.get(r.id)||0})).filter(r=>r.level>0);
+  st.levelOrder=(st.levelOrder||[]).filter(id=>st.classes.some(r=>r.id===id));
+  const used=new Set(buildsOf(src.meta.character).map(b=>b.meta.name));
+  let name="L"+lv; for(let n=2;used.has(name);n++)name="L"+lv+" ("+n+")";
+  const b=mkBuild(st,src.meta.sources,name);
+  b.meta.character=src.meta.character; b.meta.named=src.meta.named;
+  BUILDS.builds[b.id]=b;
+  BUILDS.order.splice(BUILDS.order.indexOf(src.id)+1,0,b.id);
+  persistBuilds();
+  setPreview(null);                    // the version IS that level — nothing left to preview
+  switchBuild(b.id);
+}
 function duplicateBuild(id){
   const src=BUILDS.builds[id]; if(!src)return;
   const b=mkBuild(JSON.parse(JSON.stringify(src.state)),src.meta.sources,nextVersionName(src.meta.character));
@@ -740,14 +914,22 @@ function duplicateBuild(id){
   BUILDS.order.splice(BUILDS.order.indexOf(id)+1,0,b.id);
   persistBuilds(); switchBuild(b.id);
 }
-function newBuild(){
-  const b=mkBuild(null);
+// creating a character starts in a small modal: name + version, both optional (D53).
+// An empty character name keeps the auto-follow behaviour (D35's `named` stays false).
+function newBuild(charName,verName){
+  const b=mkBuild(null,null,verName||"v1");
+  if(charName){b.meta.character=charName;b.meta.named=true;}
   BUILDS.builds[b.id]=b; BUILDS.order.push(b.id);
   persistBuilds(); switchBuild(b.id);
 }
+function openNewBuild(){
+  closeMenu();
+  $("#nbChar").value=""; $("#nbVer").value="";
+  $("#newBuildModal").classList.remove("hidden");
+  $("#nbChar").focus();
+}
 function deleteBuild(id){
   const b=BUILDS.builds[id]; if(!b)return;
-  if(!confirm(`Delete “${b.meta.character} · ${b.meta.name}”? This can’t be undone.`))return;
   const at=BUILDS.order.indexOf(id);
   delete BUILDS.builds[id]; BUILDS.order.splice(at,1);
   if(!BUILDS.order.length){                 // never leave the app with no build at all
@@ -757,6 +939,23 @@ function deleteBuild(id){
     BUILDS.activeId=null; switchBuild(BUILDS.order[Math.min(at,BUILDS.order.length-1)]);
   }
   persistBuilds(); renderBuildList();
+}
+// Native confirm() silently returns false in embedded webviews — the dialog never
+// shows and the action looks dead. So destructive buttons arm instead: first click
+// turns the button into the question, second click within 4s commits, anything else
+// (mouse leaving, timeout) disarms. No native dialogs anywhere.
+function armConfirm(btn,label,doIt){
+  if(label&&!btn.childNodes.length)btn.textContent=label;
+  const rest=btn.innerHTML;                    // menu rows carry an icon span — keep it
+  let t=0;
+  const disarm=()=>{clearTimeout(t);btn.classList.remove("armed");btn.innerHTML=rest;};
+  btn.onclick=e=>{e.stopPropagation();
+    if(!btn.classList.contains("armed")){
+      btn.classList.add("armed");btn.textContent="confirm?";
+      clearTimeout(t);t=setTimeout(disarm,4000);return;}
+    disarm();doIt();};
+  btn.onmouseleave=disarm;
+  return btn;
 }
 // a name field that looks like text until you touch it — no edit mode to enter or leave
 function nameInput(cls,value,commit){
@@ -774,8 +973,11 @@ function renderBuildList(){
     if(b&&!chars.includes(b.meta.character))chars.push(b.meta.character);});
   let shown=0;
   chars.forEach(char=>{
-    const rows=buildsOf(char).filter(b=>!q||char.toLowerCase().includes(q)
-      ||b.meta.name.toLowerCase().includes(q)||(b.meta.summary||"").toLowerCase().includes(q));
+    // summary is re-derived here (not read from meta) so renames of the FORMAT reach
+    // inactive builds too, and so the search always matches current class/subclass names
+    const rows=buildsOf(char).map(b=>({b,sum:describeBuild(b.state)}))
+      .filter(({b,sum})=>!q||char.toLowerCase().includes(q)
+      ||b.meta.name.toLowerCase().includes(q)||sum.toLowerCase().includes(q));
     if(!rows.length)return;
     shown+=rows.length;
     const grp=el("div","bldgroup");
@@ -785,7 +987,7 @@ function renderBuildList(){
       persistBuilds(); renderBuildList();}));
     h.append(Object.assign(el("span","bldn"),{textContent:rows.length+(rows.length>1?" versions":" version")}));
     grp.append(h);
-    rows.forEach(b=>{
+    rows.forEach(({b,sum})=>{
       const on=b.id===BUILDS.activeId;
       const r=el("div","bldrow"+(on?" on":""));
       r.onclick=()=>switchBuild(b.id);
@@ -795,15 +997,17 @@ function renderBuildList(){
       if(on)top.append(el("span","bldcur","current"));
       main.append(top);
       main.append(Object.assign(el("div","bldsum"),
-        {textContent:(b.meta.summary||"Empty build")+" · "+agoText(b.meta.updated)}));
+        {textContent:sum+" · "+agoText(b.meta.updated)}));
       r.append(main);
       const acts=el("div","bldacts");
       const dup=el("button","tk","duplicate");
       dup.title="Copy it as a new version of this character";
       dup.onclick=e=>{e.stopPropagation();duplicateBuild(b.id);};
-      const del=el("button","tk del","delete");
-      del.onclick=e=>{e.stopPropagation();deleteBuild(b.id);};
-      acts.append(dup,del); r.append(acts); grp.append(r);
+      const exp=el("button","tk","export");
+      exp.title="Download this build as a file you can keep or move to another machine";
+      exp.onclick=e=>{e.stopPropagation();exportBuild(b.id);};
+      const del=armConfirm(el("button","tk del"),"delete",()=>deleteBuild(b.id));
+      acts.append(exp,dup,del); r.append(acts); grp.append(r);
     });
     box.append(grp);
   });
@@ -814,6 +1018,7 @@ function renderBuildList(){
   renderBuildSwitch();          // a rename here must show up in the header switcher
 }
 function openBuilds(){ closeMenu(); $("#buildSearch").value="";
+  const ib=$("#bImportBox"); if(ib)ib.classList.add("hidden");
   $("#buildModal").classList.remove("hidden"); renderBuildList(); }
 
 // ── build switcher (v7 · T4) ───────────────────────────────────────────────
@@ -826,7 +1031,7 @@ function renderBuildSwitch(){
   // the version only earns space when there is more than one of this character
   ver.classList.toggle("hidden",buildsOf(b.meta.character).length<2);
   const n=BUILDS.order.length;
-  $("#bswBtn").title=`${b.meta.summary||"Empty build"} · ${n} build${n===1?"":"s"} saved`;
+  $("#bswBtn").title=`${describeBuild(b.state)} · ${n} build${n===1?"":"s"} saved`;
 }
 function renderBswPop(){
   const pop=$("#bswPop"); pop.innerHTML="";
@@ -841,15 +1046,211 @@ function renderBswPop(){
       t.append(el("span","bswn",b.meta.name));
       if(on)t.append(el("span","bswcur","current"));
       r.append(t);
-      r.append(el("div","bsws",(b.meta.summary||"Empty build")+" · "+agoText(b.meta.updated)));
+      r.append(el("div","bsws",describeBuild(b.state)+" · "+agoText(b.meta.updated)));
       r.onclick=()=>{closeMenu(); if(!on)switchBuild(b.id);};
       pop.append(r);});});
   pop.append(el("div","sep"));
-  const nb=el("button","bswact");nb.append(el("span","mi","＋"));nb.append(document.createTextNode("New build"));
-  nb.onclick=()=>{closeMenu();newBuild();};
-  const man=el("button","bswact");man.append(el("span","mi","▤"));man.append(document.createTextNode("Manage builds…"));
+  const nb=el("button","bswact");nb.append(icoEl("plus","mi"));nb.append(document.createTextNode("New build"));
+  nb.onclick=()=>openNewBuild();
+  const man=el("button","bswact");man.append(icoEl("stack","mi"));man.append(document.createTextNode("Manage builds…"));
   man.onclick=()=>{closeMenu();openBuilds();};
   pop.append(nb,man);
+}
+
+// ── export / import a build (v7 · T5) ──────────────────────────────────────
+// A build is otherwise one browser away from gone. The file is a plain JSON envelope
+// carrying the build's own state plus `meta.sources` (D33), so the receiving machine can
+// say which books it expects. A FILE, never a URL (D36). Import always ADDS — it can
+// never overwrite a build you already have.
+const BUILD_FILE_KIND="my-spellbook/build";
+const BUILD_FILE_VERSION=1;
+function buildExportObj(b){
+  return {kind:BUILD_FILE_KIND,version:BUILD_FILE_VERSION,exported:Date.now(),
+          app:"My Spellbook",meta:JSON.parse(JSON.stringify(b.meta)),
+          state:JSON.parse(JSON.stringify(b.state))};
+}
+const safeFileName=s=>String(s||"build").replace(/[^\w.\- ]+/g,"").trim().replace(/\s+/g,"-")||"build";
+function exportBuild(id){
+  const b=BUILDS.builds[id]; if(!b)return;
+  if(id===BUILDS.activeId)save();          // flush the live build before writing it out
+  const txt=JSON.stringify(buildExportObj(BUILDS.builds[id]),null,1);
+  const name=`${safeFileName(b.meta.character)}-${safeFileName(b.meta.name)}.spellbook.json`;
+  const url=URL.createObjectURL(new Blob([txt],{type:"application/json"}));
+  const a=el("a"); a.href=url; a.download=name; document.body.append(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),4000);
+}
+// what the file needs that this browser hasn't got loaded or turned on
+function importGaps(st,srcs){
+  const missing=new Set(), off=new Set();
+  (srcs||[]).forEach(c=>{ if(!DATA.sources[c])missing.add(c); else if(!srcOn(c))off.add(c); });
+  return {missing,off};
+}
+function parseBuildFile(txt){
+  let j; try{ j=JSON.parse(txt); }catch(e){ throw new Error("That isn't valid JSON."); }
+  if(!j||typeof j!=="object")throw new Error("That isn't a build file.");
+  if(j.kind&&j.kind!==BUILD_FILE_KIND)throw new Error("That file isn't a My Spellbook build.");
+  const st=j.state||j;                       // tolerate a bare state blob
+  if(!st||typeof st!=="object"||!Array.isArray(st.classes))
+    throw new Error("That file has no build in it.");
+  if((j.version||1)>BUILD_FILE_VERSION)
+    throw new Error("That build was exported by a newer version of the app.");
+  return {meta:j.meta||{},state:st};
+}
+function importBuildText(txt){
+  const {meta,state:st}=parseBuildFile(txt);
+  const char=meta.character||characterFrom(st)||"Imported";
+  const used=new Set(buildsOf(char).map(b=>b.meta.name));
+  let nm=meta.name||"v1"; for(let n=2;used.has(nm);n++)nm=(meta.name||"v1")+" ("+n+")";
+  // sources ride along as a RECORD of what it expected (D33) — never as an instruction
+  const b=mkBuild(applyImportedState(st),meta.sources||[...SRC],nm);
+  b.meta.character=char; b.meta.named=!!meta.named;
+  b.meta.created=meta.created||Date.now(); b.meta.updated=Date.now();
+  BUILDS.builds[b.id]=b; BUILDS.order.push(b.id);
+  persistBuilds();
+  return b;
+}
+// normalise a foreign state blob to this app's shape without trusting any of it
+function applyImportedState(st){
+  const out=blankBuildState();
+  out.classes=(Array.isArray(st.classes)?st.classes:[]).map((r,i)=>({
+    id:i+1, clsKey:String(r.clsKey||""), subKey:r.subKey?String(r.subKey):null,
+    level:Math.max(1,Math.min(20,+r.level||1))})).filter(r=>r.clsKey);
+  out.nextRowId=out.classes.length+1;
+  const idMap=new Map((Array.isArray(st.classes)?st.classes:[]).map((r,i)=>[r.id,i+1]));
+  out.speciesKey=String(st.speciesKey||"");
+  out.feats=(Array.isArray(st.feats)?st.feats:[]).map(String);
+  out.optFeats=(Array.isArray(st.optFeats)?st.optFeats:[]).map(String);
+  out.levelOrder=(Array.isArray(st.levelOrder)?st.levelOrder:[]).map(x=>idMap.get(x)).filter(Boolean);
+  out.customSources=Array.isArray(st.customSources)?JSON.parse(JSON.stringify(st.customSources)):[];
+  out.chosen={};
+  Object.entries(st.chosen||{}).forEach(([k,v])=>{const nk=idMap.has(+k)?idMap.get(+k):k;
+    out.chosen[nk]={cantrips:(v&&v.cantrips||[]).map(String),spells:(v&&v.spells||[]).map(String),
+                    prep:(v&&v.prep||[]).map(String)};});
+  out.choices={};
+  Object.entries(st.choices||{}).forEach(([k,v])=>{
+    // choice ids embed the class row id ("c3:pk0") — remap so picks survive the renumber
+    const nk=String(k).replace(/^([cs])(\d+)/,(m,p,n)=>idMap.has(+n)?p+idMap.get(+n):m);
+    out.choices[nk]=Array.isArray(v)?v.map(String):v;});
+  out.filters=st.filters||FILTER_DEFAULT();
+  return out;
+}
+
+// ── custom-source editor (D55) ─────────────────────────────────────────────
+let CSRC=null;   // the draft being edited: {id,name,kind,mode,spells:[{key,count,unit}]}
+function renderCustomSources(){
+  const box=$("#csrcChips"); if(!box)return; box.innerHTML="";
+  (state.customSources||[]).forEach(cs=>{
+    const c=el("span","chip csrc");
+    c.append(icoEl("spark","fmark"));
+    c.append(el("span",null,cs.name));
+    c.append(el("span","csn",String((cs.spells||[]).length)));
+    c.onclick=()=>openCsrc(cs);
+    attachTip(c,tipRows(cs.name,[["Kind",esc(cs.kind||"—")],["Uses",esc(csrcPower(cs))]]
+      .concat(cs.dc?[["Save DC",esc(cs.dc)]]:[]).concat(cs.atk?[["Attack",esc(cs.atk)]]:[])));
+    box.append(c);});
+}
+function openCsrc(existing){
+  CSRC=existing?JSON.parse(JSON.stringify(existing))
+               :{id:"cs"+Date.now().toString(36),name:"",kind:"",mode:"innate",
+                 uses:"pool",pool:null,recharge:"",dc:"",atk:"",ability:"",spells:[]};
+  // sources authored before the richer model carry no `uses` — normalise the draft so the
+  // toggles and the rows below can never disagree about what this source is
+  CSRC.mode=CSRC.mode||"innate";
+  if(!CSRC.uses)
+    CSRC.uses=(CSRC.spells||[]).some(e=>e.unit||e.count!=null)?"per":"pool";
+  $("#csrcTitle").textContent=existing?"Edit spell source":"Custom spell source";
+  $("#csrcDelete").classList.toggle("hidden",!existing);
+  $("#csrcName").value=CSRC.name;
+  $("#csrcKind").value=CSRC.kind||"";
+  $("#csrcPool").value=CSRC.pool==null?"":CSRC.pool;
+  $("#csrcRecharge").value=CSRC.recharge||"";
+  $("#csrcDC").value=CSRC.dc||""; $("#csrcAtk").value=CSRC.atk||"";
+  const ab=$("#csrcAbility");ab.innerHTML="";ab.append(new Option("mine",""));
+  Object.entries(ABIL).forEach(([v,t])=>ab.append(new Option(t,v)));
+  ab.value=CSRC.ability||"";
+  buildToggleRowSingle($("#csrcMode"),CSRC_MODES,CSRC.mode,v=>{CSRC.mode=v;csrcSyncMode();});
+  buildToggleRowSingle($("#csrcUses"),[["pool","a shared pool of charges"],["per","per-spell uses"]],
+    CSRC.uses||"pool",v=>{CSRC.uses=v;csrcSyncMode();});
+  $("#csrcSearch").value=""; $("#csrcHits").innerHTML=""; $("#csrcErr").textContent="";
+  csrcSyncMode();
+  $("#csrcModal").classList.remove("hidden");
+  if(!existing)$("#csrcName").focus();
+}
+// only "cast without preparing" spends uses at all, and only a pool needs a pool size
+function csrcSyncMode(){
+  $("#csrcUsesBlock").classList.toggle("hidden",CSRC.mode!=="innate");
+  $("#csrcPoolRow").classList.toggle("hidden",CSRC.mode!=="innate"||CSRC.uses!=="pool");
+  renderCsrcRows();
+}
+// a one-of chip row (the cbrow pattern, but single-select)
+function buildToggleRowSingle(box,pairs,cur,cb){
+  box.innerHTML="";
+  pairs.forEach(([v,t])=>{const b=el("button","cbtn"+(v===cur?" on":""),t);
+    b.onclick=()=>{[...box.children].forEach(x=>x.classList.remove("on"));b.classList.add("on");cb(v);};
+    box.append(b);});
+}
+function renderCsrcRows(){
+  const box=$("#csrcRows"); box.innerHTML="";
+  const pool=CSRC.mode==="innate"&&CSRC.uses==="pool";
+  const per =CSRC.mode==="innate"&&CSRC.uses!=="pool";
+  CSRC.spells.forEach((e,i)=>{
+    const sp=SPELL_BY[e.key];
+    const row=el("div","csrow");
+    const nm=el("span","csnm",sp?sp.name:e.key.split("|")[0]);
+    if(sp)attachSpell(nm,sp);
+    row.append(nm);
+    if(pool){
+      const c=el("input");c.type="number";c.min=1;c.max=99;c.value=e.cost||1;c.className="csn2";
+      c.title="Charges this spell costs";
+      c.oninput=()=>{e.cost=Math.max(1,+c.value||1);};
+      row.append(el("span","cslbl","costs"));row.append(c);}
+    if(per){
+      const n=el("input");n.type="number";n.min=1;n.max=99;n.value=e.count||1;n.className="csn2";
+      n.oninput=()=>{e.count=Math.max(1,+n.value||1);};
+      const u=el("select");CSRC_UNITS.forEach(([v,t])=>u.append(new Option(t,v)));u.value=e.unit||"lr";
+      u.onchange=()=>{e.unit=u.value;n.disabled=u.value==="will";};
+      n.disabled=(e.unit||"lr")==="will";
+      row.append(n);row.append(u);}
+    // "casts fireball as a 5th-level spell" — blank means the spell's own level
+    if(sp&&sp.level>0){
+      const lv=el("select");lv.className="cslv";lv.append(new Option("as written",""));
+      for(let L=sp.level;L<=9;L++)lv.append(new Option("at "+ROMAN[L],String(L)));
+      lv.value=e.level?String(e.level):"";
+      lv.onchange=()=>{e.level=lv.value?+lv.value:null;};
+      row.append(lv);}
+    row.append(xBtn(null,()=>{CSRC.spells.splice(i,1);renderCsrcRows();}));
+    box.append(row);});
+}
+function renderCsrcHits(){
+  const box=$("#csrcHits"); box.innerHTML="";
+  const q=$("#csrcSearch").value.trim().toLowerCase();
+  if(q.length<2)return;
+  const have=new Set(CSRC.spells.map(e=>e.key));
+  DATA.spells.filter(sp=>visible(sp)&&sp.name.toLowerCase().includes(q)&&!have.has(key(sp.name,sp.source)))
+    .slice(0,10).forEach(sp=>{
+      const r=el("button","cshit");
+      r.append(el("span",null,sp.name));
+      r.append(el("span","cshl",(sp.level===0?"cantrip":"level "+sp.level)+" · "+sp.school));
+      if(sp.source!==CORE)r.append(bookChip(sp.source,sp.page));
+      r.onclick=()=>{CSRC.spells.push({key:key(sp.name,sp.source),count:1,unit:"lr"});
+        $("#csrcSearch").value="";box.innerHTML="";renderCsrcRows();};
+      box.append(r);});
+}
+function saveCsrc(){
+  CSRC.name=$("#csrcName").value.trim();
+  CSRC.kind=$("#csrcKind").value.trim();
+  CSRC.pool=$("#csrcPool").value?Math.max(0,+$("#csrcPool").value||0):null;
+  CSRC.recharge=$("#csrcRecharge").value.trim();
+  CSRC.dc=$("#csrcDC").value.trim();
+  CSRC.atk=$("#csrcAtk").value.trim();
+  CSRC.ability=$("#csrcAbility").value;
+  if(!CSRC.name){$("#csrcErr").textContent="Give it a name.";return;}
+  if(!CSRC.spells.length){$("#csrcErr").textContent="Add at least one spell.";return;}
+  const list=state.customSources=state.customSources||[];
+  const at=list.findIndex(x=>x.id===CSRC.id);
+  if(at>=0)list[at]=CSRC; else list.push(CSRC);
+  $("#csrcModal").classList.add("hidden");
+  save(); renderCustomSources(); render();
 }
 
 // ── source reconciliation on activation (v7 · T2) ──────────────────────────
@@ -860,16 +1261,21 @@ function renderBswPop(){
 function buildGaps(st){
   st=st||serializeState();
   const out=[],books=new Set();
-  const add=(kind,o)=>{if(!o)return; if(visible(o))return; out.push({kind,name:o.name,source:o.source});
+  const add=(kind,o,rawKey)=>{
+    // an entity whose whole book isn't loaded (a lean import) is kept by pruneState
+    // (D56) — surface it here from its stored key so the bar can name the book
+    if(!o){ if(rawKey==null)return; const parts=String(rawKey).split("|");
+      out.push({kind,name:parts[0],source:parts[1]||""}); books.add(parts[1]||""); return; }
+    if(visible(o))return; out.push({kind,name:o.name,source:o.source});
     if(!srcOn(o.source))books.add(o.source);};
-  (st.classes||[]).forEach(r=>{add("class",CLS_BY[r.clsKey]); if(r.subKey)add("subclass",SUB_BY[r.subKey]);});
-  if(st.speciesKey)add("species",RACE_BY[st.speciesKey]);
-  (st.feats||[]).forEach(k=>add("feat",FEAT_BY[k]));
-  (st.optFeats||[]).forEach(k=>add("option",OPT_BY[k]));
+  (st.classes||[]).forEach(r=>{add("class",CLS_BY[r.clsKey],r.clsKey); if(r.subKey)add("subclass",SUB_BY[r.subKey],r.subKey);});
+  if(st.speciesKey)add("species",RACE_BY[st.speciesKey],st.speciesKey);
+  (st.feats||[]).forEach(k=>add("feat",FEAT_BY[k],k));
+  (st.optFeats||[]).forEach(k=>add("option",OPT_BY[k],k));
   const spells=new Set();
   Object.values(st.chosen||{}).forEach(c=>[...(c.cantrips||[]),...(c.spells||[])].forEach(k=>spells.add(k)));
   Object.values(st.choices||{}).forEach(v=>(Array.isArray(v)?v:[]).forEach(k=>spells.add(k)));
-  spells.forEach(k=>add("spell",SPELL_BY[k]));
+  spells.forEach(k=>add("spell",SPELL_BY[k],k));
   return {refs:out,books};
 }
 // books the build merely HAD enabled but whose absence breaks nothing — context, not a problem
@@ -884,17 +1290,23 @@ function renderGapBar(){
   const g=buildGaps();
   if(!g.books.size){bar.classList.add("hidden");bar.innerHTML="";return;}
   bar.innerHTML=""; bar.classList.remove("hidden");
-  const names=[...g.books].map(bookName).join(", ");
-  const n=g.refs.filter(r=>!srcOn(r.source)).length;
+  // two flavours of gap: a loaded book merely turned OFF (one click fixes it) and a
+  // book that isn't in the loaded content at all (only a re-import can) — D56
+  const off=[...g.books].filter(c=>DATA.sources[c]);
+  const absent=[...g.books].filter(c=>!DATA.sources[c]);
+  const n=g.refs.filter(r=>!srcOn(r.source)||!DATA.sources[r.source]).length;
   const txt=el("div","gaptxt");
-  txt.append(el("b",null,`${n} pick${n===1?"":"s"} need${n===1?"s":""} a book you have turned off`));
-  txt.append(el("span",null,names));
+  txt.append(el("b",null,`${n} pick${n===1?"":"s"} need${n===1?"s":""} `
+    +(absent.length&&off.length?"books you don’t have loaded or turned on"
+      :absent.length?"a book that isn’t loaded — re-import it":"a book you have turned off")));
+  txt.append(el("span",null,[...g.books].map(bookName).join(", ")));
   bar.append(txt);
-  const b=el("button","btn on","Turn them on");
-  b.onclick=()=>enableBooks([...g.books]);
-  bar.append(b);
+  if(off.length){
+    const b=el("button","btn on","Turn them on");
+    b.onclick=()=>enableBooks(off);
+    bar.append(b);}
   attachTip(txt,tipBlock("Kept, not removed",
-    g.refs.filter(r=>!srcOn(r.source)).slice(0,10).map(r=>`${r.name} (${r.kind}, ${r.source})`).join(" · ")
+    g.refs.filter(r=>!srcOn(r.source)||!DATA.sources[r.source]).slice(0,10).map(r=>`${r.name} (${r.kind}, ${r.source})`).join(" · ")
       + (n>10?` · +${n-10} more`:"")));
 }
 // asked once, on activation
@@ -999,7 +1411,8 @@ const prepRec=()=>R.casters.find(r=>r.idx===PREP.idxs[PREP.step]);
 function renderPrepStep(){
   const rec=prepRec(); if(!rec){ $("#prepModal").classList.add("hidden"); return; }
   $("#prepSearch").value=PREP.search||""; PREP.levelSet=new Set();
-  $("#prepTitle").textContent=classLabel(rec)+" — prepare spells";
+  const bk=R.cart[rec.idx]&&R.cart[rec.idx].known&&R.cart[rec.idx].known.book;
+  $("#prepTitle").textContent=classLabel(rec)+(bk?" — prepare from your spellbook":" — prepare spells");
   const steps=$("#prepSteps"); steps.innerHTML="";
   PREP.idxs.forEach((idx,i)=>{const r=R.casters.find(x=>x.idx===idx); if(!r)return;
     const b=el("button","prepstep"+(i===PREP.step?" on":""),classLabel(r));
@@ -1013,11 +1426,17 @@ function renderPrepStep(){
 function renderPrepList(){
   const rec=prepRec(); if(!rec)return; const list=$("#prepList"); list.innerHTML="";
   const q=(PREP.search||"").toLowerCase(), cart=R.cart[rec.idx];
-  const cap=cart.known?cart.known.total:rec.prepared;
-  const cur=new Set((state.chosen[rec.idx]||{}).spells||[]);
+  // A wizard prepares FROM its spellbook, so the pool is the book and the target set is
+  // `prep` — every other caster prepares from its class list into `spells` (D62).
+  const book=cart.known&&cart.known.book;
+  const field=book?"prep":"spells";
+  const cap=book?cart.known.prepares:rec.prepared;
+  const cur=new Set((state.chosen[rec.idx]||{})[field]||[]);
   const have=[...cur].map(k=>SPELL_BY[k]).filter(s=>s&&s.level>=1).length, over=have>cap;
-  $("#prepCount").innerHTML=`<b class="${over?"over":""}">${have} / ${cap}</b> <small>${cart.known?"in spellbook":"prepared"}</small>`;
-  let base=[...R.pool.values()].filter(e=>e.takers.some(t=>t.idx===rec.idx)&&!(e.always&&e.always.has(rec.idx))&&e.sp.level>=1&&e.sp.level<=rec.maxLvl).map(e=>e.sp);
+  $("#prepCount").innerHTML=`<b class="${over?"over":""}">${have} / ${cap}</b> <small>prepared</small>`;
+  let base=book
+    ? ((state.chosen[rec.idx]||{}).spells||[]).map(k=>SPELL_BY[k]).filter(sp=>sp&&sp.level>=1)
+    : [...R.pool.values()].filter(e=>e.takers.some(t=>t.idx===rec.idx)&&!(e.always&&e.always.has(rec.idx))&&e.sp.level>=1&&e.sp.level<=rec.maxLvl).map(e=>e.sp);
   const presentLevels=[...new Set(base.map(s=>s.level))].sort((a,b)=>a-b);
   buildToggleRow($("#prepLevels"),presentLevels.map(l=>[String(l),String(l)]),PREP.levelSet,true,renderPrepList);
   const plb=$("#prepLevelBtn");if(plb)plb.innerHTML="Levels"+(PREP.levelSet.size?` <span class="badge">${PREP.levelSet.size}</span>`:"");
@@ -1030,10 +1449,13 @@ function renderPrepList(){
     const d=el("div","sp"+(on?" chosen":""));
     const nm=el("div","nm",sp.name);attachSpell(nm,sp);d.append(nm);
     const meta=el("div","meta");[ROMAN[sp.level],shortSchool(sp.school),shortTime(sp.time),shortRange(sp.range)].filter(Boolean).forEach(x=>meta.append(el("span",null,x)));d.append(meta);
-    const take=el("div","take");const b=el("button","tk"+(on?" on":"")+(on&&over?" over":""),on?"✓ prepared":"+ prepare");
-    b.onclick=()=>{toggle(rec.idx,k,false);renderPrepList();};take.append(b);d.append(take);list.append(d);});
+    const take=el("div","take");const b=el("button","tk"+(on?" on":"")+(on&&over?" over":""));
+    b.append(icoEl(on?"check":"plus"));
+    b.append(document.createTextNode(on?"prepared":"prepare"));
+    b.onclick=()=>{toggle(rec.idx,k,false,field);renderPrepList();};take.append(b);d.append(take);list.append(d);});
   if(!items.length)list.append(el("div","empty",PREP.onlyPicked?"Nothing prepared yet."
-    :"No eligible spells at this level yet."));
+    :book?"Your spellbook is empty — copy spells into it first."
+         :"No eligible spells at this level yet."));
 }
 
 // ── custom spell authoring (stepped) → stored as a Homebrew source ──────────
@@ -1146,7 +1568,7 @@ function renderImportStage(){const box=$("#importStaged");if(!box)return;box.inn
   IMPORT_STAGE.forEach((f,i)=>{const chip=el("span","stagechip"+(f.error?" bad":""));
     chip.append(el("span",null,f.name));
     chip.append(el("span","k",f.error?"invalid":countFile(f.json)));
-    const x=el("button",null,"×");x.onclick=()=>{IMPORT_STAGE.splice(i,1);renderImportStage();};chip.append(x);box.append(chip);});
+    const x=xBtn(null,()=>{IMPORT_STAGE.splice(i,1);renderImportStage();});chip.append(x);box.append(chip);});
   const bb=$("#importBuild");if(bb)bb.disabled=!IMPORT_STAGE.some(f=>!f.error);}
 async function stageZip(file){const rep=$("#importReport");
   try{rep.textContent="Reading "+file.name+"…";const buf=await file.arrayBuffer();
@@ -1224,10 +1646,13 @@ function saveTableOpts(){ try{localStorage.setItem(LS_TABLE,JSON.stringify(
 function rechargeShort(recharge,isCantrip){
   const r=String(recharge||"").toLowerCase();
   if(isCantrip||/at will/.test(r))return "at will";
-  const m=r.match(/(\d+)\s*\/\s*(long|short)/); // "2/long rest" style, if ever present
-  if(m)return m[1]+"/"+(m[2][0].toUpperCase()==="L"?"LR":"SR");
+  // "2/long rest", "3× per long rest" (grants + custom sources both emit the × form)
+  const m=r.match(/(\d+)\s*(?:[×x\/]|per)?\s*(?:per\s+)?(long|short|dawn|charge)/);
+  if(m){const u={l:"LR",s:"SR",d:"dawn",c:"chg"}[m[2][0]];return m[1]+"/"+u;}
   if(/long rest/.test(r))return "1/LR";
   if(/short rest/.test(r))return "1/SR";
+  if(/dawn/.test(r))return "1/dawn";
+  if(/charge/.test(r))return "chg";
   if(/always/.test(r))return "at will";
   return "—";
 }
@@ -1264,14 +1689,20 @@ function renderTable(){
   const push=o=>{const kk=key(o.sp.name,o.sp.source)+"|"+o.src; if(seenSrc.has(kk))return; seenSrc.add(kk); rows.push(o);};
   R.casters.forEach(r=>{const cart=R.cart[r.idx];
     const picked=new Set([...(cart.cantrips||[]),...(cart.spells||[])]);
-    [...picked].forEach(k=>{const sp=SPELL_BY[k];if(sp)push({sp,src:classLabel(r),type:"prep",ability:r.ability,recharge:null,sel:true,idx:r.idx,rkey:k,cantrip:sp.level===0});});
+    const book=cart.known&&cart.known.book, prepSet=new Set(cart.prep||[]);
+    [...picked].forEach(k=>{const sp=SPELL_BY[k];if(sp)push({sp,src:classLabel(r),type:"prep",
+      ability:r.ability,recharge:null,sel:true,idx:r.idx,rkey:k,cantrip:sp.level===0,
+      levelSwap:r.static,
+      // a wizard's book row is only "prepared" when today's subset holds it (D62)
+      inBook:!!book&&sp.level>0, prepared:!book||sp.level===0||prepSet.has(k)});});
   });
   // always-prepared (free) grants
   [...R.pool.values()].filter(e=>e.grants.length).forEach(e=>{const g=e.grants[0];
     push({sp:e.sp,src:srcTidy(g.src),type:"free",ability:g.ability,recharge:null,sel:true});});
   // innate / free casts
   R.freeCasts.forEach(fc=>{if(fc.choice)return;const sp=grantRec(fc.name);if(sp)
-    push({sp,src:srcTidy(fc.src),type:fc.swappable?"swap":"cast",ability:fc.ability,recharge:fc.recharge,sel:true});});
+    push({sp,src:srcTidy(fc.src),type:fc.swappable?"swap":"cast",ability:fc.ability,
+      recharge:fc.recharge,sel:true,dc:fc.dc,atk:fc.atk,castLv:fc.castLv});});
 
   const tbl=$("#spellTable");tbl.innerHTML="";
   $("#tableChip").textContent=rows.length?rows.length+" spells":"";
@@ -1307,7 +1738,9 @@ function renderTable(){
       td.append(el("span",null,sp.level===0?"Cantrips":ROMAN[sp.level]+" level"));
       gr.append(td);tbl.append(gr);}
     const tr=el("tr",sel?"":"unsel");
-    cols.forEach(k=>tr.append(cellFor(k,row)));
+    cols.forEach(k=>{const td=cellFor(k,row);
+      if(td.textContent==="—")td.classList.add("nil");   // an empty slot reads quieter than a value
+      tr.append(td);});
     tbl.append(tr);
   });
 }
@@ -1323,7 +1756,7 @@ function renderColMenu(){
     cb.onchange=()=>{cb.checked?tableOpts.hidden.delete(k):tableOpts.hidden.add(k);saveTableOpts();renderTable();};
     row.append(cb);
     row.append(el("span","collbl",def.label||"Prepared"));
-    if(!def.fixed)row.append(el("span","colgrip","⠿"));
+    if(!def.fixed)row.append(icoEl("grip","colgrip"));
     row.ondragstart=e=>{dragKey=k;e.dataTransfer.effectAllowed="move";row.classList.add("dragging");};
     row.ondragend=()=>{dragKey=null;box.querySelectorAll(".colrow").forEach(r=>r.classList.remove("dragging","dropinto"));};
     row.ondragover=e=>{if(!dragKey||dragKey===k||def.fixed)return;e.preventDefault();row.classList.add("dropinto");};
@@ -1356,11 +1789,16 @@ function cellFor(k,row){
   if(k==="mark"){
     // read-only status indicator: ✓ always-prepared · ● prepared today · ✦ innate
     const ind=el("td","pickcell");
-    if(type==="free"){ind.textContent="✓";ind.classList.add("always");attachTip(ind,tipBlock("Always prepared","A free grant — it doesn’t count against your prepared list."));}
-    else if(type==="swap"){ind.textContent="●";ind.classList.add("on");attachTip(ind,tipBlock("Prepared","Swappable on a long rest — change it in Choices."));}
-    else if(type==="cast"){ind.textContent="✦";ind.classList.add("innate");attachTip(ind,tipBlock("Innate / free cast","Cast without preparing it."+(recharge?" Cadence: "+recharge+".":"")));}
-    else if(sp.level===0){ind.textContent="●";ind.classList.add("on");attachTip(ind,tipBlock("Cantrip","Always known — not re-prepared daily."));}
-    else{ind.textContent="●";ind.classList.add("on");attachTip(ind,tipBlock("Prepared today","Change it with Prepare daily."));}
+    if(type==="free"){ind.innerHTML=ICONS.check;ind.classList.add("always");attachTip(ind,tipBlock("Always prepared","A free grant — it doesn’t count against your prepared list."));}
+    else if(type==="swap"){ind.innerHTML=ICONS.dot;ind.classList.add("on");attachTip(ind,tipBlock("Prepared","Swappable on a long rest — change it in Choices."));}
+    else if(type==="cast"){ind.innerHTML=ICONS.spark;ind.classList.add("innate");attachTip(ind,tipBlock("Innate / free cast","Cast without preparing it."+(recharge?" Cadence: "+recharge+".":"")));}
+    else if(sp.level===0){ind.innerHTML=ICONS.dot;ind.classList.add("on");attachTip(ind,tipBlock("Cantrip","Always known — not re-prepared daily."));}
+    else if(row.inBook&&!row.prepared){ind.innerHTML=ICONS.book;ind.classList.add("inbook");
+      attachTip(ind,tipBlock("In your spellbook, not prepared","A wizard knows every spell in its book but casts only the ones prepared after a long rest. Use Prepare daily."));}
+    else if(row.inBook){ind.innerHTML=ICONS.dot;ind.classList.add("on");
+      attachTip(ind,tipBlock("Prepared today","Chosen from your spellbook this long rest — change it with Prepare daily."));}
+    else if(row.levelSwap){ind.innerHTML=ICONS.dot;ind.classList.add("on");attachTip(ind,tipBlock("Known","This class learns spells on level-up, not daily — you can swap one whenever you gain a level."));}
+    else{ind.innerHTML=ICONS.dot;ind.classList.add("on");attachTip(ind,tipBlock("Prepared today","Change it with Prepare daily."));}
     return ind;}
   if(k==="name"){const td=el("td","nm");td.textContent=sp.name;attachSpell(td,sp);
     if(sp.ritual)td.append(Object.assign(el("span"),{textContent:" R",style:"color:var(--gold);font-size:10px;font-weight:700"}));
@@ -1372,8 +1810,13 @@ function cellFor(k,row){
   if(k==="comp")return compCell(sp);
   if(k==="dur")return shortCell(shortDuration(sp.durTxt),
     (sp.conc?"Concentration, up to ":"")+sp.durTxt,"Duration");
-  if(k==="conc")return Object.assign(el("td",sp.conc?"concmark":""),{textContent:sp.conc?"✓":"—"});
-  if(k==="ability"){const td=el("td");td.innerHTML=row.ability?abChip(row.ability):"—";return td;}
+  if(k==="conc"){const td=el("td",sp.conc?"concmark":"");
+    if(sp.conc)td.innerHTML=ICONS.check; else td.textContent="—"; return td;}
+  if(k==="ability"){const td=el("td");
+    if(row.dc||row.atk){td.innerHTML=`<span class="ownnum">${esc([row.dc?"DC "+row.dc:"",row.atk?row.atk:""].filter(Boolean).join(" · "))}</span>`;
+      attachTip(td,tipBlock("The source's own numbers","This is cast by "+(row.src||"a source")+" using its own save DC / attack bonus, not your spellcasting."));
+      return td;}
+    td.innerHTML=row.ability?abChip(row.ability):"—";return td;}
   if(k==="casts"){
     // innate recharge, with * when the spell is also castable via your own slots
     const td=el("td");const lab=recharge?rechargeShort(recharge,sp.level===0):"—";
@@ -1463,8 +1906,110 @@ addEventListener("scroll",()=>{ if(_jumpRaf)return;
   _jumpRaf=requestAnimationFrame(()=>{_jumpRaf=0;syncJumpBar();}); },{passive:true});
 addEventListener("resize",()=>syncJumpBar(),{passive:true});
 
+// the Character card's level chip doubles as the preview control (D54): click it to
+// scrub the build at a lower level, view-only — release and nothing has changed
+function renderLevelChip(){
+  const chip=$("#clvlChip"); if(!chip)return;
+  const total=state.classes.reduce((a,r)=>a+(r.level||0),0);
+  detachTip(chip);                       // the node is reused; its old meaning is gone
+  chip.innerHTML=""; chip.classList.toggle("prevon",PREVIEW.level!=null);
+  if(!total){chip.classList.remove("prevable");return;}
+  if(PREVIEW.level==null){
+    chip.textContent="level "+total;
+    chip.classList.toggle("prevable",total>1);
+    if(total>1){
+      chip.onclick=e=>{e.stopPropagation();hideTip();setPreview(total-1);};
+      attachTip(chip,tipBlock("Preview at a lower level","See what this build looks like before it reaches level "+total+". Nothing is changed — picks above the preview are just flagged."));}
+    return;}
+  chip.classList.remove("prevable");
+  const mk=(lbl,fn,cls,tip)=>{const b=el("button","pvb"+(cls?" "+cls:""),lbl);
+    b.onclick=e=>{e.stopPropagation();fn();};            // set BEFORE attachTip
+    if(tip)attachTip(b,tip); return b;};
+  chip.append(el("span","pvlab","preview"));
+  chip.append(mk("−",()=>setPreview(PREVIEW.level-1)));
+  chip.append(el("b","pvn","L"+PREVIEW.level));
+  chip.append(mk("+",()=>setPreview(PREVIEW.level+1)));
+  if(state.classes.length>1)
+    chip.append(mk("order…",()=>openLvlOrder(),"pvo",
+      tipBlock("Level order","Which class each character level is taken in — what the preview unlocks by.")));
+  chip.append(mk("save as version",()=>savePreviewAsVersion(),"pvo",
+    tipBlock("Fork this level into a version","Makes a real build at L"+PREVIEW.level+" that you can pick spells in freely, alongside the full-level one. Your picks come with it; anything over that level's budget is flagged, never dropped.")));
+  chip.append(xBtn("pvx",()=>setPreview(null)));
+}
+// What a class level actually gives, NAMED: real class and subclass features (D63),
+// plus the spellcasting milestones a spell planner cares about — a new spell level or
+// a new slot tier. Not derived counts: "Arcane Recovery" says more than "+1 prepared".
+function levelGains(row,cl){
+  const c=CLS_BY[row.clsKey]; if(!c)return {feats:[],cast:[]};
+  const sub=row.subKey?SUB_BY[row.subKey]:null;
+  const feats=[],cast=[];
+  (c.features||[]).forEach(f=>{if(f.level===cl)feats.push(f.name);});
+  if(sub&&cl>=(c.subclassLevel||3))(sub.features||[]).forEach(f=>{if(f.level===cl)feats.push(f.name);});
+  if(c.subclassLevel===cl&&!sub)feats.push("subclass — not chosen");
+  if([4,8,12,16].concat(ASI_EXTRA[c.name]||[]).includes(cl))feats.push("Feat / ASI");
+  if(cl===19)feats.push("Epic Boon");
+  [c,sub].forEach(src=>{ if(!src||!src.optFeatures)return;
+    src.optFeatures.forEach(p=>{const d=(p.counts[cl-1]||0)-(cl>1?(p.counts[cl-2]||0):0);
+      if(d>0)feats.push(`+${d} ${p.name.toLowerCase()}`);});});
+  if(c.caster){
+    const was=cl>1?maxLvlAt(c.caster,cl-1):0, now=maxLvlAt(c.caster,cl);
+    if(now>was)cast.push((was?"":"spellcasting · ")+ROMAN[now]+"-level slots");
+    const slots=c.slots&&c.slots[cl-1], prev=cl>1&&c.slots?c.slots[cl-2]:null;
+    if(slots&&prev){const gained=slots.reduce((a,v,i)=>a+Math.max(0,(+v||0)-(+prev[i]||0)),0);
+      if(gained&&now===was)cast.push(`+${gained} slot${gained>1?"s":""}`);}
+  }
+  return {feats,cast};
+}
+// One card per character level, in acquisition order: which class it was taken in and
+// what that level gave you. Drag a card by its handle to reorder — the class totals are
+// fixed by the build, so reordering only changes WHEN each level lands (D59).
+function renderLvlOrder(){
+  const box=$("#loList"); if(!box)return; box.innerHTML="";
+  const plan=classLevelPlan();
+  const rowOf=new Map(state.classes.map(r=>[r.id,r]));
+  const perClass=new Map();               // running class level, for the gains line
+  let dragFrom=null;
+  const commit=order=>{state.levelOrder=order; save(); renderLvlOrder();
+    if(PREVIEW.level!=null){refreshAll();render();}};
+  plan.forEach((id,i)=>{
+    const row=rowOf.get(id); if(!row)return;
+    const cl=(perClass.get(id)||0)+1; perClass.set(id,cl);
+    const c=CLS_BY[row.clsKey];
+    const card=el("div","locard"); card.draggable=true; card.dataset.i=String(i);
+    card.append(icoEl("grip","logrip"));
+    const body=el("div","lobody");
+    const top=el("div","lotop");
+    top.append(el("span","lolv","L"+(i+1)));
+    top.append(el("b","locls",(c?c.name:"?")+" "+cl));
+    body.append(top);
+    const g=levelGains(row,cl);
+    if(g.feats.length)body.append(Object.assign(el("div","logains"),{textContent:g.feats.join(" · ")}));
+    if(g.cast.length)body.append(Object.assign(el("div","locast"),{textContent:g.cast.join(" · ")}));
+    if(!g.feats.length&&!g.cast.length)
+      body.append(Object.assign(el("div","logains dim"),{textContent:"no new features"}));
+    card.append(body);
+    card.ondragstart=e=>{dragFrom=i;e.dataTransfer.effectAllowed="move";
+      try{e.dataTransfer.setData("text/plain",String(i));}catch(_){}
+      card.classList.add("dragging");};
+    card.ondragend=()=>{dragFrom=null;
+      box.querySelectorAll(".locard").forEach(x=>x.classList.remove("dragging","dropinto"));};
+    card.ondragover=e=>{if(dragFrom==null||dragFrom===i)return;
+      e.preventDefault();e.dataTransfer.dropEffect="move";card.classList.add("dropinto");};
+    card.ondragleave=()=>card.classList.remove("dropinto");
+    card.ondrop=e=>{e.preventDefault();card.classList.remove("dropinto");
+      if(dragFrom==null||dragFrom===i)return;
+      const o=plan.slice(),[moved]=o.splice(dragFrom,1);
+      o.splice(dragFrom<i?i-1:i,0,moved);
+      commit(o);};
+    box.append(card);});
+  const names=id=>(CLS_BY[(rowOf.get(id)||{}).clsKey]||{}).name||"?";
+  $("#loSub").textContent=state.classes
+    .map(r=>`${names(r.id)} ${plan.filter(x=>x===r.id).length}`).join(" · ")
+    +" — totals are set by the build; dragging only changes the order they are taken in";
+}
+function openLvlOrder(){ renderLvlOrder(); $("#lvlOrderModal").classList.remove("hidden"); }
 function renderSlots(){
-  $("#clvlChip").textContent=R.charLevel?("level "+R.charLevel):"";
+  renderLevelChip();
   const g=$("#statGrid");g.innerHTML="";
   const maxAny=Math.max(0,...R.casters.map(r=>r.maxLvl));
   const tPrep=R.casters.reduce((a,r)=>a+r.prepared,0);
@@ -1482,9 +2027,14 @@ function renderSlots(){
   const cw=$("#castsWrap");cw.innerHTML="";
   if(R.freeCasts.length){cw.append(el("label","fld","Free / innate casts"));const box=el("div","casts");
     R.freeCasts.forEach(c=>{const row=el("div","ct");const n=el("span");
-      n.innerHTML=c.choice?c.desc:(c.name+(c.level!=null?` <span style="color:var(--muted)">(${ROMAN[c.level]})</span>`:""));
+      // a custom source can fix the level it goes off at, and carry its own DC/attack (D65)
+      const lv=c.castLv||c.level;
+      n.innerHTML=c.choice?c.desc:(c.name+(lv!=null?` <span style="color:var(--muted)">(${ROMAN[lv]}${c.castLv?" fixed":""})</span>`:""));
       const lab=rechargeShort(c.recharge,c.level===0),atWill=lab==="at will";
-      row.append(n);row.append(el("span","rc"+(atWill?" will":""),lab));row.append(el("span","src",c.src));box.append(row);});
+      row.append(n);
+      if(c.dc||c.atk)row.append(Object.assign(el("span","ownnum"),
+        {textContent:[c.dc?"DC "+c.dc:"",c.atk?"atk "+c.atk:""].filter(Boolean).join(" · ")}));
+      row.append(el("span","rc"+(atWill?" will":""),lab));row.append(el("span","src",c.src));box.append(row);});
     cw.append(box);}
 }
 
@@ -1516,9 +2066,13 @@ function renderCart(){
       copied=Math.max(0,copied);
       const free=c.spells.length-copied;
       b.append(meter("Spellbook",Math.min(free,kn.total),kn.total));
+      // the book is what it KNOWS; prepared is the daily subset drawn from it (D62)
+      const prepN=(c.prep||[]).length;
+      b.append(meter("Prepared",prepN,kn.prepares));
       const sn=el("div","note");sn.style.margin="2px 0 0";
-      sn.innerHTML=`Fixed growth, no retraining. Prepare <b style="color:var(--ink)">${kn.prepares}</b> of these each long rest.`
-        +(copied?` <b style="color:var(--accent)">+${copied} copied in</b>.`:"");
+      sn.innerHTML=`Fixed growth, no retraining.`
+        +(copied?` <b style="color:var(--accent)">+${copied} copied in</b>.`:"")
+        +(prepN?"":` Use <b style="color:var(--ink)">Prepare daily</b> to pick ${kn.prepares} from the book.`);
       b.append(sn);
     } else {
       b.append(meter(kn?"Known":"Prepared",c.spells.length,kn?kn.total:r.prepared));
@@ -1551,7 +2105,7 @@ function renderCart(){
         cell.onclick=()=>openLevelPick(r.idx,L);
         cell.innerHTML=`<b>${atL}<span class="dcap">/${ceil}</span></b><small>${ROMAN[L]}${L===r.maxLvl?" · max":""}</small>`;dist.append(cell);}
       b.append(dist);
-      if(wiz){const cpbtn=el("button","btn");cpbtn.textContent="＋ Copy a spell into your book";
+      if(wiz){const cpbtn=el("button","btn lbl-ico");cpbtn.append(icoEl("plus"),document.createTextNode("Copy a spell into your book"));
         cpbtn.style.cssText="margin-top:8px;font-size:12px";
         cpbtn.title="Wizards can copy spells found in play into the book, beyond the free per-level allowance (any Wizard spell up to your top slot level).";
         cpbtn.onclick=()=>openLevelPick(r.idx,r.maxLvl);b.append(cpbtn);}
@@ -1561,7 +2115,7 @@ function renderCart(){
     if(picks.length){const cc=el("div","cartchips");
       picks.map(p=>({...p,sp:SPELL_BY[p.k]})).filter(p=>p.sp).sort((a,b)=>a.sp.level-b.sp.level||a.sp.name.localeCompare(b.sp.name))
         .forEach(p=>{const chip=el("span","cartchip");chip.append(el("span","lv",p.sp.level===0?"C":ROMAN[p.sp.level].replace(/\D/g,"")));
-          const nm=el("span",null,p.sp.name);attachSpell(nm,p.sp);chip.append(nm);const x=el("button",null,"×");x.onclick=()=>removeChosen(r.idx,p.k);chip.append(x);cc.append(chip);});
+          const nm=el("span",null,p.sp.name);attachSpell(nm,p.sp);chip.append(nm);const x=xBtn(null,()=>removeChosen(r.idx,p.k));chip.append(x);cc.append(chip);});
       b.append(cc);}
     // granted (free) for this class
     body.append(b);
@@ -1677,7 +2231,8 @@ function mkEmpty(){const e=el("div","empty");
   const q=(state.filters.q||"").trim();
   e.innerHTML="<b>Nothing matches</b><br>Loosen the filters — or make it yourself.";
   const b=el("button","btn on");b.style.marginTop="12px";
-  b.textContent=q?`＋ Create “${q}” as a custom spell`:"＋ Create a custom spell";
+  b.classList.add("lbl-ico");b.innerHTML="";
+  b.append(icoEl("plus"),document.createTextNode(q?`Create “${q}” as a custom spell`:"Create a custom spell"));
   b.onclick=()=>openCustom(q?{name:q}:null);
   e.append(b);return e;}
 // ── spell detail: hover tooltip + click modal ──────────────────────────────
@@ -1746,7 +2301,17 @@ function attachTip(node,html){
   // touch has no hover: tap to show, tap anywhere else (or Esc) to dismiss
   node.tabIndex=0; node.onfocus=ev=>show(ev.clientX!=null?ev:tipAnchor(node));
   node.onblur=hideTip;
-  node.onclick=ev=>{ev.stopPropagation();show(ev);};}
+  // An element that DOES something keeps doing it — tap-to-show is only for inert
+  // marks and chips. Set the element's own onclick BEFORE calling this, or the tip
+  // silently becomes the whole click (it disabled the preview's "order…" button).
+  const own=node.onclick;
+  node.onclick=own?(ev=>{hideTip();own.call(node,ev);})
+                  :(ev=>{ev.stopPropagation();show(ev);});}
+// re-rendered nodes are REUSED, so a stale tip would keep firing on a node whose
+// meaning has changed — clear before re-attaching
+function detachTip(node){
+  node.onmouseenter=node.onmousemove=node.onmouseleave=null;
+  node.onfocus=node.onblur=node.onclick=null; node.removeAttribute("tabindex");}
 // a synthetic pointer at the node, for keyboard focus where there is no cursor
 const tipAnchor=n=>{const r=n.getBoundingClientRect();return {clientX:r.left,clientY:r.bottom};};
 const tipBlock=(title,body)=>`<h4>${esc(title)}</h4><p style="margin-top:5px">${esc(body)}</p>`;
@@ -1814,7 +2379,7 @@ function modalHTML(sp){
     .concat([["Casting time",sp.time],["Range",sp.range],["Components",compText(sp)],
              ["Duration",(sp.conc?"Concentration, up to ":"")+sp.durTxt]]);
   const bk=sp.source!==CORE?` <span class="bchip" data-book="${esc(sp.source)}"${sp.page?` data-page="${esc(String(sp.page))}"`:""}>${esc(sp.source)}</span>`:"";
-  return `<div class="box"><button class="x" type="button" title="Close" aria-label="Close">×</button>`
+  return `<div class="box"><button class="x ico" type="button" title="Close" aria-label="Close">${ICONS.x}</button>`
     +`<div class="mh"><h3>${esc(sp.name)}${bk}</h3>`
     +`<div class="sub">${metaLine(sp)}</div></div><div class="mb">`
     +`<div class="grid">${grid.map(([k,v])=>`<b>${k}</b><span>${v}</span>`).join("")}</div>`
@@ -1832,7 +2397,7 @@ function openSpellModal(sp){hideTip();SPMODAL.innerHTML=modalHTML(sp);
   if(sp.source===HB_SRC){const mb=SPMODAL.querySelector(".mb");if(mb){const row=el("div","hbtools");
     row.append(el("span","hbtag","Homebrew"));const sp2=el("span");sp2.style.flex="1";row.append(sp2);
     const e=el("button","btn","Edit");e.onclick=()=>{SPMODAL.classList.add("hidden");openCustom(customFromSpell(sp),true);};
-    const d=el("button","btn danger","Delete");d.onclick=()=>{if(confirm("Delete custom spell “"+sp.name+"”?")){deleteCustom(sp);SPMODAL.classList.add("hidden");}};
+    const d=armConfirm(el("button","btn danger"),"Delete",()=>{deleteCustom(sp);SPMODAL.classList.add("hidden");});
     row.append(e,d);mb.append(row);}}
   SPMODAL.classList.remove("hidden");}
 function attachSpell(elm,sp){elm.classList.add("nmlink");
@@ -1875,7 +2440,8 @@ function mkSpell(i,chosenKeys){
     btn.title=(on?"Prepared — click to remove. ":"Not prepared — click to add. ")+`${t.name}: ${sel} of ${cap} ${t.cantrip?"cantrips":(cart&&cart.known?"in spellbook":"prepared")}`+(over?" (over your forecast)":"");
     btn.onclick=()=>toggle(t.idx,k,t.cantrip);take.append(btn);
   });
-  i.grants.forEach(g=>{const b=el("span","tk gr",g.src+" ✦");b.title="Always prepared (free) from "+g.src;take.append(b);});
+  i.grants.forEach(g=>{const b=el("span","tk gr",g.src+" ");b.append(icoEl("spark"));
+    attachTip(b,tipBlock("Always prepared","Free from "+g.src+" — it doesn’t count against your prepared list."));take.append(b);});
   d.append(take);return d;
 }
 function cap1(s){return s?s[0].toUpperCase()+s.slice(1):s;}
@@ -1908,8 +2474,11 @@ function renderClassRows(){
     cl.append(cs);div.append(cl);
     const subLvl=c.subclassLevel||3, locked=row.level<subLvl;
     const needsSub=!locked && !row.subKey && (SUBS_OF[key(c.name,c.source)]||[]).some(visible);
-    const sc=el("div");sc.append(el("label","fld",locked?`Subclass · L${subLvl}`:"Subclass"));
-    const ss=el("select",needsSub?"alert":"");ss.append(new Option(locked?`— unlocks at ${subLvl} —`:"— none —",""));
+    const sc=el("div");const sl=el("label","fld");
+    sl.append(el("span","fldt","Subclass"));      // its own span so it can ellipsize
+    if(locked)sl.append(lockChip(subLvl,"The subclass"));
+    sc.append(sl);
+    const ss=el("select",needsSub?"alert":"");ss.append(new Option(locked?"— locked —":"— none —",""));
     (SUBS_OF[key(c.name,c.source)]||[]).filter(x=>visible(x)||key(x.name,x.source)===row.subKey)
       .sort((a,b)=>a.shortName.localeCompare(b.shortName))
       .forEach(s=>ss.append(new Option(s.shortName+(s.source!==CORE?` (${s.source})`:"")+(s.caster?" ✦":""),key(s.name,s.source))));
@@ -1922,7 +2491,8 @@ function renderClassRows(){
     const setLvl=v=>{row.level=Math.max(1,Math.min(20,v||1));li.value=row.level;save();renderClassRows();render();};
     dec.onclick=()=>setLvl(row.level-1);inc.onclick=()=>setLvl(row.level+1);li.onchange=()=>setLvl(+li.value);
     st.append(dec,li,inc);lv.append(st);div.append(lv);
-    const rm=el("button","rm","×");rm.title="Remove class";rm.onclick=()=>{delete state.chosen[row.id];state.classes.splice(idx,1);renderClassRows();render();};div.append(rm);
+    const rm=xBtn("rm",()=>{delete state.chosen[row.id];state.classes.splice(idx,1);renderClassRows();render();});
+    rm.title="Remove class";div.append(rm);
     if(needsSub)div.append(el("div","subalert","subclass — pick one"));
     wrap.append(div);
   });
@@ -1952,7 +2522,7 @@ const featCat=f=>isEpicBoon(f)?"epic":isOriginFeat(f)?"origin":"general";
 // the app should never hide something the player is actually allowed to take.
 const lc=x=>String(x||"").toLowerCase();
 const classLevelOf=name=>state.classes.reduce((a,r)=>{const c=CLS_BY[r.clsKey];
-  return a+(c&&lc(c.name)===lc(name)?(r.level||0):0);},0);
+  return a+(c&&lc(c.name)===lc(name)?effLevel(r):0);},0);
 const hasCaster=()=>state.classes.some(r=>{const c=CLS_BY[r.clsKey];return c&&c.caster;});
 const pickedFeatNames=()=>state.feats.map(k=>FEAT_BY[k]).filter(Boolean).map(f=>lc(f.name));
 const pickedOptNames=()=>state.optFeats.map(k=>OPT_BY[k]).filter(Boolean).map(o=>lc(o.name));
@@ -2010,7 +2580,8 @@ function prereqState(ent){
           parts:bestS==="ok"?[]:prereqParts(best)};
 }
 const FEAT_CATS=[["origin","Origin"],["general","General"],["epic","Epic boon"]];
-const charLevel=()=>state.classes.reduce((a,r)=>a+(r.level||0),0);
+const charLevel=()=>PREVIEW.level!=null?PREVIEW.level
+  :state.classes.reduce((a,r)=>a+(r.level||0),0);
 function refreshAddFeat(){
   // Epic Boons unlock at character level 19 (the level-19 feat feature)
   const epic=$("#epicRow");if(epic)epic.classList.toggle("hidden",charLevel()<19);
@@ -2032,7 +2603,7 @@ function featBudget(){
   let general=0;
   state.classes.forEach(row=>{const c=CLS_BY[row.clsKey];if(!c)return;
     // general ASI feats: 4/8/12/16 (+ class extras). Level 19 is the Epic Boon slot, tracked separately.
-    [4,8,12,16,...(ASI_EXTRA[c.name]||[])].forEach(l=>{if(row.level>=l)general++;});});
+    [4,8,12,16,...(ASI_EXTRA[c.name]||[])].forEach(l=>{if(effLevel(row)>=l)general++;});});
   const race=RACE_BY[state.speciesKey];const isHuman=/human/i.test((race&&race.name)||"");
   const origin=(state.classes.length?1:0)+(isHuman?1:0);
   const epic=charLevel()>=19?1:0;   // one Epic Boon at level 19
@@ -2058,7 +2629,8 @@ function optSlots(){
         const picked=state.optFeats.filter(k=>{const o=OPT_BY[k];return o&&o.types.some(t=>types.has(t));});
         out.push({name:p.name,types:p.types,cap,picked,giver:src.name,giverSrc:src.source});
       });};
-  state.classes.forEach(row=>{const lv=Math.max(1,Math.min(20,row.level||0));
+  state.classes.forEach(row=>{const el0=effLevel(row); if(!el0)return;   // not yet taken in a preview
+    const lv=Math.max(1,Math.min(20,el0));
     add(CLS_BY[row.clsKey],lv); add(row.subKey&&SUB_BY[row.subKey],lv);});
   // feats can grant them too (Eldritch Adept, Metamagic Adept, Martial Adept…)
   state.feats.forEach(fk=>add(FEAT_BY[fk],Math.max(1,charLevel())));
@@ -2079,7 +2651,8 @@ function renderOptFeats(){
   slots.forEach(sl=>{
     box.append(el("label","fld",sl.name));
     const row=el("div","fldrow");
-    const btn=el("button","picksel ph");btn.append(el("span",null,`＋ ${sl.name.replace(/s$/,"").toLowerCase()}…`));
+    const btn=el("button","picksel ph");const bl=el("span","lbl-ico");
+    bl.append(icoEl("plus"),document.createTextNode(`${sl.name.replace(/s$/,"").toLowerCase()}…`));btn.append(bl);
     btn.append(el("span","pk-caret","⌄"));
     btn.onclick=()=>openEntityPicker("opt",sl);
     row.append(btn);
@@ -2089,10 +2662,10 @@ function renderOptFeats(){
     sl.picked.forEach(k=>{const o=OPT_BY[k];if(!o)return;
       const pr=prereqState(o);
       const c=el("span","chip"+(grantsAny(o.grants)?" hasspell":"")+(pr.state==="no"?" unmet":""));
-      if(pr.state==="no"){const w=el("span","warn","⚠");
+      if(pr.state==="no"){const w=icoEl("warn","warn");
         attachTip(w,tipBlock("Prerequisite not met",`${o.name} needs ${pr.why}. Kept in the build — nothing is removed.`));c.append(w);}
       c.append(el("span",null,o.name));
-      const b=el("button",null,"×");b.onclick=()=>{state.optFeats=state.optFeats.filter(x=>x!==k);save();refreshAll();render();};
+      const b=xBtn(null,()=>{state.optFeats=state.optFeats.filter(x=>x!==k);save();refreshAll();render();});
       c.append(b);chips.append(c);});
     box.append(chips);
   });
@@ -2101,14 +2674,14 @@ function renderFeatChips(){const box=$("#featChips");box.innerHTML="";state.feat
   const pr=prereqState(f);
   const c=el("span","chip"+(isEpicBoon(f)?" epic":isOriginFeat(f)?" origin":"")+(grantsAny(f.grants)?" hasspell":"")
     +(pr.state==="no"?" unmet":""));
-  if(pr.state==="no"){const w=el("span","warn","⚠");attachTip(w,tipBlock("Prerequisite not met",`${f.name} needs ${pr.why}. Kept in the build — nothing is removed.`));c.append(w);}
-  if(grantsAny(f.grants))c.append(Object.assign(el("span","fmark"),{textContent:"✦"}));
-  c.append(el("span",null,f.name));const b=el("button",null,"×");b.onclick=()=>{state.feats.splice(i,1);renderFeatChips();render();};c.append(b);box.append(c);});
+  if(pr.state==="no"){const w=icoEl("warn","warn");attachTip(w,tipBlock("Prerequisite not met",`${f.name} needs ${pr.why}. Kept in the build — nothing is removed.`));c.append(w);}
+  if(grantsAny(f.grants))c.append(icoEl("spark","fmark"));
+  c.append(el("span",null,f.name));const b=xBtn(null,()=>{state.feats.splice(i,1);renderFeatChips();render();});c.append(b);box.append(c);});
   renderFeatBudget();}
 
 // ── sources modal ────────────────────────────────────────────────────────
-const GROUP_ORDER=["core","supplement","setting","other"];
-const GROUP_NAME={core:"Core",supplement:"Supplements",setting:"Settings & adventures",other:"Other"};
+const GROUP_ORDER=["core","supplement","setting","brew","other"];
+const GROUP_NAME={core:"Core",supplement:"Supplements",setting:"Settings & adventures",brew:"Homebrew & UA",other:"Other"};
 // ── shared grouped source checklist (D27) ──────────────────────────────────
 // One component for every place books are chosen: the global ⚙ Sources modal and each
 // picker's local override. `sel` is a Set the caller owns; `onChange` runs after any
@@ -2154,7 +2727,7 @@ function afterSourceChange(){
   saveSources(); save();               // sources are global; the build records what it saw
   refreshAll();renderSrcModal();render();
 }
-function refreshAll(){refreshAddClass();refreshSpecies();refreshAddFeat();renderClassRows();renderFeatChips();renderOptFeats();}
+function refreshAll(){refreshAddClass();refreshSpecies();refreshAddFeat();renderClassRows();renderFeatChips();renderOptFeats();renderCustomSources();}
 
 // ── events ───────────────────────────────────────────────────────────────
 $("#addClass").onchange=e=>{const clsKey=e.target.value;
@@ -2235,19 +2808,70 @@ $("#buildsBtn").onclick=openBuilds;
 $("#buildClose").onclick=()=>$("#buildModal").classList.add("hidden");
 $("#buildModal").onclick=e=>{if(e.target.id==="buildModal")$("#buildModal").classList.add("hidden");};
 $("#buildSearch").oninput=renderBuildList;
-$("#buildNew").onclick=newBuild;
+$("#buildNew").onclick=()=>openNewBuild();
+function showBuildImport(on){
+  $("#bImportBox").classList.toggle("hidden",!on);
+  if(on){$("#bImportPaste").value="";$("#bImportErr").textContent="";$("#bImportPaste").focus();}
+}
+function doBuildImport(txt){
+  const err=$("#bImportErr");
+  try{
+    const b=importBuildText(txt);
+    const g=importGaps(b.state,b.meta.sources);
+    showBuildImport(false); renderBuildList();
+    // never silently activate: the file may expect books this browser hasn't got
+    const note=g.missing.size?`Added “${b.meta.character} · ${b.meta.name}”. It expects ${[...g.missing].join(", ")}, which isn't loaded here — import that data to see those picks resolve.`
+      :g.off.size?`Added “${b.meta.character} · ${b.meta.name}”. It expects ${[...g.off].map(bookName).join(", ")}, currently turned off.`
+      :`Added “${b.meta.character} · ${b.meta.name}”.`;
+    $("#buildSub").textContent=note;
+  }catch(e){ err.textContent=e.message||"Could not read that file."; }
+}
+$("#buildImport").onclick=()=>showBuildImport($("#bImportBox").classList.contains("hidden"));
+$("#bImportCancel").onclick=()=>showBuildImport(false);
+$("#bImportGo").onclick=()=>{const t=$("#bImportPaste").value.trim();
+  if(!t){$("#bImportErr").textContent="Paste a build, or drop a file here.";return;} doBuildImport(t);};
+$("#bImportPick").onclick=()=>$("#bImportFile").click();
+$("#bImportFile").onchange=e=>{const f=e.target.files&&e.target.files[0]; if(!f)return;
+  const rd=new FileReader(); rd.onload=()=>doBuildImport(String(rd.result));
+  rd.onerror=()=>{$("#bImportErr").textContent="Could not read that file.";};
+  rd.readAsText(f); e.target.value="";};
+["dragenter","dragover"].forEach(ev=>$("#bImportBox").addEventListener(ev,e=>{
+  e.preventDefault();$("#bImportBox").classList.add("over");}));
+["dragleave","drop"].forEach(ev=>$("#bImportBox").addEventListener(ev,e=>{
+  e.preventDefault();$("#bImportBox").classList.remove("over");}));
+$("#bImportBox").addEventListener("drop",e=>{const f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];
+  if(!f)return; const rd=new FileReader(); rd.onload=()=>doBuildImport(String(rd.result)); rd.readAsText(f);});
+$("#nbClose").onclick=()=>$("#newBuildModal").classList.add("hidden");
+$("#loClose").onclick=()=>$("#lvlOrderModal").classList.add("hidden");
+$("#csrcAdd").onclick=()=>openCsrc(null);
+$("#csrcClose").onclick=()=>$("#csrcModal").classList.add("hidden");
+$("#csrcSave").onclick=saveCsrc;
+$("#csrcSearch").oninput=()=>renderCsrcHits();
+["csrcPool","csrcRecharge","csrcDC","csrcAtk"].forEach(id=>{const n=$("#"+id);
+  if(n)n.onkeydown=e=>{if(e.key==="Enter")$("#csrcSave").click();};});
+armConfirm($("#csrcDelete"),"Delete source",()=>{
+  state.customSources=(state.customSources||[]).filter(x=>x.id!==CSRC.id);
+  $("#csrcModal").classList.add("hidden");
+  save(); renderCustomSources(); render();});
+$("#nbCreate").onclick=()=>{
+  $("#newBuildModal").classList.add("hidden");
+  newBuild($("#nbChar").value.trim(),$("#nbVer").value.trim());
+  $("#buildModal").classList.add("hidden");     // straight into the fresh build
+};
+$("#nbVer").onkeydown=e=>{if(e.key==="Enter")$("#nbCreate").click();};
+$("#nbChar").onkeydown=e=>{if(e.key==="Enter")$("#nbVer").focus();};
 $("#sourcesBtn").onclick=()=>{closeMenu();renderSrcModal();$("#srcModal").classList.remove("hidden");};
 $("#srcClose").onclick=()=>$("#srcModal").classList.add("hidden");
 $("#srcModal").onclick=e=>{if(e.target.id==="srcModal")$("#srcModal").classList.add("hidden");};
 {const q=()=>srcQuick(SRC,afterSourceChange);
  $("#srcAll").onclick=()=>q().all(); $("#srcNone").onclick=()=>q().none(); $("#src2024").onclick=()=>q().core();}
-$("#resetBtn").onclick=()=>{if(!confirm("Clear the whole build (classes, picks, filters)?"))return;
+armConfirm($("#resetBtn"),null,()=>{
   state.classes=[];state.feats=[];state.optFeats=[];state.speciesKey="";state.chosen={};state.choices={};state.nextRowId=1;
   state.filters=FILTER_DEFAULT();
   save();                              // auto-save: the cleared build IS the saved build (D34)
   $("#fq").value="";$("#fReprint").value="dedupe";
   $("#filterPanel").classList.add("hidden");$("#filterBtn").classList.remove("on");
-  refreshAll();render();};
+  refreshAll();render();});
 $("#themeBtn").onclick=()=>{const r=document.documentElement,cur=r.getAttribute("data-theme");r.setAttribute("data-theme",cur==="dark"?"light":cur==="light"?"dark":(matchMedia("(prefers-color-scheme:dark)").matches?"light":"dark"));closeMenu();};
 // overflow settings menu
 function closeMenu(except){document.querySelectorAll(".menupop").forEach(p=>{if(p!==except)p.classList.add("hidden");});}
@@ -2289,12 +2913,19 @@ else $("#testBtn").onclick=randomBuild;
 
 // drop build references to content the current data set doesn't contain
 // (e.g. after switching baked↔imported, or a homebrew spell was deleted)
+// Prune ONLY what has truly ceased to exist: the entity's whole BOOK is still loaded
+// but the entity is gone from it (a re-import shipped a revised file). A ref whose book
+// is absent from the loaded content — say, core data replaced by a lone homebrew import —
+// is a GAP, not garbage: it keeps its pick and the gap machinery flags it (D42 extended
+// by D56 — before this, importing a brew on its own silently stripped whole builds).
 function pruneState(){
-  state.classes=(state.classes||[]).filter(r=>CLS_BY[r.clsKey]);
-  state.classes.forEach(r=>{if(r.subKey&&!SUB_BY[r.subKey])r.subKey=null;});
-  state.feats=(state.feats||[]).filter(fk=>FEAT_BY[fk]);
-  state.optFeats=(state.optFeats||[]).filter(ok=>OPT_BY[ok]);
-  if(state.speciesKey&&!RACE_BY[state.speciesKey])state.speciesKey="";
+  const bookLoaded=k=>{const src=String(k).split("|").pop();
+    return !!DATA.sources[src]||Object.keys(DATA.sources).some(c=>c.toUpperCase()===src.toUpperCase());};
+  state.classes=(state.classes||[]).filter(r=>CLS_BY[r.clsKey]||!bookLoaded(r.clsKey));
+  state.classes.forEach(r=>{if(r.subKey&&!SUB_BY[r.subKey]&&bookLoaded(r.subKey))r.subKey=null;});
+  state.feats=(state.feats||[]).filter(fk=>FEAT_BY[fk]||!bookLoaded(fk));
+  state.optFeats=(state.optFeats||[]).filter(ok=>OPT_BY[ok]||!bookLoaded(ok));
+  if(state.speciesKey&&!RACE_BY[state.speciesKey]&&bookLoaded(state.speciesKey))state.speciesKey="";
 }
 // ── boot ─────────────────────────────────────────────────────────────────
 loadSources();
@@ -2307,4 +2938,5 @@ $("#fReprint").value=state.filters.reprint;
 $("#fq").value=state.filters.q;
 loadTableOpts(); $("#tGroup").value=tableOpts.group; renderColMenu();
 maybeOnboard();
+fillIcons();
 refreshAll();render();

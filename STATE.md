@@ -4,25 +4,29 @@
 > History → git log. Consumed phases and decision rationale → `ARCHIVE.md`.
 
 ## TL;DR (2026-08-26 · commit 7f57021 · v7 in progress · **LIVE on GitHub Pages**)
-- **State:** working, **uncommitted** (see Manual ⓪). v7 is now **T1–T4 done** — storage +
-  migration, activation reconciliation, the manager, and now the **header switcher**. On top of
-  that, a 15-note batch from Francesco: the Choices card rebuilt so **every giver is a group**;
-  feat slots carry an **in-line count tile** instead of a red label chip and taken feats went
-  **neutral**; the species picker **groups lineages** under their species; a **mobile jump bar**
-  and a top row that fits; the spell table's name column left-aligned and its header one row on a
-  phone; and in the spell modal a **collapsible summon stat block**, a **book popover with the
-  page**, cantrip-specific meta, and a real heading above Access. Two real bugs fell out:
-  **High Elf (and 24 other grants) silently lost their `choose` filter** — a third `known`/
-  `prepared` shape, `{"_":[…]}`, exactly like the `innate` gotcha — and `slotCastable` was a
-  closure local called from top-level `cellFor()`, so **the Spell table threw on any build with a
-  limited-use innate cast** (shipped, live). Decisions **D43–D52**. Verified in-browser at 375px
-  and desktop; extractor parity re-validated in Node (936 spells, 276/276 feats, 213/213 optional
-  features, 24/24 stat blocks byte-identical).
-- **Next action:** **v7 · T5 (export / import a build)** — JSON download + file/paste import
-  carrying `meta.sources` (D36 — file only, no URL). **Done when:** a build survives a round trip
-  through a file on another machine. *(Then T7 storage pressure. T6 closed by D37.)*
-- **Manual for Francesco:** ⓪ **Nothing is committed yet** — review, then
-  `git add -A && git commit && git push` (Pages redeploys from `main:/docs`, already rebuilt).
+- **State:** working, committed. **v7 is T1–T5 done — only T7 remains.** Three note batches
+  landed this session on top of the tasks. Batch one (15 notes): Choices as uniform groups,
+  in-line feat count tiles, neutral chips, lineage-grouped species picker, mobile jump bar +
+  fitted top row, and in the spell modal a collapsible summon stat block, book popovers with
+  page, cantrip meta. Batch two (10 notes): new-build modal, **delete fixed** (native
+  `confirm()` is dead in webviews → armed two-click buttons, D53), class-searchable build
+  summaries, the **level preview scrubber** (D54), **custom spell sources** (D55), **homebrew
+  & UA import** (D58), the **full SVG icon sweep** (D57), `serve.py` `no-store`. Batch three
+  (9 notes): preview interaction bugs fixed (`attachTip` was swallowing button clicks;
+  `xBtn` let a re-render's event re-arm the preview), the order panel rebuilt as **draggable
+  level cards naming real class features** (D59/D63), **lock chips** for level gates (D60), a
+  **fixed-size tab switch** (D61), **the wizard's spellbook and prepared list finally separated**
+  (D62), and per-level loadouts settled as **versions, not per-pick stamps** (D64) on
+  Francesco's own objections. Custom sources then got the deeper pass — shared charge pools,
+  own DC/attack/ability, fixed cast level, list mode (D65). **T5** shipped last: export a build
+  to a file, import it back, never overwriting. Decisions **D43–D65**. Verified in-browser at
+  375px and desktop; extractor parity exact (936 spells, 276/276 feats, 213/213 optional
+  features, 24/24 stat blocks, class+subclass features byte-identical).
+- **Next action:** **v7 · T7 (storage-pressure reporting)** — no count cap (D37); catch the
+  quota failure on write and name the real cause. **Done when:** a failed save says what is using
+  the space, not "something went wrong". *(Last task in v7. T6 closed by D37.)*
+- **Manual for Francesco:** ⓪ **Push when ready** — the session's work is committed locally;
+  `git push` redeploys Pages from `main:/docs` (already rebuilt).
   ① **Check the live site** — the last push changes how storage works,
   and an existing browser session runs the one-time migration on first load. ② Optional — ask
   GitHub Support to gc so the *old* unreachable commits (SHA 2c8bbb6 etc., held only in
@@ -47,8 +51,8 @@ https://claude.ai/code/artifact/47dbe945-a18a-4444-af21-c0143faa2eb0
   `os.getcwd()` at argparse time, which the preview sandbox blocks (startup crash);
   `serve.py` binds an absolute root as a library and sidesteps it. Under the restricted
   preview sandbox `preview_start` still can't spawn it (can't read the project dir) — start
-  it via Bash, then open the browser at the URL. **Hard-reload after editing index.html**
-  (the static server caches it; a plain reload can serve stale HTML and null-out new elements).
+  it via Bash, then open the browser at the URL. serve.py sends `Cache-Control: no-store`,
+  so a plain reload always picks up edits (the old hard-reload gotcha is gone).
 - Data refresh: `python3 extract.py` (mirror default = `~/Documents/D&D/5etool_mirror/…/data`,
   writes data.json + `data-srd.json`), then `python3 build.py` (writes data.js, dist/ with full
   data, docs/ with SRD inlined).
@@ -111,10 +115,17 @@ Sources join them, but every build remembers what it expected.
   under the top row, which stays intact (D47/D52). *Verified:* switch both ways reloads the other
   build's classes/species; duplicate → the `v2` chip appears; rename in the manager updates the
   header; no console errors.
-- [ ] **T5 · export / import a build** (`data`, ~M). A build is currently one browser away
-  from gone — localStorage, one device, no backup. JSON download + file/paste import, carrying
-  `meta.sources` so an imported build tells you which books it expects (D36 — file only, no URL).
-  **Done when:** a build survives a round trip through a file on another machine.
+- [x] **T5 · export / import a build** (`data`, ~M) — **DONE 2026-08-26.** Every row in the
+  manager has **export** (downloads `<character>-<version>.spellbook.json`, a
+  `{kind,version,exported,meta,state}` envelope carrying `meta.sources` per D33). **Import…**
+  opens a panel in the manager taking a dropped file, a browse, or pasted JSON. Import always
+  **adds** — never overwrites — deduping the version name (`L9` → `L9 (2)`), and
+  `applyImportedState()` renumbers class row ids while remapping `chosen` keys and the `c<N>:`/
+  `s<N>:` choice-id prefixes, so picks and pending choices survive the renumber. Nothing from
+  the file is trusted: levels clamp, arrays coerce, `meta.sources` is a **record**, never an
+  instruction — a missing book is reported, never auto-enabled. *Verified:* round trip preserves
+  summary, picks and choices; malformed / foreign / newer-version files are each rejected with
+  their own message; a build naming an unloaded book says so on arrival.
 - [ ] **T7 · storage-pressure reporting** (`data`, ~S). No count cap (D37); instead catch the
   quota failure on write and name the real cause. **Done when:** a failed save says what is
   using the space, not "something went wrong".
@@ -253,6 +264,96 @@ stays out. Server sync or accounts. Sharing a build as a rendered page, or via a
   on every view for what is usually a single-build session); replacing the app title on mobile
   (D47 had just been spent making the title fit) — on a phone it takes its own line instead.
 
+- **D53 (2026-08-26) New build starts in a modal; destructive buttons arm, never confirm()** —
+  creating a character asks for character name + version name (both optional — an empty name
+  keeps D35's auto-follow). And **native `confirm()` is banned**: it silently returns `false` in
+  embedded webviews (no dialog at all), which is why "delete" in the manager looked dead. Every
+  destructive button now ARMS on first click ("confirm?", red, 4 s window) and commits on the
+  second — `armConfirm()`. *Rejected:* keeping confirm() with a fallback (the failure is
+  undetectable); a shared confirm modal (heavier than the two-click pattern needs).
+- **D54 (2026-08-26) Level preview: plan at full level, look at any level below it** — the level
+  chip on the Character card becomes a scrubber (`preview − L5 + ×`). View-only: `PREVIEW` is
+  never saved, releasing it changes nothing; picks above the previewed level get the existing
+  soft over-flags (D37), grants not yet unlocked vanish, slots/budgets/eligibility all follow.
+  Multiclass works through the **level plan** (`state.levelOrder`, saved): which class each
+  character level is taken in, edited in a per-level modal whose edits normalize against the
+  build's real class totals — an overfill snaps back, so no invalid state exists. *Rejected:*
+  versions-as-levels with a "duplicate at level N" helper (real copies drift when the plan
+  changes); a true level timeline (the standing non-goal).
+- **D55 (2026-08-26) Custom spell sources — a thing the character owns that grants spells** —
+  "Spell sources" fieldset on the Character card; a modal defines name, kind (item/boon/
+  blessing/other), mode (**cast without preparing** with per-spell cadence — at will, n/long
+  rest, n/short rest, n/dawn, charges — or **always prepared**, no cadence), and a searched
+  spell list. Stored INSIDE the build (`state.customSources` — a Staff of Fire belongs to a
+  character and travels with T5's export) and resolved through `resolveGrants` like a species
+  or feat, so free casts, the cart and the table need no new paths. Deleting arms (D53).
+  *Rejected for v1:* ingesting magic items from 5etools data (items carry `attachedSpells` but
+  no structured uses — hand-set cadence is needed regardless; revisit later); global storage.
+- **D56 (2026-08-26) Prune only inside a loaded book — D42 extended to imports** — `pruneState()`
+  used to treat "entity not in the current content" as "ceased to exist", so importing a lone
+  homebrew file (which REPLACES imported data) silently stripped whole builds. Now a ref is
+  pruned only when its BOOK is loaded and the entity is gone from it; a ref whose whole book is
+  absent is kept and surfaces through the gap machinery, and the gap bar distinguishes "turned
+  off" (one-click fix) from "not loaded — re-import it". Found when an import test ate the test
+  build's classes.
+- **D57 (2026-08-26) Icons are real SVGs, never font glyphs** — monster-forge convention: 16×16
+  `currentColor` stroke paths in an `ICONS` map, sized by context via CSS (`.ico svg`), static
+  markup declares `data-ico` and boot fills it. The full sweep replaced 🎲 ⋯ ▤ ✎ ⭳ ⚙ ◐ ⟲ ☾ ＋ ×
+  ✓ ✗ ● ✦ ⚠ everywhere (`<option>` text keeps "+"/"✦" — options can't hold markup). Top-row
+  controls got one 34 px height and the header centres. **From now on every new icon goes
+  through `ICONS`/`icoEl`/`xBtn` — no glyphs.**
+- **D58 (2026-08-26) Homebrew & UA import through the same importer** — verified on 5e.tools:
+  homebrew (including D&D Beyond drops) lives in **github.com/TheGiddyLimit/homebrew**, UA in
+  **github.com/TheGiddyLimit/unearthed-arcana** (the site's Manage Homebrew / Manage Prerelease
+  pages front them); both are per-brew JSON with `_meta.sources` + the usual entity arrays. The
+  importer now registers `_meta.sources` books under a "Homebrew & UA" group and reads a spell's
+  INLINE `classes.fromClassList`/`fromSubclass` access (brew style — core data uses the
+  generated lookup). Import modal documents the path. Caveat kept: building an import REPLACES
+  the previous one, so core data and brews must be staged together.
+
+- **D59 (2026-08-26) The level-order panel is a single column of draggable level cards** — one
+  card per character level in acquisition order, dragged by a handle, each naming its class and
+  what that level gives. Single column at every width: the list is a **sequence**, and columns
+  break the reading of it. *Rejected:* a per-level `<select>` grid (compact, but you cannot see
+  the shape of the progression); a multi-column card grid (Francesco's call).
+- **D60 (2026-08-26) A level gate is a lock icon + the level, never prose** — "— unlocks at 3 —"
+  was truncated inside the subclass `<select>` at desktop width. The `<select>` says
+  "— locked —" and the LABEL carries a `.lockchip` (lock + `L3`) with the explanation in its
+  popover. **Reuse `lockChip()` for anything gated on a level.** A label carrying a chip
+  ellipsizes its own text rather than wrapping, so rows never lose alignment.
+- **D61 (2026-08-26) The Build/Table switch is a fixed size** — selecting a tab bolds it, which
+  changed its width and made the whole switch resize. Each label now reserves the width of its
+  own bold rendering (`::after` with `attr(data-t)`), so selection changes weight and nothing else.
+- **D62 (2026-08-26) A wizard's spellbook and its prepared list are different sets** — "Prepare
+  daily" was editing the spellbook, because both lived in `chosen[idx].spells`. The book stays
+  there; the daily subset is `chosen[idx].prep`, capped by `known.prepares` (the class's own
+  `preparedSpellsProgression`, already in the data). The prepare step for a book caster lists
+  **the book**, not the class list. The cart gains a Prepared meter and the table distinguishes
+  ● prepared today from 📖 in the book but not prepared. Dropping a spell from the book
+  unprepares it. Closes the D8 caveat.
+- **D63 (2026-08-26) Level cards name real features, not derived counts** — both extractors emit
+  `features:[{level,name}]` for classes and subclasses (the feature index already existed for
+  grant correlation). "Arcane Recovery · Ritual Adept" says more than "+1 prepared". ASI/Epic
+  Boon and the `<Class> Subclass` placeholders are filtered; spellcasting milestones (a new
+  spell level, a new slot) are kept as a separate accent line. Sorting is case-insensitive in
+  **both** extractors so parity stays byte-exact.
+- **D64 (2026-08-26) Per-level loadouts are VERSIONS, not per-pick level stamps** — the preview
+  gains **save as version**, which forks the build at the previewed level split (D37 keeps the
+  picks and soft-flags what no longer fits), so you can then pick freely at that level. Stamping
+  each pick with `atLevel` was chosen first and then **rejected on Francesco's own objections,
+  which are correct**: planning at level 20 first leaves every pick unstamped, and a stamp cannot
+  express **retraining** — a spell gained, dropped and regained needs intervals per pick, which
+  would touch every budget check, the whole UI and the export format. Versions already do this
+  correctly and already export. The preview stays a viewer.
+- **D65 (2026-08-26) Custom sources model how items actually work** — kind is **free text**. A
+  source spends **either a shared pool** ("10 charges, regains 1d6+4 at dawn", each spell costing
+  N — how most magic items work) **or per-spell uses** (a boon's 1/long rest). It may carry **its
+  own save DC / attack bonus / casting ability** — an item casts on its numbers, not yours — and
+  a **per-spell fixed cast level** ("as a 5th-level spell"). Three modes: cast without preparing,
+  always prepared, and **added to my spell list** (prepare it normally, it costs a prepared slot
+  — resolved by widening the eligible pool, not as a grant). *Rejected:* an attunement/active
+  toggle (Francesco's call); a Kind dropdown.
+
 ### Settled — recorded so they aren't re-proposed
 Headline + rejected options only; reasoning → `ARCHIVE.md#rationale`.
 - **D7** Source counts in chips — per-source `n/cap` on take chips, red over forecast.
@@ -330,6 +431,12 @@ Headline + rejected options only; reasoning → `ARCHIVE.md#rationale`.
 - [ ] **`page` is not on every book chip** — the choices-card group header and the gap dialog
   pass a source with no page, so their popover shows the book name only. Resolving the owner
   entity back to its record would close it.
+- [ ] **Additive imports** — building an import replaces the previous one, so adding one brew
+  means re-staging everything. A merge mode (import ⊕ import) would close D58's caveat and the
+  quota story together. Related to T7/IndexedDB.
+- [ ] **Magic-item ingestion for custom sources** — prefill a D55 source from items.json's
+  `attachedSpells` (rejected from v1; items carry no structured uses). Needs items in both
+  extractors + SRD gate.
 - [ ] **IndexedDB** for imported data — localStorage may overflow on a full multi-book import
   (the importer reports quota errors but can't store). Related to T7.
 - [ ] Importer UI polish — a "clear imported data" button, per-source enable after import, a
@@ -445,6 +552,37 @@ Headline + rejected options only; reasoning → `ARCHIVE.md#rationale`.
   moved. Its button set is rebuilt only when the section list changes, so `bar.dataset.sig`
   must be **cleared** whenever the bar is emptied (switching to the table tab) — otherwise
   coming back finds a stale match and renders nothing.
+- **Native `confirm()`/`alert()` are banned (D53)** — they silently no-op in embedded webviews
+  (confirm returns false with no dialog). Destructive actions use `armConfirm()`. If a button
+  ever "does nothing", check for a reintroduced native dialog first.
+- **Icons are `ICONS`/`icoEl`/`xBtn` only (D57)** — never a glyph in `textContent`. Static
+  markup uses `data-ico` + boot `fillIcons()`. `<option>` elements are the one exception
+  (no markup allowed inside). Sizing lives in CSS per context, not in the SVG.
+- **The dev server sends `Cache-Control: no-store`** (serve.py) — the old "hard-reload after
+  editing" gotcha is gone, but an already-open TAB still runs old code until one reload; a
+  cached-before-the-change browser needs one `fetch(url,{cache:'reload'})` bypass.
+- **Preview (D54) is module state, never saved.** Every level consumer must go through
+  `effLevel(row)` / `charLevel()` — reading `row.level` directly leaks full-level numbers into
+  a preview. `state.levelOrder` normalizes through `classLevelPlan()`; never trust it raw.
+- **Custom sources (D55)** synthesize a grants object (`customSourceGrants`) and ride
+  `resolveGrants` with tok `x<id>` — they must never grow their own downstream path.
+- **Homebrew import**: books come from `_meta.sources` (group "brew"), spell access from the
+  spell's INLINE `classes` field. Both only ADD to what the generated lookup knows. An import
+  still replaces the previous import wholesale — stage core + brews together (D58 caveat).
+- **`attachTip()` must be called AFTER an element's own `onclick`** — it used to overwrite the
+  handler outright, which silently disabled the preview's "order…" button. It now preserves an
+  existing handler; `detachTip()` clears a reused node's stale tip.
+- **A nested action button must stop its click** — `xBtn` does. If a handler re-renders, the
+  original event keeps bubbling and hits the *freshly attached* parent handler: dismissing the
+  level preview immediately re-armed it that way. Watch for this in any rebuild-on-click.
+- **Preview is a VIEWER (D64).** Per-level loadouts are versions ("save as version"), not
+  per-pick stamps. Do not reintroduce `atLevel` on picks without solving retraining intervals.
+- **A wizard has two sets (D62):** `chosen[idx].spells` is the spellbook, `chosen[idx].prep` is
+  today's prepared subset. Anything that reads "what is prepared" must branch on
+  `cart.known.book`, or it will treat the whole book as prepared.
+- **Custom sources (D65)** synthesize grants via `customSourceGrants` + `resolveGrants` (tok
+  `x<id>`), EXCEPT `mode:"list"`, which widens the eligible pool instead. Per-grant extras
+  (DC, attack, fixed cast level) ride through `spellOut`'s `extra` argument.
 - **History purge:** old data-bearing commits are unreachable on origin but GitHub may still serve
   them by exact SHA until it gc's. `backup/pre-purge-20260826` (local) has the original.
 

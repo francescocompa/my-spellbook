@@ -25,6 +25,37 @@
     --shadow:0 1px 2px #0000002f,0 8px 24px #00000024;
   }
   *{box-sizing:border-box}
+  /* ── icons: real SVGs, sized by their context (never font glyphs) ──────────
+     Default 14px; each container that needs another size scales `.ico svg`. */
+  .ico{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}
+  .ico svg{display:block;width:14px;height:14px}
+  .iconbtn.ico{display:inline-flex;align-items:center;justify-content:center}
+  .iconbtn.ico svg{width:15px;height:15px}
+  .menupop .mi.ico svg{width:14px;height:14px}
+  .bswitch .mi.ico svg{width:12px;height:12px}
+  .bswpop .mi svg{width:13px;height:13px}
+  .icobig svg{width:26px;height:26px}
+  .picoi svg{width:14px;height:14px}
+  /* icon+label pairs share one gap */
+  .lbl-ico{display:inline-flex;align-items:center;gap:6px}
+  .lbl-ico .ico svg{width:12px;height:12px}
+  /* small remove buttons inside chips and rows */
+  button.xsm{border:none;background:none;color:inherit;opacity:.65;cursor:pointer;padding:0;line-height:0}
+  button.xsm:hover{opacity:1}
+  button.xsm svg{width:10px;height:10px}
+  .chip button.xsm,.cartchip button.xsm{color:inherit}
+  .rm.xsm{color:var(--muted)} .rm.xsm:hover{color:var(--accent)}
+  .rm.xsm svg{width:12px;height:12px}
+  /* status marks inline with text */
+  .fmark svg{width:10px;height:10px}
+  .warn svg,.entwarn svg{width:12px;height:12px}
+  .rqp .ico svg{width:9px;height:9px}
+  .rqp .ico{margin-right:3px}
+  .tk .ico svg{width:9px;height:9px}
+  .tk .ico{margin-right:3px;vertical-align:-1px;display:inline-flex}
+  table.spelltable .pickcell svg{width:12px;height:12px;margin:0 auto}
+  table.spelltable td.concmark svg{width:12px;height:12px;margin:0 auto}
+  #entSub .ico{vertical-align:-2px} #entSub .ico svg{width:10px;height:10px}
   /* scrollbars follow the chosen theme, not the OS — `color-scheme` above fixes the
      native widget, these keep the WebKit ones on the house palette */
   *{scrollbar-width:thin;scrollbar-color:var(--line-strong) transparent}
@@ -40,7 +71,12 @@
   footer.credit{margin-top:26px;padding-top:14px;border-top:1px solid var(--line);font-size:11px;line-height:1.6;color:var(--muted)}
   footer.credit b{color:var(--muted);font-weight:600}
   footer.credit a{color:var(--accent);text-decoration:none}footer.credit a:hover{text-decoration:underline}
-  header.top{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;padding:4px 0 14px;border-bottom:1px solid var(--line);margin-bottom:18px}
+  /* controls are icon-height now, so the row centres — baseline only made sense for text */
+  header.top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:4px 0 14px;border-bottom:1px solid var(--line);margin-bottom:18px}
+  header.top .iconbtn,header.top .tabs,header.top .bswitch{height:34px;box-sizing:border-box}
+  header.top .iconbtn{display:inline-flex;align-items:center;justify-content:center}
+  header.top .tabs{align-items:stretch}
+  header.top .tabs button{display:inline-flex;align-items:center}
   header.top h1{font-size:23px}
   header.top .sub{color:var(--muted);font-size:12.5px}
   header.top .spacer{flex:1}
@@ -95,6 +131,9 @@
   .casts .ct{display:flex;gap:8px;align-items:baseline;padding:5px 0;border-bottom:1px dashed var(--line);font-size:12.5px}
   .casts .ct:last-child{border-bottom:none}
   .casts .ct .src{color:var(--muted);font-size:11px;margin-left:auto;white-space:nowrap}
+/* a source casting on ITS OWN numbers, not your spellcasting (D65) */
+.ownnum{font-size:10px;font-weight:700;color:var(--free);background:var(--free-soft);
+  border-radius:9px;padding:1px 7px;white-space:nowrap}
   .rc{font-size:10.5px;font-weight:600;padding:1px 6px;border-radius:20px;background:var(--gold-soft);color:var(--gold);white-space:nowrap}
   .rc.will{background:var(--good-soft);color:var(--good)}
   /* cart / budget */
@@ -199,6 +238,11 @@
   .tabs{display:flex;gap:4px;background:var(--panel-2);border:1px solid var(--line);border-radius:9px;padding:3px}
   .tabs button{font:inherit;font-size:12.5px;padding:5px 14px;border:none;background:none;border-radius:6px;cursor:pointer;color:var(--muted)}
   .tabs button.on{background:var(--panel);color:var(--ink);font-weight:600;box-shadow:var(--shadow)}
+  /* the switch must not resize when the selection moves: each label reserves the width
+     of its own BOLD rendering, so selecting it changes weight and nothing else (D61) */
+  .tabs .tl{display:block}
+  .tabs .tl::after{content:attr(data-t);display:block;height:0;overflow:hidden;
+    visibility:hidden;pointer-events:none;font-weight:600}
   table.spelltable{width:100%;border-collapse:collapse;font-size:13px}
   table.spelltable th{text-align:center;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:600;padding:8px 10px;border-bottom:1px solid var(--line-strong);position:sticky;top:0;background:var(--panel)}
   table.spelltable td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:middle;text-align:center}
@@ -222,6 +266,8 @@
 .menupop button:hover{background:var(--panel-2)}
 .menupop button.danger{color:var(--bad)} .menupop button.danger:hover{background:var(--bad-soft)}
 .menupop .sep{height:1px;background:var(--line);margin:4px 2px}
+/* an armed destructive button — first click asks, second commits (no native dialogs) */
+.armed,.menupop button.armed{background:var(--bad-soft);border-color:var(--bad);color:var(--bad);font-weight:600}
 /* ── build switcher (v7 · T4) ─────────────────────────────────────────────
    The active build named on the main surface. Deliberately quiet: it is a label
    you can act on, not a primary control competing with the Build/Table switch. */
@@ -374,6 +420,8 @@ table.spelltable .pickcell{width:26px;text-align:center;color:var(--muted);font-
 table.spelltable .pickcell.on{color:var(--accent)}
 table.spelltable .pickcell.always{color:var(--good)}
 table.spelltable .pickcell.innate{color:var(--gold)}
+/* a wizard's book entry that isn't prepared today — known, but not castable right now */
+table.spelltable .pickcell.inbook{color:var(--muted);opacity:.75}
 
 /* ── v5: controls polish, steppers, checkboxes, menu, table + modal ── */
 /* add-class: full-width dropdown, theme-aware */
@@ -390,7 +438,8 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 .stepper input[type=number]{border:none;border-radius:0;text-align:center;width:100%;min-width:0;background:transparent;padding:6px 0}
 .stepper input:focus{outline:none}
 /* unified × close button (spell + pick + sources modals) */
-.modal .mh .x,.spmodal .box>.x{width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;border:none;background:none;color:var(--muted);font-size:20px;line-height:1;cursor:pointer;padding:0;transition:background .12s,color .12s}
+.modal .mh .x,.spmodal .box>.x{width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;border:none;background:none;color:var(--muted);cursor:pointer;padding:0;transition:background .12s,color .12s}
+.modal .mh .x svg,.spmodal .box>.x svg{width:14px;height:14px}
 .modal .mh .x:hover,.spmodal .box>.x:hover{background:var(--panel-2);color:var(--accent)}
 .spmodal .box>.x{position:absolute;top:12px;right:14px}
 /* overflow menu: button height = tab group height, uniform item icons */
@@ -411,7 +460,8 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 .colrow.fixed{cursor:default;color:var(--muted)}
 .colrow input{accent-color:var(--accent)}
 .colrow .collbl{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.colrow .colgrip{color:var(--muted);font-size:11px;letter-spacing:-1px}
+.colrow .colgrip{color:var(--muted);display:inline-flex}
+.colrow .colgrip svg{width:11px;height:11px}
 .colrow.dragging{opacity:.45}
 .colrow.dropinto{box-shadow:inset 0 2px 0 var(--accent)}
 /* components cell (D29) */
@@ -466,12 +516,14 @@ table.spelltable td.cmp .l:focus-visible{outline:2px solid var(--accent);outline
 #entList{max-height:54vh;overflow:auto;margin:0 -4px}
 /* a species and its lineages read as one block (D46) */
 .entgroup{border:1px solid var(--line);border-radius:10px;background:var(--panel-2);
-  padding:7px 9px;margin:0 0 8px}
+  padding:7px 9px;margin:8px 0}
 .eghead{display:flex;align-items:center;gap:7px;padding-bottom:5px;border-bottom:1px solid var(--line)}
 .eghead b{font-size:13px}
 .eghead .cgn{margin-left:auto;font-size:10.5px;color:var(--muted);white-space:nowrap}
 .entgroup .entrow{padding-left:10px;border-bottom:1px dashed var(--line)}
 .entrow{display:flex;align-items:center;gap:10px;padding:8px 8px;border-bottom:1px solid var(--line)}
+/* a row directly above a group box would double its top border — drop the divider */
+.entrow.nodiv{border-bottom:none}
 .entrow:hover,.entrow.on{background:var(--accent-soft);border-radius:6px}
 .entmain{flex:1;min-width:0}
 .entname{font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px}
@@ -631,7 +683,7 @@ table.spelltable td.hasast{cursor:pointer}
 .abname.str{color:var(--ab-str)}.abname.dex{color:var(--ab-dex)}.abname.con{color:var(--ab-con)}
 .abname.int{color:var(--ab-int)}.abname.wis{color:var(--ab-wis)}.abname.cha{color:var(--ab-cha)}
 .grouphdr.outer td{position:relative}
-.hdr-abils{float:right;display:inline-flex;gap:4px}
+.hdr-abils{display:inline-flex;gap:4px;margin-left:8px;vertical-align:1px}
 /* spell text highlights (monster-forge cc-* convention) */
 .sptip .cc-dice,.spmodal .cc-dice,.cc-dice{color:var(--cc-dice);font-weight:600}
 .cc-dc{color:var(--cc-dc);font-weight:600}
@@ -682,6 +734,8 @@ table.spelltable .pickcell.on:hover,table.spelltable .pickcell:hover{filter:brig
 .savechip.int{color:var(--ab-int)}.savechip.wis{color:var(--ab-wis)}.savechip.cha{color:var(--ab-cha)}
 .savechip.atk{color:var(--gold);background:var(--gold-soft)}
 table.spelltable td.savecell{white-space:nowrap}
+/* an empty slot's "—" is an absence, not a value — it must not weigh like ink */
+table.spelltable td.nil{color:var(--line-strong)}
 /* preparation status column: read-only markers */
 table.spelltable .pickcell{cursor:help}
 /* prepare-daily button + multi-step modal */
@@ -740,6 +794,88 @@ table.spelltable .pickcell{cursor:help}
 .onboard h2{font-size:19px;margin-bottom:6px}
 .onboard p{color:var(--muted);font-size:13px;margin:0 auto 16px;max-width:400px}
 .onboard .btn.on{font-size:13.5px;padding:8px 16px}
+
+/* ── level preview (D54): the level chip becomes the scrubber ─────────────── */
+.card h2 .count.prevable{cursor:pointer}
+.card h2 .count.prevable:hover{color:var(--accent);background:var(--accent-soft)}
+.card h2 .count.prevon{display:inline-flex;align-items:center;gap:5px;
+  color:var(--accent);background:var(--accent-soft);padding:2px 6px 2px 9px}
+.count .pvlab{font-size:9px;text-transform:uppercase;letter-spacing:.06em;font-weight:700}
+.count .pvn{font-size:12px;font-variant-numeric:tabular-nums}
+.count .pvb{border:none;background:none;color:inherit;cursor:pointer;font:inherit;
+  font-size:13px;font-weight:700;padding:0 3px;line-height:1;border-radius:5px}
+.count .pvb:hover{background:var(--panel)}
+.count .pvb.pvo{font-size:10px;font-weight:600;border:1px solid currentColor;
+  border-radius:8px;padding:1px 7px;margin-left:2px}
+.count .pvx{color:inherit;margin-left:1px}
+/* one column at every width: the list is a SEQUENCE, and columns break the reading of it */
+.lolist{display:flex;flex-direction:column;gap:6px;max-height:56vh;overflow:auto;padding:2px}
+.locard{display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border:1px solid var(--line);
+  border-radius:10px;background:var(--panel-2);cursor:grab}
+.locard:active{cursor:grabbing}
+.locard.dragging{opacity:.4}
+.locard.dropinto{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.locard .logrip{color:var(--line-strong);margin-top:1px}
+.locard:hover .logrip{color:var(--muted)}
+.lobody{flex:1;min-width:0}
+.lotop{display:flex;align-items:baseline;gap:7px}
+.lotop .lolv{font-size:10px;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums;
+  background:var(--panel);border-radius:7px;padding:1px 6px}
+.lotop .locls{font-size:13px}
+.logains{font-size:11px;color:var(--muted);line-height:1.45;margin-top:2px}
+.logains.dim{opacity:.6;font-style:italic}
+.locast{font-size:10.5px;color:var(--accent);line-height:1.45;margin-top:1px;font-weight:600}
+
+/* ── build export / import (T5) ───────────────────────────────────────────── */
+/* the base .importdrop is a centred row for the big data drop zone — this one is a
+   stacked panel, so it has to reset the direction and the hover affordance */
+.importdrop.bimport{display:block;margin:0 0 10px;padding:11px 12px;text-align:left;cursor:default;gap:0}
+.importdrop.bimport:hover{border-color:var(--line-strong);background:var(--panel-2)}
+.importdrop.bimport.over:hover{border-color:var(--accent);background:var(--accent-soft)}
+.importdrop.bimport.over{border-color:var(--accent);background:var(--accent-soft)}
+.importdrop.bimport textarea{width:100%;min-height:64px;font-family:var(--sans);font-size:12px;
+  padding:8px;border-radius:8px;border:1px solid var(--line-strong);background:var(--bg);color:var(--ink)}
+.importdrop.bimport u{cursor:pointer}
+.bldacts .tk{white-space:nowrap}
+
+/* "locked until level N" — an icon and the level, never prose that truncates (D60) */
+.lockchip{display:inline-flex;align-items:center;gap:3px;margin-left:5px;vertical-align:-1px;
+  font-size:9.5px;font-weight:700;letter-spacing:.02em;color:var(--muted);
+  background:var(--panel-2);border:1px solid var(--line);border-radius:7px;padding:0 5px;cursor:help}
+.lockchip svg{width:9px;height:9px}
+label.fld .lockchip{text-transform:none}
+/* a label carrying a chip stays ONE line at any width — the text gives way, not the row */
+label.fld:has(.lockchip){display:flex;align-items:center;gap:0;min-width:0}
+label.fld .fldt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+
+/* ── custom spell sources (D55) ───────────────────────────────────────────── */
+.fld .fldnote{font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);opacity:.8;margin-left:4px}
+.chip.csrc{cursor:pointer}
+.chip.csrc:hover{border-color:var(--accent);color:var(--accent)}
+.chip.csrc .csn{font-size:10px;font-weight:700;color:var(--muted);background:var(--panel);
+  border-radius:8px;padding:0 5px}
+.csrow{display:flex;align-items:center;gap:7px;padding:6px 0;border-bottom:1px dashed var(--line)}
+.csrow:last-child{border-bottom:none}
+.csrow .csnm{flex:1;min-width:0;font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.csrow .csn2{width:50px;flex:0 0 auto;text-align:center}
+.csrow .cslbl{flex:0 0 auto;font-size:10.5px;color:var(--muted)}
+.csrow .cslv{max-width:104px}
+.poolrow{display:flex;align-items:center;gap:7px;margin-top:7px}
+.poolrow input[type=number]{width:64px;text-align:center;flex:0 0 auto}
+.poolrow .poollbl{flex:0 0 auto;font-size:11.5px;color:var(--muted)}
+.csnums{display:flex;gap:9px;flex-wrap:wrap}
+.csnum{display:flex;flex-direction:column;gap:3px;flex:0 0 auto}
+.csnum.wide{flex:1;min-width:130px}
+.csnum>span{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:600}
+.csnum input{width:78px}
+.csnum select{width:100%}
+.csrow select{width:auto;flex:0 0 auto;font-size:12px;padding:4px 24px 4px 8px}
+#csrcHits{display:flex;flex-direction:column;gap:2px;margin-top:6px}
+.cshit{display:flex;align-items:center;gap:8px;font:inherit;font-size:12.5px;text-align:left;
+  padding:6px 9px;border:none;background:none;color:var(--ink);border-radius:7px;cursor:pointer}
+.cshit:hover{background:var(--accent-soft)}
+.cshit .cshl{color:var(--muted);font-size:11px;margin-left:auto}
+#csrcMode .cbtn{font-size:12px}
 
 /* ── responsive: phone layout ─────────────────────────────────────────────── */
   /* mobile section jump bar: docked, thumb-reachable, tracks the section you're in.
