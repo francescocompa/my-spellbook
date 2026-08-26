@@ -641,9 +641,9 @@ function renderChoices(){
     h.append(el("b",null,g.owner.name));
     if(g.owner.src)h.append(bookChip(g.owner.src));
     h.append(el("span","cgn",g.items.length===1?"1 choice":`${g.items.length} choices`));
-    box.append(h);
     const cat=ownerCat(g.owner);
-    if(cat)box.append(el("div","cgcat",cat));
+    if(cat)h.append(el("div","cgcat",cat));   // inside the head, so it sits above its rule
+    box.append(h);
     // the granting FEATURE, named once per run — it used to repeat on the first two
     // rows and then vanish, which read as though later rows came from nowhere
     let lastSub=null;
@@ -926,8 +926,10 @@ function savePreviewAsVersion(){
   const st=JSON.parse(JSON.stringify(src.state));
   st.classes=(st.classes||[]).map(r=>({...r,level:eff.get(r.id)||0})).filter(r=>r.level>0);
   st.levelOrder=(st.levelOrder||[]).filter(id=>st.classes.some(r=>r.id===id));
+  // keep the lineage readable: you can tell what it was forked from, and at what level
   const used=new Set(buildsOf(src.meta.character).map(b=>b.meta.name));
-  let name="L"+lv; for(let n=2;used.has(name);n++)name="L"+lv+" ("+n+")";
+  const base=((src.meta.name||"").trim()?src.meta.name.trim()+" · ":"")+"LV"+lv;
+  let name=base; for(let n=2;used.has(name);n++)name=base+" ("+n+")";
   const b=mkBuild(st,src.meta.sources,name);
   b.meta.character=src.meta.character; b.meta.named=src.meta.named;
   BUILDS.builds[b.id]=b;
@@ -1442,29 +1444,105 @@ function budgetPill(label,have,cap,owed){
 // ── prepare-daily modal: one step per source that re-prepares each long rest ──
 let PREP=null;
 const prepCasters=()=>R.casters.filter(r=>!r.static);   // static (level-swap) lists don't re-prepare
-function openPrepDaily(){ const list=prepCasters(); if(!list.length)return;
-  PREP={idxs:list.map(r=>r.idx),step:0,search:"",levelSet:new Set(),onlyPicked:false};
+// A grant you CHOSE rather than were given: High Elf's Wizard cantrip and its kin. Several
+// of them (the 2024 species lineages) are re-chosen on a long rest, which makes this part
+// of preparing, not part of building — so they get their own tab here as well as living in
+// the Choices card. (The data carries no "swappable" flag: see STATE's backlog.)
+const grantedPicks=()=>(R&&R.choices||[]).filter(c=>c.type==="pick"&&c.kind==="known");
+function prepSteps(){
+  return prepCasters().map(r=>({type:"class",idx:r.idx,label:classLabel(r)}))
+    .concat(grantedPicks().length?[{type:"granted",label:"Granted"}]:[]);
+}
+function openPrepDaily(){ const steps=prepSteps(); if(!steps.length)return;
+  PREP={steps,step:0,search:"",levelSet:new Set(),onlyPicked:false};
   $("#prepModal").classList.remove("hidden"); renderPrepStep(); }
-const prepRec=()=>R.casters.find(r=>r.idx===PREP.idxs[PREP.step]);
+const prepStep=()=>PREP&&PREP.steps[PREP.step];
+const prepRec=()=>{const st=prepStep();return st&&st.type==="class"?R.casters.find(r=>r.idx===st.idx):null;};
 function renderPrepStep(){
-  const rec=prepRec(); if(!rec){ $("#prepModal").classList.add("hidden"); return; }
+  const st=prepStep(); if(!st){ $("#prepModal").classList.add("hidden"); return; }
   $("#prepSearch").value=PREP.search||""; PREP.levelSet=new Set();
-  const bk=R.cart[rec.idx]&&R.cart[rec.idx].known&&R.cart[rec.idx].known.book;
-  $("#prepTitle").textContent=classLabel(rec)+(bk?" — prepare from your spellbook":" — prepare spells");
+  if(st.type==="granted"){
+    $("#prepTitle").textContent="Granted spell choices";
+  } else {
+    const rec=prepRec(); if(!rec){ $("#prepModal").classList.add("hidden"); return; }
+    const bk=R.cart[rec.idx]&&R.cart[rec.idx].known&&R.cart[rec.idx].known.book;
+    $("#prepTitle").textContent=classLabel(rec)+(bk?" — prepare from your spellbook":" — prepare spells");
+  }
   const steps=$("#prepSteps"); steps.innerHTML="";
-  // the steps are how you move BETWEEN caster classes — with one, the single chip just
-  // repeats the class the title already names
-  steps.classList.toggle("hidden",PREP.idxs.length<2);
-  PREP.idxs.forEach((idx,i)=>{const r=R.casters.find(x=>x.idx===idx); if(!r)return;
-    const b=el("button","prepstep"+(i===PREP.step?" on":""),classLabel(r));
+  // the tabs are how you move BETWEEN sets — with one, the single chip just repeats
+  // what the title already names
+  steps.classList.toggle("hidden",PREP.steps.length<2);
+  PREP.steps.forEach((x,i)=>{
+    const b=el("button","prepstep"+(i===PREP.step?" on":""),x.label);
     b.onclick=()=>{PREP.step=i;PREP.search="";renderPrepStep();};steps.append(b);});
   $("#prepPrev").style.visibility=PREP.step>0?"":"hidden";
-  const last=PREP.step>=PREP.idxs.length-1;
+  const last=PREP.step>=PREP.steps.length-1;
   $("#prepNext").style.display=last?"none":"";
   $("#prepDone").style.display=last?"":"none";
   renderPrepList();
 }
+// one spell row, shared by both tabs — name, meta, and an icon-only take button
+function prepRow(sp,on,label,onClick){
+  const d=el("div","sp"+(on?" chosen":""));
+  const nm=el("div","nm",sp.name);attachSpell(nm,sp);d.append(nm);
+  const meta=el("div","meta");
+  [ROMAN[sp.level],shortSchool(sp.school),shortTime(sp.time),shortRange(sp.range)]
+    .filter(Boolean).forEach(x=>meta.append(el("span",null,x)));
+  d.append(meta);
+  const take=el("div","take");const b=el("button","tk ico-only"+(on?" on":""));
+  b.append(icoEl(on?"check":"plus"));
+  b.title=label; b.setAttribute("aria-label",label);
+  b.onclick=onClick; take.append(b); d.append(take);
+  return d;
+}
+// the Granted tab: every re-choosable grant, each with its own eligible pool
+function renderGrantedList(){
+  const list=$("#prepList"); list.innerHTML="";
+  const q=(PREP.search||"").toLowerCase();
+  const picks=grantedPicks();
+  let shownTotal=0, held=0, want=0;
+  picks.forEach(c=>{
+    const cur=state.choices[c.id]||[];
+    held+=cur.length; want+=c.count;
+    const box=el("div","prepgrp");
+    const h=el("div","cghead");
+    h.append(el("b",null,c.giver||"Granted"));
+    if(c.giverSrc)h.append(bookChip(c.giverSrc));
+    h.append(el("span","cgn",`${cur.length}/${c.count}`));
+    h.append(Object.assign(el("div","cgcat"),{textContent:fmtDesc(c.desc)||"choose a spell"}));
+    box.append(h);
+    let pool=filterSpells(c.filter).filter(sp=>(!q||sp.name.toLowerCase().includes(q))
+      &&(!PREP.levelSet.size||PREP.levelSet.has(sp.level))
+      &&(!PREP.onlyPicked||cur.includes(key(sp.name,sp.source))));
+    pool.sort((a,b)=>a.level-b.level||a.name.localeCompare(b.name));
+    if(!pool.length)box.append(el("div","empty","Nothing matches here."));
+    pool.slice(0,300).forEach(sp=>{const k=key(sp.name,sp.source);const on=cur.includes(k);
+      shownTotal++;
+      box.append(prepRow(sp,on,on?"Chosen — click to drop it":"Choose it",()=>{
+        let a=state.choices[c.id]||[];
+        if(a.includes(k))a=a.filter(v=>v!==k);
+        else if(a.length<c.count)a=[...a,k];
+        else a=[...a.slice(1),k];        // a single-pick grant SWAPS rather than refusing
+        state.choices[c.id]=a; render(); renderPrepStep();}));});
+    list.append(box);
+  });
+  $("#prepCount").innerHTML=`<b class="${held>want?"over":""}">${held} / ${want}</b> <small>chosen</small>`;
+  const qo=$("#prepOnly");if(qo){qo.classList.toggle("on",!!PREP.onlyPicked);
+    qo.innerHTML=`Picked${held?` <span class="badge">${held}</span>`:""}`;}
+  prepLevelFilter(picks.flatMap(c=>filterSpells(c.filter)).map(sp=>sp.level));
+  if(!shownTotal&&!picks.length)list.append(el("div","empty","No granted spell choices in this build."));
+}
+// the level filter is only a filter when there IS more than one level to choose between
+function prepLevelFilter(levels){
+  const present=[...new Set(levels)].sort((a,b)=>a-b);
+  const menu=$("#prepLevelBtn")&&$("#prepLevelBtn").closest(".menu");
+  if(menu)menu.classList.toggle("hidden",present.length<2);
+  if(present.length<2){PREP.levelSet=new Set();}
+  buildToggleRow($("#prepLevels"),present.map(l=>[String(l),l===0?"C":String(l)]),PREP.levelSet,true,renderPrepList);
+  const plb=$("#prepLevelBtn");if(plb)plb.innerHTML="Levels"+(PREP.levelSet.size?` <span class="badge">${PREP.levelSet.size}</span>`:"");
+}
 function renderPrepList(){
+  if(prepStep()&&prepStep().type==="granted")return renderGrantedList();
   const rec=prepRec(); if(!rec)return; const list=$("#prepList"); list.innerHTML="";
   const q=(PREP.search||"").toLowerCase(), cart=R.cart[rec.idx];
   // A wizard prepares FROM its spellbook, so the pool is the book and the target set is
@@ -1478,23 +1556,17 @@ function renderPrepList(){
   let base=book
     ? ((state.chosen[rec.idx]||{}).spells||[]).map(k=>SPELL_BY[k]).filter(sp=>sp&&sp.level>=1)
     : [...R.pool.values()].filter(e=>e.takers.some(t=>t.idx===rec.idx)&&!(e.always&&e.always.has(rec.idx))&&e.sp.level>=1&&e.sp.level<=rec.maxLvl).map(e=>e.sp);
-  const presentLevels=[...new Set(base.map(s=>s.level))].sort((a,b)=>a-b);
-  buildToggleRow($("#prepLevels"),presentLevels.map(l=>[String(l),String(l)]),PREP.levelSet,true,renderPrepList);
-  const plb=$("#prepLevelBtn");if(plb)plb.innerHTML="Levels"+(PREP.levelSet.size?` <span class="badge">${PREP.levelSet.size}</span>`:"");
+  prepLevelFilter(base.map(s=>s.level));
   const qo=$("#prepOnly");if(qo){qo.classList.toggle("on",!!PREP.onlyPicked);
     qo.innerHTML=`Picked${cur.size?` <span class="badge">${cur.size}</span>`:""}`;}
   let items=base.filter(sp=>(!q||sp.name.toLowerCase().includes(q))&&(!PREP.levelSet.size||PREP.levelSet.has(sp.level))
     &&(!PREP.onlyPicked||cur.has(key(sp.name,sp.source))));
   items.sort((a,b)=>a.level-b.level||a.name.localeCompare(b.name));
   items.slice(0,400).forEach(sp=>{const k=key(sp.name,sp.source);const on=cur.has(k);
-    const d=el("div","sp"+(on?" chosen":""));
-    const nm=el("div","nm",sp.name);attachSpell(nm,sp);d.append(nm);
-    const meta=el("div","meta");[ROMAN[sp.level],shortSchool(sp.school),shortTime(sp.time),shortRange(sp.range)].filter(Boolean).forEach(x=>meta.append(el("span",null,x)));d.append(meta);
-    const take=el("div","take");const b=el("button","tk ico-only"+(on?" on":"")+(on&&over?" over":""));
-    b.append(icoEl(on?"check":"plus"));
-    const tlbl=on?"Prepared — click to unprepare":"Prepare it";
-    b.title=tlbl; b.setAttribute("aria-label",tlbl);
-    b.onclick=()=>{toggle(rec.idx,k,false,field);renderPrepList();};take.append(b);d.append(take);list.append(d);});
+    const d=prepRow(sp,on,on?"Prepared — click to unprepare":"Prepare it",
+      ()=>{toggle(rec.idx,k,false,field);renderPrepList();});
+    if(on&&over)d.querySelector(".tk").classList.add("over");
+    list.append(d);});
   if(!items.length)list.append(el("div","empty",PREP.onlyPicked?"Nothing prepared yet."
     :book?"Your spellbook is empty — copy spells into it first."
          :"No eligible spells at this level yet."));
@@ -1749,7 +1821,7 @@ function renderTable(){
   const tbl=$("#spellTable");tbl.innerHTML="";
   $("#tableChip").textContent=rows.length?rows.length+" spells":"";
   $("#tableEmpty").textContent=rows.length?"":"Nothing selected yet — pick spells in the Build tab (or use Prepare daily); subclass/feat/species grants appear here too.";
-  const prepBtn=$("#prepDailyBtn");if(prepBtn)prepBtn.style.display=R.casters.some(r=>!r.static)?"":"none";
+  const prepBtn=$("#prepDailyBtn");if(prepBtn)prepBtn.style.display=prepSteps().length?"":"none";
   if(!rows.length)return;
 
 
@@ -1987,18 +2059,20 @@ function renderLevelChip(){
 // Not derived counts: "Arcane Recovery" says more than "+1 prepared". Spellcasting is
 // deliberately NOT here — see levelCasting.
 function levelGains(row,cl){
-  const c=CLS_BY[row.clsKey]; if(!c)return [];
+  const c=CLS_BY[row.clsKey]; if(!c)return {feats:[],chips:[]};
   const sub=row.subKey?SUB_BY[row.subKey]:null;
-  const feats=[];
+  const feats=[],chips=[];
   (c.features||[]).forEach(f=>{if(f.level===cl)feats.push(f.name);});
   if(sub&&cl>=(c.subclassLevel||3))(sub.features||[]).forEach(f=>{if(f.level===cl)feats.push(f.name);});
   if(c.subclassLevel===cl&&!sub)feats.push("subclass — not chosen");
-  if([4,8,12,16].concat(ASI_EXTRA[c.name]||[]).includes(cl))feats.push("Feat / ASI");
-  if(cl===19)feats.push("Epic Boon");
+  // budget, not a feature — it gets a chip beside the class name instead of sitting in
+  // the prose run where it read as just another feature you gain
+  if([4,8,12,16].concat(ASI_EXTRA[c.name]||[]).includes(cl))chips.push("feat");
+  if(cl===19)chips.push("epic boon");
   [c,sub].forEach(src=>{ if(!src||!src.optFeatures)return;
     src.optFeatures.forEach(p=>{const d=(p.counts[cl-1]||0)-(cl>1?(p.counts[cl-2]||0):0);
       if(d>0)feats.push(`+${d} ${p.name.toLowerCase()}`);});});
-  return feats;
+  return {feats,chips};
 }
 // Spellcasting runs on TWO clocks, and a caster-caster multiclass pulls them apart:
 //   • MAX SPELL LEVEL is set by that class's OWN level — multiclassing never raises it.
@@ -2026,30 +2100,24 @@ function planSlots(levels){
   return {slots,pact};
 }
 const topSlot=a=>{let m=0;(a||[]).forEach((v,i)=>{if(v>0)m=i+1;});return m;};
-// what THIS character level changed about casting, given the plan either side of it
+// The state of both clocks AFTER this character level, and whether this level is the one
+// that moved them. Rendered as two tiles rather than prose: the point of the column is that
+// you can read either progression straight down it.
 function levelCasting(row,cl,before,after){
-  const c=CLS_BY[row.clsKey]; if(!c)return {slot:"",max:""};
+  const c=CLS_BY[row.clsKey]; if(!c)return null;
   const sub=row.subKey?SUB_BY[row.subKey]:null;
-  const caster=c.caster||(sub&&sub.caster)||null; if(!caster)return {slot:"",max:""};
-  let slot="",max="";
-  if(caster==="pact"){
-    // a warlock's pact slots ARE its max level, so naming both would say it twice
-    const p0=before.pact,p1=after.pact;
-    if(p1&&(!p0||p1.lvl>p0.lvl))slot=`pact slots now ${ROMAN[p1.lvl]}`;
-    else if(p1&&p0&&p1.num>p0.num)slot=`+${p1.num-p0.num} pact slot${p1.num-p0.num>1?"s":""}`;
-    return {slot,max};
-  }
-  const prev=before.slots||[],now=after.slots||[];
-  const gained=now.reduce((a,v,i)=>a+Math.max(0,(+v||0)-(+prev[i]||0)),0);
-  const t0=topSlot(prev),t1=topSlot(now);
-  const bits=[];
-  if(gained)bits.push(`+${gained} slot${gained>1?"s":""}`);
-  if(t1>t0)bits.push(`${ROMAN[t1]}-level slots unlocked`);
-  slot=bits.join(" · ");
-  const m0=cl>1?maxLvlAt(caster,cl-1):0, m1=maxLvlAt(caster,cl);
-  if(m1>m0)max=(m0?"":"spellcasting · ")+`max spell level ${ROMAN[m1]}`;
-  return {slot,max};
+  const caster=c.caster||(sub&&sub.caster)||null; if(!caster)return null;
+  const pact=caster==="pact";
+  const slot=pact?(after.pact?after.pact.lvl:0):topSlot(after.slots);
+  const slotWas=pact?(before.pact?before.pact.lvl:0):topSlot(before.slots);
+  const spell=maxLvlAt(caster,cl), spellWas=cl>1?maxLvlAt(caster,cl-1):0;
+  return {spell,spellUp:spell>spellWas,slot,slotUp:slot>slotWas};
 }
+const lvTile=(kind,lvl,up,tip)=>{
+  const t=el("div","lt lt-"+kind+(up?" up":""));
+  t.append(el("b",null,lvl?ROMAN[lvl]:"—"));
+  t.append(el("small",null,kind));
+  attachTip(t,tip); return t;};
 // One card per character level, in acquisition order: which class it was taken in and
 // what that level gave you. Drag a card by its handle to reorder — the class totals are
 // fixed by the build, so reordering only changes WHEN each level lands (D59).
@@ -2072,17 +2140,24 @@ function renderLvlOrder(){
     top.append(el("span","lolv","L"+(i+1)));
     top.append(el("b","locls",(c?c.name:"?")+" "+cl));
     body.append(top);
-    const feats=levelGains(row,cl);
+    const g=levelGains(row,cl);
+    g.chips.forEach(t=>top.append(el("span","featchip",t)));
     // the slot table is read across the WHOLE plan up to here, never from this class alone
     const before=planSlots(perClass); perClass.set(id,cl);
     const after=planSlots(perClass);
     const cast=levelCasting(row,cl,before,after);
-    if(feats.length)body.append(Object.assign(el("div","logains"),{textContent:feats.join(" · ")}));
-    if(cast.slot)body.append(Object.assign(el("div","locast"),{textContent:cast.slot}));
-    if(cast.max)body.append(Object.assign(el("div","locast lomax"),{textContent:cast.max}));
-    if(!feats.length&&!cast.slot&&!cast.max)
-      body.append(Object.assign(el("div","logains dim"),{textContent:"no new features"}));
+    if(g.feats.length)body.append(Object.assign(el("div","logains"),{textContent:g.feats.join(" · ")}));
+    else if(!g.chips.length)body.append(Object.assign(el("div","logains dim"),{textContent:"no new features"}));
+    let tiles=null;
+    if(cast){tiles=el("div","lotiles");
+      tiles.append(lvTile("spell",cast.spell,cast.spellUp,
+        tipBlock("Max spell level"+(cast.spellUp?" — raised here":""),
+          "The highest level this class can prepare, set by its OWN level. Multiclassing never raises it.")));
+      tiles.append(lvTile("slot",cast.slot,cast.slotUp,
+        tipBlock("Top slot level"+(cast.slotUp?" — raised here":""),
+          "The highest slot you have, from your COMBINED caster level. Higher slots let you upcast; they don't widen the list.")));}
     card.append(body);
+    if(tiles)card.append(tiles);      // after the body, so they sit on the RIGHT edge
     card.ondragstart=e=>{dragFrom=i;e.dataTransfer.effectAllowed="move";
       try{e.dataTransfer.setData("text/plain",String(i));}catch(_){}
       card.classList.add("dragging");};
@@ -2184,15 +2259,21 @@ function renderCart(){
       for(let L=r.maxLvl;L>=1;L--){
         const atL=c.spells.filter(k=>lvlOf(k)===L).length;
         let room=Infinity; for(let j=1;j<=L;j++)room=Math.min(room,capAt(j)-geAt(j));
-        // room may be negative when this level is over the cap — show the exceeded cap.
-        const ceil=Math.max(0,atL+room);
-        const overFree=atL>ceil;
+        // room goes NEGATIVE when you are over the cap — and being over the TOTAL drives it
+        // negative at every level at once, which used to print "4 of up to 0". A tile may
+        // never claim you hold more than its own maximum: the denominator floors at what is
+        // actually held, and the .over state (plus the meter above) says what is wrong.
+        const free=Math.max(0,atL+room);       // room left if you are not already over
+        const ceil=Math.max(atL,free);
+        const overFree=atL>free;
         const copied=overFree&&wiz;                 // wizard: extra = copied into the book (legal)
         const isErr=!!c.overLevels[L]||(overFree&&!copied);
         const cell=el("div","dcell"+(L===r.maxLvl?" top":"")+(isErr?" over":copied?" copied":""));
         cell.style.cursor="pointer";
         cell.title=`${ROMAN[L]}-level ${wiz?"in your spellbook":r.static?"in your known spells":"prepared"} — ${atL} of up to ${ceil} at this level`
-          +(copied?` (+${atL-ceil} copied in beyond the free allowance)`:r.static&&!kn?` (fills up gradually as you level)`:"")+`. Tap to edit.`;
+          +(copied?` (+${atL-free} copied in beyond the free allowance)`
+            :overFree?` — you are over your ${wiz?"spellbook":r.static?"known":"prepared"} total, so there is no room left at any level until you drop some`
+            :r.static&&!kn?` (fills up gradually as you level)`:"")+`. Tap to edit.`;
         cell.onclick=()=>openLevelPick(r.idx,L);
         cell.innerHTML=`<b>${atL}<span class="dcap">/${ceil}</span></b><small>${ROMAN[L]}${L===r.maxLvl?" · max":""}</small>`;dist.append(cell);}
       b.append(dist);
@@ -2444,21 +2525,36 @@ function statblockHTML(sp){
   const b=sp.statblock; if(!b)return "";
   const line=(k,v)=>v?`<div class="sbr"><b>${k}</b><span>${ccText(v)}</span></div>`:"";
   const kv=o=>Object.entries(o||{}).map(([k,v])=>`${k} ${v}`).join(", ");
-  const abils=AB_ORDER.filter(k=>b.abilities[k]!=null).map(k=>
-    `<div class="sbab"><span class="abchip ${k}">${ABIL_SHORT[k]}</span>`
-    +`<span class="sbav">${b.abilities[k]}</span><span class="sbam">${abMod(b.abilities[k])}</span></div>`).join("");
+  // the monster-forge ability table: two ability columns, each score / mod / save. A save
+  // the creature is proficient in is printed as given and bold; with no proficiency a save
+  // IS the modifier, which is what a summon always has (none of the 24 carry save profs).
+  const sv=k=>{const raw=(b.saves||{})[k];
+    return raw?{t:String(raw).replace(/^\+?/,m=>m||"+"),prof:true}:{t:abMod(b.abilities[k]),prof:false};};
+  const half=[["str","int"],["dex","wis"],["con","cha"]];
+  const abils=AB_ORDER.some(k=>b.abilities[k]!=null)
+    ?`<table class="sbab"><tr><td></td><td class="mh">Mod</td><td class="mh">Save</td>`
+      +`<td></td><td class="mh">Mod</td><td class="mh">Save</td></tr>`
+     +half.map(pair=>"<tr>"+pair.map(k=>{const v=b.abilities[k];
+        if(v==null)return `<td class="sbal"></td><td class="sbn"></td><td class="sbn"></td>`;
+        const s=sv(k);
+        return `<td class="sbal"><span class="abchip ${k}">${ABIL_SHORT[k]}</span>`
+          +`<span class="sbav">${v}</span></td>`
+          +`<td class="sbn">${abMod(v)}</td>`
+          +`<td class="sbn${s.prof?" prof":""}">${esc(s.t)}</td>`;}).join("")+"</tr>").join("")
+     +`</table>`
+    :"";
   const secs=(b.sections||[]).map(sec=>`<div class="sbsec"><h5>${esc(sec.label)}</h5>`
     +sec.items.map(it=>`<p>${it.name?`<b>${esc(it.name)}.</b> `:""}${it.text.map(ccText).join(" ")}</p>`).join("")
     +`</div>`).join("");
   return `<div class="sblock" data-exp="0">`
     +`<button class="sb-head" type="button" aria-expanded="false">`
-      +`<span class="secttl">Stat block</span>`
-      +`<span class="sb-who">${esc(b.name)}</span><span class="sb-caret"></span></button>`
+      +`<span class="secttl">${esc(b.name)}</span>`
+      +`<span class="sb-who">stat block</span><span class="sb-caret"></span></button>`
     +`<div class="sb-body">`
       +`<div class="sb-kind">${esc([b.kind,b.align].filter(Boolean).join(", "))}</div>`
       +line("AC",b.ac)+line("HP",b.hp)+line("Speed",b.speed)
       +(abils?`<div class="sbabs">${abils}</div>`:"")
-      +line("Saves",kv(b.saves))+line("Skills",kv(b.skills))
+      +line("Skills",kv(b.skills))
       +line("Vulnerabilities",b.vulnerable)+line("Resistances",b.resist)
       +line("Immunities",[b.immune,b.condImmune].filter(Boolean).join(", "))
       +line("Senses",b.senses)+line("Languages",b.languages)
@@ -2466,11 +2562,11 @@ function statblockHTML(sp){
       +secs
     +`</div></div>`;}
 function modalHTML(sp){
-  // a cantrip says its level and school in the subtitle already — repeating them
-  // as their own rows was the top of the grid saying nothing (D49)
-  const grid=(sp.level===0?[]:[["Level",ROMAN[sp.level]],["School",sp.school]])
-    .concat([["Casting time",sp.time],["Range",sp.range],["Components",compText(sp)],
-             ["Duration",(sp.conc?"Concentration, up to ":"")+sp.durTxt]]);
+  // the subtitle already reads "3rd-level Evocation" / "Evocation cantrip", so Level and
+  // School as their own rows were the top of the grid saying nothing twice (D49, widened
+  // from cantrips to every spell)
+  const grid=[["Casting time",sp.time],["Range",sp.range],["Components",compText(sp)],
+              ["Duration",(sp.conc?"Concentration, up to ":"")+sp.durTxt]];
   const bk=sp.source!==CORE?` <span class="bchip" data-book="${esc(sp.source)}"${sp.page?` data-page="${esc(String(sp.page))}"`:""}>${esc(sp.source)}</span>`:"";
   return `<div class="box"><button class="x ico" type="button" title="Close" aria-label="Close">${ICONS.x}</button>`
     +`<div class="mh"><h3>${esc(sp.name)}${bk}</h3>`
@@ -2529,6 +2625,7 @@ function mkSpell(i,chosenKeys){
     // a wizard copying spells past its free book size isn't "over" — copying is allowed
     const over=sel>cap && !(cart&&cart.known&&cart.known.book&&!t.cantrip);
     const btn=el("button","tk"+(on?" on":"")+(over?" over":""));
+    if(on)btn.append(icoEl("check"));
     btn.append(document.createTextNode(t.name+" "));btn.append(el("span","c",`${sel}/${cap}`));
     btn.title=(on?"Prepared — click to remove. ":"Not prepared — click to add. ")+`${t.name}: ${sel} of ${cap} ${t.cantrip?"cantrips":(cart&&cart.known?"in spellbook":"prepared")}`+(over?" (over your forecast)":"");
     btn.onclick=()=>toggle(t.idx,k,t.cantrip);take.append(btn);
@@ -2868,7 +2965,7 @@ $("#prepClose").onclick=()=>$("#prepModal").classList.add("hidden");
 $("#prepDone").onclick=()=>$("#prepModal").classList.add("hidden");
 $("#prepModal").onclick=e=>{if(e.target.id==="prepModal")$("#prepModal").classList.add("hidden");};
 $("#prepPrev").onclick=()=>{if(PREP&&PREP.step>0){PREP.step--;PREP.search="";renderPrepStep();}};
-$("#prepNext").onclick=()=>{if(PREP&&PREP.step<PREP.idxs.length-1){PREP.step++;PREP.search="";renderPrepStep();}};
+$("#prepNext").onclick=()=>{if(PREP&&PREP.step<PREP.steps.length-1){PREP.step++;PREP.search="";renderPrepStep();}};
 $("#prepSearch").oninput=e=>{if(PREP){PREP.search=e.target.value;renderPrepList();}};
 $("#prepLevelBtn").onclick=e=>{e.stopPropagation();toggleMenu("#prepLevelPop");};
 $("#pickClose").onclick=()=>$("#pickModal").classList.add("hidden");

@@ -22,6 +22,13 @@
   to a file, import it back, never overwriting. Decisions **D43–D65**. Verified in-browser at
   375px and desktop; extractor parity exact (936 spells, 276/276 feats, 213/213 optional
   features, 24/24 stat blocks, class+subclass features byte-identical).
+- **Note batch 5 (2026-08-27):** the `x/0` tiles were a clamp bug — a denominator below its own
+  numerator (D70); the level cards became tinted right-aligned tiles with a feat chip (D71);
+  picked spell rows dropped their fill for a green rail and the take chip's green moved to the
+  icon (D72); prepare-daily is tabbed by set, gained a **Granted** tab for re-choosable grants,
+  and moved its count to the footer (D73); the spell modal's stat block now leads with the
+  creature and carries the monster-forge ability table, access chips are uniform, and Level /
+  School left the grid for every spell (D74); a preview fork is named `<version> · LV<n>` (D75).
 - **Note batch 4 (2026-08-26, after the handoff):** icon-only action buttons everywhere the label
   was a verb (D66); the Choices card's category became a subtitle and feats name their own type
   (D67); the level cards now show **slots and max spell level as two separate clocks**, which fixes
@@ -397,6 +404,55 @@ stays out. Server sync or accounts. Sharing a build as a rendered page, or via a
   nesting for a duplicate nobody wants to see); a canonical key from both extractors (structurally
   cleaner, but it is an extract.py + extract.js change plus a data rebuild for a display problem).
 
+- **D70 (2026-08-27) A ratio widget may never state an impossible ratio** — the per-level tiles
+  printed `4/0`: being over the PREPARED TOTAL drives the per-level room negative at every level
+  at once, and the old `Math.max(0, held+room)` clamp turned that into a denominator BELOW the
+  numerator. The denominator now floors at what is actually held; the `.over` state and the meter
+  above say what is wrong, and the tooltip names the real cause ("you are over your prepared
+  total, so there is no room at any level until you drop some"). The tile design itself is right
+  (Francesco's call) — this was a clamp bug, not a modelling one. *Rejected:* dropping the
+  denominator for daily preparers (I proposed it; the per-level ceiling is real information when
+  you are inside your budget).
+- **D71 (2026-08-27) A level card's two clocks are tinted tiles on the right edge** — supersedes
+  D68's prose lines. Both tiles are present on every card so either progression reads straight
+  down the column; each keeps its own hue at all times (**spell = accent, slot = gold** — the tint
+  IS the label, never grey), and the level that RAISED one takes the full colour and a border. The
+  `+N slots` count is gone: the number of slots is on the Slots card, and what a level card is for
+  is *when a threshold moved*. A **feat / epic boon** is budget you owe, not a feature, so it
+  leaves the prose run for its own gold chip beside the class name. The drag handle centres on the
+  card, not on its first line. *Rejected:* a tile only on the level that changes (ragged right
+  edge, and you have to scan upward to answer "what is my max spell level at L7").
+- **D72 (2026-08-27) A picked spell row gets a rail, never a fill** — the old
+  `background + border-radius` on `.sp:hover` and `.sp.chosen` cut through the 1px divider and
+  read as broken stripes. Both fills are gone. Picked rows carry a 2px green rail that **insets
+  vertically and rounds its ends**, so a run of picked rows reads as one rail per row rather than
+  one long bar, and the left padding that holds it is reserved on EVERY row so nothing shifts when
+  you take a spell. The take chip stops being a solid green pill — **green lives on the icon
+  only**, the chip just gains ink-weight text, so it still reads as a button. *Rejected:* a 6%
+  square-cornered tint; the spell name going green (competes with the ritual badge and the name's
+  own click affordance); no signal at all beyond the chip (Francesco picked the rail).
+- **D73 (2026-08-27) Prepare-daily is tabbed by SET, and its chrome hides when it has nothing to
+  do** — the tabs are one per re-preparing caster **plus a "Granted" tab** for grant picks you
+  chose rather than were given (High Elf's Wizard cantrip and its kin, which the 2024 lineages
+  re-choose on a long rest). The tab row hides with one tab, the level filter hides when only one
+  level is present, the toolbar never wraps (the search field is what gives way), and the
+  prepared count moves out of the toolbar to the **centre of the footer** — it answers "am I
+  done", which is a footer question, not a filter. **Caveat:** the data carries no swappable flag,
+  so the tab lists every `kind:"known"` pick; a one-time choice like Aberrant Dragonmark's appears
+  there too. Detecting the real long-rest swap is a backlog item.
+- **D74 (2026-08-27) The spell modal never says the same thing twice, and its stat block follows
+  monster-forge** — Level and School leave the grid for **every** spell, not just cantrips (D49
+  widened): the subtitle already reads "5th-level Conjuration". The stat block's header inverts —
+  the **creature names the section** in the display face, with "stat block" as the small uppercase
+  label after it. The ability block becomes the monster-forge **table**: two ability columns, each
+  score / Mod / Save, proficient saves bold (no summon carries one, so a save is its modifier).
+  Access chips all look the same — the category is named by the row they sit on when expanded, so
+  tinting them by kind in the merged row only added noise.
+- **D75 (2026-08-27) A version forked from the preview keeps its lineage in its name** —
+  `<version> · LV<level>` ("L9 · LV5"), so you can see what it came from and at what level.
+  *Rejected:* the bare level (two forks from different versions at the same level collide);
+  the character name (it already sits above the version in the manager).
+
 ### Settled — recorded so they aren't re-proposed
 Headline + rejected options only; reasoning → `ARCHIVE.md#rationale`.
 - **D7** Source counts in chips — per-source `n/cap` on take chips, red over forecast.
@@ -489,6 +545,11 @@ Headline + rejected options only; reasoning → `ARCHIVE.md#rationale`.
 - [ ] **Custom sources UI redesign** — Francesco: "still a UI mess, let's do a dedicated back and
   forth design session". The MODEL (D55/D65) stands; this is the surface. It is the **next
   action**, ahead of T7.
+- [ ] **Detect a real long-rest spell swap in the extractors** — D73's Granted tab lists every
+  `kind:"known"` pick because the digest has no flag for "you may replace this on a long rest".
+  The 2024 lineages say it in prose ("Whenever you finish a Long Rest, you can replace that
+  cantrip…"); a one-time choice like Aberrant Dragonmark's does not. Emitting `swap:true` from
+  both extractors would let the tab say which is which. ⚑ (owner: Francesco, 2026-08-27)
 - [ ] Custom-spell **manager** (list all homebrew to edit/delete without opening each).
 - [ ] High Elf true in-table cantrip swap; Human extra-origin restricted to origin cats.
 
@@ -631,6 +692,14 @@ Headline + rejected options only; reasoning → `ARCHIVE.md#rationale`.
 - **Custom sources (D65)** synthesize grants via `customSourceGrants` + `resolveGrants` (tok
   `x<id>`), EXCEPT `mode:"list"`, which widens the eligible pool instead. Per-grant extras
   (DC, attack, fixed cast level) ride through `spellOut`'s `extra` argument.
+- **A ratio widget may never print a denominator below its numerator (D70).** Being over a shared
+  TOTAL drives every per-level `room` negative at once; clamping that at 0 produced "4 of up to 0".
+  `free` (real room) and `ceil` (what is displayed) are separate values now — `free` still drives
+  the over/copied states, `ceil` floors at what is held.
+- **A row highlight must not fight its own divider (D72).** A rounded background behind a row with
+  `border-bottom` cuts the rule at the corners. `.sp` picked rows use an inset `::before` rail; the
+  padding that holds it is on EVERY row so selection never shifts the layout, and the rail insets
+  vertically so adjacent picked rows don't merge into one bar.
 - **Slots and max spell level are DIFFERENT clocks (D68).** Max spell level comes from a class's
   OWN level (`maxLvlAt(caster,classLevel)`); slots come from the COMBINED caster level
   (`planSlots()` over the whole level plan, or `R.mcSlots`). Deriving one from the other is what
@@ -656,6 +725,9 @@ Headline + rejected options only; reasoning → `ARCHIVE.md#rationale`.
 - v7 note batch 4 (2026-08-26) — icon-only actions, choices category as a subtitle, the level
   card's two casting clocks, species lineage dedupe, equal card spacing on a phone, the
   prepare-daily step row hidden for a single caster. **D66–D69.**
+- v7 note batch 5 (2026-08-27) — the `x/0` tile clamp bug, level cards as tinted tiles + feat
+  chip, spell rows on a rail instead of a fill, the prepare modal tabbed by set with a Granted
+  tab, the spell modal's stat block and access chips, preview-version naming. **D70–D75.**
 
 ⟳ Rename previous session → "Level preview, custom sources, build export" · **NOT APPLIED**
 (2026-08-26): the newest session in this cwd is "Character sheet UI refinements", last active
