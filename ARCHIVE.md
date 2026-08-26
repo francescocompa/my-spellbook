@@ -226,3 +226,37 @@ disabled book enables that book, mirroring the picker rule.
 - ~~Per-source subclass de-duplication in the picker (2014 + 2024 both show)~~ — done (D19).
 - ~~Picker design-system polish~~ — not taste: `.entrow .tk` never matched the chip rules, which
   were scoped to `.take .tk`. Fixed by unscoping `.tk`.
+
+<a id="v7-batches"></a>
+## v7 note batches 1–7 (2026-08-26 → 2026-08-27)
+
+Lifted out of STATE's TL;DR on 2026-08-27 — the block had stacked one paragraph per batch,
+which is exactly what the resume doc is not for. Decisions D43–D81 stay in STATE; this is
+only the narrative of what each batch contained.
+
+- **Batch 1 (15 notes)** — Choices as uniform groups, in-line feat count tiles, neutral chips,
+  lineage-grouped species picker, mobile jump bar + fitted top row, and in the spell modal a
+  collapsible summon stat block, book popovers with page, cantrip meta.
+- **Batch 2 (10 notes)** — new-build modal; **delete fixed** (native `confirm()` is dead in
+  webviews → armed two-click buttons, D53); class-searchable build summaries; the **level
+  preview scrubber** (D54); **custom spell sources** (D55); **homebrew & UA import** (D58); the
+  **full SVG icon sweep** (D57); `serve.py` `no-store`.
+- **Batch 3 (9 notes)** — preview interaction bugs (`attachTip` swallowing button clicks; `xBtn`
+  letting a re-render's event re-arm the preview); the order panel rebuilt as **draggable level
+  cards naming real class features** (D59/D63); **lock chips** (D60); a **fixed-size tab switch**
+  (D61); **the wizard's spellbook and prepared list separated** (D62); per-level loadouts settled
+  as **versions, not per-pick stamps** (D64). Custom sources got the deeper pass — shared charge
+  pools, own DC/attack/ability, fixed cast level, list mode (D65).
+- **Batch 4** — icon-only action buttons wherever the label was a verb (D66); the Choices card's
+  category as a subtitle with feats naming their own type (D67); **slots and max spell level as
+  two separate clocks** on the level cards (D68); species lineages renamed between editions stop
+  appearing twice (D69); equal card spacing on a phone.
+- **Batch 5** — the `x/0` tile clamp bug (D70); level cards as tiles (D71); spell rows on a rail
+  instead of a fill (D72); prepare-daily tabbed by set with a **Granted** tab (D73); the spell
+  modal's stat block hierarchy and monster-forge ability table (D74); preview-fork naming (D75).
+- **Batch 6** — the **Magical Secrets level weighting** (D76); grouping headers off the accent
+  (D77); **creature sets + the stat block carousel** (D78); the selected-chip highlight bug.
+- **Batch 7** — **prose-only grants and grant modification notes** (D79, closing the Warlock's
+  missing Mystic Arcanum and Contact Patron's free cast); the Magical Secrets picker (D80); the
+  carousel's book panel and bottom controls (D81); a two-pass audit of every XPHB class and
+  subclass for missing spell sources.

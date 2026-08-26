@@ -48,7 +48,10 @@ no internet, no install. Also publishable as-is (single file).
   concentration, casts/recharge, source), grouped by level / casting ability /
   source; daily casters can show all eligible and toggle selection inline.
 - **Spell details**: hover a spell for a tooltip; click for a full modal
-  (centered on desktop, bottom-sheet on mobile).
+  (centered on desktop, bottom-sheet on mobile). A spell that prints creatures shows them
+  as a **carousel** — Find Familiar carries all 65 CR-0 beasts, filterable by book. When one
+  of your features changes *how* you cast a granted spell ("without expending a spell slot,
+  and you automatically succeed on the save"), that note appears with the spell.
 
 ## The rules that matter
 
@@ -94,6 +97,17 @@ Built to match the `monster-forge` / `character-forge` house style: vanilla JS,
 
 ## Known gaps / next
 `STATE.md` is the live plan — this list is only the long-standing ones.
+- **After updating the app, re-import your 5etools data.** Creature sets and grant notes are
+  produced by the extractors, so an import made before them carries neither, and per-spell
+  data cannot be back-filled. The baked stat blocks survive an old import; the rest doesn't.
+- A handful of 2024 features grant spells in **prose only** (Mystic Arcanum, the Wizard school
+  Savants, Knowledge Domain's Mind Magic, the Cleric capstone). 5etools models none of them, so
+  they are hand-authored in `PROSE_GRANTS` in both extractors — re-run the audit sweeps in
+  `STATE.md` after a 5etools update to catch new ones.
+- Features that let you cast for free a spell you **already know** (Paladin's Smite, Ranger's
+  Favored Enemy, and ~10 more) carry no note yet — notes only reach spells a feature *grants*.
+- Polymorph / Shapechange / True Polymorph name open-ended creature sets (any beast up to a CR),
+  which is the whole bestiary — out of scope against the 65 stat blocks the digest carries.
 - Prerequisites the app can't verify (ability scores, proficiencies, backgrounds,
   campaigns) read "can't check" rather than pass/fail; closing that means modelling
   ability scores.

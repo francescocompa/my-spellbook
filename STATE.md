@@ -3,54 +3,40 @@
 > Resume doc. One current-state block, edited in place.
 > History → git log. Consumed phases and decision rationale → `ARCHIVE.md`.
 
-## TL;DR (2026-08-26 · code at e12aae3, +handoff · v7: T1–T5 done, T7 left · **LIVE on GitHub Pages**)
-- **State:** working, committed. **v7 is T1–T5 done — only T7 remains.** Three note batches
-  landed this session on top of the tasks. Batch one (15 notes): Choices as uniform groups,
-  in-line feat count tiles, neutral chips, lineage-grouped species picker, mobile jump bar +
-  fitted top row, and in the spell modal a collapsible summon stat block, book popovers with
-  page, cantrip meta. Batch two (10 notes): new-build modal, **delete fixed** (native
-  `confirm()` is dead in webviews → armed two-click buttons, D53), class-searchable build
-  summaries, the **level preview scrubber** (D54), **custom spell sources** (D55), **homebrew
-  & UA import** (D58), the **full SVG icon sweep** (D57), `serve.py` `no-store`. Batch three
-  (9 notes): preview interaction bugs fixed (`attachTip` was swallowing button clicks;
-  `xBtn` let a re-render's event re-arm the preview), the order panel rebuilt as **draggable
-  level cards naming real class features** (D59/D63), **lock chips** for level gates (D60), a
-  **fixed-size tab switch** (D61), **the wizard's spellbook and prepared list finally separated**
-  (D62), and per-level loadouts settled as **versions, not per-pick stamps** (D64) on
-  Francesco's own objections. Custom sources then got the deeper pass — shared charge pools,
-  own DC/attack/ability, fixed cast level, list mode (D65). **T5** shipped last: export a build
-  to a file, import it back, never overwriting. Decisions **D43–D65**. Verified in-browser at
-  375px and desktop; extractor parity exact (936 spells, 276/276 feats, 213/213 optional
-  features, 24/24 stat blocks, class+subclass features byte-identical).
-- **Note batch 5 (2026-08-27):** the `x/0` tiles were a clamp bug — a denominator below its own
-  numerator (D70); the level cards became tinted right-aligned tiles with a feat chip (D71);
-  picked spell rows dropped their fill for a green rail and the take chip's green moved to the
-  icon (D72); prepare-daily is tabbed by set, gained a **Granted** tab for re-choosable grants,
-  and moved its count to the footer (D73); the spell modal's stat block now leads with the
-  creature and carries the monster-forge ability table, access chips are uniform, and Level /
-  School left the grid for every spell (D74); a preview fork is named `<version> · LV<n>` (D75).
-- **Note batch 4 (2026-08-26, after the handoff):** icon-only action buttons everywhere the label
-  was a verb (D66); the Choices card's category became a subtitle and feats name their own type
-  (D67); the level cards now show **slots and max spell level as two separate clocks**, which fixes
-  the wrong-level slot gain in a caster-caster multiclass (D68); species lineages renamed between
-  editions stop appearing twice (D69); equal card spacing on a phone; the prepare-daily step row is
-  hidden when there is only one caster. Verified in-browser at 375px and desktop.
-- **Next action:** **custom sources — a dedicated back-and-forth design session** (Francesco's
-  call, note batch 4). The D55/D65 model is right; its UI is not. **Done when:** the surface is
-  interviewed end to end and the redesign is a decision entry with a task line behind it.
-  Then **v7 · T7 (storage-pressure reporting)** — no count cap (D37); catch the quota failure on
-  write and name the real cause. **Done when:** a failed save says what is using the space, not
-  "something went wrong". *(Last task in v7. T6 closed by D37.)*
-- **Manual for Francesco:** ⓪ **Push when ready** — `git push` redeploys Pages from `main:/docs`
-  (already rebuilt).
-  ① **Check the live site** — the last push changes how storage works,
-  and an existing browser session runs the one-time migration on first load. ② Optional — ask
-  GitHub Support to gc so the *old* unreachable commits (SHA 2c8bbb6 etc., held only in
-  `backup/pre-purge-20260826` locally) stop being SHA-addressable. ③ To update the live site:
-  `python3 extract.py` (if data changed) → `python3 build.py` → commit → push (Pages serves
-  `main:/docs`). ④ `dist/`, `data/`, `data-srd.json` are gitignored (local only); public SRD data
-  is inlined in committed `docs/`. ⑤ **Open question:** the spell-**pick** modal's rows still show
-  the printed book, which D39 removed from the eligible list. Say if it should follow.
+## TL;DR (2026-08-27 · code at 3003784, pushed · v7: T1–T5 done, T7 left · **LIVE on GitHub Pages**)
+- **State:** working, committed, **pushed**. **v7 is T1–T5 done — only T7 remains.** Seven note
+  batches have landed on top of the tasks (**D43–D81**); their per-batch detail is in `Shipped`
+  and `ARCHIVE.md#v7-batches`, not here. The last three, in brief: **batch 5** fixed the `x/0`
+  tile clamp and rebuilt the level cards, spell-row selection and prepare modal; **batch 6** added
+  the Magical Secrets level weighting, took the accent off the table's grouping headers, and
+  introduced **creature sets + the stat block carousel**; **batch 7** closed two gaps in 5etools'
+  own model — **prose-only grants** (Mystic Arcanum had `additionalSpells: null`, so the Warlock
+  never got its arcana) and **grant modification notes** ("you can cast it without expending a
+  spell slot"). Verified in-browser at 375px and desktop each time; extractor parity checked in
+  Node (`scratchpad/cparity.js`, `scratchpad/gparity.js` — both clean apart from a documented
+  pre-existing `RHW` walker-scope diff).
+- **Next action:** **custom sources — a dedicated back-and-forth design session.** Francesco's
+  call from note batch 4, deferred three times by later batches. The D55/D65 *model* is right;
+  its UI is not. **Done when:** the surface is interviewed end to end and the redesign is a
+  decision entry with a task line behind it. Then **v7 · T7 (storage-pressure reporting)** — no
+  count cap (D37); catch the quota failure on write and name the real cause. **Done when:** a
+  failed save says what is using the space, not "something went wrong". *(Last task in v7.)*
+- **Manual for Francesco:** ⓪ **Re-import your 5etools data** — this is the one that bites.
+  Creature sets (D78) and the new prose grants / modification notes (D79) are produced by the
+  extractors, so an import made before them carries none of it. `assembleData` keeps the BAKED
+  monster map underneath an old import, but **per-spell `creatures` and grant notes cannot be
+  back-filled**. ① **Check the live site** — the push is out; Pages rebuilds `main:/docs`.
+  ② **Turn XMM on in Sources** if you want Find Familiar's 24 Monster Manual 2024 forms in the
+  default view — they were never missing, XMM is off (the carousel's book panel now says so).
+  ③ Optional — ask GitHub Support to gc so the *old* unreachable commits (SHA 2c8bbb6 etc., held
+  only in `backup/pre-purge-20260826` locally) stop being SHA-addressable. ④ To update the live
+  site: `python3 extract.py` (if data changed) → `python3 build.py` → commit → push.
+  ⑤ `dist/`, `data/`, `data-srd.json` are gitignored (local only); public SRD data is inlined in
+  committed `docs/`. ⑥ **Open question:** the spell-**pick** modal's rows still show the printed
+  book, which D39 removed from the eligible list. Say if it should follow.
+- **⚠ STATE is 830+ lines.** Seven batches of decisions have accumulated; `/resume` pays for all
+  of it on every cold read. **Recommend running `/clean`** before the next substantive session —
+  D43–D69 are settled and their rationale belongs in `ARCHIVE.md`.
 
 ## What this is
 Offline single-page D&D 2024 spell planner. Two builds from one source:
@@ -829,9 +815,5 @@ Headline + rejected options only; reasoning → `ARCHIVE.md#rationale`.
   Magical Secrets picker (D80), the carousel's book panel and bottom controls (D81), plus a
   two-pass audit of every XPHB class and subclass for missing spell sources. **D79–D81.**
 
-⟳ Rename previous session → "Level preview, custom sources, build export" · **NOT APPLIED**
-(2026-08-26): the newest session in this cwd is "Character sheet UI refinements", last active
-20:46, two hours before the 22:45 handoff commit — not clearly the right target, and its title
-does not look auto-generated. Renaming the wrong chat is worse than leaving a vague one. Ask
-Francesco, or drop this line.
-⟳ Rename previous session → "Icon sweep, choices subtitles, level-order fix" · session: resolve by cwd + latest
+⟳ Rename previous session → "Note batches 4–7: icons, level cards, creature sets, Warlock grants" · session: resolve by cwd + latest
+  (The 2026-08-26 note naming "Level preview, custom sources, build export" was never applied — no session in this cwd matched it confidently. Dropped rather than carried a third time.)
