@@ -212,6 +212,23 @@
 .spmodal p{margin:0 0 9px;line-height:1.55}
 .spmodal .hl{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}
 .spmodal .hl b{color:var(--accent)}
+/* sub-headings inside a spell description — clearly not body text */
+.spmodal p.spttl{margin:12px 0 4px;font-family:var(--font);font-size:13px;font-weight:700;color:var(--accent);
+  text-transform:uppercase;letter-spacing:.06em;line-height:1.2}
+.spmodal p.spttl:first-child{margin-top:0}
+.spmodal .hl p.spttl{color:var(--accent)}
+/* access: who grants this spell, per category, horizontally scrollable chip rows */
+.spmodal .access{margin-top:12px;padding-top:10px;border-top:1px dashed var(--line)}
+.spmodal .access .accessh{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700;margin-bottom:6px}
+.spmodal .acat{display:flex;align-items:center;gap:8px;margin:5px 0}
+.spmodal .acat .acl{flex:0 0 74px;font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:600}
+.spmodal .acat .achips{flex:1;min-width:0;display:flex;gap:5px;overflow-x:auto;padding-bottom:2px;scrollbar-width:thin}
+.spmodal .acat .achips::-webkit-scrollbar{height:5px}
+.spmodal .acat .achips::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:3px}
+.spmodal .achip{flex:0 0 auto;white-space:nowrap;font-size:11px;padding:2px 9px;border-radius:12px;background:var(--panel-2);border:1px solid var(--line-strong);color:var(--ink)}
+/* wizard spellbook: spells copied in beyond the free per-level allowance (allowed, not an error) */
+.dcell.copied{border-color:var(--accent);color:var(--accent)}
+.dcell.copied .dcap{color:var(--accent)}
 @media (max-width:620px){.spmodal{align-items:flex-end;padding:0}.spmodal .box{max-width:none;border-radius:16px 16px 0 0;max-height:88vh}}
 /* table extras */
 .concmark{color:var(--good);font-weight:700}

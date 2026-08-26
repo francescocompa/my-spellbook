@@ -219,6 +219,23 @@
 .spmodal p{margin:0 0 9px;line-height:1.55}
 .spmodal .hl{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}
 .spmodal .hl b{color:var(--accent)}
+/* sub-headings inside a spell description — clearly not body text */
+.spmodal p.spttl{margin:12px 0 4px;font-family:var(--font);font-size:13px;font-weight:700;color:var(--accent);
+  text-transform:uppercase;letter-spacing:.06em;line-height:1.2}
+.spmodal p.spttl:first-child{margin-top:0}
+.spmodal .hl p.spttl{color:var(--accent)}
+/* access: who grants this spell, per category, horizontally scrollable chip rows */
+.spmodal .access{margin-top:12px;padding-top:10px;border-top:1px dashed var(--line)}
+.spmodal .access .accessh{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700;margin-bottom:6px}
+.spmodal .acat{display:flex;align-items:center;gap:8px;margin:5px 0}
+.spmodal .acat .acl{flex:0 0 74px;font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:600}
+.spmodal .acat .achips{flex:1;min-width:0;display:flex;gap:5px;overflow-x:auto;padding-bottom:2px;scrollbar-width:thin}
+.spmodal .acat .achips::-webkit-scrollbar{height:5px}
+.spmodal .acat .achips::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:3px}
+.spmodal .achip{flex:0 0 auto;white-space:nowrap;font-size:11px;padding:2px 9px;border-radius:12px;background:var(--panel-2);border:1px solid var(--line-strong);color:var(--ink)}
+/* wizard spellbook: spells copied in beyond the free per-level allowance (allowed, not an error) */
+.dcell.copied{border-color:var(--accent);color:var(--accent)}
+.dcell.copied .dcap{color:var(--accent)}
 @media (max-width:620px){.spmodal{align-items:flex-end;padding:0}.spmodal .box{max-width:none;border-radius:16px 16px 0 0;max-height:88vh}}
 /* table extras */
 .concmark{color:var(--good);font-weight:700}
@@ -890,6 +907,12 @@ const $ = s => document.querySelector(s);
 const el=(t,c,txt)=>{const e=document.createElement(t);if(c)e.className=c;if(txt!=null)e.textContent=txt;return e;};
 const key=(n,s)=>n+"|"+s;
 const ROMAN=["Cantrip","1st","2nd","3rd","4th","5th","6th","7th","8th","9th"];
+// "0;1;2" -> "0-2", "1;3" -> "1, 3": collapse a level list into ranges
+function fmtLevelList(str){const nums=String(str).split(/[;,]/).map(s=>s.trim()).filter(Boolean).map(Number).filter(n=>!isNaN(n)).sort((a,b)=>a-b);
+  if(nums.length<2)return String(str);
+  const out=[];let i=0;while(i<nums.length){let j=i;while(j+1<nums.length&&nums[j+1]===nums[j]+1)j++;out.push(i===j?`${nums[i]}`:`${nums[i]}-${nums[j]}`);i=j+1;}return out.join(", ");}
+// tidy a human descriptor that embeds a semicolon level list ("level 0;1;2, …" -> "level 0-2, …")
+const fmtDesc=s=>String(s||"").replace(/\blevel\s+(\d+(?:[;,]\d+)+)/gi,(m,g)=>"level "+fmtLevelList(g));
 const ABIL={int:"Intelligence",wis:"Wisdom",cha:"Charisma",str:"Strength",dex:"Dexterity",con:"Constitution"};
 const ABIL_SHORT={int:"Int",wis:"Wis",cha:"Cha",str:"Str",dex:"Dex",con:"Con"};
 const CORE="XPHB";
@@ -911,7 +934,29 @@ function loadJSON(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):
 let DATA, IMPORTED=null, CUSTOM=null;
 // mutable indexes — rebuilt after every content change
 let CLS_BY={},SUB_BY={},SUBS_OF={},FEAT_BY={},RACE_BY={},SPELL_BY={},SPELL_BY_NAME={};
+// edition de-duplication: when the same element (by identity) exists under several
+// sources (2014 PHB + 2024 XPHB, TCE + …), keep only the newest and shadow the rest,
+// so the pickers never list the same class/subclass/feat/species/spell twice.
+// 5etools' `reprintedAs` flag catches base classes but is patchy on subclasses, so we
+// collapse by name too. Homebrew (HB) is never shadowed and never shadows official.
+let SHADOWED=new WeakSet();
+const EDITION_RANK={XPHB:100,XDMG:99,XMM:98,PHB:50,DMG:49,MM:48};
+const srcRank=s=>EDITION_RANK[s]!=null?EDITION_RANK[s]:10;
+// higher = preferred winner: real (non-reprint) always beats a reprint, then newest edition
+const dedupeScore=o=>(o.reprinted?0:1000)+srcRank(o.source);
+function collapseEditions(list,idOf){
+  const best={};
+  list.forEach(o=>{ if(o.source===HB_SRC)return; const id=idOf(o);
+    if(!best[id]||dedupeScore(o)>dedupeScore(best[id]))best[id]=o; });
+  list.forEach(o=>{ if(o.source===HB_SRC)return; if(best[idOf(o)]!==o)SHADOWED.add(o); });
+}
 function buildIndexes(){
+  SHADOWED=new WeakSet();
+  collapseEditions(DATA.classes, c=>c.name.toLowerCase());
+  collapseEditions(DATA.subclasses, s=>(s.className+"|"+(s.shortName||s.name)).toLowerCase());
+  collapseEditions(DATA.feats, f=>f.name.toLowerCase());
+  collapseEditions(DATA.races, r=>r.name.toLowerCase());
+  collapseEditions(DATA.spells, s=>s.name.toLowerCase());
   CLS_BY={}; DATA.classes.forEach(c=>CLS_BY[key(c.name,c.source)]=c);
   SUB_BY={}; DATA.subclasses.forEach(s=>SUB_BY[key(s.name,s.source)]=s);
   SUBS_OF={}; DATA.subclasses.forEach(s=>{const k=key(s.className,s.classSource);(SUBS_OF[k]=SUBS_OF[k]||[]).push(s);});
@@ -968,7 +1013,9 @@ function load(){ try{ const s=JSON.parse(localStorage.getItem(LS)); if(!s)return
 
 const bookName=src=>src?(DATA.sources[src]&&DATA.sources[src].name||src):"";
 const srcOn=src=>state.enabledSources.has(src);
-const reprintOk=o=>state.filters.reprint==="all" || !o.reprinted;
+// "dedupe" (default) hides both flagged reprints and edition-shadowed duplicates;
+// "all" reveals every edition/source (the escape hatch to reach 2014 content).
+const reprintOk=o=>state.filters.reprint==="all" || (!o.reprinted && !SHADOWED.has(o));
 const visible=o=>srcOn(o.source)&&reprintOk(o);
 
 // ── rules helpers ────────────────────────────────────────────────────────
@@ -1140,12 +1187,37 @@ function compute(){
   casters.forEach(r=>{ const ch=state.chosen[r.idx]||{cantrips:[],spells:[]};
     const cp=caps[r.idx];
     const spItems=(ch.spells||[]).map(k=>SPELL_BY[k]).filter(Boolean);
-    const overLevels={};   // distribution across levels is free — only the total + max level bind
-    // Wizard-style spellbook: KNOWN total from the book's growth (they know more than
-    // they prepare); any level up to maxLvl may be added, free across levels.
+    // Wizard-style spellbook. Unlike a daily caster, the book grows a FIXED amount per
+    // level, each addition no higher than the current top slot — so the count at each
+    // spell level is capped (progressive, and NOT retrainable). capsFor-style ceiling
+    // built from the book-growth array (no swap term). Beyond that free allowance the
+    // wizard may still COPY spells into the book (its unique option) — those exceed the
+    // per-level cap and are shown separately, not flagged as an error.
     let known=null;
     if(r.spellbook!=null && r.c.spellbook){
-      known={total:r.spellbook,maxL:r.maxLvl};
+      const add=r.c.spellbook, cum=[]; let t=0;
+      for(let k=0;k<r.level;k++){t+=add[k]||0;cum.push(t);}
+      const bookTotal=cum[r.level-1]||0, bcap={};
+      for(let L=1;L<=r.maxLvl;L++){ let first=r.level;
+        for(let k=1;k<=r.level;k++){if(maxLvlAt(r.caster,k)>=L){first=k;break;}}
+        const before=first>1?(cum[first-2]||0):0; bcap[L]=Math.max(0,bookTotal-before); }
+      known={total:bookTotal,maxL:r.maxLvl,cap:bcap,book:true,prepares:r.prepared};
+    }
+    // Per-spell-level ceilings. A known/level-swap caster (static) learns spells on
+    // level-up capped at its top slot, so the count it can hold at a given level is
+    // bounded — capsFor() gives the cumulative ceiling cap[L] = max spells at level ≥ L.
+    // Flag a level "over" when the running ≥L total exceeds it. Daily preparers are free
+    // (flat total). Wizard books never error on the per-level cap — exceeding it is the
+    // legal "copy into spellbook" case (shown as copied, not over); only spells above the
+    // top castable level are illegal.
+    const overLevels={};
+    if(known&&known.book){
+      if(spItems.some(sp=>sp.level>known.maxL))overLevels[known.maxL+1]=true;
+    } else if(cp){ let ge=0;
+      for(let L=cp.maxL;L>=1;L--){ ge+=spItems.filter(sp=>sp.level===L).length;
+        const capL=cp.cap[L]!=null?cp.cap[L]:cp.total;
+        if(ge>capL)overLevels[L]=true; }
+      if(spItems.some(sp=>sp.level>cp.maxL))overLevels[cp.maxL+1]=true;
     }
     // Magical-Secrets style expansion: spells drawn from OTHER lists are capped
     // at (prepared gained since the feature) + (retrains since the feature).
@@ -1204,7 +1276,7 @@ function renderChoices(){
       sel.value=c.value; sel.onchange=()=>{state.choices[c.id]=sel.value; render();}; row.append(sel);
     } else { // pick
       const have=(state.choices[c.id]||[]).length;
-      const cg=el("div","cg"); cg.innerHTML=`<b>${esc(c.giver)}</b>${srcTag}<span class="cwhat">${esc(c.desc||"choose")} <span class="need">${have}/${c.count}</span></span>`; row.append(cg);
+      const cg=el("div","cg"); cg.innerHTML=`<b>${esc(c.giver)}</b>${srcTag}<span class="cwhat">${esc(fmtDesc(c.desc)||"choose")} <span class="need">${have}/${c.count}</span></span>`; row.append(cg);
       const picks=el("div","picks");
       (state.choices[c.id]||[]).forEach(k=>{const sp=SPELL_BY[k];if(!sp)return;
         const chip=el("span","cartchip");chip.append(el("span","lv",sp.level===0?"C":String(sp.level)));const nm=el("span",null,sp.name);attachSpell(nm,sp);chip.append(nm);
@@ -1220,7 +1292,7 @@ function renderChoices(){
 let PICK=null;
 function openPick(choice){ PICK={...choice,levelSet:new Set()}; $("#pickSearch").value="";
   $("#pickTitle").textContent="Choose "+choice.count+(choice.count>1?" spells":" spell");
-  $("#pickSub").textContent=choice.giver+(choice.desc?" · "+choice.desc:"");
+  $("#pickSub").textContent=choice.giver+(choice.desc?" · "+fmtDesc(choice.desc):"");
   $("#pickModal").classList.remove("hidden"); renderPickList(); }
 // prepare-by-level: click a level tile → prepare from that class's eligible spells (levels 1..maxLevel)
 function openLevelPick(idx,maxLevel){ const rec=R.casters.find(r=>r.idx===idx); if(!rec)return;
@@ -1604,30 +1676,63 @@ function renderCart(){
     const kn=c.known;
     const kindLabel=kn?"spellbook":r.static?"level-swap":"daily";
     const kindTip=kn
-      ? `Wizard-style spellbook: you know ${kn.total} spells and prepare from them each long rest. Any Wizard spell up to ${ROMAN[r.maxLvl]} level can go in the book, in any mix of levels. The tiles show how many of each level you’ve added — each level can hold up to your ${kn.total} total.`
+      ? `Wizard spellbook: it grows a fixed amount each level, and every spell added must be no higher than your current top slot (${ROMAN[r.maxLvl]}) — so the count at each level is capped and can't be retrained. The tiles show that free allowance. You then prepare ${kn.prepares} of them each long rest (the slots table). Separately, you can copy found spells into the book beyond the allowance — those show as “copied”.`
       : r.static
-      ? `Level-swap caster: a fixed known list of ${r.prepared}, swap one per level. Any mix of levels up to ${ROMAN[r.maxLvl]} — the tiles show how many of each level you’ve chosen, each up to your ${r.prepared} total.`
+      ? `Level-swap caster: a fixed known list of ${r.prepared}, learned as you level up and capped at your top slot each time (plus one swap per level). So the count you can hold at each level is limited — the tiles show it, highest levels capped tightest.`
       : `Daily caster: re-prepare any ${r.prepared} eligible spells each long rest, any mix of levels up to ${ROMAN[r.maxLvl]}. Cantrips are fixed and not re-prepared daily.`;
     const bh=el("div","bh");const nm=el("div","nm");nm.innerHTML=r.name+(r.viaSub?` <small>· ${r.viaSub.shortName}</small>`:"")+` <small>· L${r.level}</small>`;bh.append(nm);
     const kchip=el("span","kind"+(kn?" wiz":r.static?"":" daily"),kindLabel);kchip.title=kindTip;bh.append(kchip);
     b.append(bh);
     b.append(meter("Cantrips",c.cantrips.length,r.cantrips));
-    b.append(meter(kn?"Known":"Prepared",c.spells.length,kn?kn.total:r.prepared));
+    const wiz=kn&&kn.book;
+    if(wiz){
+      // copies = spells past the free allowance = the tightest exceeded cumulative cap
+      let copied=0,cumg=0;
+      for(let L=kn.maxL;L>=1;L--){cumg+=c.spells.filter(k=>{const s=SPELL_BY[k];return s&&s.level===L;}).length;
+        copied=Math.max(copied,cumg-(kn.cap[L]!=null?kn.cap[L]:kn.total));}
+      copied=Math.max(0,copied);
+      const free=c.spells.length-copied;
+      b.append(meter("Spellbook",Math.min(free,kn.total),kn.total));
+      const sn=el("div","note");sn.style.margin="2px 0 0";
+      sn.innerHTML=`Fixed growth, no retraining. Prepare <b style="color:var(--ink)">${kn.prepares}</b> of these each long rest.`
+        +(copied?` <b style="color:var(--accent)">+${copied} copied in</b>.`:"");
+      b.append(sn);
+    } else {
+      b.append(meter(kn?"Known":"Prepared",c.spells.length,kn?kn.total:r.prepared));
+    }
     if(c.ms){b.append(meter("Off-list",c.ms.offCount,c.ms.cap));
       const sn=el("div","note");sn.style.margin="2px 0 0";
       sn.innerHTML=`Magical Secrets: up to <b style="color:var(--ink)">${c.ms.cap}</b> of your prepared spells may come from other lists (from L${c.ms.onset} on: new picks + retrains).`;b.append(sn);}
-    // per-level tiles: how many of each level you hold, out of your whole budget.
-    // The spread across levels is free — each level can hold up to your total.
+    // Per-level tiles. Denominator = how many you can hold at that level right now:
+    // (picked here) + (room still addable). Daily preparers have a flat cap (free spread).
+    // Known/level-swap and wizard books have a progressive cap[L] = max at level ≥ L
+    // (L8 Bard caps IV at 4, III at 9, II/I at 12) — room = min over j≤L of cap[j] − held ≥ j.
+    // A wizard may exceed a level's cap by COPYING spells in: shown as "copied", not an error.
     const totalCap = kn ? kn.total : r.prepared;
     if(r.maxLvl>=1 && totalCap>0){const dist=el("div","dist");
+      const lvlOf=k=>{const s=SPELL_BY[k];return s?s.level:-1;};
+      const capAt=j=>wiz?(kn.cap[j]!=null?kn.cap[j]:kn.total):(kn?kn.total:(cp&&cp.cap[j]!=null?cp.cap[j]:totalCap));
+      const geAt=j=>c.spells.filter(k=>lvlOf(k)>=j).length;
       for(let L=r.maxLvl;L>=1;L--){
-        const atL=c.spells.map(k=>SPELL_BY[k]).filter(s=>s&&s.level===L).length;
-        const cell=el("div","dcell"+(L===r.maxLvl?" top":""));
+        const atL=c.spells.filter(k=>lvlOf(k)===L).length;
+        let room=Infinity; for(let j=1;j<=L;j++)room=Math.min(room,capAt(j)-geAt(j));
+        // room may be negative when this level is over the cap — show the exceeded cap.
+        const ceil=Math.max(0,atL+room);
+        const overFree=atL>ceil;
+        const copied=overFree&&wiz;                 // wizard: extra = copied into the book (legal)
+        const isErr=!!c.overLevels[L]||(overFree&&!copied);
+        const cell=el("div","dcell"+(L===r.maxLvl?" top":"")+(isErr?" over":copied?" copied":""));
         cell.style.cursor="pointer";
-        cell.title=`${ROMAN[L]}-level ${kn?"in your spellbook":"prepared"} — you can hold up to your ${totalCap} total at any level. Tap to edit.`;
+        cell.title=`${ROMAN[L]}-level ${wiz?"in your spellbook":r.static?"in your known spells":"prepared"} — ${atL} of up to ${ceil} at this level`
+          +(copied?` (+${atL-ceil} copied in beyond the free allowance)`:r.static&&!kn?` (fills up gradually as you level)`:"")+`. Tap to edit.`;
         cell.onclick=()=>openLevelPick(r.idx,L);
-        cell.innerHTML=`<b>${atL}<span class="dcap">/${totalCap}</span></b><small>${ROMAN[L]}${L===r.maxLvl?" · max":""}</small>`;dist.append(cell);}
-      b.append(dist);}
+        cell.innerHTML=`<b>${atL}<span class="dcap">/${ceil}</span></b><small>${ROMAN[L]}${L===r.maxLvl?" · max":""}</small>`;dist.append(cell);}
+      b.append(dist);
+      if(wiz){const cpbtn=el("button","btn");cpbtn.textContent="＋ Copy a spell into your book";
+        cpbtn.style.cssText="margin-top:8px;font-size:12px";
+        cpbtn.title="Wizards can copy spells found in play into the book, beyond the free per-level allowance (any Wizard spell up to your top slot level).";
+        cpbtn.onclick=()=>openLevelPick(r.idx,r.maxLvl);b.append(cpbtn);}
+    }
     // chosen chips
     const picks=[...c.cantrips.map(k=>({k,cantrip:true})),...c.spells.map(k=>({k,cantrip:false}))];
     if(picks.length){const cc=el("div","cartchips");
@@ -1752,14 +1857,33 @@ function posTip(ev){const pad=14,w=SPTIP.offsetWidth,h=SPTIP.offsetHeight;let x=
   if(x+w>innerWidth-8)x=ev.clientX-w-pad; if(y+h>innerHeight-8)y=innerHeight-h-8; SPTIP.style.left=Math.max(8,x)+"px";SPTIP.style.top=Math.max(8,y)+"px";}
 function showTip(sp,ev){SPTIP.innerHTML=tipHTML(sp);SPTIP.classList.add("show");posTip(ev);}
 function hideTip(){SPTIP.classList.remove("show");}
+// a description paragraph that is really a sub-heading (the extractor emits a named
+// entry's name as its own short "Title." line) — render it distinctly, not as body.
+const _TITLE_RE=/^[A-Z][A-Za-z0-9'’/\- ]{0,48}\.$/;
+const isDescTitle=p=>_TITLE_RE.test(p)&&p.split(/\s+/).length<=5;
+const descP=p=>isDescTitle(p)?`<p class="spttl">${esc(p.replace(/\.\s*$/,""))}</p>`:`<p>${ccText(p)}</p>`;
+// who grants access to this spell, grouped by category, each a horizontal-scroll chip row.
+// Collapse edition duplicates (prefer newest source via srcRank).
+function accessHTML(sp){
+  const ded=(arr,keyf,labf,srcf)=>{const best={};(arr||[]).forEach(x=>{const k=keyf(x).toLowerCase();if(!best[k]||srcRank(srcf(x))>srcRank(srcf(best[k])))best[k]=x;});
+    return Object.values(best).map(x=>({t:labf(x),src:srcf(x)})).sort((a,b)=>a.t.localeCompare(b.t));};
+  const row=(label,items)=>items.length?`<div class="acat"><span class="acl">${label}</span><div class="achips">`
+    +items.map(x=>`<span class="achip"${x.src&&x.src!==CORE?` title="${esc(bookName(x.src))}"`:""}>${esc(x.t)}</span>`).join("")+`</div></div>`:"";
+  const cls =ded(sp.cls,  x=>x[0],           x=>x[0],            x=>x[1]);
+  const sub =ded(sp.sub,  x=>x[0]+"|"+x[1],  x=>`${x[1]} · ${x[0]}`, x=>x[2]);
+  const race=ded(sp.race, x=>x[0],           x=>x[0],            x=>x[1]);
+  const feat=ded(sp.feat, x=>x[0],           x=>x[0],            x=>x[1]);
+  const inner=row("Classes",cls)+row("Subclasses",sub)+row("Species",race)+row("Feats",feat);
+  return inner?`<div class="access"><div class="accessh">Access</div>${inner}</div>`:"";}
 function modalHTML(sp){
   const grid=[["Level",sp.level===0?"Cantrip":ROMAN[sp.level]],["School",sp.school],["Casting time",sp.time],
     ["Range",sp.range],["Components",compText(sp)],["Duration",(sp.conc?"Concentration, up to ":"")+sp.durTxt]];
   return `<div class="box"><button class="x">×</button><div class="mh"><h3>${sp.name}</h3>`
     +`<div class="sub">${metaLine(sp)}${sp.source!==CORE?" · "+sp.book:""}</div></div><div class="mb">`
     +`<div class="grid">${grid.map(([k,v])=>`<b>${k}</b><span>${v}</span>`).join("")}</div>`
-    +(sp.desc||[]).map(p=>`<p>${ccText(p)}</p>`).join("")
-    +((sp.higher||[]).length?`<div class="hl">${sp.higher.map(p=>`<p>${ccText(p)}</p>`).join("")}</div>`:"")+`</div></div>`;}
+    +(sp.desc||[]).map(descP).join("")
+    +((sp.higher||[]).length?`<div class="hl">${sp.higher.map(descP).join("")}</div>`:"")
+    +accessHTML(sp)+`</div></div>`;}
 function openSpellModal(sp){hideTip();SPMODAL.innerHTML=modalHTML(sp);
   if(sp.source===HB_SRC){const mb=SPMODAL.querySelector(".mb");if(mb){const row=el("div","hbtools");
     row.append(el("span","hbtag","Homebrew"));const sp2=el("span");sp2.style.flex="1";row.append(sp2);
@@ -1794,7 +1918,8 @@ function mkSpell(i,chosenKeys){
     const sel=((ch&&ch[bucket])||[]).length;
     const cart=R.cart[t.idx];
     const cap=t.cantrip?rec.cantrips:(cart&&cart.known?cart.known.total:rec.prepared);
-    const over=sel>cap;
+    // a wizard copying spells past its free book size isn't "over" — copying is allowed
+    const over=sel>cap && !(cart&&cart.known&&cart.known.book&&!t.cantrip);
     const btn=el("button","tk"+(on?" on":"")+(over?" over":""));
     btn.append(document.createTextNode(t.name+" "));btn.append(el("span","c",`${sel}/${cap}`));
     btn.title=(on?"Prepared — click to remove. ":"Not prepared — click to add. ")+`${t.name}: ${sel} of ${cap} ${t.cantrip?"cantrips":(cart&&cart.known?"in spellbook":"prepared")}`+(over?" (over your forecast)":"");

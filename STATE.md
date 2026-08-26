@@ -2,14 +2,22 @@
 
 > Resume doc. One current-state block, edited in place. History → git log.
 
-## TL;DR (2026-08-26 · commit cbf150d · v6.1 · **LIVE on GitHub Pages**)
-- **State:** working v6.1, committed + deployed. v6 (content system, importer,
-  custom spells, Pages deploy) **plus** this session: public build now embeds the
-  **SRD 5.2** subset (usable out of the box, CC-BY footer), reworked per-level
-  budget tiles (free distribution), **.zip** import, and an empty-search custom-spell
-  CTA. All verified in-browser and on the live site.
-- **Next action:** none forced — pick from Backlog. Likely first: move imported
-  data to **IndexedDB** (localStorage may overflow on a full multi-book import).
+## TL;DR (2026-08-26 · commit cbf150d + uncommitted v6.2 fixes · **LIVE on GitHub Pages**)
+- **State:** working. v6.1 (SRD embed, importer, custom spells, Pages) **plus**
+  two uncommitted fixes this session (v6.2, in `src/` + rebuilt `dist`/`docs`, **not
+  yet committed/pushed**): ① **per-spell-level caps reconnected** for known/level-swap
+  casters — an L8 Bard now shows IV 0/4, III 0/9, II/I 0/12 (was a flat 0/12 on every
+  tile); daily preparers stay free. ② **edition de-duplication** — same-named classes/
+  subclasses/feats/species/spells collapse to the newest edition (2024 XPHB wins), so
+  pickers no longer list Bard/Lore/Life twice; "show all editions" via the reprint→all
+  filter is the escape hatch. Both verified in-browser (L8 Bard + L8 Cleric).
+  Follow-up batch (same v6.2): **wizard spellbook** now a progressive per-level book cap
+  (fixed growth, no retrain) + a **copy-beyond-limits** option (extra shows as "copied",
+  not an error); spell modal gained an **Access** section (class/subclass/species/feat
+  chips, horizontal-scroll, edition-deduped); description **sub-headings styled distinctly**;
+  grant level lists render as **ranges** (0-2 not 0;1;2). All verified in-browser.
+- **Next action:** commit + push v6.2 to deploy (see Manual ②), then pick from Backlog
+  (likely **IndexedDB** for imported data — localStorage may overflow on a full import).
 - **Manual for Francesco:** ① Optional — ask GitHub Support to gc so the *old*
   unreachable commits (SHA 2c8bbb6 etc., held only in `backup/pre-purge-20260826`
   locally) stop being SHA-addressable on GitHub. ② To update the live site:
@@ -26,9 +34,13 @@ Legacy Artifact URL (superseded by Pages, kept for reference):
 https://claude.ai/code/artifact/47dbe945-a18a-4444-af21-c0143faa2eb0
 
 ## Build / run
-- Dev: `python3 -m http.server 8000` → `http://localhost:8000/src/index.html`
-  (**hard-reload after editing index.html** — the static server caches it; a plain
-  reload can serve stale HTML and null-out new elements).
+- Dev: `python3 serve.py 8000` → `http://localhost:8000/src/index.html` (launch.json
+  `spellbook`). Use `serve.py`, **not** `python3 -m http.server`: the latter evaluates
+  `os.getcwd()` at argparse time, which the preview sandbox blocks (startup crash);
+  `serve.py` binds an absolute root as a library and sidesteps it. Under the restricted
+  preview sandbox `preview_start` still can't spawn it (can't read the project dir) — start
+  it via Bash, then open the browser at the URL. **Hard-reload after editing index.html**
+  (the static server caches it; a plain reload can serve stale HTML and null-out new elements).
 - Data refresh: `python3 extract.py` (mirror default = `~/Documents/D&D/5etool_mirror/…/data`, writes data.json + `data-srd.json`), then `python3 build.py` (writes data.js, dist/ with full data, docs/ with SRD inlined).
 - `src/extract.js` = in-browser port of extract.py (the importer). Keep them in sync.
 - Verify gate: `python3 -c "import ast;ast.parse(open('extract.py').read())"`,
@@ -84,8 +96,44 @@ Note-batch 3 (v6.1 — SRD, budget rework, zip):
   filter-branch'd history with `data/`+`dist/` removed everywhere. *Rejected:* separate public repo; private+Pro; keep data in bundle.
 - **D13 (2026-08-26) Embed SRD 5.2** — the public build ships the `srd52`-flagged subset
   (CC-BY-4.0, credit footer) so it's usable without importing; import adds the rest. Supersedes D12's "no data in public build" — SRD is licensed, safe to distribute.
-- **D14 (2026-08-26) Level budget = free distribution** — per-level tiles show `pickedAtL / total`
-  (each level can hold up to your whole prepared/known budget); only the total + max spell level bind. *Rejected:* the old best-case per-level quota (read as a forced pyramid); mockup concepts A/B/C (Francesco: "show how many of that level I can have").
+- ~~**D14 (2026-08-26) Level budget = free distribution**~~ **SUPERSEDED → D18.** Free
+  distribution was wrong for known/level-swap casters (a Bard learns spells on level-up
+  capped at its top slot). Kept only for daily preparers.
+- **D18 (2026-08-26) Per-spell-level caps for known casters** — `capsFor()` already
+  computed the correct progressive ceiling `cap[L]` = max spells at level ≥ L (learn-on-
+  level-up + one swap/level); D14 had stopped *using* it. Reconnected in `renderCart`
+  (tile denom = live room addable at that level) and `compute` (`overLevels` flags a level
+  over). Applies to `static` casters (Bard, Sorcerer) + wizard spellbook cap; **daily
+  preparers (Cleric/Druid/Wizard-prepared/etc.) stay free** — only total + top slot bind.
+  L8 Bard → IV 4 / III 9 / II 12 / I 12. *Rejected:* capping daily preparers too (not RAW);
+  a fixed per-level quota (the D14-rejected pyramid). Enforcement stays soft (visual over-flag).
+- **D20 (2026-08-26) Wizard spellbook model** — a third caster kind, distinct from daily &
+  level-swap. `known.book`: the book grows a fixed amount per level, each addition ≤ current
+  top slot → a **progressive per-level cap** (`known.cap[L]`, built from the `spellbook` growth
+  array, no swap term). L8 Wizard book caps IV 4 / III 8 / II 12 / I 20. Exceeding a level's cap
+  is **not an error** — it's the unique "copy into spellbook" option, shown as "copied" (accent,
+  not red) with a "＋ Copy a spell into your book" button + a "+N copied" note. Prepared count
+  (spell table) shown as info; a separate prepared-subset stays backlog. *Rejected:* flat free
+  cap (D14-style — wrong for wizards); hard-blocking copies.
+- **D21 (2026-08-26) Spell modal Access section** — each spell modal lists who grants it, per
+  category (Classes/Subclasses/Species/Feats), as horizontal-scroll chip rows, edition-deduped
+  (prefer newest via `srcRank`) from `sp.cls/sub/feat/race`. Empty categories omitted.
+- **D22 (2026-08-26) Distinct description sub-headings** — a desc/higher paragraph that is a
+  short "Title." (≤5 words, `_TITLE_RE`) renders as `.spttl` (accent, uppercase) instead of body.
+  Render-time heuristic (the extractor emits named-entry titles as their own line); no re-extract.
+- **D23 (2026-08-26) Level lists as ranges** — `fmtLevelList`/`fmtDesc` collapse "0;1;2" → "0-2"
+  in grant descriptions (choices panel + pick modal). Render-time, so it covers baked + imported
+  data without an extract change. **Note:** grant *feature names* (e.g. "Abjuration Savant") are
+  NOT in the 5etools `additionalSpells` data (only 17/925 carry one) — the giver falls back to the
+  **subclass name** ("Abjurer"), which is what shows now. True feature names would need a separate
+  subclassFeature-correlation pass in extract.py (deferred → Backlog).
+- **D19 (2026-08-26) Edition de-duplication** — `buildIndexes` builds a `SHADOWED` set:
+  group every class/subclass/feat/species/spell by identity (name; subclass = className+
+  shortName), keep the highest-ranked (non-reprint beats reprint, then 2024 core `EDITION_RANK`
+  XPHB/XDMG/XMM > 2014 PHB/DMG/MM > others), shadow the rest. `visible()` hides shadowed under
+  the default `dedupe`; `reprint→all` reveals every edition. Homebrew (HB) never shadows / is
+  never shadowed. *Note:* species named differently across editions (`Elf — Drow` vs `Elf (Drow)`)
+  aren't collapsed (different names, deliberately not normalized).
 - **D15 (2026-08-26) Zip import** — native `DecompressionStream('deflate-raw')` + manual ZIP
   central-directory walk (ported from monster-forge). No JSZip. `zipWanted` allows the spell-source-lookup under `generated/`.
 - **D16 (2026-08-26) Onboarding = modal** — the import modal auto-pops (welcome mode) on an
@@ -96,11 +144,14 @@ Note-batch 3 (v6.1 — SRD, budget rework, zip):
 ## Backlog (next sessions)
 - [ ] **IndexedDB** for imported data — localStorage may overflow on a full multi-book import (importer reports quota errors but can't store).
 - [ ] Importer UI polish — a "clear imported data" button, per-source enable after import, a preset-library manager (monster-forge style ticking).
-- [ ] Wizard prepare-daily: separate **prepared subset** from the spellbook/known list.
+- [ ] Wizard prepare-daily: separate **prepared subset** from the spellbook/known list (partly
+  addressed by D20 — book cap + copy modelled; the daily prepared *subset* pick is still flat).
+- [ ] **Grant feature names** — correlate `additionalSpells` to subclassFeatures in extract.py so
+  grants show e.g. "Abjuration Savant" instead of the subclass name (D23; only 17/925 have names now).
 - [ ] Custom-spell **manager** (list all homebrew to edit/delete without opening each).
 - [ ] Feature names for 2024 blocks (Lore's "Magical Discoveries" → subclass name fallback).
 - [ ] High Elf true in-table cantrip swap; Human extra-origin restricted to origin cats.
-- [ ] Per-source subclass de-duplication in the picker (2014 + 2024 both show).
+- [x] ~~Per-source subclass de-duplication in the picker (2014 + 2024 both show).~~ Done (D19).
 
 ## Gotchas
 - **Content assembly:** `window.__DATA__` (baked) is optional now. `assembleData()` picks
@@ -114,8 +165,13 @@ Note-batch 3 (v6.1 — SRD, budget rework, zip):
 - **SRD subset** = entities with 5etools `srd52` truthy (extract.py `_srd_subset`). All 12
   XPHB classes are srd52. Public data is inlined in the committed `docs/index.html` (CC-BY,
   fine to be public); `data-srd.json` itself is gitignored. Keep the credit footer for CC-BY compliance.
-- **Level budget model:** distribution across spell levels is free — the only limits are the
-  total (prepared/known) and the max castable level. Tiles show `pickedAtL / total`; no per-level over-flag.
+- **Level budget model (D18):** known/level-swap casters (`static` — Bard, Sorcerer) have a
+  *progressive* per-level ceiling from `capsFor().cap[L]` (= max spells at level ≥ L); tiles show
+  live room addable at each level, and `overLevels[L]` flags a level over. Daily preparers
+  (`static=false`) are free — only the total + max castable level bind. Wizard spellbook = flat
+  known total. Enforcement is soft (red flag, no hard block), matching `spellOver`.
+- **Edition dedupe (D19):** `SHADOWED` (WeakSet, rebuilt each `buildIndexes`) hides duplicate
+  editions of the same element; `reprint→all` filter reveals them. HB never participates.
 - **Static preview cache:** editing `src/index.html` needs a hard reload (query-bust) —
   a plain reload serves stale HTML and new `$("#…")` lookups return null. Editing it also
   re-opens a `file://`/`data:` preview tab and fronts it — drive the `http://localhost` tab.
@@ -123,5 +179,3 @@ Note-batch 3 (v6.1 — SRD, budget rework, zip):
 - Cart/choices keyed by stable row id (`state.nextRowId`), never array index.
 - **History purge:** old data-bearing commits are unreachable on origin but GitHub may
   still serve them by exact SHA until it gc's. `backup/pre-purge-20260826` (local) has the original.
-
-⟳ Rename previous session → "Content system, importer, Pages deploy, SRD"  · session: resolve by cwd + latest
