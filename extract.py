@@ -495,7 +495,8 @@ def _prereq_blocks(o):
     out = []
     for p in (o.get("prerequisite") or []):
         b = {"text": "", "level": None, "cls": None, "feats": [], "optfeats": [],
-             "races": [], "spells": [], "spellcasting": False, "pact": None, "soft": False}
+             "races": [], "spells": [], "spellcasting": False, "pact": None,
+             "checks": [], "soft": False}
         bits = []
         lv = p.get("level")
         if isinstance(lv, dict):
@@ -515,18 +516,23 @@ def _prereq_blocks(o):
         if p.get("pact"): b["pact"] = p["pact"]; bits.append(f"Pact of the {p['pact']}")
         if p.get("spellcasting") or p.get("spellcasting2020") or p.get("spellcastingFeature"):
             b["spellcasting"] = True; bits.append("spellcasting")
+        # the parts we can't model go in `checks`, kept separate so the app can show a
+        # per-part verdict (level met / not met) instead of one undifferentiated blob
+        soft = []
         for ab in (p.get("ability") or []):
-            bits += [f"{k.upper()} {v}+" for k, v in ab.items()]
+            soft += [f"{k.upper()} {v}+" for k, v in ab.items()]
         for pr in (p.get("proficiency") or []):
-            bits += [f"{v} {k} proficiency" for k, v in pr.items()]
-        for bg in (p.get("background") or []): bits.append(_plain(bg))
-        for fe in (p.get("feature") or []): bits.append(_plain(fe))
-        for it in (p.get("item") or []): bits.append(rich_strip(it))
-        for cp in (p.get("campaign") or []): bits.append(f"{cp} campaign")
-        for fc in (p.get("exclusiveFeatCategory") or []): bits.append(f"no other {fc}-category feat")
-        if p.get("other"): bits.append(rich_strip(p["other"]))
+            soft += [f"{v} {k} proficiency" for k, v in pr.items()]
+        for bg in (p.get("background") or []): soft.append(_plain(bg))
+        for fe in (p.get("feature") or []): soft.append(_plain(fe))
+        for it in (p.get("item") or []): soft.append(rich_strip(it))
+        for cp in (p.get("campaign") or []): soft.append(f"{cp} campaign")
+        for fc in (p.get("exclusiveFeatCategory") or []): soft.append(f"no other {fc}-category feat")
+        if p.get("other"): soft.append(rich_strip(p["other"]))
         osum = p.get("otherSummary")
-        if isinstance(osum, dict): bits.append(rich_strip(osum.get("entrySummary") or osum.get("entry") or ""))
+        if isinstance(osum, dict): soft.append(rich_strip(osum.get("entrySummary") or osum.get("entry") or ""))
+        b["checks"] = [x for x in soft if x]
+        bits += b["checks"]
         b["soft"] = any(k in _SOFT_KEYS for k in p)
         b["text"] = ", ".join(x for x in bits if x)
         if b["text"]: out.append(b)

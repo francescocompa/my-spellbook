@@ -6,8 +6,10 @@
     --radius:12px; --shadow:0 1px 2px #0000000f,0 6px 20px #0000000a;
     --font:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
     --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color-scheme:light;
   }
   @media (prefers-color-scheme:dark){ :root:not([data-theme=light]){
+    color-scheme:dark;
     --bg:#17140f; --panel:#211d16; --panel-2:#2a251c; --ink:#ece4d6; --muted:#a99e8d;
     --line:#3a3225; --line-strong:#4c4130; --accent:#d97a5f; --accent-soft:#d97a5f1f;
     --gold:#d4ad5a; --gold-soft:#d4ad5a1c; --good:#7fbb8c; --good-soft:#7fbb8c18;
@@ -15,6 +17,7 @@
     --shadow:0 1px 2px #0000002f,0 8px 24px #00000024;
   }}
   :root[data-theme=dark]{
+    color-scheme:dark;
     --bg:#17140f; --panel:#211d16; --panel-2:#2a251c; --ink:#ece4d6; --muted:#a99e8d;
     --line:#3a3225; --line-strong:#4c4130; --accent:#d97a5f; --accent-soft:#d97a5f1f;
     --gold:#d4ad5a; --gold-soft:#d4ad5a1c; --good:#7fbb8c; --good-soft:#7fbb8c18;
@@ -22,6 +25,15 @@
     --shadow:0 1px 2px #0000002f,0 8px 24px #00000024;
   }
   *{box-sizing:border-box}
+  /* scrollbars follow the chosen theme, not the OS — `color-scheme` above fixes the
+     native widget, these keep the WebKit ones on the house palette */
+  *{scrollbar-width:thin;scrollbar-color:var(--line-strong) transparent}
+  ::-webkit-scrollbar{width:9px;height:9px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:var(--line-strong);border:2px solid transparent;
+    background-clip:padding-box;border-radius:6px}
+  ::-webkit-scrollbar-thumb:hover{background:var(--muted);border:2px solid transparent;background-clip:padding-box}
+  ::-webkit-scrollbar-corner{background:transparent}
   body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
   h1,h2,h3{font-family:var(--font);font-weight:600;margin:0}
   .wrap{max-width:1320px;margin:0 auto;padding:18px 20px 80px}
@@ -135,6 +147,11 @@
   .lvlgroup h3 .n{color:var(--muted);font-family:var(--sans);font-size:12px;font-weight:600;text-transform:none;letter-spacing:0;font-variant-numeric:tabular-nums}
   .sp{display:grid;grid-template-columns:1fr auto;gap:3px 12px;padding:7px 4px;border-bottom:1px solid var(--line);align-items:center}
   .sp:hover{background:var(--accent-soft);border-radius:6px}
+  /* a spell you can't take, surfaced by a search or the "every spell" option — dimmed,
+     never pickable, and it says why (same treatment as a blocked feat in the pickers) */
+  .sp.dim{opacity:.45} .sp.dim:hover{opacity:.85}
+  .whytag{font-size:10px;color:var(--muted);border:1px dashed var(--line-strong);
+    border-radius:10px;padding:1px 8px;white-space:nowrap;cursor:help}
   .sp.chosen{background:var(--good-soft);border-radius:6px}
   .sp .nm{font-weight:600;font-size:13px;grid-column:1}
   .sp .nm .badge{font-size:9.5px;font-weight:700;color:var(--gold);margin-left:5px}
@@ -175,8 +192,11 @@
   .tabs button{font:inherit;font-size:12.5px;padding:5px 14px;border:none;background:none;border-radius:6px;cursor:pointer;color:var(--muted)}
   .tabs button.on{background:var(--panel);color:var(--ink);font-weight:600;box-shadow:var(--shadow)}
   table.spelltable{width:100%;border-collapse:collapse;font-size:13px}
-  table.spelltable th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:600;padding:8px 10px;border-bottom:1px solid var(--line-strong);position:sticky;top:0;background:var(--panel)}
-  table.spelltable td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  table.spelltable th{text-align:center;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:600;padding:8px 10px;border-bottom:1px solid var(--line-strong);position:sticky;top:0;background:var(--panel)}
+  table.spelltable td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:middle;text-align:center}
+  table.spelltable .grouphdr td{text-align:left}
+  /* an abbreviated value: hovering restores the full one */
+  table.spelltable td.abbr{cursor:help}
   table.spelltable tr:hover td{background:var(--accent-soft)}
   table.spelltable .lvcell{font-family:var(--font);font-weight:600;text-align:center;width:34px}
   table.spelltable .nm{font-weight:600}
@@ -201,12 +221,20 @@
 .sptip .sub{color:var(--muted);font-size:11px;margin-bottom:7px}
 .sptip .line{display:flex;gap:6px;font-size:11.5px;margin:1px 0}.sptip .line b{color:var(--muted);font-weight:600;min-width:52px}
 .sptip p{margin:7px 0 0;line-height:1.45;color:var(--ink)}
+.sptip .line span{flex:1;min-width:0;color:var(--ink)}
+.sptip .tchip{display:inline-block;font-size:10.5px;line-height:1.6;padding:0 7px;border-radius:10px;
+  border:1px solid var(--accent);color:var(--accent);background:var(--accent-soft)}
 .nmlink{cursor:pointer} .nmlink:hover{text-decoration:underline;text-decoration-color:var(--accent)}
 .spmodal{position:fixed;inset:0;background:#0007;z-index:70;display:flex;align-items:center;justify-content:center;padding:24px}
-.spmodal .box{background:var(--panel);border:1px solid var(--line-strong);border-radius:14px;max-width:520px;width:100%;max-height:86vh;overflow:auto;box-shadow:0 24px 70px #0007}
+.spmodal .box{position:relative;background:var(--panel);border:1px solid var(--line-strong);border-radius:14px;max-width:520px;width:100%;max-height:86vh;overflow:auto;box-shadow:0 24px 70px #0007}
 .spmodal .mh{padding:16px 18px 12px;border-bottom:1px solid var(--line)}
 .spmodal .mh h3{font-family:var(--font);font-size:20px;margin:0} .spmodal .mh .sub{color:var(--muted);font-size:12.5px;margin-top:3px}
-.spmodal .box>.x{position:absolute;top:14px;right:16px;border:none;background:none;color:var(--muted);font-size:22px;cursor:pointer}
+.spmodal .box>.x{position:sticky;float:right;top:10px;right:10px;margin:4px 4px 0 0;z-index:2;
+  display:flex;align-items:center;justify-content:center;width:28px;height:28px;border:none;border-radius:8px;
+  background:var(--panel);color:var(--muted);font-size:20px;line-height:0;cursor:pointer}
+.spmodal .box>.x:hover{background:var(--panel-2);color:var(--accent)}
+.spmodal .mh{padding-right:46px}
+.spmodal .mh h3 .bchip{margin-left:8px;font-size:10px;font-weight:500}
 .spmodal .mb{padding:14px 18px 20px}
 .spmodal .grid{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:12.5px;margin-bottom:12px}
 .spmodal .grid b{color:var(--muted);font-weight:600}
@@ -222,8 +250,13 @@
    expanded = per-category rows. Both scroll horizontally, never widen the modal. */
 .spmodal .access{margin-top:12px;padding-top:10px;border-top:1px dashed var(--line)}
 .spmodal .access .accessh{flex:0 0 auto;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700}
-.spmodal .acc-row{display:flex;align-items:center;gap:9px}
-.spmodal .acc-toggle{flex:0 0 auto;border:none;background:none;color:var(--muted);cursor:pointer;font-size:15px;line-height:1;padding:2px 3px;transition:transform .15s,color .15s}
+.spmodal .acc-row{display:flex;align-items:center;gap:9px;min-height:22px}
+.spmodal .acc-toggle{flex:0 0 auto;margin-left:auto;position:relative;width:22px;height:22px;
+  border:none;background:none;color:var(--muted);cursor:pointer;font-size:0;padding:0;
+  transition:transform .15s,color .15s}
+.spmodal .acc-toggle::before{content:"";position:absolute;left:50%;top:50%;width:7px;height:7px;
+  border-right:1.6px solid currentColor;border-bottom:1.6px solid currentColor;
+  transform:translate(-50%,-50%) translateY(-2.5px) rotate(45deg)}
 .spmodal .acc-toggle:hover{color:var(--accent)}
 .spmodal .access[data-exp="1"] .acc-toggle{transform:rotate(180deg)}
 .spmodal .access[data-exp="0"] .acc-cats{display:none}
@@ -231,9 +264,10 @@
 .spmodal .acc-cats{margin-top:6px}
 .spmodal .acat{display:flex;align-items:center;gap:8px;margin:5px 0}
 .spmodal .acat .acl{flex:0 0 74px;font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:600}
-.spmodal .achips{flex:1;min-width:0;display:flex;gap:5px;overflow-x:auto;padding-bottom:2px;scrollbar-width:thin}
-.spmodal .achips::-webkit-scrollbar{height:5px}
-.spmodal .achips::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:3px}
+/* still scrolls (drag / shift-wheel / trackpad) — the bar itself is just noise here */
+.spmodal .achips{flex:1;min-width:0;display:flex;gap:5px;overflow-x:auto;
+  scrollbar-width:none;-ms-overflow-style:none}
+.spmodal .achips::-webkit-scrollbar{display:none;width:0;height:0}
 .spmodal .achip{flex:0 0 auto;white-space:nowrap;font-size:11px;padding:2px 9px;border-radius:12px;background:var(--panel-2);border:1px solid var(--line-strong);color:var(--ink)}
 /* subtle category tint on the merged row so kinds stay distinguishable */
 .spmodal .achip.sub{border-color:var(--accent-soft);color:var(--accent)}
@@ -320,16 +354,66 @@ table.spelltable td.cmp .l:focus-visible{outline:2px solid var(--accent);outline
   padding:6px 10px;border-radius:8px;border:1px solid var(--line-strong);background:var(--bg);color:var(--ink);cursor:pointer;margin-bottom:7px}
 .picksel:hover{border-color:var(--accent)}
 .picksel.ph{color:var(--muted)}
-.picksel .pk-caret{margin-left:auto;color:var(--muted);font-size:11px}
+/* the caret is drawn, not typed: a "⌄" glyph sits wherever its font puts it, which is what
+   made these icons read as off-centre. A border chevron is optically centred by construction
+   (the ink of a rotated square lives in its lower half, so it is nudged up by s·√2/4). */
+.picksel .pk-caret{margin-left:auto;flex:0 0 auto;position:relative;width:14px;height:14px;font-size:0}
+.picksel .pk-caret::before{content:"";position:absolute;left:50%;top:50%;width:6px;height:6px;
+  border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);
+  transform:translate(-50%,-50%) translateY(-2.1px) rotate(45deg)}
+.picksel:hover .pk-caret::before{border-color:var(--accent)}
 /* entity picker rows: name + source + a preview of what it grants, then a select button */
 #entList{max-height:54vh;overflow:auto;margin:0 -4px}
 .entrow{display:flex;align-items:center;gap:10px;padding:8px 8px;border-bottom:1px solid var(--line)}
 .entrow:hover,.entrow.on{background:var(--accent-soft);border-radius:6px}
 .entmain{flex:1;min-width:0}
 .entname{font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px}
-.entname .entsrc{font-size:10px;color:var(--muted);font-weight:500;border:1px solid var(--line-strong);border-radius:4px;padding:0 4px}
+/* ONE source-book chip for the whole app (the picker's treatment, promoted).
+   `.srcbadge` is a different object — it says who GRANTS a spell in your build. */
+.bchip{display:inline-block;font-size:10px;line-height:1.6;color:var(--muted);font-weight:500;
+  border:1px solid var(--line-strong);border-radius:4px;padding:0 4px;white-space:nowrap;
+  text-transform:none;letter-spacing:0;vertical-align:middle}
 .entname .fmark{color:var(--accent);font-size:11px}
 .entprev{font-size:11px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* a build holding picks from books you have turned off: flagged, never pruned (T2) */
+.gapbar{display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:9px 12px;border-radius:10px;
+  border:1px solid var(--gold);background:var(--gold-soft)}
+.gapbar.hidden{display:none}
+.gaptxt{flex:1;min-width:0;font-size:11.5px;color:var(--muted);line-height:1.35;cursor:help}
+.gaptxt b{display:block;color:var(--gold);font-size:12px;font-weight:600}
+.gapbar .btn{flex:0 0 auto}
+/* the field holding such a pick says so rather than quietly resetting */
+.picksel.gapped,select.gapped{border-color:var(--gold);color:var(--gold)}
+.modal .box.narrow{max-width:440px}
+.askbook{display:flex;align-items:center;gap:8px;padding:6px 2px}
+.askbook+.askbook{border-top:1px solid var(--line)}
+.askbook .askname{flex:1;min-width:0;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.askbook .askn{flex:0 0 auto;font-size:10.5px;color:var(--gold);font-weight:600}
+#srcAskNote{font-size:11.5px;color:var(--muted);line-height:1.45;margin-top:10px}
+/* build manager: one flat list, grouped on render by character (T3) */
+#buildList{max-height:56vh;overflow:auto;margin:0 -4px}
+.bldgroup+.bldgroup{margin-top:14px}
+.bldhead{display:flex;align-items:center;gap:8px;padding:0 6px 4px;border-bottom:1px solid var(--line-strong)}
+.bldchar{flex:1;min-width:0;font:inherit;font-family:var(--font);font-size:14px;font-weight:600;color:var(--ink);
+  background:none;border:1px solid transparent;border-radius:6px;padding:3px 6px;width:auto}
+.bldchar:hover{border-color:var(--line-strong)}
+.bldchar:focus{border-color:var(--accent);background:var(--bg);outline:none}
+.bldhead .bldn{flex:0 0 auto;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700}
+.bldrow{display:flex;align-items:center;gap:10px;padding:7px 6px;border-bottom:1px solid var(--line);cursor:pointer;border-radius:6px}
+.bldrow:hover{background:var(--accent-soft)}
+.bldrow.on{background:var(--accent-soft);box-shadow:inset 2px 0 0 var(--accent)}
+.bldmain{flex:1;min-width:0}
+.bldtop{display:flex;align-items:center;gap:7px}
+.bldname{font:inherit;font-size:13px;font-weight:600;color:var(--ink);background:none;
+  border:1px solid transparent;border-radius:6px;padding:2px 6px;width:auto;max-width:180px}
+.bldname:hover{border-color:var(--line-strong)}
+.bldname:focus{border-color:var(--accent);background:var(--bg);outline:none}
+.bldcur{font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:var(--accent);
+  background:var(--accent-soft);border-radius:10px;padding:1px 7px}
+.bldsum{font-size:11px;color:var(--muted);margin-top:1px;padding:0 6px;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.bldacts{flex:0 0 auto;display:flex;gap:5px}
+.bldacts .tk.del:hover{border-color:var(--bad);color:var(--bad)}
 /* a picker's local book override: the shared source checklist, inline under the filter bar */
 .srcpanel{border:1px solid var(--line);border-radius:10px;background:var(--panel-2);padding:12px 12px 4px;margin:0 0 10px}
 .srcpanel .quick{margin-bottom:12px}
@@ -360,13 +444,33 @@ table.spelltable td.cmp .l:focus-visible{outline:2px solid var(--accent);outline
 .bpill.over .bv{color:var(--bad)}
 .bpill.done{border-color:transparent;background:var(--good-soft);color:var(--good)}
 .bpill.done .bv{color:var(--good)}
-/* prerequisites you don't meet: dimmed, below a divider, never hidden by default */
-.entsep{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);
-  margin:14px 0 4px;padding-top:9px;border-top:1px solid var(--line-strong)}
+/* prerequisites you don't meet: dimmed, below a bare divider, never hidden by default */
+.entsep{margin:14px 0 4px;border-top:1px solid var(--line-strong)}
 .entrow.blocked{opacity:.5}
 .entrow.blocked:hover{opacity:.85}
 .entname .entwarn{color:var(--bad);font-size:11px}
-.entprev.bad{color:var(--bad)}
+/* a prerequisite is a different kind of fact from what an entry grants — chips, not prose */
+.entreq{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-top:3px}
+.entreq .rql{font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700}
+.entreq .rqp{font-size:10.5px;line-height:1.5;padding:0 6px;border-radius:10px;
+  border:1px solid var(--line-strong);color:var(--muted);white-space:nowrap;
+  max-width:230px;overflow:hidden;text-overflow:ellipsis}
+.entreq .rqp.met{color:var(--good);border-color:var(--good-soft);background:var(--good-soft)}
+.entreq .rqp.unmet{color:var(--bad);border-color:var(--bad-soft);background:var(--bad-soft)}
+.entreq .rqp.unk{border-style:dashed}
+/* a crossed part naming something takeable is a button, not just a verdict */
+.entreq .rqp.act{cursor:pointer}
+.entreq .rqp.act:hover{border-color:var(--bad);background:var(--bad-soft);text-decoration:underline}
+.prqpop{position:fixed;z-index:80;min-width:210px;max-width:min(340px,86vw);background:var(--panel);
+  border:1px solid var(--line-strong);border-radius:10px;box-shadow:0 16px 44px #0007;padding:8px}
+.prqpop.hidden{display:none}
+.prqpop .prqh{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);
+  font-weight:700;padding:2px 4px 6px}
+.prqpop .prqn{font-size:11px;color:var(--muted);padding:0 4px 7px;line-height:1.4}
+.prqpop .prqrow{display:flex;align-items:center;gap:7px;padding:4px}
+.prqpop .prqrow+.prqrow{border-top:1px solid var(--line)}
+.prqpop .prqnm{flex:1;min-width:0;font-size:12.5px;font-weight:600;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
 /* a picked feat / optional feature whose prerequisites aren't met — flagged, never removed */
 .chip.unmet{border-color:var(--bad);color:var(--bad);background:var(--bad-soft)}
 .chip .warn{color:var(--bad);font-size:10px;cursor:help;margin-right:1px}
@@ -427,7 +531,7 @@ table.spelltable td.hasast{cursor:pointer}
 .cc-cond{color:var(--cc-cond);font-weight:600}
 .cc-range{color:var(--cc-range);font-weight:600}
 /* choices: source tag + what-to-do line */
-.choicerow .cg .csrc{display:inline-block;font-size:9px;background:var(--panel-2);color:var(--muted);border-radius:5px;padding:1px 5px;margin-left:6px;vertical-align:middle;text-transform:none;letter-spacing:0;font-weight:600}
+.choicerow .cg .bchip{margin-left:6px}
 .choicerow .cg .cwhat{display:block;margin-top:2px}
 /* pick modal: level filter as popover */
 .pickfiltermenu{position:relative;flex:none}

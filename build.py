@@ -53,4 +53,4 @@ with open(os.path.join(ROOT, "docs", "index.html"), "w", encoding="utf-8") as f:
 with open(os.path.join(ROOT, "docs", ".nojekyll"), "w", encoding="utf-8") as f:
     f.write("")
 
-print(f"data.js {len(data_json)//1024} KB · dist {len(dist)//1024} KB (with data) · docs {len(shell)//1024} KB (shell only)")
+print(f"data.js {len(data_json)//1024} KB · dist {len(dist)//1024} KB (with data) · docs {len(shell)//1024} KB (SRD subset)")

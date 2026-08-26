@@ -140,7 +140,7 @@ const plainRef=x=>typeof x==="object"&&x?richStrip(x.displayEntry||x.entrySummar
   :richStrip(String(x).split("|")[0]);
 function prereqBlocks(o){const out=[];
   (o.prerequisite||[]).forEach(p=>{
-    const b={text:"",level:null,cls:null,feats:[],optfeats:[],races:[],spells:[],spellcasting:false,pact:null,soft:false};
+    const b={text:"",level:null,cls:null,feats:[],optfeats:[],races:[],spells:[],spellcasting:false,pact:null,checks:[],soft:false};
     const bits=[];const lv=p.level;
     if(lv&&typeof lv==="object"){b.cls=(lv.class||{}).name;b.level=lv.level;
       bits.push(b.cls?`${b.cls} level ${b.level}`:`level ${b.level}`);}
@@ -151,15 +151,20 @@ function prereqBlocks(o){const out=[];
     (p.spell||[]).forEach(x=>{const n=plainRef(x);b.spells.push(n);bits.push(n);});
     if(p.pact){b.pact=p.pact;bits.push("Pact of the "+p.pact);}
     if(p.spellcasting||p.spellcasting2020||p.spellcastingFeature){b.spellcasting=true;bits.push("spellcasting");}
-    (p.ability||[]).forEach(ab=>Object.entries(ab).forEach(([k,v])=>bits.push(`${k.toUpperCase()} ${v}+`)));
-    (p.proficiency||[]).forEach(pr=>Object.entries(pr).forEach(([k,v])=>bits.push(`${v} ${k} proficiency`)));
-    (p.background||[]).forEach(x=>bits.push(plainRef(x)));
-    (p.feature||[]).forEach(x=>bits.push(plainRef(x)));
-    (p.item||[]).forEach(x=>bits.push(richStrip(x)));
-    (p.campaign||[]).forEach(x=>bits.push(x+" campaign"));
-    (p.exclusiveFeatCategory||[]).forEach(x=>bits.push(`no other ${x}-category feat`));
-    if(p.other)bits.push(richStrip(p.other));
-    const os=p.otherSummary; if(os&&typeof os==="object")bits.push(richStrip(os.entrySummary||os.entry||""));
+    // the parts we can't model go in `checks`, kept separate so the app can show a
+    // per-part verdict (level met / not met) instead of one undifferentiated blob
+    const soft=[];
+    (p.ability||[]).forEach(ab=>Object.entries(ab).forEach(([k,v])=>soft.push(`${k.toUpperCase()} ${v}+`)));
+    (p.proficiency||[]).forEach(pr=>Object.entries(pr).forEach(([k,v])=>soft.push(`${v} ${k} proficiency`)));
+    (p.background||[]).forEach(x=>soft.push(plainRef(x)));
+    (p.feature||[]).forEach(x=>soft.push(plainRef(x)));
+    (p.item||[]).forEach(x=>soft.push(richStrip(x)));
+    (p.campaign||[]).forEach(x=>soft.push(x+" campaign"));
+    (p.exclusiveFeatCategory||[]).forEach(x=>soft.push(`no other ${x}-category feat`));
+    if(p.other)soft.push(richStrip(p.other));
+    const os=p.otherSummary; if(os&&typeof os==="object")soft.push(richStrip(os.entrySummary||os.entry||""));
+    b.checks=soft.filter(Boolean);
+    bits.push(...b.checks);
     b.soft=Object.keys(p).some(k=>SOFT_KEYS.has(k));
     b.text=bits.filter(Boolean).join(", ");
     if(b.text)out.push(b);});

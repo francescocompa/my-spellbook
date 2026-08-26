@@ -12,10 +12,10 @@
   **prerequisites** end-to-end (extract → evaluate → sort → flag); **grouped choices** with
   category tags; picker **overflow menus** + budget pills. Decisions D27–D31.
   All verified in-browser; extract.py ↔ extract.js parity re-validated in Node.
-- **Next action:** **v7 · saved builds** — start at **T1 (storage + migration)**, but the
-  four 🔶 decisions under "Next phase" gate it. Ask them first (the source-ownership one
-  conflicts with D27 and needs Francesco's call). **Done when:** an existing session reloads
-  into a named build with nothing lost, and a fresh session gets one empty build.
+- **Next action:** **v7 · T4 (switcher)** — getting between builds without opening the manager.
+  **Done when:** the active build is visible and switchable from the main surface.
+  *(T1, T2, T3 landed 2026-08-26; D33–D42 settled the model; T6 closed. Then T5 export/import,
+  T7 storage pressure.)*
 - **Manual for Francesco:** ① 🔶 Four decisions gate v7 T1 — see "Next phase → Decisions
   needed". ② Optional — ask GitHub Support to gc so the *old* unreachable commits (SHA
   2c8bbb6 etc., held only in `backup/pre-purge-20260826` locally) stop being SHA-addressable.
@@ -215,6 +215,102 @@ Note-batch 3 (v6.1 — SRD, budget rework, zip):
   (mockup B), which Francesco had picked and then reversed after seeing it in place: the price
   widened the column for a fact you rarely need mid-scan. *Rejected:* keeping cost inline.
 
+- **D33 (2026-08-26) Sources stay global; each build *records* the list it was made with** —
+  `enabledSources` hoists out of `state` into its own global key (alongside `spellForge.table.v1`),
+  so D27 survives intact: the ⚙ Sources modal is still the single place books are chosen. Each
+  build additionally stores `meta.sources` — the list it was authored under. Activating a build
+  whose recorded list differs prompts *"this build expects X — switch your sources to match?"*.
+  Nothing is ever pruned silently, which **dissolves T2's hazard by construction** (there is no
+  bulk prune to get wrong) and gives T5's export its embedded source list for free.
+  *Rejected:* sources travelling inside the build (contradicts D27; relocates T2's hazard rather
+  than removing it); purely global with builds unaware of their books (a build reopened with a
+  book off loses picks with no way to know what it expected — the exact failure T2 exists to prevent).
+- **D34 (2026-08-26) Auto-save, plus versions — reverses the "no snapshots" non-goal** — every
+  edit still writes through to the active build (no dirty state, no unsaved-changes guard, no way
+  to lose work by closing a tab). On top of that a build can be saved as a **new version**, so one
+  character can hold several sets of build choices side by side. This **overrides v7's stated
+  non-goal "Level-up history/snapshots"** — Francesco's call, logged rather than smuggled in.
+  Raw note: *"Auto-save + snapshot, builds should have versions (different build choices for the
+  same character aggregated)"*. "Snapshot" and "new version" are **one action**, not two.
+  *Rejected:* explicit save with a dirty indicator (three states to keep honest, a guard on every
+  exit path, and a crash would start losing work the app currently can't lose).
+- **D35 (2026-08-26) A version is a named copy; `character` is a label, not a container** — builds
+  stay ONE flat list keyed by id; each build's meta carries a `character` string and the manager
+  **groups the list by it**, so aggregation is a render concern, not a data hierarchy. The app never
+  interprets whether a version is an alternative build or an older level — you name it. Duplicate
+  keeps the character name, so **duplicating is how you create a version** (no separate command).
+  Migration stays a one-liner: the existing blob becomes character "Wizard 8", version 1.
+  *Rejected:* versions as explicit same-level variants (asserts a sameness that breaks the moment
+  you level up and keep the old one); versions as an ordered level timeline (the non-goal proper —
+  ordering rules, fork-on-edit semantics, the most machinery of the three); `characters:{…}` as a
+  real container object (two objects to name and delete, a zero-version character state to define,
+  roughly doubles T1 and T3).
+- **D36 (2026-08-26) Export is a file; URL sharing is out of v7** — JSON download + file/paste
+  import, with `meta.sources` embedded. Covers the actual risk (a build is one browser away from
+  gone) with no size ceiling and no new failure mode. *Rejected:* a URL-hash-encoded build (a
+  heavily-picked multiclass build exceeds what browsers and chat apps carry, so it needs
+  compression **plus** a graceful "too big, export a file" fallback — roughly doubles T5);
+  parking it as a named deferred task (it stays a non-goal, not a queue item).
+- **D37 (2026-08-26) Relevel keeps every pick and flags it; no cap on builds** — duplicating a
+  build then changing its level leaves `chosen`/`choices` untouched (they're keyed by row id and
+  choice path); anything now over budget or above max spell level gets the **existing** soft
+  over-flag. Consistent with D18 (over-cap levels flagged, not blocked) and D31 (lapsed
+  prerequisites kept, not removed) — zero new machinery, and it **closes T6**. Separately, there
+  is **no count cap**: a build is a few KB and the real constraint is the ~5 MB localStorage quota
+  that imported data already dominates, so quota failures are caught on write and reported for
+  what they are ("your imported book data is using most of the space"). *Rejected:* auto-dropping
+  picks that no longer fit (silent destructive pruning, against the soft-enforcement stance);
+  a "duplicate without picks" prompt (a decision at a fast-moving moment, and recoverable anyway);
+  a soft warning past ~20 and a hard cap (arbitrary — eight characters × three versions is 24 and
+  entirely reasonable).
+
+- **D38 (2026-08-26) The spell table reads as a grid** — every column and its contents are
+  **centre-aligned**, headers included; group headers stay left. Cells whose value was
+  abbreviated to keep the column narrow (school/time/range/duration) restore the full text in a
+  hover popover via `shortCell()`, and carry `cursor:help` so you can tell which ones will.
+  The *"cantrips aren't prepared daily"* note beside the cantrip group header is gone — the ●
+  marker's own popover already says it, and the note repeated it on every build.
+- **D39 (2026-08-26) One source-book chip, and the book leaves the spell rows** — `bookChip()`
+  + `.bchip` is now the single treatment everywhere a **printed book** is named (entity pickers,
+  choices rows, spell-table `book` column, spell-modal title), promoted from the species/feat
+  picker's version. `.entsrc` and `.csrc` are gone. Not to be confused with `.srcbadge`, which is
+  a different object: who **grants** a spell in your build. The printed book is **removed from
+  the eligible-spells rows** and now rides the **spell modal's title line** as that chip; the
+  modal's × was also escaping its box (`.spmodal .box` had no `position`), so it now sits in the
+  box's top-right. *Note:* the spell-**pick** modal's rows still show the book — left alone
+  because the ask was scoped to the eligible list; say if it should follow.
+- **D40 (2026-08-26) Eligibility is a default, not a wall** — two ways a spell you can't take
+  still appears, always **dimmed**, never pickable, always tagged with why (*"not on your lists"*
+  / *"filtered out"*): ① the class/list filter gained an **"every spell (ignore eligibility)"**
+  option; ② **any search** surfaces every visible spell matching the name, including ones the
+  other filters or your lists exclude — a name you typed and can't find is worse than one shown
+  greyed with a reason. Dimmed entries sort below the eligible ones inside their level group, and
+  the count reads `N spells · M dimmed`. Same treatment as a blocked feat in the pickers (D31).
+  *Rejected:* a divider per level group (noise at ten groups); making them pickable (they aren't legal).
+- **D41 (2026-08-26) A crossed prerequisite is a one-click fix** — a prerequisite part that names
+  something concrete (a feat, an optional feature, a species, a pact) carries `pick` metadata, and
+  clicking the ✗ chip opens a small popup offering to take it: **species swaps** (single-valued,
+  and the popup says what it replaces), feats and optional features are added. Committing from a
+  disabled book enables that book, mirroring the picker rule. Enforcement stays **soft (D31)** —
+  this is a shortcut, never a gate; you can still select a blocked entry outright. Separately,
+  an **unverifiable part no longer shows "?"** — the dashed border already says "can't check",
+  and the mark read as a question being asked of you. *Rejected:* auto-taking the prerequisite
+  when you select a blocked entry (silent state changes).
+
+- **D42 (2026-08-26) Turning a book off flags picks, it never removes them** — `afterSourceChange()`
+  used to strip every class, subclass, feat, optional feature and species whose book you had just
+  disabled. With several builds that was the T2 hazard in a different coat, and it was already
+  wrong on its own: unticking a book to browse is not a decision to delete half a character.
+  It now prunes **nothing**; only `pruneState()` drops refs, and only to content that has ceased
+  to exist. What remains is surfaced instead: a standing **gap banner** naming the books and the
+  count, with one-click "Turn them on", and gold-flagged fields (`.gapped`) on the affected
+  species / class rows. Two silent-rewrite bugs fell out of this and are fixed: `refreshSpecies()`
+  cleared `state.speciesKey` outright, and a class row's `<select>` omitted its own class when
+  hidden, so the browser fell back to the first option and the next edit **wrote a different
+  class into the build**. Same rule now covers a manual source change and a build switch —
+  one behaviour, not two. *Rejected:* pruning only the active build (the inactive ones then rot
+  silently); asking on every source change (it is a browse action, not a commitment).
+
 ## Done — v6.5 / v6.6 (this session; all verified in-browser)
 - [x] 🐛 **Innate-cast parsing** merged from `claude/zen-rhodes-4b15f8` — a cadence map under
   prepared/known/expanded is routed through `emit_cadence` instead of being read as a spell list.
@@ -267,54 +363,80 @@ optFeats, chosen, choices, enabledSources, filters, nextRowId`. Alongside it sit
 other keys that are **not** part of a build: `spellForge.table.v1` (column layout),
 `spellForge.custom.v1` (homebrew spells), `spellForge.import.v1` (imported 5etools data).
 
-### Shape
+### Shape  *(settled by D33–D37)*
 ```
-spellForge.builds.v1 = { activeId, order:[id…], builds:{ id: {meta, state} } }
-meta = { name, created, updated, summary }      // summary = "Wizard 8 · Evocation", derived
+spellForge.builds.v1  = { activeId, order:[id…], builds:{ id: {meta, state} } }
+meta = { name, character, created, updated, summary, sources:[…] }
+       // name      = the version's name ("Evocation", "L3")
+       // character = the grouping label (D35) — versions of one character share it
+       // summary   = "Wizard 8 · Evocation", derived
+       // sources   = the book list this build was authored under (D33)
+spellForge.sources.v1 = [ …enabledSources… ]     // hoisted OUT of `state` (D33)
 ```
-`state` keeps its current shape verbatim inside each build, so `save()`/`load()` become
-"save/load the active build" and nothing downstream changes. Homebrew, imported data and
-the column layout stay global — they're content and preferences, not character sheets.
+`state` keeps its current shape verbatim inside each build **minus `enabledSources`**, so
+`save()`/`load()` become "save/load the active build" and nothing else downstream changes.
+Homebrew, imported data and the column layout stay global — they're content and preferences,
+not character sheets. Sources join them, but every build remembers what it expected.
 
 ### Tasks
-- [ ] **T1 · storage + migration** (`model`, ~M). New keys, `activeBuild()`, and a one-time
-  migration that lifts the existing `spellForge.v2` blob into build #1 named from its classes.
-  Keep the old key untouched for one release as a rollback. **Done when:** an existing session
-  reloads into a named build with nothing lost, and a fresh session gets one empty build.
-- [ ] **T2 · pruning hazard** (`correctness`, ~S). ⚠ `pruneState()` and `afterSourceChange()`
-  currently mutate the one live build. With several, disabling a book would quietly strip
-  picks from **inactive** builds too — or, if we only prune the active one, an inactive build
-  silently holds refs to content that no longer resolves. **Prune on activation, never in
-  bulk**, and show what was dropped. **Done when:** switching sources can't damage a build
-  you aren't looking at, and activating a build reports what it lost.
-- [ ] **T3 · manager UI** (`ui`, ~M). List with name, summary, last edited; switch, rename,
-  duplicate, delete (confirm), new. **Done when:** every operation works from one surface and
-  the active build is unmistakable.
+- [x] **T1 · storage + migration** (`model`, ~M) — **DONE 2026-08-26.** New keys, `activeBuild()`,
+  `enabledSources` hoisted out of `state` to `spellForge.sources.v1` (D33), and a one-time
+  migration that lifts the existing `spellForge.v2` blob into build #1. `save()` is now
+  "auto-save the active build" (D34): it re-derives `meta.summary`, stamps `updated`, and records
+  `meta.sources` = the list the build was last seen under. The legacy key is left untouched as a
+  one-release rollback. *Verified in-browser:* migrated session → build "Wizard 8 / v1" with
+  classes + picks intact, `meta.sources` = its 43 books, `state` no longer carrying
+  `enabledSources`, `spellForge.v2` still present; reload idempotent (`BOOT_MODE` "loaded", one
+  build); wiped session → exactly one empty build, sources default all-on; source changes persist
+  globally **and** update `meta.sources`. `meta.character` is a **level-free** label
+  ("Bard / Wizard") that auto-follows the build until `meta.named` is set — T3 sets it on rename.
+- [x] **T2 · activation reconciliation** (`correctness`, ~S) — **DONE 2026-08-26.** On activation,
+  compare the build's `meta.sources` against the live global list and offer to switch rather than
+  prune. **Done when:** activating a build authored under other books prompts instead of silently
+  dropping picks, and declining leaves the build intact with its unresolved picks flagged, not
+  removed. *Built as `#srcAskModal`.* It asks **only about books the build's picks actually depend
+  on** (`buildGaps().books`) — a book it merely had enabled changes what you can browse, not what
+  it holds, and listing all 42 of those was noise. The dialog names each book with its
+  affected-pick count and says plainly that nothing is removed either way. Declining activates the
+  build whole and raises the **gap banner** (`#gapBar`). See **D42** — the same flag-don't-prune
+  rule now also governs turning a book off by hand. *Verified in-browser:* a Wizard build carrying
+  a TCE feat, activated under "2024 core only" → dialog names TCE / 1 pick → **Keep my books**
+  activates with the feat and its two pending choices intact plus the banner; **Turn them on**
+  enables TCE and clears the banner; disabling a book by hand keeps an `Aarakocra|DMG` species
+  (field reads "Aarakocra · DMG is off") and an `Artificer|TCE` class row whose select still
+  resolves to itself.
+- [x] **T3 · manager UI** (`ui`, ~M) — **DONE 2026-08-26.** One flat list **grouped by `character`** (D35), each row
+  name + summary + last edited; switch, rename (version and character), duplicate, delete
+  (confirm), new. Duplicate keeps the character name — that *is* "save as new version" (D34),
+  one action, not two. **Done when:** every operation works from one surface and the active
+  build is unmistakable. *Built as `#buildModal`, reached from the ⋯ menu ("Builds…").* Names are
+  **inline inputs** that look like text until touched — no edit mode to enter or leave; editing a
+  character name rewrites every version under it and sets `meta.named`, which stops the
+  auto-follow. Active build = accent left-bar + tint + a `current` chip. *Verified in-browser:*
+  switch loads the other build's state; version rename → "Evocation"; character rename → "Thalia"
+  applied to all three versions; delete moves the active to a neighbour; **deleting every build
+  never leaves zero** — a fresh empty one is created. All of it survives a reload.
+  ⚠ Switching is deliberately **non-destructive**: nothing is pruned on activation, so a build
+  authored under other books keeps its picks. The reconciliation prompt is **T2**.
 - [ ] **T4 · switcher** (`ui`, ~S). Getting between builds without opening the manager.
 - [ ] **T5 · export / import a build** (`data`, ~M). A build is currently one browser away
-  from gone — localStorage, one device, no backup. JSON download + file/paste import, with
-  the source list embedded so an imported build tells you which books it expects.
+  from gone — localStorage, one device, no backup. JSON download + file/paste import, carrying
+  `meta.sources` so an imported build tells you which books it expects (D36 — file only, no URL).
   **Done when:** a build survives a round trip through a file on another machine.
-- [ ] **T6 · budget/choice reset semantics** (`model`, ~S). Duplicating a build then changing
-  its level: `chosen`/`choices` are keyed by row id and choice path, so they survive — confirm
-  that's wanted, or offer "reset picks" on duplicate.
+- [ ] **T7 · storage-pressure reporting** (`data`, ~S). No count cap (D37); instead catch the
+  quota failure on write and name the real cause. **Done when:** a failed save says what is
+  using the space, not "something went wrong".
+- [x] ~~**T6 · budget/choice reset semantics**~~ **Closed by D37** — picks survive a relevel
+  untouched and the existing soft over-flag does the rest. No new machinery.
 
-### 🔶 Decisions needed before T1 (these change the model, not just the UI)
-- **Does a build own its source selection?** `enabledSources` is inside `state` today, so it
-  would travel per build — a 2014 character and a 2024 one could each carry their own books.
-  The alternative is hoisting it out as a global preference, which matches D27's "one place
-  books are chosen". These two readings conflict; **D27 wins by default unless overridden.**
-- **Auto-save or explicit save?** Today every edit writes through. Auto-save into the active
-  build is the smaller change and keeps the app honest; explicit save needs a dirty state,
-  a discard path and an "unsaved changes" guard.
-- **Is sharing in scope?** A URL-encoded build (compressed into the hash) would make builds
-  shareable without a server, at the cost of a size ceiling. File export alone is simpler and
-  covers backup, which is the actual risk.
-- **Cap on builds?** localStorage is ~5 MB and already carries imported data; a build is a
-  few KB, so the cap is really about the list staying readable, not about bytes.
+### Decisions that gated T1 — all settled 2026-08-26
+D33 sources · D34 auto-save + versions · D35 version shape · D36 file-only export ·
+D37 relevel + no cap. See the Decisions section above. **T1 is unblocked.**
 
 ### Non-goals
-Level-up history/snapshots. Server sync or accounts. Sharing a build as a rendered page.
+~~Level-up history/snapshots~~ — **superseded by D34/D35**: versions exist, but as *named copies*
+the app never orders or interprets. A true level-by-level timeline (ordering rules, fork-on-edit)
+stays out. Server sync or accounts. Sharing a build as a rendered page, or via a URL (D36).
 
 ## Backlog (next sessions)
 ### v6.5 / v6.6 leftovers
@@ -383,5 +505,40 @@ Level-up history/snapshots. Server sync or accounts. Sharing a build as a render
   `extract.js` against `data/data.json`. Ignore its class/subclass counts — its walker also
   feeds `foundry.json`, which extract.py never reads; spells/feats/races/optfeats are the
   meaningful columns.
-
-⟳ Rename previous session → "v6.5 and v6.6: optional features, prerequisites, columns"  · session: resolve by cwd + latest
+- **Extractor parity: exclude `foundry*.json`.** The Node harness walker feeds every `.json` in
+  the mirror, including `foundry-feats.json` etc. which extract.py never reads — those overwrite
+  real entries by `name|source` and manufacture ~39 false diffs. Filter them out and parity is
+  **exact**: 276/276 feats, 213/213 optional features, prereqs byte-identical.
+- **Native scrollbars follow `color-scheme`, not your CSS.** The "light scrollbar in dark mode"
+  bug was a missing `color-scheme` on `:root` — the UA painted OS-themed scrollbars while the
+  `data-theme` toggle changed only the custom properties. `color-scheme` is now set in all three
+  theme blocks (`:root` light, the `prefers-color-scheme:dark` block, `[data-theme=dark]`), plus
+  themed `::-webkit-scrollbar` rules. Any new theme block must set it too.
+- **Carets are drawn, not typed.** `⌄` (U+2304) sits wherever its font puts it, which is what made
+  picker/access icons read as off-centre. `.pk-caret` and `.acc-toggle` now draw a border chevron
+  nudged up by `s·√2/4` (the ink of a rotated square lives in its lower half). Reuse that pattern
+  rather than a glyph when an icon must sit optically centred.
+- **Builds layer (T1, D33–D35).** `spellForge.builds.v1` = `{activeId, order, builds:{id:{meta,state}}}`;
+  `spellForge.sources.v1` is the **global** book list — `SRC`, a module-level Set, NOT `state`.
+  Nothing may put sources back inside a build. `save()` = auto-save the active build. `meta.character`
+  is a grouping label only (level-free, auto-follows until `meta.named`). Legacy `spellForge.v2` is
+  read once for migration and then left alone as a rollback — do not delete it before v7 ships.
+- **Build manager (T3).** `#buildModal` from the ⋯ menu. Grouping by `meta.character` is a
+  **render-time** concern (D35) — never build a character object. `switchBuild()` flushes the
+  outgoing build with `save()` first, then `applyState()`; it calls `pruneState()` (drops refs to
+  content that no longer EXISTS) but never `afterSourceChange()` (source-gated pruning) — that
+  asymmetry is deliberate and is what makes switching non-destructive until T2 lands.
+  `deleteBuild()` must never leave zero builds; it creates a fresh one instead.
+- **`.bchip` vs `.srcbadge`** — `.bchip` (D39) names the **printed book**; `.srcbadge` names
+  **who grants** the spell in your build and is colour-coded (free / cast). They look similar and
+  are not interchangeable.
+- **Dimmed spell rows (D40)** carry `dim:true` and a `why`, and have **no takers** — `mkSpell`
+  returns early for them, so they can never be picked. If a dimmed row ever grows a take button,
+  that early return has been broken.
+- **Nothing prunes on a source change any more (D42).** `afterSourceChange()` only fixes the
+  filter override; `pruneState()` drops refs to content that no longer EXISTS. If a pick ever
+  disappears when you untick a book, something has re-added pruning. The visible contract is the
+  gap banner (`renderGapBar`) plus `.gapped` fields — keep those in sync with any new pick kind.
+- **A `<select>` must always contain its own current value.** `classOptions(keep)` and the
+  subclass list take the row's key so a hidden entry stays selectable; without that the browser
+  silently selects option 0 and the next edit writes the wrong class into the build.

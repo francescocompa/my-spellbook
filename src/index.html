@@ -16,6 +16,8 @@
     <div class="menu">
       <button class="btn iconbtn" id="menuBtn" title="Settings" aria-label="Settings">⋯</button>
       <div class="menupop hidden" id="menuPop">
+        <button id="buildsBtn"><span class="mi">▤</span>Builds…</button>
+        <div class="sep"></div>
         <button id="customBtn"><span class="mi">✎</span>Custom spell…</button>
         <button id="importBtn"><span class="mi">⭳</span>Import 5etools…</button>
         <button id="sourcesBtn"><span class="mi">⚙</span>Sources…</button>
@@ -28,6 +30,9 @@
 
   <div class="layout" id="buildView">
     <div class="col-left">
+      <!-- a build whose books you have turned off: flagged, never pruned (T2) -->
+      <div class="gapbar hidden" id="gapBar"></div>
+
       <!-- CHARACTER -->
       <div class="card">
         <h2>Character <span class="count" id="clvlChip"></span></h2>
@@ -150,6 +155,7 @@
         <button class="btn" id="pickLevelBtn">Levels</button>
         <div class="menupop hidden" id="pickLevelPop"><label class="fld">Filter by level</label><div class="cbrow" id="pickLevels"></div></div>
       </div>
+      <button class="btn" id="pickOnly" title="Show only the spells already picked here">Picked</button>
       <button class="btn" id="pickClear" title="Clear all selections in this picker">Clear</button>
     </div>
     <div id="pickList"></div>
@@ -238,6 +244,34 @@
     <div id="srcList"></div>
   </div>
 </div></div>
+<div class="modal hidden" id="srcAskModal"><div class="box narrow">
+  <div class="mh mh-stack">
+    <div class="mh-row"><h2 id="srcAskTitle">This build expects other books</h2></div>
+    <div class="sub" id="srcAskSub"></div>
+  </div>
+  <div class="mb">
+    <div id="srcAskBooks"></div>
+    <div class="note" id="srcAskNote"></div>
+  </div>
+  <div class="prepnav">
+    <button class="btn" id="srcAskKeep">Keep my books</button>
+    <span class="prepnav-sp"></span>
+    <button class="btn on" id="srcAskSwitch">Turn them on</button>
+  </div>
+</div></div>
+<div class="modal hidden" id="buildModal"><div class="box">
+  <div class="mh mh-stack">
+    <div class="mh-row"><h2>Builds</h2><button class="x" id="buildClose">×</button></div>
+    <div class="sub" id="buildSub"></div>
+  </div>
+  <div class="mb">
+    <div class="pickbar">
+      <input type="search" id="buildSearch" placeholder="filter by name…">
+      <button class="btn on" id="buildNew">＋ New build</button>
+    </div>
+    <div id="buildList"></div>
+  </div>
+</div></div>
 <div class="modal hidden" id="prepModal"><div class="box">
   <div class="mh mh-stack">
     <div class="mh-row"><h2 id="prepTitle">Prepare spells</h2><button class="x" id="prepClose">×</button></div>
@@ -251,6 +285,7 @@
         <button class="btn" id="prepLevelBtn">Levels</button>
         <div class="menupop hidden" id="prepLevelPop"><label class="fld">Filter by level</label><div class="cbrow" id="prepLevels"></div></div>
       </div>
+      <button class="btn" id="prepOnly" title="Show only the spells already prepared">Picked</button>
     </div>
     <div id="prepList"></div>
   </div>
