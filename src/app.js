@@ -12,6 +12,7 @@ const fmtDesc=s=>String(s||"").replace(/\blevel\s+(\d+(?:[;,]\d+)+)/gi,(m,g)=>"l
 const ABIL={int:"Intelligence",wis:"Wisdom",cha:"Charisma",str:"Strength",dex:"Dexterity",con:"Constitution"};
 const ABIL_SHORT={int:"Int",wis:"Wis",cha:"Cha",str:"Str",dex:"Dex",con:"Con"};
 const CORE="XPHB";
+const CORE_2024=["XPHB","XDMG","XMM"];   // the 2024 core books, for the "2024 core only" shortcut
 
 // ── content assembly: baked bundle (window.__DATA__) ⊕ imported 5etools ⊕ custom homebrew ──
 // Slot tables are rules (not content) so they live here — the no-data build still needs them.
@@ -83,26 +84,29 @@ const LS="spellForge.v2";
 const state={
   classes:[], speciesKey:"", feats:[],
   enabledSources:new Set(Object.keys(DATA.sources)),   // all on by default
-  filters:{q:"",levels:new Set(),school:"",cls:"",time:new Set(),comp:new Set(),tags:new Set(),save:"",dmg:"",book:"",reprint:"dedupe",chosen:false},
+  filters:{q:"",levels:new Set(),school:"",cls:"",time:new Set(),comp:new Set(),tags:new Set(),save:"",dmg:"",books:null,reprint:"dedupe",chosen:false},
   chosen:{},   // rowId -> {cantrips:[], spells:[]}
   choices:{},  // choiceId -> option name | [spellKey,…]
   nextRowId:1,
 };
-const FILTER_DEFAULT=()=>({q:"",levels:new Set(),school:"",cls:"",time:new Set(),comp:new Set(),tags:new Set(),save:"",dmg:"",book:"",reprint:"dedupe",chosen:false});
+const FILTER_DEFAULT=()=>({q:"",levels:new Set(),school:"",cls:"",time:new Set(),comp:new Set(),tags:new Set(),save:"",dmg:"",books:null,reprint:"dedupe",chosen:false});
 function activeFilterCount(){const f=state.filters;let n=0;
-  n+=f.levels.size?1:0;["school","cls","save","dmg","book"].forEach(k=>{if(f[k])n++;});
-  n+=f.time.size?1:0;n+=f.comp.size?1:0;n+=f.tags.size?1:0;if(f.reprint!=="dedupe")n++;return n;}
+  n+=f.levels.size?1:0;["school","cls","save","dmg"].forEach(k=>{if(f[k])n++;});
+  n+=f.time.size?1:0;n+=f.comp.size?1:0;n+=f.tags.size?1:0;if(f.reprint!=="dedupe")n++;
+  // the book override counts only when it differs from the global source selection
+  if(f.books&&(f.books.size!==state.enabledSources.size||[...state.enabledSources].some(c=>!f.books.has(c))))n++;
+  return n;}
 function save(){ try{ localStorage.setItem(LS, JSON.stringify({
   classes:state.classes, speciesKey:state.speciesKey, feats:state.feats,
   nextRowId:state.nextRowId,
   enabledSources:[...state.enabledSources], chosen:state.chosen, choices:state.choices,
-  filters:{...state.filters,levels:[...state.filters.levels],time:[...state.filters.time],comp:[...state.filters.comp],tags:[...state.filters.tags]},
+  filters:{...state.filters,levels:[...state.filters.levels],time:[...state.filters.time],comp:[...state.filters.comp],tags:[...state.filters.tags],books:state.filters.books?[...state.filters.books]:null},
 })); }catch(e){} }
 function load(){ try{ const s=JSON.parse(localStorage.getItem(LS)); if(!s)return;
   Object.assign(state,{classes:s.classes||[],speciesKey:s.speciesKey||"",feats:s.feats||[],
     chosen:s.chosen||{},choices:s.choices||{},nextRowId:s.nextRowId||1});
   if(s.enabledSources)state.enabledSources=new Set(s.enabledSources);
-  if(s.filters)state.filters=Object.assign(state.filters,s.filters,{levels:new Set(s.filters.levels||[]),time:new Set(s.filters.time||[]),comp:new Set(s.filters.comp||[]),tags:new Set(s.filters.tags||[])});
+  if(s.filters)state.filters=Object.assign(state.filters,s.filters,{levels:new Set(s.filters.levels||[]),time:new Set(s.filters.time||[]),comp:new Set(s.filters.comp||[]),tags:new Set(s.filters.tags||[]),books:s.filters.books?new Set(s.filters.books):null});
   // migrate: ensure every class row has a stable id
   state.classes.forEach(r=>{if(r.id==null)r.id=state.nextRowId++;});
 }catch(e){} }
@@ -438,28 +442,53 @@ function grantPreview(grants){
   (grants.optionGroups||[]).forEach(og=>p.push(og.options.map(o=>o.name).join(" / ")));
   return p.filter(Boolean).join(" · ");
 }
-function entItems(){
-  if(ENT.kind==="species")return DATA.races.filter(visible);
-  return DATA.feats.filter(f=>visible(f)&&!isFeatFS(f)&&(
-    ENT.category==="origin"?isOriginFeat(f):ENT.category==="epic"?isEpicBoon(f):(!isOriginFeat(f)&&!isEpicBoon(f))));
+// `srcSet` replaces the global source gate (the picker's local book override, D27);
+// pass ALL_SRC to ignore source gating entirely and see the full universe of books.
+const ALL_SRC={has:()=>true};
+function entItems(srcSet){
+  const vis=o=>(srcSet||{has:c=>srcOn(c)}).has(o.source)&&reprintOk(o);
+  if(ENT.kind==="species")return DATA.races.filter(vis);
+  return DATA.feats.filter(f=>vis(f)&&!isFeatFS(f)&&ENT.cats.has(featCat(f)));
 }
 function openEntityPicker(kind,category){
-  ENT={kind,category,q:"",book:"",grantsOnly:false};
+  // `books` is a LOCAL override seeded from the global selection (D27) — editing it here
+  // never writes back to state.enabledSources, and it resets every time the picker opens.
+  // one shared picker for all three feat slots: `cats` is PRESET to the slot's kind but the
+  // player can widen it (a general slot may take an origin feat). Budget attribution still
+  // follows the feat's own category, so widening can show origin 2/1 — deliberate, soft-flagged.
+  ENT={kind,category,q:"",books:new Set(state.enabledSources),grantsOnly:false,
+       cats:new Set(kind==="species"?[]:[category==="origin"?"origin":category==="epic"?"epic":"general"])};
   $("#entTitle").textContent = kind==="species"?"Choose a species / lineage"
     : category==="origin"?"Choose an origin feat" : category==="epic"?"Choose an epic boon" : "Choose a general feat";
-  $("#entSearch").value=""; $("#entBook").value=""; $("#entGrants").checked=false;
+  $("#entSearch").value=""; $("#entGrants").checked=false;
+  $("#entBooksPanel").classList.add("hidden"); $("#entBooksBtn").setAttribute("aria-expanded","false");
   $("#entityModal").classList.remove("hidden"); renderEntityList();
+}
+// the books present in the picker's own content — the override list never offers a book
+// that has nothing of this kind in it.
+function entBookCodes(){return new Set(entItems(ALL_SRC).map(i=>i.source));}
+function renderEntBooks(){
+  const codes=entBookCodes();
+  const n=renderSourceChecklist($("#entSrcList"),ENT.books,()=>{renderEntityList();},codes);
+  const on=[...ENT.books].filter(c=>codes.has(c)).length;
+  $("#entBooksN").textContent=`${on}/${n}`;
+  $("#entBooksBtn").classList.toggle("on",on!==n);
 }
 function renderEntityList(){
   if(!ENT)return;
   const list=$("#entList"); list.innerHTML="";
-  let items=entItems();
-  const books=[...new Set(items.map(i=>i.source))].sort();
-  syncOpt($("#entBook"),books.map(s=>[s,DATA.sources[s]?.name||s]),ENT.book,"any book");
+  $("#entCatRow").classList.toggle("hidden",ENT.kind==="species");
+  if(ENT.kind!=="species"){
+    const cats=charLevel()>=19?FEAT_CATS:FEAT_CATS.filter(([v])=>v!=="epic");
+    buildToggleRow($("#entCats"),cats,ENT.cats,false,()=>renderEntityList());
+  }
+  let items=entItems(ENT.books);
+  renderEntBooks();
   const q=ENT.q.toLowerCase();
-  items=items.filter(i=>(!q||i.name.toLowerCase().includes(q))&&(!ENT.book||i.source===ENT.book)&&(!ENT.grantsOnly||grantsAny(i.grants)));
+  items=items.filter(i=>(!q||i.name.toLowerCase().includes(q))&&(!ENT.grantsOnly||grantsAny(i.grants)));
   items.sort((a,b)=>a.name.localeCompare(b.name)||a.source.localeCompare(b.source));
-  $("#entSub").textContent=`${items.length} ${ENT.kind==="species"?"species":"feats"} · ✦ grants spells`;
+  $("#entSub").textContent=`${items.length} ${ENT.kind==="species"?"species":"feats"} · ✦ grants spells`
+    +(ENT.note?` · ${ENT.note}`:"");
   const curSel = ENT.kind==="species"?state.speciesKey:null;
   if(!items.length){list.append(el("div","empty","Nothing matches those filters."));return;}
   items.slice(0,400).forEach(it=>{const k=key(it.name,it.source);
@@ -468,13 +497,20 @@ function renderEntityList(){
     const main=el("div","entmain");
     const nm=el("div","entname");nm.append(document.createTextNode(it.name));
     if(it.source!==CORE)nm.append(Object.assign(el("span","entsrc"),{textContent:it.source,title:bookName(it.source)}));
+    if(ENT.kind!=="species"){const c=featCat(it);
+      if(c!==(ENT.category==="origin"?"origin":ENT.category==="epic"?"epic":"general"))
+        nm.append(Object.assign(el("span","entcat"),{textContent:c}));}
     if(grantsAny(it.grants))nm.append(Object.assign(el("span","fmark"),{textContent:"✦"}));
     main.append(nm);
     const prev=grantPreview(it.grants);
     if(prev)main.append(Object.assign(el("div","entprev"),{textContent:prev,title:prev}));
     row.append(main);
     const btn=el("button","tk"+(on?" on":""), on?"✓ selected":"select");
-    btn.onclick=()=>{ if(ENT.kind==="species"){state.speciesKey=on?"":k;}
+    btn.onclick=()=>{
+      // a local override can reveal a book the global selection has off; committing a pick
+      // from it enables that book globally, otherwise afterSourceChange would prune the pick
+      if(!on&&!srcOn(it.source)){state.enabledSources.add(it.source);ENT.note=`Enabled ${bookName(it.source)} in your sources`;}
+      if(ENT.kind==="species"){state.speciesKey=on?"":k;}
       else{ if(on)state.feats=state.feats.filter(x=>x!==k); else state.feats.push(k); }
       save();refreshAll();render();renderEntityList(); };
     row.append(btn); list.append(row);
@@ -905,6 +941,16 @@ function renderCart(){
       const nm=el("span",null,e.sp.name);attachSpell(nm,e.sp);chip.append(nm);cc.append(chip);});
     g.append(cc);body.append(g);}
 }
+// the spell filter's own book override (D27). Seeded from the global selection; unlike the
+// entity pickers it can only NARROW — a book that isn't enabled has no eligible spells at all.
+function renderFilterBooks(codes){
+  const F=state.filters;
+  if(!F.books)F.books=new Set(state.enabledSources);
+  const n=renderSourceChecklist($("#fSrcList"),F.books,()=>renderSpells(),codes);
+  const on=[...F.books].filter(c=>codes.has(c)).length;
+  $("#fBooksN").textContent=`${on}/${n}`;
+  $("#fBooksBtn").classList.toggle("on",on!==n);
+}
 function meter(lbl,used,cap){
   const m=el("div","meter");m.append(el("div","lbl",lbl));
   const bar=el("div","bar");const span=el("span",used>cap?"over":used===cap&&cap>0?"ok":"");span.style.width=Math.min(100,cap?used/cap*100:0)+"%";bar.append(span);m.append(bar);
@@ -922,7 +968,7 @@ function renderSpells(){
   syncOpt($("#fClass"),accessNames.map(s=>[s,s]),F.cls,"any source");
   syncOpt($("#fSave"),[...new Set([].concat(...items.map(i=>i.sp.save)))].sort().map(s=>[s,cap1(s)]),F.save,"any save");
   syncOpt($("#fDmg"),[...new Set([].concat(...items.map(i=>i.sp.dmg)))].sort().map(s=>[s,cap1(s)]),F.dmg,"any damage");
-  syncOpt($("#fBook"),[...new Set(items.map(i=>i.sp.source))].sort().map(s=>[s,DATA.sources[s]?.name||s]),F.book,"any book");
+  renderFilterBooks(new Set(items.map(i=>i.sp.source)));
   buildToggleRow($("#fTime"),[["action","Action"],["bonus","Bonus"],["reaction","Reaction"],["long","Longer"]],F.time);
   buildToggleRow($("#fComp"),[["v","V"],["s","S"],["m","M"]],F.comp);
   buildToggleRow($("#fTags"),[["ritual","Ritual"],["conc","Concentr."],["atk","Atk roll"],["upcast","Upcasts"],["consume","Consumes mat."]],F.tags);
@@ -937,7 +983,7 @@ function renderSpells(){
     if(F.cls&&!i.takers.some(t=>t.name===F.cls)&&!i.srcs.has(F.cls))return false;
     if(F.save&&!sp.save.includes(F.save))return false;
     if(F.dmg&&!sp.dmg.includes(F.dmg))return false;
-    if(F.book&&sp.source!==F.book)return false;
+    if(F.books&&!F.books.has(sp.source))return false;
     if(F.time.size&&!F.time.has(sp.tcat))return false;
     if(F.comp.size&&![...F.comp].every(c=>sp.comp[c]))return false;
     if(F.tags.has("ritual")&&!sp.ritual)return false;
@@ -1157,6 +1203,8 @@ const ORIGIN_CATS=new Set(["O","D","DG"]);
 const isOriginFeat=f=>ORIGIN_CATS.has(f.category);
 const isFeatFS=f=>(f.category||"").startsWith("FS");
 const isEpicBoon=f=>f.category==="EB";   // gated: only via the level-19 Epic Boon feature
+const featCat=f=>isEpicBoon(f)?"epic":isOriginFeat(f)?"origin":"general";
+const FEAT_CATS=[["origin","Origin"],["general","General"],["epic","Epic boon"]];
 const charLevel=()=>state.classes.reduce((a,r)=>a+(r.level||0),0);
 function refreshAddFeat(){
   // Epic Boons unlock at character level 19 (the level-19 feat feature)
@@ -1192,30 +1240,49 @@ function renderFeatChips(){const box=$("#featChips");box.innerHTML="";state.feat
 // ── sources modal ────────────────────────────────────────────────────────
 const GROUP_ORDER=["core","supplement","setting","other"];
 const GROUP_NAME={core:"Core",supplement:"Supplements",setting:"Settings & adventures",other:"Other"};
-function renderSrcModal(){
-  const wrap=$("#srcList");wrap.innerHTML="";
-  const byGroup={};Object.entries(DATA.sources).forEach(([code,s])=>{(byGroup[s.group||"other"]=byGroup[s.group||"other"]||[]).push([code,s]);});
+// ── shared grouped source checklist (D27) ──────────────────────────────────
+// One component for every place books are chosen: the global ⚙ Sources modal and each
+// picker's local override. `sel` is a Set the caller owns; `onChange` runs after any
+// mutation. `codes` limits the list to the sources actually present in that picker.
+function renderSourceChecklist(wrap,sel,onChange,codes){
+  wrap.innerHTML="";
+  const all=Object.entries(DATA.sources).filter(([code])=>!codes||codes.has(code));
+  const byGroup={};all.forEach(([code,s])=>{(byGroup[s.group||"other"]=byGroup[s.group||"other"]||[]).push([code,s]);});
   const groups=Object.keys(byGroup).sort((a,b)=>{const ia=GROUP_ORDER.indexOf(a),ib=GROUP_ORDER.indexOf(b);return (ia<0?9:ia)-(ib<0?9:ib);});
   groups.forEach(g=>{const gd=el("div","srcgroup");
-    const codes=byGroup[g].map(x=>x[0]);
-    const allOn=codes.every(srcOn), someOn=codes.some(srcOn);
+    const gcodes=byGroup[g].map(x=>x[0]);
+    const allOn=gcodes.every(c=>sel.has(c)), someOn=gcodes.some(c=>sel.has(c));
     const h4=el("h4",null,GROUP_NAME[g]||g);
     const allLab=el("label","all");const allCb=el("input");allCb.type="checkbox";allCb.checked=allOn;allCb.indeterminate=someOn&&!allOn;
-    allCb.onchange=()=>{if(allCb.checked)codes.forEach(c=>state.enabledSources.add(c));else codes.forEach(c=>state.enabledSources.delete(c));afterSourceChange();};
+    allCb.onchange=()=>{gcodes.forEach(c=>allCb.checked?sel.add(c):sel.delete(c));onChange();};
     allLab.append(el("span",null,allOn?"all":someOn?"some":"none"));allLab.append(allCb);h4.append(allLab);gd.append(h4);
     const list=el("div","srclist");
     byGroup[g].sort((a,b)=>(b[1].counts.spells)-(a[1].counts.spells)).forEach(([code,s])=>{
-      const lab=el("label");const cb=el("input");cb.type="checkbox";cb.checked=srcOn(code);
-      cb.onchange=()=>{cb.checked?state.enabledSources.add(code):state.enabledSources.delete(code);afterSourceChange();};
+      const lab=el("label");const cb=el("input");cb.type="checkbox";cb.checked=sel.has(code);
+      cb.onchange=()=>{cb.checked?sel.add(code):sel.delete(code);onChange();};
       lab.append(cb);lab.append(el("span",null,s.name));lab.append(el("small",null,`${s.counts.spells}sp`));list.append(lab);});
     gd.append(list);wrap.append(gd);});
-  $("#srcSub").textContent=`${state.enabledSources.size} of ${Object.keys(DATA.sources).length} enabled`;
+  return all.length;
+}
+// the quick buttons that sit above a checklist ("all" / "none" / "2024 core only")
+function srcQuick(sel,onChange,codes){
+  const has=c=>!codes||codes.has(c);
+  const pool=Object.keys(DATA.sources).filter(has);
+  return {all:()=>{pool.forEach(c=>sel.add(c));onChange();},
+          none:()=>{pool.forEach(c=>sel.delete(c));onChange();},
+          core:()=>{pool.forEach(c=>sel.delete(c));CORE_2024.filter(has).forEach(c=>sel.add(c));onChange();}};
+}
+function renderSrcModal(){
+  const n=renderSourceChecklist($("#srcList"),state.enabledSources,afterSourceChange);
+  $("#srcSub").textContent=`${state.enabledSources.size} of ${n} enabled`;
 }
 function afterSourceChange(){ // drop now-hidden picks/classes
   state.classes=state.classes.filter(r=>{const c=CLS_BY[r.clsKey];return c&&visible(c);});
   state.classes.forEach(r=>{const s=r.subKey&&SUB_BY[r.subKey];if(s&&!visible(s))r.subKey=null;});
   state.feats=state.feats.filter(fk=>{const f=FEAT_BY[fk];return f&&visible(f);});
   const sp=RACE_BY[state.speciesKey];if(sp&&!visible(sp))state.speciesKey="";
+  // a newly enabled book must not stay invisible behind a stale filter override
+  if(state.filters.books)state.enabledSources.forEach(c=>state.filters.books.add(c));
   refreshAll();renderSrcModal();render();
 }
 function refreshAll(){refreshAddClass();refreshSpecies();refreshAddFeat();renderClassRows();renderFeatChips();}
@@ -1230,7 +1297,16 @@ $("#epicBtn").onclick=()=>openEntityPicker("feat","epic");
 $("#entClose").onclick=()=>$("#entityModal").classList.add("hidden");
 $("#entityModal").onclick=e=>{if(e.target.id==="entityModal")$("#entityModal").classList.add("hidden");};
 $("#entSearch").oninput=e=>{if(ENT){ENT.q=e.target.value;renderEntityList();}};
-$("#entBook").onchange=e=>{if(ENT){ENT.book=e.target.value;renderEntityList();}};
+$("#fBooksBtn").onclick=()=>{const p=$("#fBooksPanel");const nowHidden=p.classList.toggle("hidden");
+  $("#fBooksBtn").setAttribute("aria-expanded",String(!nowHidden));};
+{const F=()=>state.filters.books,q=()=>srcQuick(F(),renderSpells);
+ $("#fSrcAll").onclick=()=>q().all(); $("#fSrcNone").onclick=()=>q().none(); $("#fSrc2024").onclick=()=>q().core();
+ $("#fSrcReset").onclick=()=>{state.filters.books=new Set(state.enabledSources);renderSpells();};}
+$("#entBooksBtn").onclick=()=>{const p=$("#entBooksPanel"),open=p.classList.toggle("hidden");
+  $("#entBooksBtn").setAttribute("aria-expanded",String(!open));};
+{const q=()=>srcQuick(ENT.books,renderEntityList,entBookCodes());
+ $("#entSrcAll").onclick=()=>q().all(); $("#entSrcNone").onclick=()=>q().none(); $("#entSrc2024").onclick=()=>q().core();
+ $("#entSrcReset").onclick=()=>{ENT.books=new Set(state.enabledSources);renderEntityList();};}
 $("#entGrants").onchange=e=>{if(ENT){ENT.grantsOnly=e.target.checked;renderEntityList();}};
 $("#fq").oninput=e=>{state.filters.q=e.target.value;render();};
 $("#filterBtn").onclick=()=>{$("#filterPanel").classList.toggle("hidden");$("#filterBtn").classList.toggle("on");};
@@ -1239,7 +1315,6 @@ $("#fSchool").onchange=e=>{state.filters.school=e.target.value;render();};
 $("#fClass").onchange=e=>{state.filters.cls=e.target.value;render();};
 $("#fSave").onchange=e=>{state.filters.save=e.target.value;render();};
 $("#fDmg").onchange=e=>{state.filters.dmg=e.target.value;render();};
-$("#fBook").onchange=e=>{state.filters.book=e.target.value;render();};
 $("#fReprint").onchange=e=>{state.filters.reprint=e.target.value;refreshAll();render();};
 $("#fChosen").onclick=()=>{state.filters.chosen=!state.filters.chosen;render();};
 $("#tabBuild").onclick=()=>switchTab("build");
@@ -1284,9 +1359,8 @@ $("#importBuild").onclick=buildImport;
 $("#sourcesBtn").onclick=()=>{closeMenu();renderSrcModal();$("#srcModal").classList.remove("hidden");};
 $("#srcClose").onclick=()=>$("#srcModal").classList.add("hidden");
 $("#srcModal").onclick=e=>{if(e.target.id==="srcModal")$("#srcModal").classList.add("hidden");};
-$("#srcAll").onclick=()=>{state.enabledSources=new Set(Object.keys(DATA.sources));afterSourceChange();};
-$("#srcNone").onclick=()=>{state.enabledSources=new Set();afterSourceChange();};
-$("#src2024").onclick=()=>{state.enabledSources=new Set(["XPHB"]);afterSourceChange();};
+{const q=()=>srcQuick(state.enabledSources,afterSourceChange);
+ $("#srcAll").onclick=()=>q().all(); $("#srcNone").onclick=()=>q().none(); $("#src2024").onclick=()=>q().core();}
 $("#resetBtn").onclick=()=>{if(!confirm("Clear the whole build (classes, picks, filters)?"))return;
   state.classes=[];state.feats=[];state.speciesKey="";state.chosen={};state.choices={};state.nextRowId=1;
   state.filters=FILTER_DEFAULT();

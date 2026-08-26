@@ -140,12 +140,13 @@
   .sp .nm .badge{font-size:9.5px;font-weight:700;color:var(--gold);margin-left:5px}
   .sp .meta{grid-column:1;color:var(--muted);font-size:11px;display:flex;gap:8px;flex-wrap:wrap}
   .sp .take{grid-row:1/3;grid-column:2;display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;max-width:180px}
-  .take .tk{font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:14px;border:1px solid var(--line-strong);background:var(--panel);cursor:pointer;color:var(--muted);white-space:nowrap}
-  .take .tk:hover{border-color:var(--accent);color:var(--accent)}
-  .take .tk.on{background:var(--good);border-color:var(--good);color:var(--panel)}
-  .take .tk.gr{background:var(--good-soft);border-color:transparent;color:var(--good);cursor:default}
-  .take .tk.over{background:var(--bad-soft);border-color:var(--bad);color:var(--bad)}
-  .take .tk .c{font-variant-numeric:tabular-nums;font-weight:700;opacity:.85;margin-left:1px}
+  /* the take-chip is shared: pick chips in the build panel AND picker-row select buttons */
+  .tk{font:inherit;font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:14px;border:1px solid var(--line-strong);background:var(--panel);cursor:pointer;color:var(--muted);white-space:nowrap}
+  .tk:hover{border-color:var(--accent);color:var(--accent)}
+  .tk.on{background:var(--good);border-color:var(--good);color:var(--panel)}
+  .tk.gr{background:var(--good-soft);border-color:transparent;color:var(--good);cursor:default}
+  .tk.over{background:var(--bad-soft);border-color:var(--bad);color:var(--bad)}
+  .tk .c{font-variant-numeric:tabular-nums;font-weight:700;opacity:.85;margin-left:1px}
   .empty{color:var(--muted);text-align:center;padding:36px 20px;font-size:13px}
   .empty b{color:var(--ink);font-family:var(--font)}
   /* modal */
@@ -309,7 +310,21 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 .entname .entsrc{font-size:10px;color:var(--muted);font-weight:500;border:1px solid var(--line-strong);border-radius:4px;padding:0 4px}
 .entname .fmark{color:var(--accent);font-size:11px}
 .entprev{font-size:11px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.entrow .tk{flex:0 0 auto}
+/* a picker's local book override: the shared source checklist, inline under the filter bar */
+.srcpanel{border:1px solid var(--line);border-radius:10px;background:var(--panel-2);padding:12px 12px 4px;margin:0 0 10px}
+.srcpanel .quick{margin-bottom:12px}
+.srcpanel #entSrcList,.srcpanel .srcgroup:last-child{margin-bottom:0}
+.srcpanel .srclist{grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}
+.btn.srctoggle .badge{font-variant-numeric:tabular-nums;font-size:10px;color:var(--muted);margin-left:4px}
+.btn.srctoggle.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.btn.srctoggle.on .badge{color:var(--accent)}
+/* feat-kind row: preset to the slot, widened by the player */
+.pickbar.entcats{align-items:center;gap:10px;margin-top:-4px}
+.pickbar.entcats .fld{margin:0;flex:0 0 auto}
+.entname .entcat{font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--gold);
+  background:var(--gold-soft);border-radius:4px;padding:1px 5px;font-weight:600}
+.entrow .tk{flex:0 0 auto;padding:3px 10px;font-size:11px}
+.entrow .tk.on:hover{background:var(--bad-soft);border-color:var(--bad);color:var(--bad)}
 /* subclass alert state (level ≥ unlock, none chosen) */
 select.alert{border-color:var(--bad);box-shadow:0 0 0 2px var(--bad-soft)}
 label.fld.alert{color:var(--bad)}

@@ -88,7 +88,8 @@
             <div class="full"><label class="fld">Level</label><div class="cbrow" id="fLevel"></div></div>
             <div><label class="fld">School</label><select id="fSchool"><option value="">all schools</option></select></div>
             <div><label class="fld">Class / list</label><select id="fClass"><option value="">all classes</option></select></div>
-            <div><label class="fld">Source book</label><select id="fBook"><option value="">any book</option></select></div>
+            <div><label class="fld">Source book</label>
+              <button class="btn srctoggle" id="fBooksBtn" aria-expanded="false">Books <span class="badge" id="fBooksN"></span></button></div>
             <div><label class="fld">Casting time</label><div class="cbrow" id="fTime"></div></div>
             <div><label class="fld">Components</label><div class="cbrow" id="fComp"></div></div>
             <div><label class="fld">Tags</label><div class="cbrow" id="fTags"></div></div>
@@ -97,6 +98,15 @@
             <div><label class="fld">Editions</label><select id="fReprint">
               <option value="dedupe">Hide reprinted (newest only)</option>
               <option value="all">Show all versions</option></select></div>
+            <div class="full srcpanel hidden" id="fBooksPanel">
+              <div class="quick">
+                <button class="btn" id="fSrcAll">Enable all</button>
+                <button class="btn" id="fSrcNone">Disable all</button>
+                <button class="btn" id="fSrc2024">2024 core only</button>
+                <button class="btn" id="fSrcReset">Reset to my sources</button>
+              </div>
+              <div id="fSrcList"></div>
+            </div>
             <div class="full" style="text-align:right"><button class="btn" id="clearFilters">Clear filters</button></div>
           </div>
           <div id="spellList"></div>
@@ -150,8 +160,18 @@
   <div class="mb">
     <div class="pickbar">
       <input type="search" id="entSearch" placeholder="filter by name…">
-      <select id="entBook"><option value="">any book</option></select>
+      <button class="btn srctoggle" id="entBooksBtn" aria-expanded="false">Books <span class="badge" id="entBooksN"></span></button>
       <label class="cchk entgrants"><input type="checkbox" id="entGrants"><span>grants spells</span></label>
+    </div>
+    <div class="pickbar entcats" id="entCatRow"><label class="fld">Feat kind</label><div class="cbrow" id="entCats"></div></div>
+    <div class="srcpanel hidden" id="entBooksPanel">
+      <div class="quick">
+        <button class="btn" id="entSrcAll">Enable all</button>
+        <button class="btn" id="entSrcNone">Disable all</button>
+        <button class="btn" id="entSrc2024">2024 core only</button>
+        <button class="btn" id="entSrcReset">Reset to my sources</button>
+      </div>
+      <div id="entSrcList"></div>
     </div>
     <div id="entList"></div>
   </div>

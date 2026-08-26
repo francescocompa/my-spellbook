@@ -158,6 +158,39 @@ Note-batch 3 (v6.1 — SRD, budget rework, zip):
 - **D17 (2026-08-26) Public build flag** — build.py injects `window.__PUBLIC__=1` in `docs/`;
   app hides the 🎲 random-build helper when set.
 
+- **D27 (2026-08-26) Source selection is one global list, overridable per picker** — the
+  ⚙ Sources modal (grouped checkboxes + Enable all / 2024 core only) is the single place
+  books are chosen. Every picker (spells, feats, species) reuses **that same granular
+  component**, seeded from `state.enabledSources`, with a local override that does not write
+  back to the global setting. *Rejected:* named switchable presets (a preset manager is more
+  UI than the problem needs); per-picker defaults stored in settings (three lists to keep in
+  sync); keeping the one-line "any book" select (not the granularity Francesco asked for).
+  Overrides are **not** sticky across sessions — a picker opens on the global selection.
+- **D28 (2026-08-26) Optional features = every spell-granting type, filtered by source** —
+  extract `optionalfeatures.json` generically (name, source, `featureType`, prerequisites,
+  `additionalSpells`) plus each class/subclass's `optionalfeatureProgression`
+  (`featureType` + per-level count), so slots are data, not per-type code. Nothing 2014-only
+  gets special machinery: the existing source enablement + edition dedup (D19) decide what is
+  visible. Findings that shaped this: **artificer infusions grant no spells at all**, so they
+  are out by construction; the **2024 Artificer (EFA, 2025-12-09) has no
+  `optionalfeatureProgression`**; 2024 pact boons became invocations, so XPHB EI already
+  covers them. Spell-granting types present: EI 38, ED 12, PB 2, FS:P/FS:R 1 each.
+  Raw note: *"All of them. Check the 2024 artificer, do not build 2014 only outdated elements"*.
+  *Rejected:* invocations-only; invocations + pact boons only (the friction I raised — he
+  overrode it, and the generic progression data made the per-type cost I feared not exist).
+- **D29 (2026-08-26) Spell-table column rework** — order: prepare-marker · spell · save ·
+  school · time · range · components · duration · conc · casts · source-in-build · source-book.
+  Components cell = **cost inline** (mockup B): `V S M` then the price, **gold** when the
+  material survives, **accent + ⊗** when the spell consumes it. **Both source columns stay
+  always-on** (Francesco overrode my "hide the book by default" — the table will scroll
+  horizontally at narrow widths and that is accepted). The ⋯ overflow menu gets a **column
+  checklist with drag-to-reorder**; the layout is a **global preference**, not per build.
+  *Rejected:* quiet-letters (A) and material-chip (C) treatments; one merged source column;
+  header-drag reordering; per-build or unsaved column state.
+- **Note (2026-08-26):** the picker "design-system polish" backlog item was not a taste
+  question — `.entrow .tk` never matched the chip rules, which were scoped to `.take .tk`,
+  so the select buttons fell back to UA default styling. Fixed by unscoping `.tk`.
+
 ## Backlog (next sessions)
 ### v6.5 — Francesco's notes (2026-08-26)
 - [ ] **Design-system polish** on the new modals — some buttons and checkmarks in the feat /
