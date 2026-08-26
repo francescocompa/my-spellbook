@@ -766,11 +766,11 @@ function renderTable(){
     const tr=el("tr",sel?"":"unsel");
     // status indicator (read-only): ✓ always-prepared · ● prepared today · ✦ innate
     const ind=el("td","pickcell");
-    if(type==="free"){ind.textContent="✓";ind.classList.add("always");ind.title="Always prepared — a free grant that doesn’t count against your prepared list.";}
-    else if(type==="swap"){ind.textContent="●";ind.classList.add("on");ind.title="Prepared — swappable on a long rest (change it in Choices).";}
-    else if(type==="cast"){ind.textContent="✦";ind.classList.add("innate");ind.title="Innate / free cast — cast without preparing it.";}
-    else if(sp.level===0){ind.textContent="●";ind.classList.add("on");ind.title="Cantrip — always known, not re-prepared daily.";}
-    else{ind.textContent="●";ind.classList.add("on");ind.title="Prepared today — change it with Prepare daily.";}
+    if(type==="free"){ind.textContent="✓";ind.classList.add("always");attachTip(ind,tipBlock("Always prepared","A free grant — it doesn’t count against your prepared list."));}
+    else if(type==="swap"){ind.textContent="●";ind.classList.add("on");attachTip(ind,tipBlock("Prepared","Swappable on a long rest — change it in Choices."));}
+    else if(type==="cast"){ind.textContent="✦";ind.classList.add("innate");attachTip(ind,tipBlock("Innate / free cast","Cast without preparing it."+(recharge?" Cadence: "+recharge+".":"")));}
+    else if(sp.level===0){ind.textContent="●";ind.classList.add("on");attachTip(ind,tipBlock("Cantrip","Always known — not re-prepared daily."));}
+    else{ind.textContent="●";ind.classList.add("on");attachTip(ind,tipBlock("Prepared today","Change it with Prepare daily."));}
     tr.append(ind);
     const nmtd=el("td","nm");nmtd.textContent=sp.name;attachSpell(nmtd,sp);
     if(sp.ritual)nmtd.append(Object.assign(el("span"),{textContent:" R",style:"color:var(--gold);font-size:10px;font-weight:700"}));tr.append(nmtd);
@@ -925,7 +925,7 @@ function renderSpells(){
   syncOpt($("#fBook"),[...new Set(items.map(i=>i.sp.source))].sort().map(s=>[s,DATA.sources[s]?.name||s]),F.book,"any book");
   buildToggleRow($("#fTime"),[["action","Action"],["bonus","Bonus"],["reaction","Reaction"],["long","Longer"]],F.time);
   buildToggleRow($("#fComp"),[["v","V"],["s","S"],["m","M"]],F.comp);
-  buildToggleRow($("#fTags"),[["ritual","Ritual"],["conc","Concentr."],["atk","Atk roll"]],F.tags);
+  buildToggleRow($("#fTags"),[["ritual","Ritual"],["conc","Concentr."],["atk","Atk roll"],["upcast","Upcasts"],["consume","Consumes mat."]],F.tags);
   $("#fChosen").classList.toggle("on",F.chosen);
   const afc=activeFilterCount();$("#filterBtn").innerHTML="Filters"+(afc?` <span class="badge">${afc}</span>`:"");
 
@@ -943,6 +943,8 @@ function renderSpells(){
     if(F.tags.has("ritual")&&!sp.ritual)return false;
     if(F.tags.has("conc")&&!sp.conc)return false;
     if(F.tags.has("atk")&&!sp.atk)return false;
+    if(F.tags.has("upcast")&&!upcasts(sp))return false;
+    if(F.tags.has("consume")&&!(sp.comp&&sp.comp.consume))return false;
     if(F.chosen&&!chosenKeys.has(key(sp.name,sp.source)))return false;
     return true;
   });
@@ -1001,6 +1003,9 @@ function ccText(str){
 }
 // coloured casting-ability chip (monster-forge palette)
 function abChip(ab){return `<span class="abchip ${ab||""}">${ABIL_SHORT[ab]||ab||"—"}</span>`;}
+// a spell "upcasts" when it has higher-level entries; cantrips scale with character
+// level instead, so they never count.
+const upcasts=sp=>sp.level>0&&(sp.higher||[]).length>0;
 function compText(sp){const c=sp.comp||{};const p=[];if(c.v)p.push("V");if(c.s)p.push("S");if(c.m)p.push("M"+(c.mat?` (${c.mat})`:""));return p.join(", ")||"—";}
 function metaLine(sp){return `${sp.level===0?"Cantrip":ROMAN[sp.level]+"-level"} ${sp.school}${sp.ritual?" (ritual)":""}`;}
 function tipHTML(sp){return `<h4>${sp.name}</h4><div class="sub">${metaLine(sp)}</div>`
@@ -1011,6 +1016,12 @@ function posTip(ev){const pad=14,w=SPTIP.offsetWidth,h=SPTIP.offsetHeight;let x=
   if(x+w>innerWidth-8)x=ev.clientX-w-pad; if(y+h>innerHeight-8)y=innerHeight-h-8; SPTIP.style.left=Math.max(8,x)+"px";SPTIP.style.top=Math.max(8,y)+"px";}
 function showTip(sp,ev){SPTIP.innerHTML=tipHTML(sp);SPTIP.classList.add("show");posTip(ev);}
 function hideTip(){SPTIP.classList.remove("show");}
+// generic styled hover popover for anything that isn't a spell (markers, chips…).
+// Replaces a native `title`, which the OS renders slowly and unstyled.
+function attachTip(node,html){
+  node.onmouseenter=ev=>{SPTIP.innerHTML=html;SPTIP.classList.add("show");posTip(ev);};
+  node.onmousemove=posTip; node.onmouseleave=hideTip;}
+const tipBlock=(title,body)=>`<h4>${esc(title)}</h4><p style="margin-top:5px">${esc(body)}</p>`;
 // a description paragraph that is really a sub-heading (the extractor emits a named
 // entry's name as its own short "Title." line) — render it distinctly, not as body.
 const _TITLE_RE=/^[A-Z][A-Za-z0-9'’/\- ]{0,48}\.$/;

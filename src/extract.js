@@ -26,8 +26,10 @@ function rangeStr(sp){const r=sp.range||{};const typ=r.type,dist=r.distance||{};
   if(typ==="point"){const dt=dist.type;
     if(dt==="self")return["Self","self"];if(dt==="touch")return["Touch","touch"];
     if(dt==="feet"||dt==="miles")return[`${dist.amount||""} ${dt}`,"ranged"];
+    if(dt==="sight")return["Sight","ranged"];if(dt==="unlimited")return["Unlimited","ranged"];
     return[dt||"—","ranged"];}
-  if(["radius","sphere","cone","line","cube","hemisphere","cylinder"].includes(typ))
+  // 2024 renamed the self-centred shapes; "emanation" is the common one
+  if(["radius","sphere","cone","line","cube","hemisphere","cylinder","emanation"].includes(typ))
     return[`Self (${dist.amount||""} ft ${typ})`,"self"];
   if(typ==="special")return["Special","special"];
   if(typ==="sight")return["Sight","ranged"];
@@ -35,7 +37,9 @@ function rangeStr(sp){const r=sp.range||{};const typ=r.type,dist=r.distance||{};
   return[typ||"—","ranged"];}
 function components(sp){const c=sp.components||{};const m=c.m;
   const mat=(m&&typeof m==="object")?m.text:(typeof m==="string"?m:null);
-  return {v:!!c.v,s:!!c.s,m:!!m,mat:mat?richStrip(mat):null};}
+  // cost is in copper pieces; consume is true / "optional" when the spell eats the material
+  const md=(m&&typeof m==="object")?m:{};
+  return {v:!!c.v,s:!!c.s,m:!!m,mat:mat?richStrip(mat):null,cost:md.cost||null,consume:md.consume||false};}
 function durationText(sp){const d=(sp.duration&&sp.duration[0])||{};const t=d.type;
   if(t==="instant")return"Instantaneous";
   if(t==="permanent")return"Until dispelled"+(((d.ends||[]).includes("trigger"))?"/triggered":"");
@@ -108,27 +112,38 @@ function addSpellEntry(bucket,kind,at,recharge,s,feature,feats){
   if(ref.choice){const fc=chooseFilter(s);
     bucket.picks.push({kind,atLevel:at,recharge,count:fc[1],filter:fc[0],desc:ref.desc,feature});}
   else bucket.fixed.push({kind,atLevel:at,recharge,spell:ref,feature});}
+const CADENCE_KEYS=new Set(Object.keys(RECHARGE));   // will/daily/rest/resource -> a cadence map, not a spell list
+function emitCadence(b,at,cadmap,feature,feats){
+  // Route a {cadence: payload} innate-cast map into innate grants. Shared by the
+  // `innate` block and by prepared/known values written as a cadence map.
+  Object.entries(cadmap).forEach(([cadence,payload])=>{const base=RECHARGE[cadence]||cadence;
+    if(cadence==="will"||Array.isArray(payload)){(Array.isArray(payload)?payload:[payload]).forEach(s=>addSpellEntry(b,"innate",at,"at will",s,feature,feats));}
+    else if(payload&&typeof payload==="object"){Object.entries(payload).forEach(([freq,arr])=>{const n=numOf(freq)||1;
+      const label=n===1?base:`${n}× ${base}`;(Array.isArray(arr)?arr:[arr]).forEach(s=>addSpellEntry(b,"innate",at,label,s,feature,feats));});}});}
+const isCadence=v=>v&&typeof v==="object"&&!Array.isArray(v)&&Object.keys(v).length>0&&Object.keys(v).every(k=>CADENCE_KEYS.has(k));
 function normAbility(a){ if(a==null)return null;
   if(typeof a==="string")return a==="inherit"?{inherit:true}:{fixed:a};
   if(a&&typeof a==="object"&&"choose"in a)return{choose:a.choose};
   return null;}
 const numOf=x=>{const m=String(x).replace(/\D/g,"");return m?parseInt(m,10):0;};
+// Sidekicks (Expert/Spellcaster/Warrior) are DM-run NPC templates, not player classes.
+const EXCLUDE_CLASS=n=>/ Sidekick$/.test(n||"");
 const asArr=x=>Array.isArray(x)?x:(x==null?[]:[x]);   // 5etools sometimes uses a bare value, not a list
 function parseBlock(block,feats){const ft=block.name;
   const b={fixed:[],picks:[],expansions:[],ability:normAbility(block.ability)};
   Object.entries(block.prepared||{}).forEach(([lvl,arr])=>{const at=numOf(lvl);
+    if(isCadence(arr)){emitCadence(b,at,arr,ft,feats);return;}   // free casting on a cadence (feats)
     asArr(arr).forEach(s=>addSpellEntry(b,"prepared",at,"prepared (free)",s,ft,feats));});
   Object.entries(block.expanded||{}).forEach(([lvl,arr])=>{const at=SLOT_LEVEL_KEY[String(lvl)]!=null?SLOT_LEVEL_KEY[String(lvl)]:numOf(lvl);
+    if(isCadence(arr)){emitCadence(b,at,arr,ft,feats);return;}
     asArr(arr).forEach(s=>{ if(s&&typeof s==="object"&&"all"in s){const fc=chooseFilter({choose:s.all});b.expansions.push({atLevel:at,filter:fc[0],feature:ft||resolveFeature(feats,at,{choose:s.all})});}
       else addSpellEntry(b,"prepared",at,"expanded list",s,ft,feats);});});
   Object.entries(block.known||{}).forEach(([lvl,arr])=>{const at=numOf(lvl);
+    if(isCadence(arr)){emitCadence(b,at,arr,ft,feats);return;}
     asArr(arr).forEach(s=>addSpellEntry(b,"known",at,"always known",s,ft,feats));});
   Object.entries(block.innate||{}).forEach(([lvlkey,cadmap])=>{const at=(String(lvlkey)==="_"||String(lvlkey)==="")?0:numOf(lvlkey);
     if(!cadmap||typeof cadmap!=="object")return;
-    Object.entries(cadmap).forEach(([cadence,payload])=>{const base=RECHARGE[cadence]||cadence;
-      if(cadence==="will"||Array.isArray(payload)){(Array.isArray(payload)?payload:[payload]).forEach(s=>addSpellEntry(b,"innate",at,"at will",s,ft,feats));}
-      else if(payload&&typeof payload==="object"){Object.entries(payload).forEach(([freq,arr])=>{const n=numOf(freq)||1;
-        const label=n===1?base:`${n}× ${base}`;(Array.isArray(arr)?arr:[arr]).forEach(s=>addSpellEntry(b,"innate",at,label,s,ft,feats));});}});});
+    emitCadence(b,at,cadmap,ft,feats);});
   return b;}
 function parseGrants(add,feats){
   const out={fixed:[],picks:[],expansions:[],optionGroups:[],ability:null};
@@ -180,7 +195,8 @@ function buildDigest(files){
           dmg:uniqSort(sp.damageInflict),cond:uniqSort(sp.conditionInflict),save:uniqSort(sp.savingThrow),
           atk:!!sp.spellAttack,durTxt:durationText(sp),desc:flattenEntries(sp.entries),
           higher:flattenEntries(sp.entriesHigherLevel),reprinted:reprinted(sp),cls:[],sub:[],feat:[],race:[]};});
-      (j.class||[]).forEach(c=>{const cp=c.casterProgression,prepared=c.preparedSpellsProgression,known=c.spellsKnownProgression;
+      (j.class||[]).forEach(c=>{if(EXCLUDE_CLASS(c.name))return;   // sidekicks aren't player classes
+        const cp=c.casterProgression,prepared=c.preparedSpellsProgression,known=c.spellsKnownProgression;
         const change=c.preparedSpellsChange;const isStatic=(change==="level")||(!!known&&!prepared);
         const rec={name:c.name,source:c.source||"",group:bgroup(c.source||""),book:bname(c.source||""),reprinted:reprinted(c),
           caster:cp,ability:c.spellcastingAbility,static:!!(isStatic&&cp),
@@ -192,7 +208,8 @@ function buildDigest(files){
         if(ORDER_CANTRIP[okey])rec.bonusChoices.push(ORDER_CANTRIP[okey]);
         if(FS_CLASS_LEVEL[c.name]&&c.source==="XPHB")rec.grantsFightingStyle=FS_CLASS_LEVEL[c.name];
         classes.push(rec);});
-      (j.subclass||[]).forEach(sc=>{const rec={name:sc.name||"",shortName:sc.shortName||sc.name||"",source:sc.source||"",
+      (j.subclass||[]).forEach(sc=>{if(EXCLUDE_CLASS(sc.className||""))return;
+        const rec={name:sc.name||"",shortName:sc.shortName||sc.name||"",source:sc.source||"",
         group:bgroup(sc.source||""),book:bname(sc.source||""),reprinted:reprinted(sc),
         className:sc.className||"",classSource:sc.classSource||"",
         grants:parseGrants(sc.additionalSpells,subfeatIdx[(sc.className||"")+"|"+(sc.shortName||sc.name||"")+"|"+(sc.source||"")])};

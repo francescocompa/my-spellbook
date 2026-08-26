@@ -73,8 +73,11 @@ def range_str(sp):
         if dt == "touch": return "Touch", "touch"
         if dt in ("feet", "miles"):
             return f"{dist.get('amount','')} {dt}", "ranged"
+        if dt == "sight": return "Sight", "ranged"
+        if dt == "unlimited": return "Unlimited", "ranged"
         return dt or "—", "ranged"
-    if typ in ("radius", "sphere", "cone", "line", "cube", "hemisphere", "cylinder"):
+    # 2024 renamed the self-centred shapes; "emanation" is the common one
+    if typ in ("radius", "sphere", "cone", "line", "cube", "hemisphere", "cylinder", "emanation"):
         return f"Self ({dist.get('amount','')} ft {typ})", "self"
     if typ == "special": return "Special", "special"
     if typ == "sight": return "Sight", "ranged"
@@ -85,7 +88,12 @@ def components(sp):
     c = sp.get("components") or {}
     m = c.get("m")
     mat = m.get("text") if isinstance(m, dict) else (m if isinstance(m, str) else None)
-    return {"v": bool(c.get("v")), "s": bool(c.get("s")), "m": bool(m), "mat": rich_strip(mat) if mat else None}
+    # cost is in copper pieces; consume is True / "optional" when the spell eats the material
+    cost = m.get("cost") if isinstance(m, dict) else None
+    consume = m.get("consume") if isinstance(m, dict) else None
+    return {"v": bool(c.get("v")), "s": bool(c.get("s")), "m": bool(m),
+            "mat": rich_strip(mat) if mat else None,
+            "cost": cost or None, "consume": (consume if consume else False)}
 
 def duration_text(sp):
     d = (sp.get("duration") or [{}])[0]
@@ -225,6 +233,27 @@ def add_spell_entry(bucket, kind, at, recharge, s, feature=None, feats=None):
     else:
         bucket["fixed"].append({"kind": kind, "atLevel": at, "recharge": recharge, "spell": ref, "feature": feature})
 
+CADENCE_KEYS = set(RECHARGE)   # will/daily/rest/resource -> a cadence map, not a spell list
+
+def emit_cadence(b, at, cadmap, feature=None, feats=None):
+    """Route a {cadence: payload} innate-cast map into innate grants.
+       Shared by the `innate` block and by prepared/known values that 5etools
+       writes as a cadence map (e.g. a feat granting one free daily casting)."""
+    for cadence, payload in cadmap.items():
+        base = RECHARGE.get(cadence, cadence)
+        if cadence == "will" or isinstance(payload, list):
+            for s in (payload if isinstance(payload, list) else [payload]):
+                add_spell_entry(b, "innate", at, "at will", s, feature, feats)
+        elif isinstance(payload, dict):
+            for freq, arr in payload.items():
+                n = int(re.sub(r"\D", "", str(freq)) or 1)
+                label = base if n == 1 else f"{n}× {base}"
+                for s in (arr if isinstance(arr, list) else [arr]):
+                    add_spell_entry(b, "innate", at, label, s, feature, feats)
+
+def is_cadence(v):
+    return isinstance(v, dict) and bool(v) and all(k in CADENCE_KEYS for k in v)
+
 def norm_ability(a):
     if a is None: return None
     if isinstance(a, str): return {"inherit": True} if a == "inherit" else {"fixed": a}
@@ -239,9 +268,16 @@ def parse_block(block, feats=None):
     b = {"fixed": [], "picks": [], "expansions": [], "ability": norm_ability(block.get("ability"))}
     for lvl, arr in (block.get("prepared") or {}).items():
         at = int(re.sub(r"\D", "", str(lvl)) or 0)
-        for s in arr: add_spell_entry(b, "prepared", at, "prepared (free)", s, ft, feats)
+        if is_cadence(arr):                                 # free casting on a cadence (feats)
+            emit_cadence(b, at, arr, ft, feats)
+        else:
+            for s in (arr if isinstance(arr, list) else [arr]):
+                add_spell_entry(b, "prepared", at, "prepared (free)", s, ft, feats)
     for lvl, arr in (block.get("expanded") or {}).items():
         at = SLOT_LEVEL_KEY.get(str(lvl), int(re.sub(r"\D", "", str(lvl)) or 0))
+        if is_cadence(arr):
+            emit_cadence(b, at, arr, ft, feats)
+            continue
         for s in arr:
             if isinstance(s, dict) and "all" in s:          # list expansion (Magical Secrets)
                 f, _ = choose_filter({"choose": s["all"]})
@@ -251,22 +287,15 @@ def parse_block(block, feats=None):
                 add_spell_entry(b, "prepared", at, "expanded list", s, ft, feats)
     for lvl, arr in (block.get("known") or {}).items():
         at = int(re.sub(r"\D", "", str(lvl)) or 0)
+        if is_cadence(arr):
+            emit_cadence(b, at, arr, ft, feats)
+            continue
         arr = arr if isinstance(arr, list) else [arr]
         for s in arr: add_spell_entry(b, "known", at, "always known", s, ft, feats)
     for lvlkey, cadmap in (block.get("innate") or {}).items():
         at = 0 if str(lvlkey) in ("_", "") else int(re.sub(r"\D", "", str(lvlkey)) or 0)
         if not isinstance(cadmap, dict): continue
-        for cadence, payload in cadmap.items():
-            base = RECHARGE.get(cadence, cadence)
-            if cadence == "will" or isinstance(payload, list):
-                for s in (payload if isinstance(payload, list) else [payload]):
-                    add_spell_entry(b, "innate", at, "at will", s, ft, feats)
-            elif isinstance(payload, dict):
-                for freq, arr in payload.items():
-                    n = int(re.sub(r"\D", "", str(freq)) or 1)
-                    label = base if n == 1 else f"{n}× {base}"
-                    for s in (arr if isinstance(arr, list) else [arr]):
-                        add_spell_entry(b, "innate", at, label, s, ft, feats)
+        emit_cadence(b, at, cadmap, ft, feats)
     return b
 
 # 's6'..'s9' expanded keys = "when you can cast Nth-level spells" (full caster levels)
@@ -353,10 +382,14 @@ def parse_grants(add, feats=None):
     return out
 
 # ---- classes (casters AND non-casters) — built after the grant parsers -----
+# Sidekicks (Expert/Spellcaster/Warrior) are DM-run NPC templates, not player
+# classes — drop them from the class list and from subclass collection.
+EXCLUDE_CLASS = lambda n: n.endswith(" Sidekick")
 classes = []
 for f in glob.glob(os.path.join(MIRROR, "class", "class-*.json")):
     d = load(f)
     for c in d.get("class", []):
+        if EXCLUDE_CLASS(c["name"]): continue      # sidekicks aren't player classes
         cp = c.get("casterProgression")
         prepared = c.get("preparedSpellsProgression")
         known = c.get("spellsKnownProgression")
@@ -403,6 +436,7 @@ subclasses = []
 for f in glob.glob(os.path.join(MIRROR, "class", "class-*.json")):
     d = load(f)
     for sc in d.get("subclass", []):
+        if EXCLUDE_CLASS(sc.get("className", "")): continue
         rec = {"name": sc.get("name", ""), "shortName": sc.get("shortName", sc.get("name", "")),
                "source": sc.get("source", ""), "group": bgroup(sc.get("source", "")),
                "book": bname(sc.get("source", "")), "reprinted": reprinted(sc),
