@@ -499,6 +499,16 @@ stays out. Server sync or accounts. Sharing a build as a rendered page, or via a
   BELOW the block: you read the creature, then step. *Rejected:* the `<select>` book filter it
   replaces (it sat in the head and could only narrow to one book at a time).
 
+- **D82 (2026-08-27) The importer rejects Foundry payloads by name AND by marker** — a zip
+  carries per-directory `foundry.json` files alongside the top-level `foundry-*.json` ones, and
+  `zipWanted()` only matched the hyphenated form. Their stub records then won, because the
+  builder overwrites by `name|source` and pushes classes unconditionally. The name test drops
+  the hyphen; on top of it `dropFoundryStubs()` strips any entity carrying `migrationVersion`,
+  a Foundry-only field, so a differently-named dump cannot repeat this. **Anyone who imported
+  before this must re-import** — the corrupt records are already in their localStorage.
+  *Rejected:* filtering only by `migrationVersion` (the name test also saves parsing three large
+  files); detecting the corruption at boot and warning (machinery for a one-off).
+
 ### Settled — recorded so they aren't re-proposed
 Headline + rejected options only; reasoning → `ARCHIVE.md#rationale`.
 - **D7** Source counts in chips — per-source `n/cap` on take chips, red over forecast.
@@ -619,10 +629,21 @@ Headline + rejected options only; reasoning → `ARCHIVE.md#rationale`.
   (CLS_BY, SPELL_BY, …) are `let`, rebuilt on every content change — never captured.
 - **extract.js ↔ extract.py** must stay in sync (same digest shape). `asArr`/coerced
   `parseGrants` handle 5etools bare-value-instead-of-list quirks.
-- **Test the extractors in Node, not by eye**, and **exclude `foundry*.json`** from the harness
-  walker. extract.py never reads those files; left in, they overwrite real entries by
-  `name|source` and manufacture ~39 false diffs. Filtered out, parity is **exact**: 276/276 feats,
-  213/213 optional features, prereqs byte-identical.
+- **`foundry*.json` is the single most damaging file class in a 5etools zip, and it bit for
+  real (D82).** extract.py never reads them (it globs `spells-*.json` / `class-*.json`
+  explicitly), but the importer's `zipWanted()` excluded only `foundry-*.json` — so
+  `spells/foundry.json` (319 stubs), `class/foundry.json` (12 classes + 19 subclasses) and
+  `bestiary/foundry.json` (11 monsters) all sailed through and **overwrote real records by
+  `name|source`**. Symptom: a spell modal with a level, school, range, components, duration and
+  description all blank, and an import report reading 39 classes / 341 subclasses instead of
+  27 / 315. Fixed on the name (`startsWith("foundry")`) plus a `migrationVersion` guard, since
+  that field marks a Foundry stub and no real record carries it.
+- **A parity harness must drive the REAL predicates.** The old `scratchpad/cparity.js` rolled its
+  own file filter that happened to be STRICTER than `zipWanted()` — which is exactly how the bug
+  above hid through two sessions of "parity is exact". It now imports `zipWanted` and
+  `dropFoundryStubs` from extract.js and asserts on the record that broke. Parity is **exact**:
+  936 spells, 27 classes, 65 monsters, 276/276 feats, 213/213 optional features, prereqs
+  byte-identical.
 - **Spell-source lookup** (`generated/gendata-spell-source-lookup.json`) is what gives spells
   their `cls`/`sub`/`feat`/`race` access — without it imported spells match no class.
 - **`innate` has two shapes.** `{"_": {"daily": {...}}}` (a cadence map) AND

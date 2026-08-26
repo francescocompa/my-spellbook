@@ -1997,10 +1997,23 @@ function zipWanted(path){
   if(!/\.json$/i.test(path))return false;
   const p=path.toLowerCase(),base=p.split("/").pop();
   if(/spell-source-lookup/.test(base))return true;   // the class-access lookup we need (lives under generated/)
-  if(base.startsWith("fluff-")||base.startsWith("foundry-"))return false;
+  // "foundry-" missed `spells/foundry.json`, `class/foundry.json` and
+  // `bestiary/foundry.json` — three files of Foundry STUBS that then overwrote the real
+  // records by name|source (hollow spells, 12 phantom classes, 19 phantom subclasses).
+  // extract.py never sees them: it globs `spells-*.json` / `class-*.json` explicitly.
+  if(base.startsWith("fluff-")||base.startsWith("foundry"))return false;
   if(/(^|\/)(generated|roll20|foundry|makebrew|partnered)\//.test(p))return false;
   if(/(^|\/)(adventure|book)\//.test(p))return false;   // long-form prose
   return true;}
+const isFoundryStub=o=>!!(o&&o.migrationVersion!==undefined);
+function dropFoundryStubs(j){
+  if(!j||typeof j!=="object")return j;
+  let hit=false; const out={};
+  for(const k of Object.keys(j)){
+    const v=j[k];
+    if(Array.isArray(v)&&v.some(isFoundryStub)){hit=true;out[k]=v.filter(x=>!isFoundryStub(x));}
+    else out[k]=v;}
+  return hit?out:j;}
 function usefulJson(j){return !!(j&&typeof j==="object"&&((Array.isArray(j.monster)&&j.monster.some(carriedMonster))||Array.isArray(j.spell)||Array.isArray(j.class)||Array.isArray(j.subclass)||Array.isArray(j.feat)||Array.isArray(j.race)||Array.isArray(j.subrace)||Array.isArray(j.optionalfeature)||Array.isArray(j.book)||looksLikeLookup(j)));}
 async function unzipJsonFiles(buf,onFile){
   if(typeof DecompressionStream==="undefined")throw new Error("This browser can’t unzip files. Upload the .json files individually instead.");
@@ -2021,10 +2034,11 @@ async function unzipJsonFiles(buf,onFile){
     let raw; if(e.method===0)raw=comp; else if(e.method===8)raw=await inflateRaw(comp); else continue;
     let json=null;try{json=JSON.parse(td.decode(raw));}catch(_){json=null;}
     if(onFile)onFile(e.name,i+1,wanted.length);
+    json=dropFoundryStubs(json);
     if(json&&usefulJson(json))out.push({name:e.name.split("/").pop(),json:slimJson(json)}); }
   return out;}
 
-window.SB_extract={buildDigest,unzipJsonFiles,slimJson};
+window.SB_extract={buildDigest,unzipJsonFiles,slimJson,zipWanted,dropFoundryStubs};
 })();
 
 </script>

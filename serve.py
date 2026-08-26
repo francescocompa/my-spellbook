@@ -12,7 +12,9 @@ import socketserver
 import sys
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
+# PORT (env) wins so a harness that assigns a free port can drive this; the positional
+# argument still works for the documented `python3 serve.py 8000`.
+PORT = int(os.environ.get("PORT") or (sys.argv[1] if len(sys.argv) > 1 else 8000))
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
