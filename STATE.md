@@ -2,25 +2,28 @@
 
 > Resume doc. One current-state block, edited in place. History → git log.
 
-## TL;DR (2026-08-26 · commit 575ce5c · v6.4 · **LIVE on GitHub Pages**)
-- **State:** working, committed + **deployed** (clean tree, pushed). This session shipped
-  v6.2→v6.4 on top of v6.1: per-level **budget caps** for known/level-swap casters (L8 Bard
-  IV/III/II/I = 4/9/12/12; daily preparers free); **wizard spellbook** = progressive book cap
-  + copy-beyond-limits; **edition de-dup** (same-named entities collapse to 2024, reprint→all
-  reveals older); **grant feature names** (93% — "Abjuration Savant", "Spell Breaker"); spell
-  modal **Access** section (collapsed, per-category chips); quiet **description sub-headings**;
-  grant **level ranges** (0-2); **species & feats picker modals** (filters + grant preview).
-  Decisions D18–D26. All verified in-browser.
-- **Next action:** pick from the **v6.5 backlog** (Francesco's 2026-08-26 notes — top of Backlog):
-  the shared feat picker + player-editable source-filter presets, and the spell-table column
-  rework are the biggest. Two quick bugs first (prepare-state hover popover; Thunderclap range).
-- **Manual for Francesco:** ① Optional — ask GitHub Support to gc so the *old* unreachable
-  commits (SHA 2c8bbb6 etc., held only in `backup/pre-purge-20260826` locally) stop being
-  SHA-addressable on GitHub. ② To update the live site: `python3 extract.py` (if data changed)
-  → `python3 build.py` → commit → push (Pages serves `main:/docs`). ③ `dist/`, `data/`,
-  `data-srd.json` are gitignored (local only); public SRD data is inlined in committed `docs/`.
-  ④ A background task (task_b9736375) is fixing the innate-cast parsing (phantom "Daily"/"Rest"
-  grants) in its own session — merge/branch it when it reports back.
+## TL;DR (2026-08-26 · commit 34ea6f2 · v6.6 · **LIVE on GitHub Pages**)
+- **State:** working, committed + **pushed** (clean tree). This session cleared the whole
+  **v6.5 backlog** and then a second batch of Francesco's notes (**v6.6**): innate-cast fix
+  merged; `emanation` ranges; sidekicks dropped; upcast/consumed filters; styled prepare-marker
+  popover; **shared source checklist** in every picker; **one unified feat picker**;
+  **spell-table column rework** (registry + drag-to-reorder, global preference);
+  **optional features** (invocations/metamagic/pact boons, slots from data);
+  **prerequisites** end-to-end (extract → evaluate → sort → flag); **grouped choices** with
+  category tags; picker **overflow menus** + budget pills. Decisions D27–D31.
+  All verified in-browser; extract.py ↔ extract.js parity re-validated in Node.
+- **Next action:** **v7 · saved builds** — start at **T1 (storage + migration)**, but the
+  four 🔶 decisions under "Next phase" gate it. Ask them first (the source-ownership one
+  conflicts with D27 and needs Francesco's call). **Done when:** an existing session reloads
+  into a named build with nothing lost, and a fresh session gets one empty build.
+- **Manual for Francesco:** ① 🔶 Four decisions gate v7 T1 — see "Next phase → Decisions
+  needed". ② Optional — ask GitHub Support to gc so the *old* unreachable commits (SHA
+  2c8bbb6 etc., held only in `backup/pre-purge-20260826` locally) stop being SHA-addressable.
+  ③ To update the live site: `python3 extract.py` (if data changed) → `python3 build.py` →
+  commit → push (Pages serves `main:/docs`). ④ `dist/`, `data/`, `data-srd.json` are
+  gitignored (local only); public SRD data is inlined in committed `docs/`.
+  ⑤ **The bare-list `innate` fix changes existing builds** — 42 grant blocks that were
+  silently dropped now resolve, so a saved build may gain spells it should always have had.
 
 ## What this is
 Offline single-page D&D 2024 spell planner. Two builds from one source:
@@ -76,7 +79,7 @@ Note-batch 3 (v6.1 — SRD, budget rework, zip):
 - [x] **Empty-search custom CTA** — "Create <query> as a custom spell", prefilled.
 - [x] **🎲 random build hidden on the public build** (`window.__PUBLIC__`) (D17).
 
-## Decisions (v6 → v6.4)
+## Decisions (v6 → v6.6)
 - **D7 (2026-08-26) Source counts in chips** — per-source `n/cap` on the take chips
   (cantrips vs prepared/known bucket), red over forecast. *Rejected:* per-source counts in the group toolbar (too complex for multi-source).
 - **D8 (2026-08-26) Prepare-daily** — one modal step per **non-static** caster (daily +
@@ -140,7 +143,8 @@ Note-batch 3 (v6.1 — SRD, budget rework, zip):
   filter + "grants spells" toggle, each row showing name + source + ✦ + a `grantPreview()` of
   what it grants; select commits (species = single, feats = multi). **Three entry points kept**
   (each pre-scoped to its feat category — Francesco's call). `grantPreview` skips empty-source
-  fixed entries (extract innate-parsing artifact; spawned task task_b9736375).
+  fixed entries (was an extract innate-parsing artifact; fixed in v6.5a — the guard is harmless
+  and stays as a belt-and-braces).
 - **D25 (2026-08-26) Access collapsed by default** — the modal Access section shows one merged
   horizontal-scroll row of all sources inline with the label + a ⌄ expander that reveals the
   per-category line-up (`data-exp` toggle). Was always-expanded (D21).
@@ -180,8 +184,7 @@ Note-batch 3 (v6.1 — SRD, budget rework, zip):
   overrode it, and the generic progression data made the per-type cost I feared not exist).
 - **D29 (2026-08-26) Spell-table column rework** — order: prepare-marker · spell · save ·
   school · time · range · components · duration · conc · casts · source-in-build · source-book.
-  Components cell = **cost inline** (mockup B): `V S M` then the price, **gold** when the
-  material survives, **accent + ⊗** when the spell consumes it. **Both source columns stay
+  ~~Components cell = **cost inline** (mockup B)~~ **SUPERSEDED → D32** (icon + colour, price in a popover). **Both source columns stay
   always-on** (Francesco overrode my "hide the book by default" — the table will scroll
   horizontally at narrow widths and that is accepted). The ⋯ overflow menu gets a **column
   checklist with drag-to-reorder**; the layout is a **global preference**, not per build.
@@ -191,7 +194,28 @@ Note-batch 3 (v6.1 — SRD, budget rework, zip):
   question — `.entrow .tk` never matched the chip rules, which were scoped to `.take .tk`,
   so the select buttons fell back to UA default styling. Fixed by unscoping `.tk`.
 
-## Done — v6.5 (this session; all verified in-browser)
+- **D30 (2026-08-26) Choices grouped by their granting entity** — `resolveGrants` carries an
+  `owner {id,name,src,kind}` through nested option groups, so the choices panel groups every
+  row a single entity produced (Magic Initiate's four rows become one block) and tags each
+  row/group with its category (class · subclass · species · feat · optional feature). A lone
+  choice keeps the flat row, with the tag added. *Rejected:* grouping by the composed giver
+  label (breaks as soon as an option group renames the giver).
+- **D31 (2026-08-26) Prerequisites are advisory, never prohibitive** — both extractors emit
+  `prereqs`: one record per OR-alternative, splitting the checkable parts (level, feats,
+  optional features, species, spellcasting, pact) from the display text. Ability scores,
+  proficiencies, backgrounds and campaigns are **not modelled**, so an alternative carrying
+  one resolves to "maybe" and can never read as a hard no. Pickers sort eligible entries
+  first and dim the rest below a divider (opt-in "hide ones I can't take"); a picked entity
+  whose prerequisites lapse gets a ⚠ chip and is **kept in the build**. Same path for feats
+  and invocations. *Rejected:* hiding ineligible entries by default (would hide legal picks
+  the app can't verify); blocking selection outright (enforcement everywhere else is soft).
+- **D32 (2026-08-26) Material component moved to a popover** — the table's components cell is
+  back to plain `V S M`, the M tinted gold (costly, kept) or accent (consumed); the material
+  text and price live in a hover/tap popover on the M. Supersedes D29's cost-inline treatment
+  (mockup B), which Francesco had picked and then reversed after seeing it in place: the price
+  widened the column for a fact you rarely need mid-scan. *Rejected:* keeping cost inline.
+
+## Done — v6.5 / v6.6 (this session; all verified in-browser)
 - [x] 🐛 **Innate-cast parsing** merged from `claude/zen-rhodes-4b15f8` — a cadence map under
   prepared/known/expanded is routed through `emit_cadence` instead of being read as a spell list.
 - [x] 🐛 **Thunderclap range** — 2024's `emanation` shape was unhandled (69 spells rendered as a
@@ -214,6 +238,23 @@ Note-batch 3 (v6.1 — SRD, budget rework, zip):
   was skipped by the `isinstance(cadmap, dict)` guard, so 23 of 54 spell-granting optional features
   produced nothing. Fixed in both extractors → 54/54. **This also affected feats/species/classes
   using the same shorthand**, so some grants that were silently missing now appear.
+
+### v6.6 — Francesco's second batch (2026-08-26)
+- [x] **Components cell back to icon + colour**; material text + price in a popover on the M,
+  tap-to-show on touch, Esc / outside click to dismiss (D32).
+- [x] **Feat pickers show what you still owe** at this level — budget pills (origin / general /
+  epic boon, or the slot's own count for optional features).
+- [x] **Choices grouped by granting entity** + category tag on every row/group (D30).
+- [x] **"In build" column renamed to Source** (`book` remains the printed book).
+- [x] **Always-prepared block** is a real title with a muted explainer; "free" removed — it read
+  as at-will.
+- [x] **Prerequisites** end-to-end (D31) — extracted for feats *and* optional features, evaluated
+  against the build, eligible-first ordering with a dimmed blocked section, ⚠ on picked entities
+  whose prerequisites lapse.
+- [x] **Feat kind always offers Epic boon**, unselected below level 19.
+- [x] **Books / grants-spells / feat-kind moved into a per-picker overflow menu**, with a count
+  badge when any filter is off its default.
+- [x] **v7 planned** — see "Next phase" (shape, six tasks, four gating decisions).
 
 ## Next phase — v7: saved builds
 
@@ -276,13 +317,14 @@ the column layout stay global — they're content and preferences, not character
 Level-up history/snapshots. Server sync or accounts. Sharing a build as a rendered page.
 
 ## Backlog (next sessions)
-### v6.5 leftovers
-- [ ] **Feat prerequisites are display-only** — optional features show `needs Warlock level 2, …`
-  but nothing is enforced, and feats carry no `prerequisite` in the digest at all. Francesco's
-  "a general slot may take an origin feat **if prerequisites are met**" is therefore half-built:
-  the picker allows it, the rules don't check it. ⚑ (owner: Francesco, 2026-08-26)
+### v6.5 / v6.6 leftovers
+- [x] ~~**Feat prerequisites are display-only**~~ Done (D31) — extracted, evaluated and surfaced
+  for feats and optional features. Enforcement stays **advisory by design**, not an omission.
+- [ ] **Prerequisites we can't check**: ability scores, proficiencies, backgrounds and campaigns
+  aren't in the app's model, so those alternatives read "check …" rather than pass/fail. Closing
+  this means tracking ability scores — a bigger change than it looks. ⚑ (owner: Francesco, 2026-08-26)
 - [ ] **Feat budget attribution when categories are crossed** — a general slot holding an origin
-  feat still counts against `origin`, so the budget note can read `origin 2/1`. Soft-flagged only.
+  feat still counts against `origin`, so the budget pill can read `origin 2/1`. Soft-flagged only.
 - [ ] **Ability column** wasn't in Francesco's column order; kept visible in place so the table
   didn't regress. Confirm whether it should default to hidden.
 ### earlier
@@ -291,8 +333,8 @@ Level-up history/snapshots. Server sync or accounts. Sharing a build as a render
 - [ ] Wizard prepare-daily: separate **prepared subset** from the spellbook/known list (partly
   addressed by D20 — book cap + copy modelled; the daily prepared *subset* pick is still flat).
 - [x] ~~**Grant feature names** — correlate `additionalSpells` to subclassFeatures.~~ Done (D24, ~93%).
-- [ ] 🐛 **Innate-cast parsing** — feats' innate/at-will blocks emit phantom "Daily"/"Rest" fixed
-  grants (empty source). Preview guarded; real fix in flight (background task task_b9736375).
+- [x] ~~🐛 **Innate-cast parsing** — phantom "Daily"/"Rest" grants from feats' innate blocks.~~
+  Done — merged from `claude/zen-rhodes-4b15f8`, plus a second bug found on top (bare-list `innate`).
 - [ ] Custom-spell **manager** (list all homebrew to edit/delete without opening each).
 - [x] ~~Feature names for 2024 blocks (Lore's "Magical Discoveries" → subclass name fallback).~~ Done (D24).
 - [ ] High Elf true in-table cantrip swap; Human extra-origin restricted to origin cats.
@@ -324,5 +366,22 @@ Level-up history/snapshots. Server sync or accounts. Sharing a build as a render
 - Cart/choices keyed by stable row id (`state.nextRowId`), never array index.
 - **History purge:** old data-bearing commits are unreachable on origin but GitHub may
   still serve them by exact SHA until it gc's. `backup/pre-purge-20260826` (local) has the original.
+- **`innate` has two shapes.** `{"_": {"daily": {...}}}` (a cadence map) AND `{"_": ["mage armor|xphb"]}`
+  (a bare list = at-will). The list form was skipped by an `isinstance(dict)` guard, silently
+  dropping **42 grant blocks** (23 optional features, 9 subclasses, 9 species, 1 class). Both
+  extractors handle both now — if grants ever go missing, check this first.
+- **Prerequisites are advisory (D31).** `prereqState()` returns ok/maybe/no; "maybe" means the
+  app can't verify (ability scores, proficiencies, backgrounds). Never turn "maybe" into "no" —
+  it would hide legal picks. Nothing is ever blocked or auto-removed, only flagged.
+- **Column layout is global**, under its own key `spellForge.table.v1` — NOT part of the build
+  blob. Adding a column means adding it to both `TABLE_COLS` and `COL_ORDER_DEFAULT`;
+  `loadTableOpts` appends unknown-but-new keys so an old saved order doesn't hide a new column.
+- **Picker book overrides can widen** past the global source list. Committing a pick from a
+  globally-disabled book **enables that book** — otherwise `afterSourceChange()` prunes the pick
+  straight back out. The spell filter's override can only narrow (the pool is already gated).
+- **Test the extractors in Node, not by eye:** `scratchpad/valid.js` walks the mirror and diffs
+  `extract.js` against `data/data.json`. Ignore its class/subclass counts — its walker also
+  feeds `foundry.json`, which extract.py never reads; spells/feats/races/optfeats are the
+  meaningful columns.
 
-⟳ Rename previous session → "Budget caps, wizard book, feature names, pickers"  · session: resolve by cwd + latest
+⟳ Rename previous session → "v6.5 and v6.6: optional features, prerequisites, columns"  · session: resolve by cwd + latest
