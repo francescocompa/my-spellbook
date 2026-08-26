@@ -253,18 +253,13 @@ function compute(){
   casters.forEach(r=>{ const ch=state.chosen[r.idx]||{cantrips:[],spells:[]};
     const cp=caps[r.idx];
     const spItems=(ch.spells||[]).map(k=>SPELL_BY[k]).filter(Boolean);
-    const overLevels={};
-    // Wizard-style spellbook: KNOWN spells are tracked per level from the book's
-    // growth (they know more than they prepare, and can't retrain the book).
+    const overLevels={};   // distribution across levels is free — only the total + max level bind
+    // Wizard-style spellbook: KNOWN total from the book's growth (they know more than
+    // they prepare); any level up to maxLvl may be added, free across levels.
     let known=null;
     if(r.spellbook!=null && r.c.spellbook){
-      const add=r.c.spellbook, cl=r.level, maxL=r.maxLvl, capAtLeast={};
-      for(let L=1;L<=maxL;L++){let s=0;for(let k=1;k<=cl;k++){if(maxLvlAt(r.caster,k)>=L)s+=add[k-1]||0;}capAtLeast[L]=s;}
-      const dist={};for(let L=maxL;L>=1;L--)dist[L]=capAtLeast[L]-(capAtLeast[L+1]||0);
-      const total=r.spellbook;
-      for(let L=1;L<=maxL;L++){const cnt=spItems.filter(s=>s.level>=L).length; if(cnt>(capAtLeast[L]||0))overLevels[L]=true;}
-      known={dist,total,maxL,capAtLeast};
-    } else if(cp&&cp.static){ for(let L=1;L<=cp.maxL;L++){ const cnt=spItems.filter(s=>s.level>=L).length; if(cnt>(cp.cap[L]||0))overLevels[L]=true; } }
+      known={total:r.spellbook,maxL:r.maxLvl};
+    }
     // Magical-Secrets style expansion: spells drawn from OTHER lists are capped
     // at (prepared gained since the feature) + (retrains since the feature).
     // Only genuine other-list expansions count — a subclass whose expansion is
@@ -429,10 +424,11 @@ function casterClassList(){const seen={};DATA.classes.forEach(c=>{if(!visible(c)
   const casterish=c.caster||(SUBS_OF[key(c.name,c.source)]||[]).some(s=>s.caster);
   if(casterish&&!seen[c.name])seen[c.name]=key(c.name,c.source);});
   return Object.keys(seen).sort().map(n=>({name:n,k:seen[n]}));}
-function openCustom(existing){
-  CFORM=existing||{name:"",level:0,school:"Evocation",ritual:false,time:"action",range:"",duration:"Instantaneous",
-    conc:false,v:true,s:false,m:false,mat:"",save:"",atk:false,dmg:"",classes:[],desc:"",higher:""};
-  CSTEP=0; $("#customTitle").textContent=existing?"Edit custom spell":"New custom spell";
+function customBlank(){return {name:"",level:0,school:"Evocation",ritual:false,time:"action",range:"",duration:"Instantaneous",
+  conc:false,v:true,s:false,m:false,mat:"",save:"",atk:false,dmg:"",classes:[],desc:"",higher:""};}
+function openCustom(prefill,editing){
+  CFORM=Object.assign(customBlank(),prefill||{});
+  CSTEP=0; $("#customTitle").textContent=editing?"Edit custom spell":"New custom spell";
   $("#customModal").classList.remove("hidden"); renderCustomStep();}
 function cerr(msg){$("#customErr").textContent=msg||"";}
 function renderCustomStep(){
@@ -527,13 +523,23 @@ function renderImportStage(){const box=$("#importStaged");if(!box)return;box.inn
     chip.append(el("span","k",f.error?"invalid":countFile(f.json)));
     const x=el("button",null,"×");x.onclick=()=>{IMPORT_STAGE.splice(i,1);renderImportStage();};chip.append(x);box.append(chip);});
   const bb=$("#importBuild");if(bb)bb.disabled=!IMPORT_STAGE.some(f=>!f.error);}
-function stageFiles(fileList){const arr=[...fileList];let pending=arr.length;if(!pending)return;
-  arr.forEach(file=>{const rd=new FileReader();
-    rd.onload=()=>{try{IMPORT_STAGE.push({name:file.name,json:JSON.parse(rd.result)});}catch(e){IMPORT_STAGE.push({name:file.name,error:true});}if(--pending===0)renderImportStage();};
-    rd.onerror=()=>{IMPORT_STAGE.push({name:file.name,error:true});if(--pending===0)renderImportStage();};
+async function stageZip(file){const rep=$("#importReport");
+  try{rep.textContent="Reading "+file.name+"…";const buf=await file.arrayBuffer();
+    const entries=await window.SB_extract.unzipJsonFiles(buf);
+    if(!entries.length){rep.textContent="No recognised 5etools files in "+file.name+".";return;}
+    entries.forEach(e=>IMPORT_STAGE.push(e));rep.textContent="";renderImportStage();}
+  catch(e){rep.textContent="Couldn’t read "+file.name+": "+(e.message||e);}}
+function stageFiles(fileList){[...fileList].forEach(file=>{
+    if(/\.zip$/i.test(file.name)){stageZip(file);return;}
+    const rd=new FileReader();
+    rd.onload=()=>{try{IMPORT_STAGE.push({name:file.name,json:JSON.parse(rd.result)});}catch(e){IMPORT_STAGE.push({name:file.name,error:true});}renderImportStage();};
+    rd.onerror=()=>{IMPORT_STAGE.push({name:file.name,error:true});renderImportStage();};
     rd.readAsText(file);});}
 function importSummary(r){return `${r.spells} spells · ${r.classes} classes · ${r.subclasses} subclasses · ${r.feats} feats · ${r.species} species`+(r.lookup?"":" · ⚠ no spell-source lookup — spells won’t know their classes; add generated/gendata-spell-source-lookup.json");}
-function openImport(){closeMenu();const r=$("#importReport");if(r)r.textContent=IMPORTED?"Imported data is active. Building again replaces it.":"";renderImportStage();$("#importModal").classList.remove("hidden");}
+function openImport(welcome){closeMenu();const r=$("#importReport");if(r)r.textContent=IMPORTED?"Imported data is active. Building again replaces it.":"";
+  const w=$("#importWelcome");if(w)w.classList.toggle("hidden",!welcome);
+  const t=$("#importTitle");if(t)t.textContent=welcome?"Load your spell data":"Import 5etools data";
+  renderImportStage();$("#importModal").classList.remove("hidden");}
 function buildImport(){
   const files=IMPORT_STAGE.filter(f=>!f.error).map(f=>({name:f.name,json:f.json}));
   const rep=$("#importReport");
@@ -547,16 +553,12 @@ function buildImport(){
   IMPORT_STAGE=[];renderImportStage();refreshAll();render();
   rep.innerHTML=`<b style="color:var(--good)">Loaded.</b> ${importSummary(report)}. Close to see it.`;}
 function clearImport(){try{localStorage.removeItem(LS_IMPORT);}catch(e){}assembleData();pruneState();refreshAll();render();}
-// no-content build (public deploy): prompt to import instead of an empty app
-function maybeOnboard(){let o=$("#onboard");
-  if(hasContent()){if(o)o.remove();return;}
-  if(o)return;
-  o=el("div","onboard");o.id="onboard";
-  o.append(Object.assign(el("h2"),{textContent:"Load your spell data"}));
-  o.append(Object.assign(el("p"),{textContent:"This build ships without 5etools content. Import a 5etools data export (or paste a file) to populate spells, classes and more — it all stays in your browser."}));
-  const b=el("button","btn on","Import 5etools data");b.onclick=openImport;o.append(b);
-  const b2=el("button","btn","Add a custom spell");b2.style.marginLeft="8px";b2.onclick=()=>openCustom();o.append(b2);
-  const wrap=$(".wrap"),layout=$("#buildView");if(wrap&&layout)wrap.insertBefore(o,layout);}
+// no-content build (public deploy): pop the import modal in welcome mode, once
+let onboardShown=false;
+function maybeOnboard(){
+  if(hasContent()){onboardShown=false;return;}
+  if(onboardShown)return; onboardShown=true;
+  openImport(true);}
 
 // ── table view ─────────────────────────────────────────────────────────────
 const tableOpts={group:"level"};
@@ -715,10 +717,10 @@ function renderCart(){
     const kn=c.known;
     const kindLabel=kn?"spellbook":r.static?"level-swap":"daily";
     const kindTip=kn
-      ? `Wizard-style spellbook: you know ${kn.total} spells (they can't be freely retrained — one swap per level). You prepare ${r.prepared} of them each long rest. Any Wizard spell up to ${ROMAN[r.maxLvl]} level can be added to the book. Tiles show best-case known per spell level.`
+      ? `Wizard-style spellbook: you know ${kn.total} spells and prepare from them each long rest. Any Wizard spell up to ${ROMAN[r.maxLvl]} level can go in the book, in any mix of levels. The tiles show how many of each level you’ve added — each level can hold up to your ${kn.total} total.`
       : r.static
-      ? `Level-swap caster: your prepared list is effectively fixed — each level you add spells at the new maximum and may swap one. Not every slot can be top level; the tiles show the best-case count per level.`
-      : `Daily caster: you re-prepare any eligible spells each long rest, up to your prepared count. Cantrips are fixed and not re-prepared daily.`;
+      ? `Level-swap caster: a fixed known list of ${r.prepared}, swap one per level. Any mix of levels up to ${ROMAN[r.maxLvl]} — the tiles show how many of each level you’ve chosen, each up to your ${r.prepared} total.`
+      : `Daily caster: re-prepare any ${r.prepared} eligible spells each long rest, any mix of levels up to ${ROMAN[r.maxLvl]}. Cantrips are fixed and not re-prepared daily.`;
     const bh=el("div","bh");const nm=el("div","nm");nm.innerHTML=r.name+(r.viaSub?` <small>· ${r.viaSub.shortName}</small>`:"")+` <small>· L${r.level}</small>`;bh.append(nm);
     const kchip=el("span","kind"+(kn?" wiz":r.static?"":" daily"),kindLabel);kchip.title=kindTip;bh.append(kchip);
     b.append(bh);
@@ -727,16 +729,17 @@ function renderCart(){
     if(c.ms){b.append(meter("Off-list",c.ms.offCount,c.ms.cap));
       const sn=el("div","note");sn.style.margin="2px 0 0";
       sn.innerHTML=`Magical Secrets: up to <b style="color:var(--ink)">${c.ms.cap}</b> of your prepared spells may come from other lists (from L${c.ms.onset} on: new picks + retrains).`;b.append(sn);}
-    // per-level tiles: Wizard = known distribution from the book; level-swap = best-case max; daily = flat
-    const distSrc = kn ? {maxL:kn.maxL,per:L=>kn.dist[L]} : cp ? {maxL:cp.maxL,per:L=>cp.static?(cp.cap[L]-(cp.cap[L+1]||0)):r.prepared} : null;
-    if(distSrc){const dist=el("div","dist");
-      for(let L=distSrc.maxL;L>=1;L--){ const capL=distSrc.per(L);
-        const chosenExact=c.spells.map(k=>SPELL_BY[k]).filter(s=>s&&s.level===L).length;
-        const showCap=kn||cp.static;
-        if(showCap && capL<=0 && chosenExact<=0) continue;
-        const cell=el("div","dcell"+(c.overLevels[L]?" over":""));
-        cell.style.cursor="pointer";cell.title=`${kn?"Add to spellbook":"Prepare spells"} up to ${ROMAN[L]} level`;cell.onclick=()=>openLevelPick(r.idx,L);
-        cell.innerHTML=`<b>${chosenExact}${showCap?`/${capL}`:""}</b><small>${ROMAN[L]}</small>`;dist.append(cell);}
+    // per-level tiles: how many of each level you hold, out of your whole budget.
+    // The spread across levels is free — each level can hold up to your total.
+    const totalCap = kn ? kn.total : r.prepared;
+    if(r.maxLvl>=1 && totalCap>0){const dist=el("div","dist");
+      for(let L=r.maxLvl;L>=1;L--){
+        const atL=c.spells.map(k=>SPELL_BY[k]).filter(s=>s&&s.level===L).length;
+        const cell=el("div","dcell"+(L===r.maxLvl?" top":""));
+        cell.style.cursor="pointer";
+        cell.title=`${ROMAN[L]}-level ${kn?"in your spellbook":"prepared"} — you can hold up to your ${totalCap} total at any level. Tap to edit.`;
+        cell.onclick=()=>openLevelPick(r.idx,L);
+        cell.innerHTML=`<b>${atL}<span class="dcap">/${totalCap}</span></b><small>${ROMAN[L]}${L===r.maxLvl?" · max":""}</small>`;dist.append(cell);}
       b.append(dist);}
     // chosen chips
     const picks=[...c.cantrips.map(k=>({k,cantrip:true})),...c.spells.map(k=>({k,cantrip:false}))];
@@ -815,8 +818,13 @@ function lvlTools(l){const t=el("div","lvltools");const n=pickedAtLevel(l);
   const clr=el("button","lvltools-btn",l===0?"clear cantrips":"clear");clr.title="Unpick all "+(l===0?"cantrips":ROMAN[l]+"-level picks");
   clr.disabled=!n;clr.onclick=e=>{e.stopPropagation();clearLevel(l);};t.append(clr);return t;}
 function mkEmpty(){const e=el("div","empty");
-  if(!R.casters.length)e.innerHTML="<b>Add a spellcasting class</b><br>Then its spells appear here to browse and pick.";
-  else e.innerHTML="<b>Nothing matches</b><br>Loosen the filters.";return e;}
+  if(!R.casters.length){e.innerHTML="<b>Add a spellcasting class</b><br>Then its spells appear here to browse and pick.";return e;}
+  const q=(state.filters.q||"").trim();
+  e.innerHTML="<b>Nothing matches</b><br>Loosen the filters — or make it yourself.";
+  const b=el("button","btn on");b.style.marginTop="12px";
+  b.textContent=q?`＋ Create “${q}” as a custom spell`:"＋ Create a custom spell";
+  b.onclick=()=>openCustom(q?{name:q}:null);
+  e.append(b);return e;}
 // ── spell detail: hover tooltip + click modal ──────────────────────────────
 const SPTIP=el("div","sptip");document.body.appendChild(SPTIP);
 const SPMODAL=el("div","spmodal hidden");document.body.appendChild(SPMODAL);
@@ -868,7 +876,7 @@ function modalHTML(sp){
 function openSpellModal(sp){hideTip();SPMODAL.innerHTML=modalHTML(sp);
   if(sp.source===HB_SRC){const mb=SPMODAL.querySelector(".mb");if(mb){const row=el("div","hbtools");
     row.append(el("span","hbtag","Homebrew"));const sp2=el("span");sp2.style.flex="1";row.append(sp2);
-    const e=el("button","btn","Edit");e.onclick=()=>{SPMODAL.classList.add("hidden");openCustom(customFromSpell(sp));};
+    const e=el("button","btn","Edit");e.onclick=()=>{SPMODAL.classList.add("hidden");openCustom(customFromSpell(sp),true);};
     const d=el("button","btn danger","Delete");d.onclick=()=>{if(confirm("Delete custom spell “"+sp.name+"”?")){deleteCustom(sp);SPMODAL.classList.add("hidden");}};
     row.append(e,d);mb.append(row);}}
   SPMODAL.classList.remove("hidden");}
@@ -1132,7 +1140,9 @@ function randomBuild(){
   });
   save();refreshAll();render();
 }
-$("#testBtn").onclick=randomBuild;
+// the 🎲 random-build helper is a local testing tool — hide it on the public build
+if(typeof window!=="undefined"&&window.__PUBLIC__){const tb=$("#testBtn");if(tb)tb.remove();}
+else $("#testBtn").onclick=randomBuild;
 
 // drop build references to content the current data set doesn't contain
 // (e.g. after switching baked↔imported, or a homebrew spell was deleted)

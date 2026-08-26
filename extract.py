@@ -135,6 +135,7 @@ for f in glob.glob(os.path.join(MIRROR, "spells", "spells-*.json")):
             "desc": flatten_entries(sp.get("entries")),
             "higher": flatten_entries(sp.get("entriesHigherLevel")),
             "reprinted": reprinted(sp),
+            "srd": bool(sp.get("srd52")),
             "cls": [], "sub": [], "feat": [], "race": [],
         }
 
@@ -301,6 +302,7 @@ for f in glob.glob(os.path.join(MIRROR, "class", "class-*.json")):
             "group": bgroup(c.get("source", "")), "book": bname(c.get("source", "")),
             "reprinted": reprinted(c),
             "caster": cp,                       # full|artificer|1/2|1/3|pact|None
+            "srd": bool(c.get("srd52")),
             "ability": c.get("spellcastingAbility"),
             "static": bool(static and cp),      # only meaningful for casters
             "countType": count_type,
@@ -336,6 +338,7 @@ for f in glob.glob(os.path.join(MIRROR, "class", "class-*.json")):
         rec = {"name": sc.get("name", ""), "shortName": sc.get("shortName", sc.get("name", "")),
                "source": sc.get("source", ""), "group": bgroup(sc.get("source", "")),
                "book": bname(sc.get("source", "")), "reprinted": reprinted(sc),
+               "srd": bool(sc.get("srd52")),
                "className": sc.get("className", ""), "classSource": sc.get("classSource", ""),
                "grants": parse_grants(sc.get("additionalSpells"))}
         if sc.get("casterProgression"):
@@ -355,30 +358,31 @@ for ft in load(os.path.join(MIRROR, "feats.json")).get("feat", []):
     feats.append({"name": ft["name"], "source": ft.get("source", ""), "group": bgroup(ft.get("source", "")),
                   "book": bname(ft.get("source", "")), "reprinted": reprinted(ft),
                   "category": cat, "fsClass": fs_class,   # fighting-style feats attach to a class
+                  "srd": bool(ft.get("srd52")),
                   "hasSpells": has_spells,               # non-spell feats are build-choice-only
                   "grants": parse_grants(ft.get("additionalSpells")) if has_spells else dict(EMPTY_GRANTS)})
 
 # species (ALL, even without spells; split lineages that carry named blocks)
 races = []
-def emit_species(name, source, blocks):
+def emit_species(name, source, blocks, srd=False):
     named = [b for b in (blocks or []) if b.get("name")]
     if len(named) > 1:
         for b in named:
             races.append({"name": f"{name} — {b['name']}", "source": source, "group": bgroup(source),
-                          "book": bname(source), "reprinted": False, "grants": parse_grants([b])})
+                          "book": bname(source), "reprinted": False, "srd": srd, "grants": parse_grants([b])})
     else:
         races.append({"name": name, "source": source, "group": bgroup(source), "book": bname(source),
-                      "reprinted": False, "grants": parse_grants(blocks)})
+                      "reprinted": False, "srd": srd, "grants": parse_grants(blocks)})
 
 rd = load(os.path.join(MIRROR, "races.json"))
 for rc in rd.get("race", []):
-    emit_species(rc["name"], rc.get("source", ""), rc.get("additionalSpells"))
+    emit_species(rc["name"], rc.get("source", ""), rc.get("additionalSpells"), bool(rc.get("srd52")))
     if reprinted(rc) and races: races[-1]["reprinted"] = True
 for rc in rd.get("subrace", []) if isinstance(rd.get("subrace"), list) else []:
     base = rc.get("raceName", ""); nm = rc.get("name") or ""
     if not rc.get("additionalSpells"):   # skip spell-less subraces (noise)
         continue
-    emit_species(f"{base} ({nm})" if nm else base, rc.get("source", ""), rc.get("additionalSpells"))
+    emit_species(f"{base} ({nm})" if nm else base, rc.get("source", ""), rc.get("additionalSpells"), bool(rc.get("srd52")))
 
 # ---- source registry (for the settings selector) ---------------------------
 src_counter = defaultdict(lambda: {"spells": 0, "classes": 0, "subclasses": 0, "feats": 0, "species": 0})
@@ -411,6 +415,32 @@ digest = {
 out_path = os.path.join(os.path.dirname(__file__), "data", "data.json")
 with open(out_path, "w", encoding="utf-8") as f:
     json.dump(digest, f, ensure_ascii=False, separators=(",", ":"))
+
+# ---- SRD 5.2 subset (CC-BY-4.0) — embedded in the public build -------------
+def _srd_subset():
+    ss = [s for s in spells.values() if s.get("srd")]
+    sc = [c for c in classes if c.get("srd")]
+    ssub = [s for s in subclasses if s.get("srd")]
+    sf = [f_ for f_ in feats if f_.get("srd")]
+    sr = [r for r in races if r.get("srd")]
+    cnt = defaultdict(lambda: {"spells": 0, "classes": 0, "subclasses": 0, "feats": 0, "species": 0})
+    for s in ss: cnt[s["source"]]["spells"] += 1
+    for c in sc: cnt[c["source"]]["classes"] += 1
+    for s in ssub: cnt[s["source"]]["subclasses"] += 1
+    for f_ in sf: cnt[f_["source"]]["feats"] += 1
+    for r in sr: cnt[r["source"]]["species"] += 1
+    srdsrc = {src: {"name": bname(src), "group": bgroup(src), "counts": c} for src, c in cnt.items()}
+    return {"meta": {"srd": True, "spellCount": len(ss)}, "sources": srdsrc,
+            "spells": ss, "classes": sc, "subclasses": ssub, "feats": sf, "races": sr,
+            "fullMc": FULL_MC, "pact": PACT}
+
+srd = _srd_subset()
+srd_path = os.path.join(os.path.dirname(__file__), "data", "data-srd.json")
+with open(srd_path, "w", encoding="utf-8") as f:
+    json.dump(srd, f, ensure_ascii=False, separators=(",", ":"))
+print(f"SRD subset: spells={len(srd['spells'])} classes={len(srd['classes'])} "
+      f"subclasses={len(srd['subclasses'])} feats={len(srd['feats'])} species={len(srd['races'])}"
+      f" → {srd_path} ({os.path.getsize(srd_path)//1024} KB)")
 
 print(f"spells={len(spells)} classes={len(classes)} (casters="
       f"{sum(1 for c in classes if c['caster'])}) subclasses={len(subclasses)} "

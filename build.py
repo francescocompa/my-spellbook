@@ -40,8 +40,13 @@ os.makedirs(os.path.join(ROOT, "dist"), exist_ok=True)
 with open(os.path.join(ROOT, "dist", "index.html"), "w", encoding="utf-8") as f:
     f.write(dist)
 
-# 2b. docs/index.html — public GitHub Pages build, NO bundled data (import at runtime)
-shell = html.replace('<script src="../data/data.js"></script>', "")
+# 2b. docs/index.html — public GitHub Pages build. Ships the SRD 5.2 subset
+# (CC-BY-4.0, safe to distribute); importing a 5etools export adds the rest.
+srd_file = os.path.join(ROOT, "data", "data-srd.json")
+srd_js = "window.__PUBLIC__=1;"
+if os.path.exists(srd_file):
+    srd_js += "window.__DATA__=" + read("data", "data-srd.json") + ";"
+shell = html.replace('<script src="../data/data.js"></script>', "<script>" + srd_js + "</script>")
 os.makedirs(os.path.join(ROOT, "docs"), exist_ok=True)
 with open(os.path.join(ROOT, "docs", "index.html"), "w", encoding="utf-8") as f:
     f.write(shell)

@@ -215,5 +215,41 @@ function looksLikeLookup(j){const ks=Object.keys(j);if(!ks.length)return false;
   const v=j[ks[0]];if(!v||typeof v!=="object")return false;
   const vv=v[Object.keys(v)[0]];return !!(vv&&typeof vv==="object"&&(vv.class||vv.subclass||vv.feat||vv.race));}
 
-window.SB_extract={buildDigest};
+// ── 5etools .zip reader (native DecompressionStream, no dependency) ──────────
+// Ported from monster-forge. Returns [{name, json}] for the files buildDigest can use.
+async function inflateRaw(bytes){
+  const stream=new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+  return new Uint8Array(await new Response(stream).arrayBuffer());}
+function zipWanted(path){
+  if(!/\.json$/i.test(path))return false;
+  const p=path.toLowerCase(),base=p.split("/").pop();
+  if(/spell-source-lookup/.test(base))return true;   // the class-access lookup we need (lives under generated/)
+  if(base.startsWith("fluff-")||base.startsWith("foundry-"))return false;
+  if(/(^|\/)(generated|roll20|foundry|makebrew|partnered)\//.test(p))return false;
+  if(/(^|\/)(adventure|book)\//.test(p))return false;   // long-form prose
+  return true;}
+function usefulJson(j){return !!(j&&typeof j==="object"&&(Array.isArray(j.spell)||Array.isArray(j.class)||Array.isArray(j.subclass)||Array.isArray(j.feat)||Array.isArray(j.race)||Array.isArray(j.subrace)||Array.isArray(j.book)||looksLikeLookup(j)));}
+async function unzipJsonFiles(buf,onFile){
+  if(typeof DecompressionStream==="undefined")throw new Error("This browser can’t unzip files. Upload the .json files individually instead.");
+  const dv=new DataView(buf),bytes=new Uint8Array(buf),n=buf.byteLength,td=new TextDecoder();
+  let eocd=-1;for(let i=n-22;i>=0&&i>=n-22-0xffff;i--){if(dv.getUint32(i,true)===0x06054b50){eocd=i;break;}}
+  if(eocd<0)throw new Error("That doesn’t look like a .zip file.");
+  const count=dv.getUint16(eocd+10,true),cdOff=dv.getUint32(eocd+16,true);
+  const entries=[];let p=cdOff;
+  for(let i=0;i<count;i++){ if(dv.getUint32(p,true)!==0x02014b50)break;
+    const method=dv.getUint16(p+10,true),compSize=dv.getUint32(p+20,true);
+    const nameLen=dv.getUint16(p+28,true),extraLen=dv.getUint16(p+30,true),commLen=dv.getUint16(p+32,true);
+    const lho=dv.getUint32(p+42,true),name=td.decode(bytes.subarray(p+46,p+46+nameLen));
+    entries.push({name,method,compSize,lho}); p+=46+nameLen+extraLen+commLen; }
+  const wanted=entries.filter(e=>zipWanted(e.name)),out=[];
+  for(let i=0;i<wanted.length;i++){const e=wanted[i];
+    const lnameLen=dv.getUint16(e.lho+26,true),lextraLen=dv.getUint16(e.lho+28,true);
+    const start=e.lho+30+lnameLen+lextraLen,comp=bytes.subarray(start,start+e.compSize);
+    let raw; if(e.method===0)raw=comp; else if(e.method===8)raw=await inflateRaw(comp); else continue;
+    let json=null;try{json=JSON.parse(td.decode(raw));}catch(_){json=null;}
+    if(onFile)onFile(e.name,i+1,wanted.length);
+    if(json&&usefulJson(json))out.push({name:e.name.split("/").pop(),json}); }
+  return out;}
+
+window.SB_extract={buildDigest,unzipJsonFiles};
 })();

@@ -121,6 +121,8 @@
         <p class="note" id="tableEmpty"></p></div>
     </div>
   </div>
+
+  <footer class="credit">Includes material from the <b>System Reference Document 5.2</b>, © Wizards of the Coast LLC, licensed under <a href="https://creativecommons.org/licenses/by/4.0/legalcode" target="_blank" rel="noopener">CC BY 4.0</a>. My Spellbook is unofficial fan content, not affiliated with or endorsed by Wizards of the Coast. Any content you import stays in your browser.</footer>
 </div>
 
 <div class="modal hidden" id="pickModal"><div class="box">
@@ -156,13 +158,14 @@
 </div></div>
 
 <div class="modal hidden" id="importModal"><div class="box">
-  <div class="mh"><h2>Import 5etools data</h2><button class="x" id="importClose">×</button></div>
+  <div class="mh"><h2 id="importTitle">Import 5etools data</h2><button class="x" id="importClose">×</button></div>
   <div class="mb">
-    <p class="note" style="margin-top:0">Load spells, classes, subclasses, feats and species straight from a 5etools <code>data</code> export — parsed in your browser, stored locally. Add the <code>generated/gendata-spell-source-lookup.json</code> file too so spells know which classes can cast them.</p>
+    <p class="importwelcome hidden" id="importWelcome">This planner ships without spell data. Load a 5etools <code>data</code> export to fill it with spells, classes, subclasses, feats and species. Everything is parsed and stored in your browser — nothing is uploaded.</p>
+    <p class="note" style="margin-top:0">Drop the whole 5etools <code>data</code> folder as a <b>.zip</b> (fastest), or individual JSON files. For per-file loads, include <code>generated/gendata-spell-source-lookup.json</code> so spells know which classes can cast them.</p>
     <div class="importdrop" id="importDrop">
-      <input type="file" id="importFiles" accept=".json,application/json" multiple hidden>
+      <input type="file" id="importFiles" accept=".json,.zip,application/json,application/zip" multiple hidden>
       <span class="mi" style="font-size:26px">⭳</span>
-      <div><b>Drop 5etools JSON files here</b><br><span style="color:var(--muted)">or <u id="importPick">browse…</u> · spells-*.json, class-*.json, feats.json, races.json, books.json, the lookup</span></div>
+      <div><b>Drop a 5etools .zip or JSON files here</b><br><span style="color:var(--muted)">or <u id="importPick">browse…</u> · the full data.zip, or spells-*.json / class-*.json / feats.json / races.json / books.json + the lookup</span></div>
     </div>
     <p class="fld" style="margin:12px 0 4px">Or paste one file's JSON</p>
     <textarea id="importPaste" placeholder="paste 5etools JSON here…" style="width:100%;min-height:70px;font-family:var(--sans);font-size:12px;padding:8px;border-radius:8px;border:1px solid var(--line-strong);background:var(--bg);color:var(--ink)"></textarea>
