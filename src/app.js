@@ -710,7 +710,37 @@ function maybeOnboard(){
   openImport(true);}
 
 // ── table view ─────────────────────────────────────────────────────────────
-const tableOpts={group:"level"};
+// ── spell-table columns (D29) ──────────────────────────────────────────────
+// The registry is the single source of truth: order, label, and how a cell renders.
+// The player's order + hidden set is a GLOBAL preference (not part of a build), so it
+// lives under its own localStorage key.
+const LS_TABLE="spellForge.table.v1";
+const TABLE_COLS={
+  mark:  {label:"",          fixed:true},
+  name:  {label:"Spell",     fixed:true},
+  save:  {label:"Save"},
+  school:{label:"School"},
+  time:  {label:"Time"},
+  range: {label:"Range"},
+  comp:  {label:"Comp."},
+  dur:   {label:"Duration"},
+  conc:  {label:"Conc"},
+  casts: {label:"Casts"},
+  ability:{label:"Ability"},
+  build: {label:"In build"},
+  book:  {label:"Book"},
+};
+const COL_ORDER_DEFAULT=["mark","name","save","school","time","range","comp","dur","conc","casts","ability","build","book"];
+const tableOpts={group:"level",order:[...COL_ORDER_DEFAULT],hidden:new Set()};
+function loadTableOpts(){ try{const t=JSON.parse(localStorage.getItem(LS_TABLE)||"null");if(!t)return;
+  if(t.group)tableOpts.group=t.group;
+  if(Array.isArray(t.order)){ // keep only known keys, then append any column added since
+    const seen=new Set(t.order.filter(k=>TABLE_COLS[k]));
+    tableOpts.order=[...seen].concat(COL_ORDER_DEFAULT.filter(k=>!seen.has(k)));}
+  if(Array.isArray(t.hidden))tableOpts.hidden=new Set(t.hidden.filter(k=>TABLE_COLS[k]&&!TABLE_COLS[k].fixed));
+ }catch(e){} }
+function saveTableOpts(){ try{localStorage.setItem(LS_TABLE,JSON.stringify(
+  {group:tableOpts.group,order:tableOpts.order,hidden:[...tableOpts.hidden]}));}catch(e){} }
 // short recharge label. cantrips / always-known are effectively at-will.
 function rechargeShort(recharge,isCantrip){
   const r=String(recharge||"").toLowerCase();
@@ -779,10 +809,11 @@ function renderTable(){
   const outerLabel=r=> g==="ability"?(ABIL[r.ability]||"Other casting"):r.src;
   rows.sort((a,b)=> (outer?String(outerKey(a)).localeCompare(String(outerKey(b))):0) || a.sp.level-b.sp.level || a.sp.name.localeCompare(b.sp.name));
 
-  const showAbility=g!=="ability"&&g!=="source", showSource=g!=="source";
-  const cols=[""].concat(["Spell","School","Time","Range","Duration","Conc","Save"],showAbility?["Ability"]:[],["Casts"],showSource?["Source"]:[]);
-  const thead=el("tr");cols.forEach(h=>thead.append(el("th",null,h)));tbl.append(thead);
-  thead.firstChild.title="Preparation status — hover a marker for details";
+  // grouping already carries a fact, so its column is suppressed on top of the hidden set
+  const suppressed=new Set(g==="ability"?["ability"]:g==="source"?["ability","build"]:[]);
+  const cols=visibleCols(suppressed);
+  const thead=el("tr");cols.forEach(k=>thead.append(el("th",null,TABLE_COLS[k].label)));tbl.append(thead);
+  attachTip(thead.firstChild,tipBlock("Preparation status","Hover a marker for what it means."));
   const span=cols.length;
 
   let lastOuter=null,lastLevel=null;
@@ -800,31 +831,84 @@ function renderTable(){
       if(sp.level===0){td.append(el("span","lvltally muted","cantrips aren’t prepared daily"));}
       gr.append(td);tbl.append(gr);}
     const tr=el("tr",sel?"":"unsel");
-    // status indicator (read-only): ✓ always-prepared · ● prepared today · ✦ innate
+    cols.forEach(k=>tr.append(cellFor(k,row)));
+    tbl.append(tr);
+  });
+}
+// column menu: a checkbox per column, drag a row to move it (D29). Fixed columns
+// (the prepare marker and the spell name) can be neither hidden nor moved.
+function renderColMenu(){
+  const box=$("#tColList");if(!box)return;box.innerHTML="";
+  let dragKey=null;
+  tableOpts.order.forEach(k=>{const def=TABLE_COLS[k];if(!def)return;
+    const row=el("div","colrow"+(def.fixed?" fixed":""));
+    row.draggable=!def.fixed;
+    const cb=el("input");cb.type="checkbox";cb.checked=!tableOpts.hidden.has(k);cb.disabled=!!def.fixed;
+    cb.onchange=()=>{cb.checked?tableOpts.hidden.delete(k):tableOpts.hidden.add(k);saveTableOpts();renderTable();};
+    row.append(cb);
+    row.append(el("span","collbl",def.label||"Prepared"));
+    if(!def.fixed)row.append(el("span","colgrip","⠿"));
+    row.ondragstart=e=>{dragKey=k;e.dataTransfer.effectAllowed="move";row.classList.add("dragging");};
+    row.ondragend=()=>{dragKey=null;box.querySelectorAll(".colrow").forEach(r=>r.classList.remove("dragging","dropinto"));};
+    row.ondragover=e=>{if(!dragKey||dragKey===k||def.fixed)return;e.preventDefault();row.classList.add("dropinto");};
+    row.ondragleave=()=>row.classList.remove("dropinto");
+    row.ondrop=e=>{e.preventDefault();row.classList.remove("dropinto");
+      if(!dragKey||dragKey===k||def.fixed)return;
+      const o=tableOpts.order.filter(x=>x!==dragKey);
+      o.splice(o.indexOf(k),0,dragKey);
+      tableOpts.order=o;saveTableOpts();renderColMenu();renderTable();};
+    box.append(row);});
+}
+// the visible columns, in the player's order, minus hidden and grouping-suppressed ones
+function visibleCols(suppressed){
+  return tableOpts.order.filter(k=>TABLE_COLS[k]&&!tableOpts.hidden.has(k)&&!(suppressed&&suppressed.has(k)));
+}
+// one cell. Every column renders here so the order in tableOpts is the only thing that
+// decides layout — nothing is positional any more.
+function cellFor(k,row){
+  const {sp,type,recharge}=row, src=row.src;
+  if(k==="mark"){
+    // read-only status indicator: ✓ always-prepared · ● prepared today · ✦ innate
     const ind=el("td","pickcell");
     if(type==="free"){ind.textContent="✓";ind.classList.add("always");attachTip(ind,tipBlock("Always prepared","A free grant — it doesn’t count against your prepared list."));}
     else if(type==="swap"){ind.textContent="●";ind.classList.add("on");attachTip(ind,tipBlock("Prepared","Swappable on a long rest — change it in Choices."));}
     else if(type==="cast"){ind.textContent="✦";ind.classList.add("innate");attachTip(ind,tipBlock("Innate / free cast","Cast without preparing it."+(recharge?" Cadence: "+recharge+".":"")));}
     else if(sp.level===0){ind.textContent="●";ind.classList.add("on");attachTip(ind,tipBlock("Cantrip","Always known — not re-prepared daily."));}
     else{ind.textContent="●";ind.classList.add("on");attachTip(ind,tipBlock("Prepared today","Change it with Prepare daily."));}
-    tr.append(ind);
-    const nmtd=el("td","nm");nmtd.textContent=sp.name;attachSpell(nmtd,sp);
-    if(sp.ritual)nmtd.append(Object.assign(el("span"),{textContent:" R",style:"color:var(--gold);font-size:10px;font-weight:700"}));tr.append(nmtd);
-    tr.append(el("td",null,shortSchool(sp.school)));tr.append(el("td",null,shortTime(sp.time)));tr.append(el("td",null,shortRange(sp.range)));
-    tr.append(el("td",null,shortDuration(sp.durTxt)));
-    tr.append(Object.assign(el("td",sp.conc?"concmark":""),{textContent:sp.conc?"✓":"—"}));
-    const svtd=el("td","savecell");svtd.innerHTML=defenceHTML(sp);tr.append(svtd);
-    if(showAbility){const abtd=el("td");abtd.innerHTML=row.ability?abChip(row.ability):"—";tr.append(abtd);}
-    // casts: innate recharge, with * when also castable via your slots
-    const castTd=el("td");const lab=recharge?rechargeShort(recharge,sp.level===0):"—";
+    return ind;}
+  if(k==="name"){const td=el("td","nm");td.textContent=sp.name;attachSpell(td,sp);
+    if(sp.ritual)td.append(Object.assign(el("span"),{textContent:" R",style:"color:var(--gold);font-size:10px;font-weight:700"}));
+    return td;}
+  if(k==="save"){const td=el("td","savecell");td.innerHTML=defenceHTML(sp);return td;}
+  if(k==="school")return el("td",null,shortSchool(sp.school));
+  if(k==="time")return el("td",null,shortTime(sp.time));
+  if(k==="range")return el("td",null,shortRange(sp.range));
+  if(k==="comp"){const td=el("td","cmp");td.innerHTML=compCellHTML(sp);return td;}
+  if(k==="dur")return el("td",null,shortDuration(sp.durTxt));
+  if(k==="conc")return Object.assign(el("td",sp.conc?"concmark":""),{textContent:sp.conc?"✓":"—"});
+  if(k==="ability"){const td=el("td");td.innerHTML=row.ability?abChip(row.ability):"—";return td;}
+  if(k==="casts"){
+    // innate recharge, with * when the spell is also castable via your own slots
+    const td=el("td");const lab=recharge?rechargeShort(recharge,sp.level===0):"—";
     if(recharge&&lab!=="at will"&&lab!=="—"&&slotCastable(sp)){
-      castTd.textContent=lab;const ast=el("sup","ast","*");ast.title="Also castable with your spell slots";castTd.append(ast);
-      castTd.classList.add("hasast");castTd.onclick=()=>{castTd.firstChild.textContent=lab+" (also with your spell slots)";castTd.classList.remove("hasast");};
-    } else castTd.textContent=lab;
-    tr.append(castTd);
-    if(showSource){const st=el("td");st.append(el("span","srcbadge"+(type==="free"?" free":type==="cast"?" cast":""),src));tr.append(st);}
-    tbl.append(tr);
-  });
+      td.textContent=lab;const ast=el("sup","ast","*");ast.title="Also castable with your spell slots";td.append(ast);
+      td.classList.add("hasast");td.onclick=()=>{td.firstChild.textContent=lab+" (also with your spell slots)";td.classList.remove("hasast");};
+    } else td.textContent=lab;
+    return td;}
+  if(k==="build"){const td=el("td");td.append(el("span","srcbadge"+(type==="free"?" free":type==="cast"?" cast":""),src));return td;}
+  if(k==="book"){const td=el("td");td.append(Object.assign(el("span","csrc"),{textContent:sp.source,title:bookName(sp.source)}));return td;}
+  return el("td",null,"—");
+}
+// V S M, then the price (D29): gold when the material survives, accent + ⊗ when the
+// spell consumes it. gp is the readable unit — 5etools stores cost in copper.
+const gpOf=c=>{const gp=c/100;return (gp>=1?(Number.isInteger(gp)?gp:+gp.toFixed(2)):+(gp).toFixed(2))+"gp";};
+function compCellHTML(sp){
+  const c=sp.comp||{};
+  const l=(on,t)=>`<span class="l${on?" on":""}">${t}</span>`;
+  let out=[l(c.v,"V"),l(c.s,"S"),l(c.m,"M")].join(" ");
+  if(c.m&&c.cost)out+=` <span class="cost${c.consume?" eat":""}">${gpOf(c.cost)}${c.consume?" ⊗":""}</span>`;
+  else if(c.m&&c.consume)out+=` <span class="cost eat">⊗</span>`;
+  return out;
 }
 function switchTab(t){curTab=t;$("#tabBuild").classList.toggle("on",t==="build");$("#tabTable").classList.toggle("on",t==="table");
   $("#buildView").classList.toggle("hidden",t!=="build");$("#tableView").classList.toggle("hidden",t!=="table");
@@ -1319,7 +1403,9 @@ $("#fReprint").onchange=e=>{state.filters.reprint=e.target.value;refreshAll();re
 $("#fChosen").onclick=()=>{state.filters.chosen=!state.filters.chosen;render();};
 $("#tabBuild").onclick=()=>switchTab("build");
 $("#tabTable").onclick=()=>switchTab("table");
-$("#tGroup").onchange=e=>{tableOpts.group=e.target.value;renderTable();};
+$("#tGroup").onchange=e=>{tableOpts.group=e.target.value;saveTableOpts();renderTable();};
+$("#tColReset").onclick=e=>{e.preventDefault();tableOpts.order=[...COL_ORDER_DEFAULT];tableOpts.hidden=new Set();
+  saveTableOpts();renderColMenu();renderTable();};
 $("#pickClear").onclick=()=>{ if(!PICK)return;
   if(PICK.classIdx!=null){const ch=state.chosen[PICK.classIdx];if(ch)ch.spells=(ch.spells||[]).filter(k=>{const s=SPELL_BY[k];return !(s&&s.level>=1&&s.level<=PICK.maxLevel);});}
   else state.choices[PICK.id]=[];
@@ -1420,5 +1506,6 @@ if(CUSTOM&&CUSTOM.spells&&CUSTOM.spells.length)state.enabledSources.add(HB_SRC);
 pruneState();
 $("#fReprint").value=state.filters.reprint;
 $("#fq").value=state.filters.q;
+loadTableOpts(); $("#tGroup").value=tableOpts.group; renderColMenu();
 maybeOnboard();
 refreshAll();render();
