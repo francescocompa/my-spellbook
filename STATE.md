@@ -191,26 +191,40 @@ Note-batch 3 (v6.1 — SRD, budget rework, zip):
   question — `.entrow .tk` never matched the chip rules, which were scoped to `.take .tk`,
   so the select buttons fell back to UA default styling. Fixed by unscoping `.tk`.
 
+## Done — v6.5 (this session; all verified in-browser)
+- [x] 🐛 **Innate-cast parsing** merged from `claude/zen-rhodes-4b15f8` — a cadence map under
+  prepared/known/expanded is routed through `emit_cadence` instead of being read as a spell list.
+- [x] 🐛 **Thunderclap range** — 2024's `emanation` shape was unhandled (69 spells rendered as a
+  bare "emanation"); point ranges of type sight/unlimited also never reached their branch.
+- [x] **Remove sidekicks** — Expert/Spellcaster/Warrior dropped in both extractors. 30 → 27 classes.
+- [x] **Spell filters: upcast + consumed** — `comp` now carries `cost` (copper) + `consume`;
+  Tags gained "Upcasts" and "Consumes mat.".
+- [x] 🐛 **Prepare-state hover popover** — the markers had a native `title`, which reads as broken.
+  New generic `attachTip()` reuses the styled `.sptip` popover.
+- [x] **Picker design-system polish** — not a taste question: `.entrow .tk` never matched the chip
+  rules (scoped to `.take .tk`). Unscoped; selected chips go red on hover.
+- [x] **Source checklist shared by every picker** (D27) — `renderSourceChecklist()`/`srcQuick()`.
+- [x] **Unified feat picker** (D27) — one picker, grouped "feat kind" row preset per slot but editable.
+- [x] **Spell-table column rework** (D29) — registry + `cellFor()`, cost-inline components cell,
+  ⋯ column checklist with drag-to-reorder, global preference under `spellForge.table.v1`.
+- [x] **Optional features** (D28) — `optionalfeatures.json` extracted generically (213 records, 54
+  spell-granting); slots come from `optionalfeatureProgression` on classes, subclasses **and feats**
+  (Eldritch Adept, Metamagic Adept, Martial Adept). Picked features resolve grants like feats do.
+- [x] 🐛 **Bare-list `innate` blocks** — `innate:{"_":["mage armor|xphb"]}` (the at-will shorthand)
+  was skipped by the `isinstance(cadmap, dict)` guard, so 23 of 54 spell-granting optional features
+  produced nothing. Fixed in both extractors → 54/54. **This also affected feats/species/classes
+  using the same shorthand**, so some grants that were silently missing now appear.
+
 ## Backlog (next sessions)
-### v6.5 — Francesco's notes (2026-08-26)
-- [ ] **Design-system polish** on the new modals — some buttons and checkmarks in the feat /
-  species picker rows still don't match the design system (the `.tk` select buttons + ✓ states).
-- [ ] **Unify the feat picker across types** — one shared picker (not three separate scopes),
-  opened with a **preset** filter per slot but the presets **editable by the player**: a general
-  feat slot may also take an **origin feat if prerequisites are met**. Filters stay **grouped**.
-- [ ] **Player-editable source-filter presets** — the source selection filtered in the pickers
-  (feat *and* spell pickers) should be editable in **settings**, and reused as the preset.
-- [ ] **Warlock invocations as choices** — invocations often grant spells or even origin feats;
-  when Warlock / Eldritch Adept / any invocation source is picked, surface those as choices to make.
-- [ ] **Spell filters: upcast + consumed components** — add filters for whether a spell **upcasts**
-  (if the data carries it) and whether it has a **material component it consumes** (vs not).
-- [ ] **Remove sidekicks** from the class options (Expert/Spellcaster/Warrior Sidekick).
-- [ ] 🐛 **Prepare-state hover popover** in the spell table isn't working — the per-marker tooltip.
-- [ ] 🐛 **Thunderclap range** shows "emanation" with no feet — missing distance in range parse/format.
-- [ ] **Spell-table column rework** — order: spell · save · school · time · range · components
-  (make **cost** explicit if present, and whether the costly component is **consumed**, via icon/
-  text style) · duration · concentration · casts · **source (in the build)** · **source (book)**.
-  Overflow-menu option to **show/hide** columns and, if feasible, **rearrange** them.
+### v6.5 leftovers
+- [ ] **Feat prerequisites are display-only** — optional features show `needs Warlock level 2, …`
+  but nothing is enforced, and feats carry no `prerequisite` in the digest at all. Francesco's
+  "a general slot may take an origin feat **if prerequisites are met**" is therefore half-built:
+  the picker allows it, the rules don't check it. ⚑ (owner: Francesco, 2026-08-26)
+- [ ] **Feat budget attribution when categories are crossed** — a general slot holding an origin
+  feat still counts against `origin`, so the budget note can read `origin 2/1`. Soft-flagged only.
+- [ ] **Ability column** wasn't in Francesco's column order; kept visible in place so the table
+  didn't regress. Confirm whether it should default to hidden.
 ### earlier
 - [ ] **IndexedDB** for imported data — localStorage may overflow on a full multi-book import (importer reports quota errors but can't store).
 - [ ] Importer UI polish — a "clear imported data" button, per-source enable after import, a preset-library manager (monster-forge style ticking).

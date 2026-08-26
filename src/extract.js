@@ -128,6 +128,27 @@ function normAbility(a){ if(a==null)return null;
 const numOf=x=>{const m=String(x).replace(/\D/g,"");return m?parseInt(m,10):0;};
 // Sidekicks (Expert/Spellcaster/Warrior) are DM-run NPC templates, not player classes.
 const EXCLUDE_CLASS=n=>/ Sidekick$/.test(n||"");
+// optional features (invocations, metamagic, pact boons…) — D28. Extracted generically:
+// how many you get comes from each class/subclass's optionalfeatureProgression, not code.
+function prereqText(o){const out=[];
+  (o.prerequisite||[]).forEach(p=>{const bits=[];
+    const lv=p.level;
+    if(lv&&typeof lv==="object"){const cl=(lv.class||{}).name;bits.push(cl?`${cl} level ${lv.level}`:`level ${lv.level}`);}
+    else if(lv!=null)bits.push("level "+lv);
+    if(p.pact)bits.push("Pact of the "+p.pact);
+    (p.spell||[]).forEach(sp=>bits.push(typeof sp==="object"?(sp.entrySummary||sp.entry):richStrip(String(sp).split("#")[0])));
+    (p.item||[]).forEach(it=>bits.push(richStrip(it)));
+    (p.optionalfeature||[]).forEach(of=>bits.push(richStrip(String(of).split("|")[0])));
+    const os=p.otherSummary; if(os&&typeof os==="object")bits.push(richStrip(os.entrySummary||os.entry||""));
+    if(bits.length)out.push(bits.filter(Boolean).join(", "));});
+  return out.join(" or ")||null;}
+function optProgression(c){const out=[];
+  (c.optionalfeatureProgression||[]).forEach(p=>{const prog=p.progression;const counts=new Array(20).fill(0);
+    if(Array.isArray(prog)){for(let i=0;i<20;i++)counts[i]=+(prog[i]||0);}
+    else if(prog&&typeof prog==="object"){Object.entries(prog).forEach(([k,v])=>{const lv=numOf(k)||1;
+      for(let i=lv-1;i<20;i++)counts[i]=Math.max(counts[i],+(v||0));});}
+    if(counts.some(Boolean))out.push({name:p.name||"Optional features",types:p.featureType||[],counts});});
+  return out;}
 const asArr=x=>Array.isArray(x)?x:(x==null?[]:[x]);   // 5etools sometimes uses a bare value, not a list
 function parseBlock(block,feats){const ft=block.name;
   const b={fixed:[],picks:[],expansions:[],ability:normAbility(block.ability)};
@@ -142,6 +163,9 @@ function parseBlock(block,feats){const ft=block.name;
     if(isCadence(arr)){emitCadence(b,at,arr,ft,feats);return;}
     asArr(arr).forEach(s=>addSpellEntry(b,"known",at,"always known",s,ft,feats));});
   Object.entries(block.innate||{}).forEach(([lvlkey,cadmap])=>{const at=(String(lvlkey)==="_"||String(lvlkey)==="")?0:numOf(lvlkey);
+    // a bare list (or string) under the level key is the at-will shorthand
+    if(Array.isArray(cadmap)||typeof cadmap==="string"){
+      asArr(cadmap).forEach(s=>addSpellEntry(b,"innate",at,"at will",s,ft,feats));return;}
     if(!cadmap||typeof cadmap!=="object")return;
     emitCadence(b,at,cadmap,ft,feats);});
   return b;}
@@ -170,7 +194,7 @@ const FS_CLASS_LEVEL={Fighter:1,Ranger:2,Paladin:2};
 // ── main: build a digest from a list of {name, json} files ──────────────────
 function buildDigest(files){
   const books={};
-  const spells={}; const classes=[]; const subclasses=[]; const feats=[]; const races=[];
+  const spells={}; const classes=[]; const subclasses=[]; const feats=[]; const races=[]; const optfeats=[];
   let lookup=null;
   const report={spells:0,classes:0,subclasses:0,feats:0,species:0,books:0,lookup:false,files:0,errors:[]};
 
@@ -178,7 +202,7 @@ function buildDigest(files){
   const subfeatIdx={}, clsfeatIdx={};   // keyed like extract.py's SUB/CLSFEAT_INDEX
   files.forEach(f=>{const j=f.json;if(!j||typeof j!=="object")return;
     if(Array.isArray(j.book)){j.book.forEach(b=>{if(b.source)books[b.source]={name:b.name||b.source,group:b.group||"other"};});report.books+=j.book.length;}
-    if(/spell-source-lookup/i.test(f.name)||(!j.spell&&!j.class&&!j.subclass&&!j.feat&&!j.race&&!j.book&&looksLikeLookup(j))){lookup=j;report.lookup=true;}
+    if(/spell-source-lookup/i.test(f.name)||(!j.spell&&!j.class&&!j.subclass&&!j.feat&&!j.race&&!j.optionalfeature&&!j.book&&looksLikeLookup(j))){lookup=j;report.lookup=true;}
     (j.subclassFeature||[]).forEach(x=>{const k=x.className+"|"+x.subclassShortName+"|"+x.subclassSource;(subfeatIdx[k]=subfeatIdx[k]||[]).push(featRecord(x));});
     (j.classFeature||[]).forEach(x=>{const k=x.className+"|"+x.classSource;(clsfeatIdx[k]=clsfeatIdx[k]||[]).push(featRecord(x));});
   });
@@ -203,7 +227,8 @@ function buildDigest(files){
           countType:prepared?"fixed":known?"known":(cp?"formula":null),
           subclassLevel:subclassLevel(c),cantrips:c.cantripProgression,prepared:prepared||known,
           spellbook:c.spellsKnownProgressionFixed,slots:slotTable(c.classTableGroups),
-          grants:parseGrants(c.additionalSpells,clsfeatIdx[c.name+"|"+(c.source||"")]),grantsFightingStyle:null,bonusChoices:[]};
+          grants:parseGrants(c.additionalSpells,clsfeatIdx[c.name+"|"+(c.source||"")]),grantsFightingStyle:null,bonusChoices:[],
+          optFeatures:optProgression(c)};
         const okey=c.name+"|"+(c.source||"");
         if(ORDER_CANTRIP[okey])rec.bonusChoices.push(ORDER_CANTRIP[okey]);
         if(FS_CLASS_LEVEL[c.name]&&c.source==="XPHB")rec.grantsFightingStyle=FS_CLASS_LEVEL[c.name];
@@ -212,7 +237,8 @@ function buildDigest(files){
         const rec={name:sc.name||"",shortName:sc.shortName||sc.name||"",source:sc.source||"",
         group:bgroup(sc.source||""),book:bname(sc.source||""),reprinted:reprinted(sc),
         className:sc.className||"",classSource:sc.classSource||"",
-        grants:parseGrants(sc.additionalSpells,subfeatIdx[(sc.className||"")+"|"+(sc.shortName||sc.name||"")+"|"+(sc.source||"")])};
+        grants:parseGrants(sc.additionalSpells,subfeatIdx[(sc.className||"")+"|"+(sc.shortName||sc.name||"")+"|"+(sc.source||"")]),
+        optFeatures:optProgression(sc)};
         if(sc.casterProgression){rec.caster=sc.casterProgression;rec.ability=sc.spellcastingAbility;
           rec.cantrips=sc.cantripProgression;rec.prepared=sc.preparedSpellsProgression||sc.spellsKnownProgression;
           rec.static=(sc.preparedSpellsChange==="level");rec.spellList=["Wizard","XPHB"];}
@@ -220,7 +246,12 @@ function buildDigest(files){
       (j.feat||[]).forEach(ft=>{const cat=ft.category||"G";const hasSpells="additionalSpells"in ft;
         feats.push({name:ft.name,source:ft.source||"",group:bgroup(ft.source||""),book:bname(ft.source||""),reprinted:reprinted(ft),
           category:cat,fsClass:({"FS:R":"Ranger","FS:P":"Paladin","FS":"Fighter"})[cat]||null,hasSpells,
+          optFeatures:optProgression(ft),
           grants:hasSpells?parseGrants(ft.additionalSpells):{fixed:[],picks:[],expansions:[],optionGroups:[],ability:null}});});
+      (j.optionalfeature||[]).forEach(o=>{const hasSpells="additionalSpells"in o;
+        optfeats.push({name:o.name,source:o.source||"",group:bgroup(o.source||""),book:bname(o.source||""),
+          reprinted:reprinted(o),types:o.featureType||[],prereq:prereqText(o),hasSpells,
+          grants:hasSpells?parseGrants(o.additionalSpells):{fixed:[],picks:[],expansions:[],optionGroups:[],ability:null}});});
       const emitSpecies=(name,source,blocks)=>{const named=(blocks||[]).filter(b=>b.name);
         if(named.length>1)named.forEach(b=>races.push({name:`${name} — ${b.name}`,source,group:bgroup(source),book:bname(source),reprinted:false,grants:parseGrants([b])}));
         else races.push({name,source,group:bgroup(source),book:bname(source),reprinted:false,grants:parseGrants(blocks)});};
@@ -256,7 +287,7 @@ function buildDigest(files){
   const sources={};Object.entries(counter).forEach(([src,c])=>{sources[src]={name:bname(src),group:bgroup(src),counts:c};});
 
   const digest={meta:{spellCount:Object.keys(spells).length,imported:true},sources,
-    spells:Object.values(spells),classes,subclasses,feats,races};
+    spells:Object.values(spells),classes,subclasses,feats,races,optfeats};
   return {digest,report};
 }
 function looksLikeLookup(j){const ks=Object.keys(j);if(!ks.length)return false;
@@ -276,7 +307,7 @@ function zipWanted(path){
   if(/(^|\/)(generated|roll20|foundry|makebrew|partnered)\//.test(p))return false;
   if(/(^|\/)(adventure|book)\//.test(p))return false;   // long-form prose
   return true;}
-function usefulJson(j){return !!(j&&typeof j==="object"&&(Array.isArray(j.spell)||Array.isArray(j.class)||Array.isArray(j.subclass)||Array.isArray(j.feat)||Array.isArray(j.race)||Array.isArray(j.subrace)||Array.isArray(j.book)||looksLikeLookup(j)));}
+function usefulJson(j){return !!(j&&typeof j==="object"&&(Array.isArray(j.spell)||Array.isArray(j.class)||Array.isArray(j.subclass)||Array.isArray(j.feat)||Array.isArray(j.race)||Array.isArray(j.subrace)||Array.isArray(j.optionalfeature)||Array.isArray(j.book)||looksLikeLookup(j)));}
 async function unzipJsonFiles(buf,onFile){
   if(typeof DecompressionStream==="undefined")throw new Error("This browser can’t unzip files. Upload the .json files individually instead.");
   const dv=new DataView(buf),bytes=new Uint8Array(buf),n=buf.byteLength,td=new TextDecoder();

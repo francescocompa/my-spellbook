@@ -294,6 +294,11 @@ def parse_block(block, feats=None):
         for s in arr: add_spell_entry(b, "known", at, "always known", s, ft, feats)
     for lvlkey, cadmap in (block.get("innate") or {}).items():
         at = 0 if str(lvlkey) in ("_", "") else int(re.sub(r"\D", "", str(lvlkey)) or 0)
+        # a bare list under the level key is the at-will shorthand for a single cadence
+        if isinstance(cadmap, (list, str)):
+            for s in (cadmap if isinstance(cadmap, list) else [cadmap]):
+                add_spell_entry(b, "innate", at, "at will", s, ft, feats)
+            continue
         if not isinstance(cadmap, dict): continue
         emit_cadence(b, at, cadmap, ft, feats)
     return b
@@ -381,6 +386,22 @@ def parse_grants(add, feats=None):
         if pb["ability"] and not out["ability"]: out["ability"] = pb["ability"]
     return out
 
+def opt_progression(c):
+    """optionalfeatureProgression -> [{name, types, counts[20]}] with cumulative counts."""
+    out = []
+    for p in (c.get("optionalfeatureProgression") or []):
+        prog = p.get("progression"); counts = [0] * 20
+        if isinstance(prog, list):
+            for i in range(20): counts[i] = int(prog[i]) if i < len(prog) and prog[i] else 0
+        elif isinstance(prog, dict):
+            for k, v in prog.items():
+                lv = int(re.sub(r"\D", "", str(k)) or 1)
+                for i in range(lv - 1, 20): counts[i] = max(counts[i], int(v or 0))
+        if any(counts):
+            out.append({"name": p.get("name") or "Optional features",
+                        "types": p.get("featureType") or [], "counts": counts})
+    return out
+
 # ---- classes (casters AND non-casters) — built after the grant parsers -----
 # Sidekicks (Expert/Spellcaster/Warrior) are DM-run NPC templates, not player
 # classes — drop them from the class list and from subclass collection.
@@ -415,6 +436,7 @@ for f in glob.glob(os.path.join(MIRROR, "class", "class-*.json")):
                                     CLSFEAT_INDEX.get((c["name"], c.get("source", "")))),
             "grantsFightingStyle": None,  # filled below for FS-granting classes
             "bonusChoices": [],           # extra-cantrip order features etc.
+            "optFeatures": opt_progression(c),   # invocations / metamagic / boons (D28)
         })
 
 # 2024 order features that grant an extra cantrip (text-only in the source),
@@ -444,7 +466,8 @@ for f in glob.glob(os.path.join(MIRROR, "class", "class-*.json")):
                "className": sc.get("className", ""), "classSource": sc.get("classSource", ""),
                "grants": parse_grants(sc.get("additionalSpells"),
                           SUBFEAT_INDEX.get((sc.get("className", ""),
-                                             sc.get("shortName", sc.get("name", "")), sc.get("source", ""))))}
+                                             sc.get("shortName", sc.get("name", "")), sc.get("source", "")))),
+               "optFeatures": opt_progression(sc)}
         if sc.get("casterProgression"):
             rec["caster"] = sc["casterProgression"]; rec["ability"] = sc.get("spellcastingAbility")
             rec["cantrips"] = sc.get("cantripProgression")
@@ -464,7 +487,45 @@ for ft in load(os.path.join(MIRROR, "feats.json")).get("feat", []):
                   "category": cat, "fsClass": fs_class,   # fighting-style feats attach to a class
                   "srd": bool(ft.get("srd52")),
                   "hasSpells": has_spells,               # non-spell feats are build-choice-only
+                  "optFeatures": opt_progression(ft),    # Eldritch Adept, Metamagic Adept… (D28)
                   "grants": parse_grants(ft.get("additionalSpells")) if has_spells else dict(EMPTY_GRANTS)})
+
+# ---- optional features (invocations, metamagic, pact boons, maneuvers…) ----
+# Extracted generically: every featureType, with its prerequisites as display text.
+# How many you get is NOT hardcoded — it comes from each class/subclass's
+# optionalfeatureProgression (see opt_progression below), so slots are data.
+def _prereq_text(o):
+    out = []
+    for p in (o.get("prerequisite") or []):
+        bits = []
+        lv = p.get("level")
+        if isinstance(lv, dict):
+            cl = (lv.get("class") or {}).get("name")
+            bits.append(f"{cl} level {lv.get('level')}" if cl else f"level {lv.get('level')}")
+        elif lv is not None:
+            bits.append(f"level {lv}")
+        if p.get("pact"): bits.append(f"Pact of the {p['pact']}")
+        for sp in (p.get("spell") or []):
+            bits.append(sp.get("entrySummary") or sp.get("entry") if isinstance(sp, dict)
+                        else rich_strip(sp.split("#")[0]))
+        for it in (p.get("item") or []): bits.append(rich_strip(it))
+        for of in (p.get("optionalfeature") or []): bits.append(rich_strip(str(of).split("|")[0]))
+        osum = p.get("otherSummary")
+        if isinstance(osum, dict): bits.append(rich_strip(osum.get("entrySummary") or osum.get("entry") or ""))
+        if bits: out.append(", ".join(b for b in bits if b))
+    return " or ".join(out) or None
+
+optfeats = []
+_optpath = os.path.join(MIRROR, "optionalfeatures.json")
+for o in (load(_optpath).get("optionalfeature", []) if os.path.exists(_optpath) else []):
+    has_spells = "additionalSpells" in o
+    optfeats.append({"name": o["name"], "source": o.get("source", ""),
+                     "group": bgroup(o.get("source", "")), "book": bname(o.get("source", "")),
+                     "reprinted": reprinted(o), "srd": bool(o.get("srd52")),
+                     "types": o.get("featureType") or [],
+                     "prereq": _prereq_text(o),
+                     "hasSpells": has_spells,
+                     "grants": parse_grants(o.get("additionalSpells")) if has_spells else dict(EMPTY_GRANTS)})
 
 # species (ALL, even without spells; split lineages that carry named blocks)
 races = []
@@ -513,7 +574,7 @@ PACT = [(1,1),(2,1),(2,2),(2,2),(2,3),(2,3),(2,4),(2,4),(2,5),(2,5),
 digest = {
     "meta": {"mirror": os.path.basename(os.path.dirname(MIRROR)), "spellCount": len(spells)},
     "sources": sources, "spells": list(spells.values()), "classes": classes,
-    "subclasses": subclasses, "feats": feats, "races": races,
+    "subclasses": subclasses, "feats": feats, "races": races, "optfeats": optfeats,
     "fullMc": FULL_MC, "pact": PACT,
 }
 out_path = os.path.join(os.path.dirname(__file__), "data", "data.json")
@@ -527,16 +588,18 @@ def _srd_subset():
     ssub = [s for s in subclasses if s.get("srd")]
     sf = [f_ for f_ in feats if f_.get("srd")]
     sr = [r for r in races if r.get("srd")]
+    so = [o for o in optfeats if o.get("srd")]
     cnt = defaultdict(lambda: {"spells": 0, "classes": 0, "subclasses": 0, "feats": 0, "species": 0})
     for s in ss: cnt[s["source"]]["spells"] += 1
     for c in sc: cnt[c["source"]]["classes"] += 1
     for s in ssub: cnt[s["source"]]["subclasses"] += 1
     for f_ in sf: cnt[f_["source"]]["feats"] += 1
     for r in sr: cnt[r["source"]]["species"] += 1
+    for o in so: cnt[o["source"]]["species"] += 0   # optional features share their book's row
     srdsrc = {src: {"name": bname(src), "group": bgroup(src), "counts": c} for src, c in cnt.items()}
     return {"meta": {"srd": True, "spellCount": len(ss)}, "sources": srdsrc,
             "spells": ss, "classes": sc, "subclasses": ssub, "feats": sf, "races": sr,
-            "fullMc": FULL_MC, "pact": PACT}
+            "optfeats": so, "fullMc": FULL_MC, "pact": PACT}
 
 srd = _srd_subset()
 srd_path = os.path.join(os.path.dirname(__file__), "data", "data-srd.json")

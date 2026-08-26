@@ -26,11 +26,11 @@ const PACT=[[1,1],[2,1],[2,2],[2,2],[2,3],[2,3],[2,4],[2,4],[2,5],[2,5],
 const HB_SRC="HB";   // homebrew source code
 const LS_CUSTOM="spellForge.custom.v1", LS_IMPORT="spellForge.import.v1";
 const BAKED = (typeof window!=="undefined" && window.__DATA__) || null;
-const emptyDigest=()=>({meta:{},sources:{},spells:[],classes:[],subclasses:[],feats:[],races:[],fullMc:FULL_MC,pact:PACT});
+const emptyDigest=()=>({meta:{},sources:{},spells:[],classes:[],subclasses:[],feats:[],races:[],optfeats:[],fullMc:FULL_MC,pact:PACT});
 function loadJSON(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null;}catch(e){return null;}}
 let DATA, IMPORTED=null, CUSTOM=null;
 // mutable indexes — rebuilt after every content change
-let CLS_BY={},SUB_BY={},SUBS_OF={},FEAT_BY={},RACE_BY={},SPELL_BY={},SPELL_BY_NAME={};
+let CLS_BY={},SUB_BY={},SUBS_OF={},FEAT_BY={},RACE_BY={},OPT_BY={},SPELL_BY={},SPELL_BY_NAME={};
 // edition de-duplication: when the same element (by identity) exists under several
 // sources (2014 PHB + 2024 XPHB, TCE + …), keep only the newest and shadow the rest,
 // so the pickers never list the same class/subclass/feat/species/spell twice.
@@ -54,11 +54,13 @@ function buildIndexes(){
   collapseEditions(DATA.feats, f=>f.name.toLowerCase());
   collapseEditions(DATA.races, r=>r.name.toLowerCase());
   collapseEditions(DATA.spells, s=>s.name.toLowerCase());
+  collapseEditions(DATA.optfeats, o=>o.name.toLowerCase());
   CLS_BY={}; DATA.classes.forEach(c=>CLS_BY[key(c.name,c.source)]=c);
   SUB_BY={}; DATA.subclasses.forEach(s=>SUB_BY[key(s.name,s.source)]=s);
   SUBS_OF={}; DATA.subclasses.forEach(s=>{const k=key(s.className,s.classSource);(SUBS_OF[k]=SUBS_OF[k]||[]).push(s);});
   FEAT_BY={}; DATA.feats.forEach(f=>FEAT_BY[key(f.name,f.source)]=f);
   RACE_BY={}; DATA.races.forEach(r=>RACE_BY[key(r.name,r.source)]=r);
+  OPT_BY={}; DATA.optfeats.forEach(o=>OPT_BY[key(o.name,o.source)]=o);
   SPELL_BY={}; DATA.spells.forEach(s=>SPELL_BY[key(s.name,s.source)]=s);
   SPELL_BY_NAME={}; DATA.spells.forEach(s=>{(SPELL_BY_NAME[s.name.toLowerCase()]=SPELL_BY_NAME[s.name.toLowerCase()]||[]).push(s);});
 }
@@ -68,7 +70,7 @@ function assembleData(){
   const base=IMPORTED||BAKED||emptyDigest();
   DATA={meta:base.meta||{},sources:Object.assign({},base.sources),
     spells:(base.spells||[]).slice(),classes:base.classes||[],subclasses:base.subclasses||[],
-    feats:base.feats||[],races:base.races||[],
+    feats:base.feats||[],races:base.races||[],optfeats:base.optfeats||[],
     fullMc:base.fullMc||FULL_MC,pact:base.pact||PACT};
   const csp=(CUSTOM&&CUSTOM.spells)||[];
   if(csp.length){ DATA.spells=DATA.spells.concat(csp);
@@ -82,7 +84,7 @@ assembleData();
 // ── state + persistence ─────────────────────────────────────────────────
 const LS="spellForge.v2";
 const state={
-  classes:[], speciesKey:"", feats:[],
+  classes:[], speciesKey:"", feats:[], optFeats:[],
   enabledSources:new Set(Object.keys(DATA.sources)),   // all on by default
   filters:{q:"",levels:new Set(),school:"",cls:"",time:new Set(),comp:new Set(),tags:new Set(),save:"",dmg:"",books:null,reprint:"dedupe",chosen:false},
   chosen:{},   // rowId -> {cantrips:[], spells:[]}
@@ -97,13 +99,13 @@ function activeFilterCount(){const f=state.filters;let n=0;
   if(f.books&&(f.books.size!==state.enabledSources.size||[...state.enabledSources].some(c=>!f.books.has(c))))n++;
   return n;}
 function save(){ try{ localStorage.setItem(LS, JSON.stringify({
-  classes:state.classes, speciesKey:state.speciesKey, feats:state.feats,
+  classes:state.classes, speciesKey:state.speciesKey, feats:state.feats, optFeats:state.optFeats,
   nextRowId:state.nextRowId,
   enabledSources:[...state.enabledSources], chosen:state.chosen, choices:state.choices,
   filters:{...state.filters,levels:[...state.filters.levels],time:[...state.filters.time],comp:[...state.filters.comp],tags:[...state.filters.tags],books:state.filters.books?[...state.filters.books]:null},
 })); }catch(e){} }
 function load(){ try{ const s=JSON.parse(localStorage.getItem(LS)); if(!s)return;
-  Object.assign(state,{classes:s.classes||[],speciesKey:s.speciesKey||"",feats:s.feats||[],
+  Object.assign(state,{classes:s.classes||[],speciesKey:s.speciesKey||"",feats:s.feats||[],optFeats:s.optFeats||[],
     chosen:s.chosen||{},choices:s.choices||{},nextRowId:s.nextRowId||1});
   if(s.enabledSources)state.enabledSources=new Set(s.enabledSources);
   if(s.filters)state.filters=Object.assign(state.filters,s.filters,{levels:new Set(s.filters.levels||[]),time:new Set(s.filters.time||[]),comp:new Set(s.filters.comp||[]),tags:new Set(s.filters.tags||[]),books:s.filters.books?new Set(s.filters.books):null});
@@ -260,6 +262,7 @@ function compute(){
     gout.fixed.push(...o.fixed);gout.freeCasts.push(...o.freeCasts);gout.choices.push(...o.choices);
   });
   state.feats.forEach(fk=>{const f=FEAT_BY[fk];if(f)resolveGrants(f.grants,charLevel,"f"+fk,f.name,gout,sharedStat,f.source);});
+  state.optFeats.forEach(ok=>{const o=OPT_BY[ok];if(o)resolveGrants(o.grants,charLevel,"o"+ok,o.name,gout,sharedStat,o.source);});
   if(state.speciesKey){const sp=RACE_BY[state.speciesKey];if(sp)resolveGrants(sp.grants,charLevel,"r",sp.name,gout,sharedStat,sp.source);}
 
   // eligible pool = each caster's own list + its active expansions
@@ -447,18 +450,23 @@ function grantPreview(grants){
 const ALL_SRC={has:()=>true};
 function entItems(srcSet){
   const vis=o=>(srcSet||{has:c=>srcOn(c)}).has(o.source)&&reprintOk(o);
+  if(ENT.kind==="opt"){const want=new Set(ENT.slot.types);
+    return DATA.optfeats.filter(o=>vis(o)&&o.types.some(t=>want.has(t)));}
   if(ENT.kind==="species")return DATA.races.filter(vis);
   return DATA.feats.filter(f=>vis(f)&&!isFeatFS(f)&&ENT.cats.has(featCat(f)));
 }
 function openEntityPicker(kind,category){
+  // the optional-feature slot is passed in place of a feat category
+  const slot=kind==="opt"?category:null;
   // `books` is a LOCAL override seeded from the global selection (D27) — editing it here
   // never writes back to state.enabledSources, and it resets every time the picker opens.
   // one shared picker for all three feat slots: `cats` is PRESET to the slot's kind but the
   // player can widen it (a general slot may take an origin feat). Budget attribution still
   // follows the feat's own category, so widening can show origin 2/1 — deliberate, soft-flagged.
-  ENT={kind,category,q:"",books:new Set(state.enabledSources),grantsOnly:false,
-       cats:new Set(kind==="species"?[]:[category==="origin"?"origin":category==="epic"?"epic":"general"])};
-  $("#entTitle").textContent = kind==="species"?"Choose a species / lineage"
+  ENT={kind,category,slot,q:"",books:new Set(state.enabledSources),grantsOnly:false,
+       cats:new Set(kind==="species"||kind==="opt"?[]:[category==="origin"?"origin":category==="epic"?"epic":"general"])};
+  $("#entTitle").textContent = kind==="opt"?`Choose ${slot.name.replace(/s$/,"").toLowerCase()}`
+    : kind==="species"?"Choose a species / lineage"
     : category==="origin"?"Choose an origin feat" : category==="epic"?"Choose an epic boon" : "Choose a general feat";
   $("#entSearch").value=""; $("#entGrants").checked=false;
   $("#entBooksPanel").classList.add("hidden"); $("#entBooksBtn").setAttribute("aria-expanded","false");
@@ -477,8 +485,8 @@ function renderEntBooks(){
 function renderEntityList(){
   if(!ENT)return;
   const list=$("#entList"); list.innerHTML="";
-  $("#entCatRow").classList.toggle("hidden",ENT.kind==="species");
-  if(ENT.kind!=="species"){
+  $("#entCatRow").classList.toggle("hidden",ENT.kind!=="feat");
+  if(ENT.kind==="feat"){
     const cats=charLevel()>=19?FEAT_CATS:FEAT_CATS.filter(([v])=>v!=="epic");
     buildToggleRow($("#entCats"),cats,ENT.cats,false,()=>renderEntityList());
   }
@@ -487,22 +495,23 @@ function renderEntityList(){
   const q=ENT.q.toLowerCase();
   items=items.filter(i=>(!q||i.name.toLowerCase().includes(q))&&(!ENT.grantsOnly||grantsAny(i.grants)));
   items.sort((a,b)=>a.name.localeCompare(b.name)||a.source.localeCompare(b.source));
-  $("#entSub").textContent=`${items.length} ${ENT.kind==="species"?"species":"feats"} · ✦ grants spells`
+  $("#entSub").textContent=`${items.length} ${ENT.kind==="opt"?"options":ENT.kind==="species"?"species":"feats"} · ✦ grants spells`
+    +(ENT.kind==="opt"?` · ${state.optFeats.filter(k=>{const o=OPT_BY[k];return o&&o.types.some(t=>ENT.slot.types.includes(t));}).length}/${ENT.slot.cap} taken`:"")
     +(ENT.note?` · ${ENT.note}`:"");
   const curSel = ENT.kind==="species"?state.speciesKey:null;
   if(!items.length){list.append(el("div","empty","Nothing matches those filters."));return;}
   items.slice(0,400).forEach(it=>{const k=key(it.name,it.source);
-    const on = ENT.kind==="species"?curSel===k:state.feats.includes(k);
+    const on = ENT.kind==="species"?curSel===k:ENT.kind==="opt"?state.optFeats.includes(k):state.feats.includes(k);
     const row=el("div","entrow"+(on?" on":""));
     const main=el("div","entmain");
     const nm=el("div","entname");nm.append(document.createTextNode(it.name));
     if(it.source!==CORE)nm.append(Object.assign(el("span","entsrc"),{textContent:it.source,title:bookName(it.source)}));
-    if(ENT.kind!=="species"){const c=featCat(it);
+    if(ENT.kind==="feat"){const c=featCat(it);
       if(c!==(ENT.category==="origin"?"origin":ENT.category==="epic"?"epic":"general"))
         nm.append(Object.assign(el("span","entcat"),{textContent:c}));}
     if(grantsAny(it.grants))nm.append(Object.assign(el("span","fmark"),{textContent:"✦"}));
     main.append(nm);
-    const prev=grantPreview(it.grants);
+    const prev=[it.prereq?"needs "+it.prereq:"",grantPreview(it.grants)].filter(Boolean).join(" · ");
     if(prev)main.append(Object.assign(el("div","entprev"),{textContent:prev,title:prev}));
     row.append(main);
     const btn=el("button","tk"+(on?" on":""), on?"✓ selected":"select");
@@ -511,6 +520,7 @@ function renderEntityList(){
       // from it enables that book globally, otherwise afterSourceChange would prune the pick
       if(!on&&!srcOn(it.source)){state.enabledSources.add(it.source);ENT.note=`Enabled ${bookName(it.source)} in your sources`;}
       if(ENT.kind==="species"){state.speciesKey=on?"":k;}
+      else if(ENT.kind==="opt"){ if(on)state.optFeats=state.optFeats.filter(x=>x!==k); else state.optFeats.push(k); }
       else{ if(on)state.feats=state.feats.filter(x=>x!==k); else state.feats.push(k); }
       save();refreshAll();render();renderEntityList(); };
     row.append(btn); list.append(row);
@@ -664,7 +674,7 @@ function deleteCustom(sp){if(!CUSTOM)return;
 // ── 5etools importer: parse raw files in-browser via SB_extract ─────────────
 let IMPORT_STAGE=[];
 function looksLookupFile(j){const ks=Object.keys(j||{});if(!ks.length)return false;const v=j[ks[0]];if(!v||typeof v!=="object")return false;const vv=v[Object.keys(v)[0]];return !!(vv&&typeof vv==="object"&&(vv.class||vv.subclass||vv.feat||vv.race));}
-function countFile(j){const parts=[];[["spell","sp"],["class","cls"],["subclass","sub"],["feat","ft"],["race","spc"],["book","bk"]].forEach(([k,l])=>{if(Array.isArray(j[k])&&j[k].length)parts.push(j[k].length+" "+l);});
+function countFile(j){const parts=[];[["spell","sp"],["class","cls"],["subclass","sub"],["feat","ft"],["race","spc"],["optionalfeature","opt"],["book","bk"]].forEach(([k,l])=>{if(Array.isArray(j[k])&&j[k].length)parts.push(j[k].length+" "+l);});
   if(!parts.length&&looksLookupFile(j))parts.push("lookup");return parts.join(" · ")||"?";}
 function renderImportStage(){const box=$("#importStaged");if(!box)return;box.innerHTML="";
   IMPORT_STAGE.forEach((f,i)=>{const chip=el("span","stagechip"+(f.error?" bad":""));
@@ -1315,6 +1325,56 @@ function renderFeatBudget(){const b=featBudget();const n=$("#featBudget");if(!n)
   n.className="budgetnote"+(need?" alert":"");
   n.textContent=`origin ${b.originPicked}/${b.origin} · general ${b.generalPicked}/${b.general}`+(b.epic?` · epic ${b.epicPicked}/${b.epic}`:"");
   n.title=need?"You still owe a feat at your level":"Feat slots filled";}
+// ── optional features: invocations, metamagic, pact boons… (D28) ───────────
+// Slots come from each class/subclass's optionalfeatureProgression, so a "slot" is
+// {name, types, have} and nothing about a specific feature type is hardcoded here.
+function optSlots(){
+  const out=[];
+  const add=(src,lv)=>{
+      if(!src||!src.optFeatures)return;
+      src.optFeatures.forEach(p=>{
+        const cap=p.counts[Math.max(0,lv-1)]||0; if(!cap)return;
+        const types=new Set(p.types);
+        const picked=state.optFeats.filter(k=>{const o=OPT_BY[k];return o&&o.types.some(t=>types.has(t));});
+        out.push({name:p.name,types:p.types,cap,picked,giver:src.name,giverSrc:src.source});
+      });};
+  state.classes.forEach(row=>{const lv=Math.max(1,Math.min(20,row.level||0));
+    add(CLS_BY[row.clsKey],lv); add(row.subKey&&SUB_BY[row.subKey],lv);});
+  // feats can grant them too (Eldritch Adept, Metamagic Adept, Martial Adept…)
+  state.feats.forEach(fk=>add(FEAT_BY[fk],Math.max(1,charLevel())));
+  // one class taken twice can't stack the same feature line twice
+  // the same feature line from two sources merges into one slot with the caps summed
+  const merged=new Map();
+  out.forEach(sl=>{const k=sl.name+"|"+sl.types.join(",");const m=merged.get(k);
+    if(!m)merged.set(k,sl);
+    else if(m.giver===sl.giver&&m.giverSrc===sl.giverSrc)m.cap=Math.max(m.cap,sl.cap);
+    else{m.cap+=sl.cap;m.giver+=" + "+sl.giver;}});
+  return [...merged.values()];
+}
+function renderOptFeats(){
+  const box=$("#optFeatBlock");if(!box)return;
+  const slots=optSlots();
+  box.classList.toggle("hidden",!slots.length);
+  box.innerHTML="";if(!slots.length)return;
+  slots.forEach(sl=>{
+    const over=sl.picked.length>sl.cap;
+    const lab=el("label","fld");lab.append(document.createTextNode(sl.name+" "));
+    lab.append(Object.assign(el("span","budgetnote"+(over?" alert":"")),
+      {textContent:`${sl.picked.length}/${sl.cap}`,title:`${sl.giver} grants ${sl.cap} at this level`}));
+    box.append(lab);
+    const btn=el("button","picksel ph");btn.append(el("span",null,`＋ ${sl.name.replace(/s$/,"").toLowerCase()}…`));
+    btn.append(el("span","pk-caret","⌄"));
+    btn.onclick=()=>openEntityPicker("opt",sl);
+    box.append(btn);
+    const chips=el("div","chips");
+    sl.picked.forEach(k=>{const o=OPT_BY[k];if(!o)return;
+      const c=el("span","chip"+(grantsAny(o.grants)?" hasspell":""));
+      c.append(el("span",null,o.name));
+      const b=el("button",null,"×");b.onclick=()=>{state.optFeats=state.optFeats.filter(x=>x!==k);save();refreshAll();render();};
+      c.append(b);chips.append(c);});
+    box.append(chips);
+  });
+}
 function renderFeatChips(){const box=$("#featChips");box.innerHTML="";state.feats.forEach((fk,i)=>{const f=FEAT_BY[fk];if(!f)return;
   const c=el("span","chip"+(isEpicBoon(f)?" epic":isOriginFeat(f)?" origin":"")+(grantsAny(f.grants)?" hasspell":""));
   if(grantsAny(f.grants))c.append(Object.assign(el("span","fmark"),{textContent:"✦"}));
@@ -1364,12 +1424,13 @@ function afterSourceChange(){ // drop now-hidden picks/classes
   state.classes=state.classes.filter(r=>{const c=CLS_BY[r.clsKey];return c&&visible(c);});
   state.classes.forEach(r=>{const s=r.subKey&&SUB_BY[r.subKey];if(s&&!visible(s))r.subKey=null;});
   state.feats=state.feats.filter(fk=>{const f=FEAT_BY[fk];return f&&visible(f);});
+  state.optFeats=state.optFeats.filter(ok=>{const o=OPT_BY[ok];return o&&visible(o);});
   const sp=RACE_BY[state.speciesKey];if(sp&&!visible(sp))state.speciesKey="";
   // a newly enabled book must not stay invisible behind a stale filter override
   if(state.filters.books)state.enabledSources.forEach(c=>state.filters.books.add(c));
   refreshAll();renderSrcModal();render();
 }
-function refreshAll(){refreshAddClass();refreshSpecies();refreshAddFeat();renderClassRows();renderFeatChips();}
+function refreshAll(){refreshAddClass();refreshSpecies();refreshAddFeat();renderClassRows();renderFeatChips();renderOptFeats();}
 
 // ── events ───────────────────────────────────────────────────────────────
 $("#addClass").onchange=e=>{const clsKey=e.target.value;
@@ -1448,7 +1509,7 @@ $("#srcModal").onclick=e=>{if(e.target.id==="srcModal")$("#srcModal").classList.
 {const q=()=>srcQuick(state.enabledSources,afterSourceChange);
  $("#srcAll").onclick=()=>q().all(); $("#srcNone").onclick=()=>q().none(); $("#src2024").onclick=()=>q().core();}
 $("#resetBtn").onclick=()=>{if(!confirm("Clear the whole build (classes, picks, filters)?"))return;
-  state.classes=[];state.feats=[];state.speciesKey="";state.chosen={};state.choices={};state.nextRowId=1;
+  state.classes=[];state.feats=[];state.optFeats=[];state.speciesKey="";state.chosen={};state.choices={};state.nextRowId=1;
   state.filters=FILTER_DEFAULT();
   try{localStorage.removeItem(LS);}catch(e){}
   $("#fq").value="";$("#fReprint").value="dedupe";
@@ -1467,7 +1528,7 @@ document.addEventListener("click",e=>{if(!e.target.closest(".menu"))closeMenu();
 function randomBuild(){
   const rnd=a=>a[Math.floor(Math.random()*a.length)];
   const casters=DATA.classes.filter(c=>visible(c)&&(c.caster||(SUBS_OF[key(c.name,c.source)]||[]).some(s=>visible(s)&&s.caster)));
-  state.classes=[];state.feats=[];state.speciesKey="";state.chosen={};state.choices={};state.nextRowId=1;
+  state.classes=[];state.feats=[];state.optFeats=[];state.speciesKey="";state.chosen={};state.choices={};state.nextRowId=1;
   const n=1+Math.floor(Math.random()*2);
   for(let i=0;i<n;i++){const c=rnd(casters);const lvl=1+Math.floor(Math.random()*20);
     const row={clsKey:key(c.name,c.source),subKey:null,level:lvl,id:state.nextRowId++};
@@ -1497,6 +1558,7 @@ function pruneState(){
   state.classes=(state.classes||[]).filter(r=>CLS_BY[r.clsKey]);
   state.classes.forEach(r=>{if(r.subKey&&!SUB_BY[r.subKey])r.subKey=null;});
   state.feats=(state.feats||[]).filter(fk=>FEAT_BY[fk]);
+  state.optFeats=(state.optFeats||[]).filter(ok=>OPT_BY[ok]);
   if(state.speciesKey&&!RACE_BY[state.speciesKey])state.speciesKey="";
 }
 // ── boot ─────────────────────────────────────────────────────────────────
