@@ -25,14 +25,27 @@ with open(os.path.join(ROOT, "data", "data.js"), "w", encoding="utf-8") as f:
 html = read("src", "index.html")
 css  = read("src", "styles.css")
 appjs = read("src", "app.js")
+extractjs = read("src", "extract.js")
 html = html.replace('<link rel="stylesheet" href="styles.css">',
                     "<style>\n" + css + "\n</style>")
-html = html.replace('<script src="../data/data.js"></script>',
-                    "<script>window.__DATA__=" + data_json + ";</script>")
+html = html.replace('<script src="extract.js"></script>',
+                    "<script>\n" + extractjs + "\n</script>")
 html = html.replace('<script src="app.js"></script>',
                     "<script>\n" + appjs + "\n</script>")
+
+# 2a. dist/index.html — self-contained, WITH baked data (personal offline build)
+dist = html.replace('<script src="../data/data.js"></script>',
+                    "<script>window.__DATA__=" + data_json + ";</script>")
 os.makedirs(os.path.join(ROOT, "dist"), exist_ok=True)
 with open(os.path.join(ROOT, "dist", "index.html"), "w", encoding="utf-8") as f:
-    f.write(html)
+    f.write(dist)
 
-print(f"data.js {len(data_json)//1024} KB · dist/index.html {len(html)//1024} KB")
+# 2b. docs/index.html — public GitHub Pages build, NO bundled data (import at runtime)
+shell = html.replace('<script src="../data/data.js"></script>', "")
+os.makedirs(os.path.join(ROOT, "docs"), exist_ok=True)
+with open(os.path.join(ROOT, "docs", "index.html"), "w", encoding="utf-8") as f:
+    f.write(shell)
+with open(os.path.join(ROOT, "docs", ".nojekyll"), "w", encoding="utf-8") as f:
+    f.write("")
+
+print(f"data.js {len(data_json)//1024} KB · dist {len(dist)//1024} KB (with data) · docs {len(shell)//1024} KB (shell only)")

@@ -11,14 +11,17 @@
   <header class="top">
     <h1>My Spellbook</h1>
     <span class="spacer"></span>
+    <button class="btn iconbtn" id="testBtn" title="Populate a random test build (local only)">🎲</button>
     <div class="tabs"><button id="tabBuild" class="on">Build</button><button id="tabTable">Spell table</button></div>
     <div class="menu">
       <button class="btn iconbtn" id="menuBtn" title="Settings" aria-label="Settings">⋯</button>
       <div class="menupop hidden" id="menuPop">
-        <button id="sourcesBtn">⚙ Sources…</button>
-        <button id="themeBtn">◐ Toggle theme</button>
+        <button id="customBtn"><span class="mi">✎</span>Custom spell…</button>
+        <button id="importBtn"><span class="mi">⭳</span>Import 5etools…</button>
+        <button id="sourcesBtn"><span class="mi">⚙</span>Sources…</button>
+        <button id="themeBtn"><span class="mi">◐</span>Toggle theme</button>
         <div class="sep"></div>
-        <button id="resetBtn" class="danger">Reset build</button>
+        <button id="resetBtn" class="danger"><span class="mi">⟲</span>Reset build</button>
       </div>
     </div>
   </header>
@@ -32,26 +35,18 @@
           <div class="fieldset">
             <label class="fld">Classes &amp; levels</label>
             <div id="classRows"></div>
-            <input id="addClass" list="classList" placeholder="+ add a class… (type to search)" autocomplete="off">
-            <datalist id="classList"></datalist>
+            <select id="addClass"><option value="">+ add a class…</option></select>
           </div>
           <div class="fieldset">
             <label class="fld">Species / lineage</label>
             <select id="speciesSel"><option value="">— none —</option></select>
           </div>
           <div class="fieldset">
-            <label class="fld">Feats that grant spells</label>
-            <select id="addFeat"><option value="">+ add a feat…</option></select>
+            <label class="fld">Feats <span class="budgetnote" id="featBudget"></span></label>
+            <select id="addOrigin"><option value="">+ origin feat…</option></select>
+            <select id="addFeat"><option value="">+ general feat…</option></select>
+            <select id="addEpic" class="hidden"><option value="">+ epic boon…</option></select>
             <div class="chips" id="featChips"></div>
-          </div>
-          <div class="fieldset">
-            <label class="fld">Manual extras (any source)</label>
-            <div class="twocol">
-              <div><label class="fld" style="text-transform:none;letter-spacing:0">Extra cantrips</label>
-                <input type="number" id="extraCantrips" min="0" max="20" value="0"></div>
-              <div><label class="fld" style="text-transform:none;letter-spacing:0">Extra prepared</label>
-                <input type="number" id="extraSpells" min="0" max="40" value="0"></div>
-            </div>
           </div>
         </div>
       </div>
@@ -111,13 +106,17 @@
   </div>
 
   <div id="tableView" class="hidden">
-    <div class="card"><h2>Selected spells <span class="count" id="tableChip"></span></h2>
-      <div class="body">
-        <div class="tableopts">
-          <label>Group by
-            <select id="tGroup"><option value="level">Spell level</option><option value="ability">Casting ability</option><option value="source">Source</option></select></label>
-          <label id="tShowWrap"><input type="checkbox" id="tShowAll"> Show all eligible (daily casters)</label>
+    <div class="card"><h2>Selected spells <span class="count" id="tableChip"></span>
+      <button class="btn" id="prepDailyBtn">Prepare daily</button>
+      <div class="menu tablemenu">
+        <button class="btn iconbtn" id="tMenuBtn" title="Table options" aria-label="Table options">⋯</button>
+        <div class="menupop hidden" id="tMenuPop">
+          <label class="mopt">Group by
+            <select id="tGroup"><option value="level">Level only</option><option value="ability">Casting ability</option><option value="source">Source</option></select></label>
         </div>
+      </div>
+    </h2>
+      <div class="body">
         <div class="tablewrap"><table class="spelltable" id="spellTable"></table></div>
         <p class="note" id="tableEmpty"></p></div>
     </div>
@@ -125,8 +124,57 @@
 </div>
 
 <div class="modal hidden" id="pickModal"><div class="box">
-  <div class="mh"><h2 id="pickTitle">Choose spells</h2><span class="sub" id="pickSub" style="color:var(--muted);font-size:12px"></span><button class="x" id="pickClose">×</button></div>
-  <div class="mb"><input type="search" id="pickSearch" placeholder="filter by name…" style="margin-bottom:11px"><div id="pickList" style="max-height:52vh;overflow:auto"></div></div>
+  <div class="mh mh-stack">
+    <div class="mh-row"><h2 id="pickTitle">Choose spells</h2><button class="x" id="pickClose">×</button></div>
+    <div class="sub" id="pickSub"></div>
+  </div>
+  <div class="mb">
+    <div class="pickbar"><input type="search" id="pickSearch" placeholder="filter by name…">
+      <div class="menu pickfiltermenu">
+        <button class="btn" id="pickLevelBtn">Levels</button>
+        <div class="menupop hidden" id="pickLevelPop"><label class="fld">Filter by level</label><div class="cbrow" id="pickLevels"></div></div>
+      </div>
+      <button class="btn" id="pickClear" title="Clear all selections in this picker">Clear</button>
+    </div>
+    <div id="pickList"></div>
+  </div>
+</div></div>
+
+<div class="modal hidden" id="customModal"><div class="box">
+  <div class="mh mh-stack">
+    <div class="mh-row"><h2 id="customTitle">New custom spell</h2><button class="x" id="customClose">×</button></div>
+    <div class="prepsteps" id="customSteps"></div>
+  </div>
+  <div class="mb" id="customBody"></div>
+  <div class="prepnav">
+    <button class="btn" id="customPrev">← Back</button>
+    <span class="cverr" id="customErr"></span>
+    <span class="prepnav-sp"></span>
+    <button class="btn" id="customNext">Next →</button>
+    <button class="btn on" id="customDone">Compile &amp; add</button>
+  </div>
+</div></div>
+
+<div class="modal hidden" id="importModal"><div class="box">
+  <div class="mh"><h2>Import 5etools data</h2><button class="x" id="importClose">×</button></div>
+  <div class="mb">
+    <p class="note" style="margin-top:0">Load spells, classes, subclasses, feats and species straight from a 5etools <code>data</code> export — parsed in your browser, stored locally. Add the <code>generated/gendata-spell-source-lookup.json</code> file too so spells know which classes can cast them.</p>
+    <div class="importdrop" id="importDrop">
+      <input type="file" id="importFiles" accept=".json,application/json" multiple hidden>
+      <span class="mi" style="font-size:26px">⭳</span>
+      <div><b>Drop 5etools JSON files here</b><br><span style="color:var(--muted)">or <u id="importPick">browse…</u> · spells-*.json, class-*.json, feats.json, races.json, books.json, the lookup</span></div>
+    </div>
+    <p class="fld" style="margin:12px 0 4px">Or paste one file's JSON</p>
+    <textarea id="importPaste" placeholder="paste 5etools JSON here…" style="width:100%;min-height:70px;font-family:var(--sans);font-size:12px;padding:8px;border-radius:8px;border:1px solid var(--line-strong);background:var(--bg);color:var(--ink)"></textarea>
+    <div id="importStaged" class="importstaged"></div>
+    <div id="importReport" class="note"></div>
+    <div class="prepnav" style="border:none;padding:12px 0 0">
+      <button class="btn" id="importPasteAdd">Add pasted JSON</button>
+      <span class="prepnav-sp"></span>
+      <button class="btn" id="importClear">Clear staged</button>
+      <button class="btn on" id="importBuild">Build &amp; load</button>
+    </div>
+  </div>
 </div></div>
 
 <div class="modal hidden" id="srcModal"><div class="box">
@@ -140,7 +188,31 @@
     <div id="srcList"></div>
   </div>
 </div></div>
+<div class="modal hidden" id="prepModal"><div class="box">
+  <div class="mh mh-stack">
+    <div class="mh-row"><h2 id="prepTitle">Prepare spells</h2><button class="x" id="prepClose">×</button></div>
+    <div class="prepsteps" id="prepSteps"></div>
+  </div>
+  <div class="mb">
+    <div class="prepbar">
+      <div class="prepcount" id="prepCount"></div>
+      <input type="search" id="prepSearch" placeholder="filter by name…">
+      <div class="menu prepfiltermenu">
+        <button class="btn" id="prepLevelBtn">Levels</button>
+        <div class="menupop hidden" id="prepLevelPop"><label class="fld">Filter by level</label><div class="cbrow" id="prepLevels"></div></div>
+      </div>
+    </div>
+    <div id="prepList"></div>
+  </div>
+  <div class="prepnav">
+    <button class="btn" id="prepPrev">← Back</button>
+    <span class="prepnav-sp"></span>
+    <button class="btn" id="prepNext">Next →</button>
+    <button class="btn on" id="prepDone">Done</button>
+  </div>
+</div></div>
 <script src="../data/data.js"></script>
+<script src="extract.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

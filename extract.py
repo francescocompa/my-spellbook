@@ -212,15 +212,15 @@ def choose_filter(choose):
                 k, v = part.split("=", 1); filt[k.strip()] = v.strip()
     return filt, count
 
-def add_spell_entry(bucket, kind, at, recharge, s):
+def add_spell_entry(bucket, kind, at, recharge, s, feature=None):
     """Route one spell reference into fixed (named) or picks (choose)."""
     ref = spell_ref(s)
     if ref.get("choice"):
         f, c = choose_filter(s)          # pass the whole ref so count survives
         bucket["picks"].append({"kind": kind, "atLevel": at, "recharge": recharge,
-                                "count": c, "filter": f, "desc": ref["desc"]})
+                                "count": c, "filter": f, "desc": ref["desc"], "feature": feature})
     else:
-        bucket["fixed"].append({"kind": kind, "atLevel": at, "recharge": recharge, "spell": ref})
+        bucket["fixed"].append({"kind": kind, "atLevel": at, "recharge": recharge, "spell": ref, "feature": feature})
 
 def norm_ability(a):
     if a is None: return None
@@ -229,23 +229,25 @@ def norm_ability(a):
     return None
 
 def parse_block(block):
-    """One additionalSpells block -> {fixed, picks, expansions, ability}."""
+    """One additionalSpells block -> {fixed, picks, expansions, ability}.
+       block['name'] (when present) is the granting feature's name."""
+    ft = block.get("name")
     b = {"fixed": [], "picks": [], "expansions": [], "ability": norm_ability(block.get("ability"))}
     for lvl, arr in (block.get("prepared") or {}).items():
         at = int(re.sub(r"\D", "", str(lvl)) or 0)
-        for s in arr: add_spell_entry(b, "prepared", at, "prepared (free)", s)
+        for s in arr: add_spell_entry(b, "prepared", at, "prepared (free)", s, ft)
     for lvl, arr in (block.get("expanded") or {}).items():
         at = SLOT_LEVEL_KEY.get(str(lvl), int(re.sub(r"\D", "", str(lvl)) or 0))
         for s in arr:
             if isinstance(s, dict) and "all" in s:          # list expansion (Magical Secrets)
                 f, _ = choose_filter({"choose": s["all"]})
-                b["expansions"].append({"atLevel": at, "filter": f})
+                b["expansions"].append({"atLevel": at, "filter": f, "feature": ft})
             else:
-                add_spell_entry(b, "prepared", at, "expanded list", s)
+                add_spell_entry(b, "prepared", at, "expanded list", s, ft)
     for lvl, arr in (block.get("known") or {}).items():
         at = int(re.sub(r"\D", "", str(lvl)) or 0)
         arr = arr if isinstance(arr, list) else [arr]
-        for s in arr: add_spell_entry(b, "known", at, "always known", s)
+        for s in arr: add_spell_entry(b, "known", at, "always known", s, ft)
     for lvlkey, cadmap in (block.get("innate") or {}).items():
         at = 0 if str(lvlkey) in ("_", "") else int(re.sub(r"\D", "", str(lvlkey)) or 0)
         if not isinstance(cadmap, dict): continue
@@ -253,13 +255,13 @@ def parse_block(block):
             base = RECHARGE.get(cadence, cadence)
             if cadence == "will" or isinstance(payload, list):
                 for s in (payload if isinstance(payload, list) else [payload]):
-                    add_spell_entry(b, "innate", at, "at will", s)
+                    add_spell_entry(b, "innate", at, "at will", s, ft)
             elif isinstance(payload, dict):
                 for freq, arr in payload.items():
                     n = int(re.sub(r"\D", "", str(freq)) or 1)
                     label = base if n == 1 else f"{n}× {base}"
                     for s in (arr if isinstance(arr, list) else [arr]):
-                        add_spell_entry(b, "innate", at, label, s)
+                        add_spell_entry(b, "innate", at, label, s, ft)
     return b
 
 # 's6'..'s9' expanded keys = "when you can cast Nth-level spells" (full caster levels)
@@ -345,14 +347,16 @@ for f in glob.glob(os.path.join(MIRROR, "class", "class-*.json")):
         subclasses.append(rec)
 
 feats = []
+EMPTY_GRANTS = {"fixed": [], "picks": [], "expansions": [], "optionGroups": [], "ability": None}
 for ft in load(os.path.join(MIRROR, "feats.json")).get("feat", []):
-    if "additionalSpells" not in ft: continue
     cat = ft.get("category", "G")
     fs_class = {"FS:R": "Ranger", "FS:P": "Paladin", "FS": "Fighter"}.get(cat)
+    has_spells = "additionalSpells" in ft
     feats.append({"name": ft["name"], "source": ft.get("source", ""), "group": bgroup(ft.get("source", "")),
                   "book": bname(ft.get("source", "")), "reprinted": reprinted(ft),
                   "category": cat, "fsClass": fs_class,   # fighting-style feats attach to a class
-                  "grants": parse_grants(ft.get("additionalSpells"))})
+                  "hasSpells": has_spells,               # non-spell feats are build-choice-only
+                  "grants": parse_grants(ft.get("additionalSpells")) if has_spells else dict(EMPTY_GRANTS)})
 
 # species (ALL, even without spells; split lineages that carry named blocks)
 races = []

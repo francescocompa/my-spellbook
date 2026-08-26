@@ -68,7 +68,9 @@ Built to match the `monster-forge` / `character-forge` house style: vanilla JS,
 5etools as the data source, no build framework.
 
 ## Known gaps / next
-- Fixed-but-swappable grants (e.g. High Elf's level-3/5 spells) show as fixed
-  casts — 5etools doesn't flag their swappability.
+- Some 2024 feature names aren't in 5etools' `additionalSpells` blocks (e.g.
+  Lore's "Magical Discoveries") — those choices fall back to the subclass name.
+- High Elf's swappable cantrip shows as prepared (●) but is swapped in the
+  Choices panel, not toggled in the table.
 - No runtime "load 5etools files" panel yet (use the regenerate step above).
 - Per-source subclass de-duplication in the picker.
