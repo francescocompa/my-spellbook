@@ -10,9 +10,16 @@
 <div class="wrap">
   <header class="top">
     <h1>My Spellbook</h1>
+    <!-- v7 · T4: the active build, named and switchable without opening the manager -->
+    <div class="menu buildswitch">
+      <button class="bswitch" id="bswBtn" aria-haspopup="true" aria-expanded="false">
+        <span class="mi">▤</span><span class="bswchar" id="bswChar"></span><span class="bswver" id="bswVer"></span><span class="pk-caret">⌄</span>
+      </button>
+      <div class="menupop bswpop hidden" id="bswPop"></div>
+    </div>
     <span class="spacer"></span>
     <button class="btn iconbtn" id="testBtn" title="Populate a random test build (local only)">🎲</button>
-    <div class="tabs"><button id="tabBuild" class="on">Build</button><button id="tabTable">Spell table</button></div>
+    <div class="tabs"><button id="tabBuild" class="on">Build</button><button id="tabTable"><span class="full">Spell table</span><span class="short">Table</span></button></div>
     <div class="menu">
       <button class="btn iconbtn" id="menuBtn" title="Settings" aria-label="Settings">⋯</button>
       <div class="menupop hidden" id="menuPop">
@@ -34,7 +41,7 @@
       <div class="gapbar hidden" id="gapBar"></div>
 
       <!-- CHARACTER -->
-      <div class="card">
+      <div class="card" id="secChar">
         <h2>Character <span class="count" id="clvlChip"></span></h2>
         <div class="body">
           <div class="fieldset">
@@ -47,10 +54,11 @@
             <button class="picksel" id="speciesBtn"><span id="speciesBtnLbl">— none —</span><span class="pk-caret">⌄</span></button>
           </div>
           <div class="fieldset">
-            <label class="fld">Feats <span class="budgetnote" id="featBudget"></span></label>
-            <button class="picksel ph" id="originBtn"><span>＋ origin feat…</span><span class="pk-caret">⌄</span></button>
-            <button class="picksel ph" id="generalBtn"><span>＋ general feat…</span><span class="pk-caret">⌄</span></button>
-            <button class="picksel ph hidden" id="epicBtn"><span>＋ epic boon…</span><span class="pk-caret">⌄</span></button>
+            <label class="fld">Feats</label>
+            <!-- each slot carries its own count, in line with its field (D44) -->
+            <div class="fldrow"><button class="picksel ph" id="originBtn"><span>＋ origin feat…</span><span class="pk-caret">⌄</span></button><span class="cnt" id="originCnt"></span></div>
+            <div class="fldrow"><button class="picksel ph" id="generalBtn"><span>＋ general feat…</span><span class="pk-caret">⌄</span></button><span class="cnt" id="generalCnt"></span></div>
+            <div class="fldrow hidden" id="epicRow"><button class="picksel ph" id="epicBtn"><span>＋ epic boon…</span><span class="pk-caret">⌄</span></button><span class="cnt" id="epicCnt"></span></div>
             <div class="chips" id="featChips"></div>
           </div>
           <div class="fieldset hidden" id="optFeatBlock"></div>
@@ -64,7 +72,7 @@
       </div>
 
       <!-- SLOTS -->
-      <div class="card">
+      <div class="card" id="secSlots">
         <h2>Slots &amp; casts</h2>
         <div class="body">
           <div class="stats" id="statGrid"></div>
@@ -76,13 +84,13 @@
 
     <div class="col-right">
       <!-- CART / BUDGET -->
-      <div class="card">
+      <div class="card" id="secPicks">
         <h2>Prepared budget &amp; picks <span class="count" id="cartChip"></span></h2>
         <div class="body" id="cartBody"></div>
       </div>
 
       <!-- SPELLS -->
-      <div class="card">
+      <div class="card" id="secSpells">
         <h2>Eligible spells <span class="count" id="spCount"></span></h2>
         <div class="body">
           <div class="filters">
@@ -122,8 +130,8 @@
   </div>
 
   <div id="tableView" class="hidden">
-    <div class="card"><h2>Selected spells <span class="count" id="tableChip"></span>
-      <button class="btn" id="prepDailyBtn">Prepare daily</button>
+    <div class="card"><h2><span class="ttl">Selected spells</span> <span class="count" id="tableChip"></span>
+      <button class="btn prepbtn" id="prepDailyBtn" aria-label="Prepare daily"><span class="lbl">Prepare daily</span><span class="ico" aria-hidden="true">☾</span></button>
       <div class="menu tablemenu">
         <button class="btn iconbtn" id="tMenuBtn" title="Table options" aria-label="Table options">⋯</button>
         <div class="menupop hidden" id="tMenuPop">
@@ -140,6 +148,9 @@
         <p class="note" id="tableEmpty"></p></div>
     </div>
   </div>
+
+  <!-- mobile only: one tap per section instead of a five-card scroll (D48) -->
+  <nav class="jumpbar hidden" id="jumpBar" aria-label="Jump to section"></nav>
 
   <footer class="credit">Includes material from the <b>System Reference Document 5.2</b>, © Wizards of the Coast LLC, licensed under <a href="https://creativecommons.org/licenses/by/4.0/legalcode" target="_blank" rel="noopener">CC BY 4.0</a>. My Spellbook is unofficial fan content, not affiliated with or endorsed by Wizards of the Coast. Any content you import stays in your browser.</footer>
 </div>

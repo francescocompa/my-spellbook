@@ -447,7 +447,7 @@ function removeChosen(idx,spellKey){ const ch=state.chosen[idx];if(!ch)return;
 
 // ── render ───────────────────────────────────────────────────────────────
 let R=null, curTab="build";
-function render(){ maybeOnboard(); renderGapBar(); R=compute(); renderChoices(); renderSlots(); renderCart(); renderSpells(); renderFeatBudget();
+function render(){ maybeOnboard(); renderGapBar(); R=compute(); renderChoices(); renderSlots(); renderCart(); renderSpells(); renderFeatBudget(); renderJumpBar(); renderBuildSwitch();
   if(curTab==="table")renderTable(); save(); }
 
 // ── choices panel ──────────────────────────────────────────────────────────
@@ -462,42 +462,41 @@ function renderChoices(){
   ch.forEach(c=>{const o=c.owner||{id:c.id,name:c.giver,src:c.giverSrc,kind:""};
     let g=byId.get(o.id); if(!g){g={owner:o,items:[]};byId.set(o.id,g);groups.push(g);}
     g.items.push(c);});
+  // EVERY giver is a group, even a single-choice one (D43) — one choice used to be a
+  // bare row and two a bordered box, so the same thing had two treatments.
   groups.forEach(g=>{
-    if(g.items.length>1){
-      const box=el("div","choicegroup");
-      const h=el("div","cghead");
-      h.append(el("b",null,g.owner.name));
-      if(g.owner.src)h.append(bookChip(g.owner.src));
-      if(g.owner.kind)h.append(el("span","ccat",g.owner.kind));
-      h.append(el("span","cgn",`${g.items.length} choices`));
-      box.append(h);
-      g.items.forEach(c=>box.append(choiceRow(c,true)));
-      body.append(box);
-    } else body.append(choiceRow(g.items[0],false));
+    const box=el("div","choicegroup");
+    const h=el("div","cghead");
+    h.append(el("b",null,g.owner.name));
+    if(g.owner.src)h.append(bookChip(g.owner.src));
+    if(g.owner.kind)h.append(el("span","ccat",g.owner.kind));
+    h.append(el("span","cgn",g.items.length===1?"1 choice":`${g.items.length} choices`));
+    box.append(h);
+    // the granting FEATURE, named once per run — it used to repeat on the first two
+    // rows and then vanish, which read as though later rows came from nowhere
+    let lastSub=null;
+    g.items.forEach(c=>{
+      const sub=(c.giver&&c.owner&&c.giver!==c.owner.name)
+        ? c.giver.replace(g.owner.name+" · ","") : "";
+      if(sub!==lastSub){ if(sub)box.append(el("div","cgsub",sub)); lastSub=sub; }
+      box.append(choiceRow(c));
+    });
+    body.append(box);
   });
 }
-// one choice. `inGroup` drops the giver name (the group header already carries it) and
-// keeps only what this row is actually asking for.
-function choiceRow(c,inGroup){
-  const row=el("div","choicerow"+(inGroup?" ingroup":""));
-  const head=()=>{const h=document.createDocumentFragment();
-    if(!inGroup){
-      h.append(Object.assign(el("b"),{textContent:c.giver}));
-      if(c.giverSrc)h.append(bookChip(c.giverSrc));
-      const k=c.owner&&c.owner.kind; if(k)h.append(el("span","ccat",k));
-    } else if(c.giver&&c.owner&&c.giver!==c.owner.name){
-      h.append(Object.assign(el("b","sub"),{textContent:c.giver.replace(c.owner.name+" · ","")}));
-    }
-    return h;};
+// one choice: what it asks for on the left, its control on the right, one line.
+// The giver is the group's job (cghead) and the feature is cgsub's — never repeated here.
+function choiceRow(c){
+  const row=el("div","choicerow");
   if(c.type==="option"||c.type==="ability"){
     const isAb=c.type==="ability";
-    const cg=el("div","cg");cg.append(head());
+    const cg=el("div","cg");
     cg.append(el("span","cwhat",isAb?"casting ability":"choose one"));row.append(cg);
     const sel=el("select"); c.options.forEach(o=>sel.append(new Option(isAb?ABIL[o]||o:o,o)));
     sel.value=c.value; sel.onchange=()=>{state.choices[c.id]=sel.value; render();}; row.append(sel);
   } else { // pick
     const have=(state.choices[c.id]||[]).length;
-    const cg=el("div","cg");cg.append(head());
+    const cg=el("div","cg");
     const what=el("span","cwhat");what.append(document.createTextNode((fmtDesc(c.desc)||"choose")+" "));
     what.append(el("span","need",`${have}/${c.count}`));cg.append(what);row.append(cg);
     const picks=el("div","picks");
@@ -635,14 +634,15 @@ function renderEntityList(){
   const curSel = ENT.kind==="species"?state.speciesKey:null;
   if(!items.length){list.append(el("div","empty","Nothing matches those filters."));return;}
   let sepDone=false;
-  items.slice(0,400).forEach(it=>{const k=key(it.name,it.source);
+  const shown=items.slice(0,400);
+  const entRow=(it,label)=>{const k=key(it.name,it.source);
     const pr=prereqState(it);
     if(pr.state==="no"&&!sepDone){sepDone=true;list.append(el("div","entsep"));}
     const on = ENT.kind==="species"?curSel===k:ENT.kind==="opt"?state.optFeats.includes(k):state.feats.includes(k);
     const row=el("div","entrow"+(on?" on":"")+(pr.state==="no"?" blocked":""));
     const main=el("div","entmain");
-    const nm=el("div","entname");nm.append(document.createTextNode(it.name));
-    if(it.source!==CORE)nm.append(bookChip(it.source));
+    const nm=el("div","entname");nm.append(document.createTextNode(label||it.name));
+    if(it.source!==CORE)nm.append(bookChip(it.source,it.page));
     if(ENT.kind==="feat"){const c=featCat(it);
       if(!ENT.presetCats.has(c))nm.append(Object.assign(el("span","entcat"),{textContent:c}));}
     if(grantsAny(it.grants))nm.append(Object.assign(el("span","fmark"),{textContent:"✦"}));
@@ -675,8 +675,22 @@ function renderEntityList(){
       else if(ENT.kind==="opt"){ if(on)state.optFeats=state.optFeats.filter(x=>x!==k); else state.optFeats.push(k); }
       else{ if(on)state.feats=state.feats.filter(x=>x!==k); else state.feats.push(k); }
       save();refreshAll();render();renderEntityList(); };
-    row.append(btn); list.append(row);
-  });
+    row.append(btn); return row;};
+  if(ENT.kind!=="species"){shown.forEach(it=>list.append(entRow(it)));return;}
+  // a species and its lineages are one thing to choose between, so they are one block —
+  // the same grouping the choices card uses (D46). A species with no lineage stays flat.
+  const groups=[],by=new Map();
+  shown.forEach(it=>{const b=it.base||it.name;
+    let g=by.get(b); if(!g){g={base:b,items:[]};by.set(b,g);groups.push(g);}
+    g.items.push(it);});
+  groups.forEach(g=>{
+    if(g.items.length===1&&!g.items[0].lineage){list.append(entRow(g.items[0]));return;}
+    const box=el("div","entgroup");
+    const h=el("div","eghead");h.append(el("b",null,g.base));
+    h.append(el("span","cgn",g.items.length===1?"1 lineage":`${g.items.length} lineages`));
+    box.append(h);
+    g.items.forEach(it=>box.append(entRow(it,it.lineage||it.name)));
+    list.append(box);});
 }
 // ── build manager (v7 · T3) ────────────────────────────────────────────────
 // ONE flat list, grouped on render by `meta.character` (D35). Switching is non-destructive:
@@ -797,9 +811,46 @@ function renderBuildList(){
   $("#buildSub").textContent=`${total} build${total===1?"":"s"} across ${chars.length} character${chars.length===1?"":"s"}`
     +(q?` · ${shown} shown`:"")+" · click one to switch";
   if(!shown)box.append(el("div","empty","Nothing matches that filter."));
+  renderBuildSwitch();          // a rename here must show up in the header switcher
 }
 function openBuilds(){ closeMenu(); $("#buildSearch").value="";
   $("#buildModal").classList.remove("hidden"); renderBuildList(); }
+
+// ── build switcher (v7 · T4) ───────────────────────────────────────────────
+// The active build is named on the main surface and switchable from there. The manager
+// (T3) stays the place to rename, duplicate and delete — this is the short path.
+function renderBuildSwitch(){
+  const b=activeBuild(); if(!b||!$("#bswBtn"))return;
+  $("#bswChar").textContent=b.meta.character||"New build";
+  const ver=$("#bswVer"); ver.textContent=b.meta.name||"";
+  // the version only earns space when there is more than one of this character
+  ver.classList.toggle("hidden",buildsOf(b.meta.character).length<2);
+  const n=BUILDS.order.length;
+  $("#bswBtn").title=`${b.meta.summary||"Empty build"} · ${n} build${n===1?"":"s"} saved`;
+}
+function renderBswPop(){
+  const pop=$("#bswPop"); pop.innerHTML="";
+  const chars=[]; BUILDS.order.forEach(id=>{const b=BUILDS.builds[id];
+    if(b&&!chars.includes(b.meta.character))chars.push(b.meta.character);});
+  chars.forEach(char=>{
+    pop.append(el("div","bswgrp",char));
+    buildsOf(char).forEach(b=>{
+      const on=b.id===BUILDS.activeId;
+      const r=el("button","bswrow"+(on?" on":""));
+      const t=el("div","bswrowt");
+      t.append(el("span","bswn",b.meta.name));
+      if(on)t.append(el("span","bswcur","current"));
+      r.append(t);
+      r.append(el("div","bsws",(b.meta.summary||"Empty build")+" · "+agoText(b.meta.updated)));
+      r.onclick=()=>{closeMenu(); if(!on)switchBuild(b.id);};
+      pop.append(r);});});
+  pop.append(el("div","sep"));
+  const nb=el("button","bswact");nb.append(el("span","mi","＋"));nb.append(document.createTextNode("New build"));
+  nb.onclick=()=>{closeMenu();newBuild();};
+  const man=el("button","bswact");man.append(el("span","mi","▤"));man.append(document.createTextNode("Manage builds…"));
+  man.onclick=()=>{closeMenu();openBuilds();};
+  pop.append(nb,man);
+}
 
 // ── source reconciliation on activation (v7 · T2) ──────────────────────────
 // Sources are global (D33), so switching to a build authored under other books would show it
@@ -907,7 +958,7 @@ function openPrqPop(anchorEl,pick){
   cands.slice(0,8).forEach(o=>{
     const row=el("div","prqrow");
     row.append(el("span","prqnm",o.name));
-    if(o.source!==CORE)row.append(bookChip(o.source));
+    if(o.source!==CORE)row.append(bookChip(o.source,o.page));
     const b=el("button","tk",cur?"switch":"select");
     b.onclick=e=>{e.stopPropagation();prqTake(o,pick.kind);};
     row.append(b);PRQPOP.append(row);});
@@ -1106,7 +1157,10 @@ async function stageZip(file){const rep=$("#importReport");
 function stageFiles(fileList){[...fileList].forEach(file=>{
     if(/\.zip$/i.test(file.name)){stageZip(file);return;}
     const rd=new FileReader();
-    rd.onload=()=>{try{IMPORT_STAGE.push({name:file.name,json:JSON.parse(rd.result)});}catch(e){IMPORT_STAGE.push({name:file.name,error:true});}renderImportStage();};
+    rd.onload=()=>{try{const j=JSON.parse(rd.result);
+      // a bestiary file is mostly monsters this app never uses — slim it before staging
+      IMPORT_STAGE.push({name:file.name,json:(window.SB_extract&&window.SB_extract.slimJson)?window.SB_extract.slimJson(j):j});
+    }catch(e){IMPORT_STAGE.push({name:file.name,error:true});}renderImportStage();};
     rd.onerror=()=>{IMPORT_STAGE.push({name:file.name,error:true});renderImportStage();};
     rd.readAsText(file);});}
 function importSummary(r){return `${r.spells} spells · ${r.classes} classes · ${r.subclasses} subclasses · ${r.feats} feats · ${r.species} species`+(r.lookup?"":" · ⚠ no spell-source lookup — spells won’t know their classes; add generated/gendata-spell-source-lookup.json");}
@@ -1225,8 +1279,6 @@ function renderTable(){
   const prepBtn=$("#prepDailyBtn");if(prepBtn)prepBtn.style.display=R.casters.some(r=>!r.static)?"":"none";
   if(!rows.length)return;
 
-  // a spell is "also with your spell slots" if it's an eligible pool spell for a caster
-  const slotCastable=sp=>{const e=R.pool.get(key(sp.name,sp.source));return !!(e&&e.takers.length);};
 
   const g=tableOpts.group;                 // outer grouping; level is always the inner group
   const outer=g==="ability"||g==="source";
@@ -1237,7 +1289,7 @@ function renderTable(){
   // grouping already carries a fact, so its column is suppressed on top of the hidden set
   const suppressed=new Set(g==="ability"?["ability"]:g==="source"?["ability","build"]:[]);
   const cols=visibleCols(suppressed);
-  const thead=el("tr");cols.forEach(k=>thead.append(el("th",null,TABLE_COLS[k].label)));tbl.append(thead);
+  const thead=el("tr");cols.forEach(k=>thead.append(el("th",k==="name"?"nm":null,TABLE_COLS[k].label)));tbl.append(thead);
   attachTip(thead.firstChild,tipBlock("Preparation status","Hover a marker for what it means."));
   const span=cols.length;
 
@@ -1296,6 +1348,9 @@ function shortCell(short,full,label){
   if(full&&String(short)!==String(full)){td.classList.add("abbr");attachTip(td,tipBlock(label,String(full)));}
   return td;
 }
+// a spell is "also with your spell slots" if it's an eligible pool spell for a caster.
+// Module scope on purpose: cellFor() below is top-level and calls it.
+const slotCastable=sp=>{const e=R.pool.get(key(sp.name,sp.source));return !!(e&&e.takers.length);};
 function cellFor(k,row){
   const {sp,type,recharge}=row, src=row.src;
   if(k==="mark"){
@@ -1328,7 +1383,7 @@ function cellFor(k,row){
     } else td.textContent=lab;
     return td;}
   if(k==="build"){const td=el("td");td.append(el("span","srcbadge"+(type==="free"?" free":type==="cast"?" cast":""),src));return td;}
-  if(k==="book"){const td=el("td");td.append(bookChip(sp.source));return td;}
+  if(k==="book"){const td=el("td");td.append(bookChip(sp.source,sp.page));return td;}
   return el("td",null,"—");
 }
 // V S M as plain letters. The M carries the state: gold when the material has a price
@@ -1362,7 +1417,51 @@ function compCell(sp){
 }
 function switchTab(t){curTab=t;$("#tabBuild").classList.toggle("on",t==="build");$("#tabTable").classList.toggle("on",t==="table");
   $("#buildView").classList.toggle("hidden",t!=="build");$("#tableView").classList.toggle("hidden",t!=="table");
-  if(t==="table")renderTable();}
+  if(t==="table")renderTable();
+  renderJumpBar();}
+
+// ── section jump bar (mobile) ──────────────────────────────────────────────
+// The Build view is five stacked cards on a phone, so reaching your classes from the
+// spell list was a very long scroll. One tap per section, and it tracks where you are
+// (D48). Deliberately NOT a second row of tabs: the budget and the spell list are read
+// together, so the page stays one continuous scroll.
+const JUMP_SECTIONS=[["secChar","Character"],["choicesCard","Choices"],["secSlots","Slots"],
+                     ["secPicks","Budget"],["secSpells","Spells"]];
+function jumpTargets(){
+  return JUMP_SECTIONS.map(([id,label])=>({id,label,node:$("#"+id)}))
+    .filter(t=>t.node&&!t.node.classList.contains("hidden"));}
+function renderJumpBar(){
+  const bar=$("#jumpBar"); if(!bar)return;
+  const targets=curTab==="build"?jumpTargets():[];
+  bar.classList.toggle("hidden",targets.length<2);
+  // clear the signature too, or coming back from the table tab finds a stale match
+  if(targets.length<2){bar.innerHTML="";bar.dataset.sig="";return;}
+  // rebuild only when the set of sections actually changed (choices card comes and goes)
+  const sig=targets.map(t=>t.id).join(",");
+  if(bar.dataset.sig!==sig){
+    bar.dataset.sig=sig; bar.innerHTML="";
+    targets.forEach(t=>{const b=el("button",null,t.label);b.dataset.for=t.id;
+      b.onclick=()=>jumpTo(t.node);
+      bar.append(b);});}
+  syncJumpBar();}
+// Some embedded webviews accept a smooth scroll and then never move — which would make
+// the tap do nothing at all. Ask for smooth, and jump if nothing happened.
+function jumpTo(node){
+  const y=Math.max(0,scrollY+node.getBoundingClientRect().top-6), before=scrollY;
+  if(Math.abs(y-before)<2)return;
+  try{ scrollTo({top:y,behavior:"smooth"}); }catch(e){ scrollTo(0,y); return; }
+  setTimeout(()=>{ if(Math.abs(scrollY-before)<2)scrollTo(0,y); },180);}
+function syncJumpBar(){
+  const bar=$("#jumpBar"); if(!bar||bar.classList.contains("hidden"))return;
+  const targets=jumpTargets();
+  // the section you are "in" is the last one whose top has passed the reading line
+  let cur=targets[0]&&targets[0].id;
+  targets.forEach(t=>{if(t.node.getBoundingClientRect().top<=96)cur=t.id;});
+  bar.querySelectorAll("button").forEach(b=>b.classList.toggle("on",b.dataset.for===cur));}
+let _jumpRaf=0;
+addEventListener("scroll",()=>{ if(_jumpRaf)return;
+  _jumpRaf=requestAnimationFrame(()=>{_jumpRaf=0;syncJumpBar();}); },{passive:true});
+addEventListener("resize",()=>syncJumpBar(),{passive:true});
 
 function renderSlots(){
   $("#clvlChip").textContent=R.charLevel?("level "+R.charLevel):"";
@@ -1553,9 +1652,11 @@ function renderSpells(){
   items=eligible.concat(extra);
   items.sort((a,b)=>a.sp.level-b.sp.level||(a.dim?1:0)-(b.dim?1:0)||a.sp.name.localeCompare(b.sp.name));
   const nsp=n=>`${n} spell${n===1?"":"s"}`;
-  $("#spCount").textContent=eligible.length
-    ? nsp(eligible.length)+(extra.length?` · ${extra.length} dimmed`:"")
-    : (extra.length?`${extra.length} dimmed`:"");
+  // dimmed rows are only worth counting when you asked for them ("every spell"). While
+  // you are typing a name they are just near-misses, and naming them reads as an error.
+  const dimNote=(extra.length&&!F.q)?` · ${extra.length} dimmed`:"";
+  $("#spCount").textContent=eligible.length?nsp(eligible.length)+dimNote
+    :(dimNote?`${extra.length} dimmed`:nsp(0));
   const byLvl={};items.forEach(i=>{(byLvl[i.sp.level]=byLvl[i.sp.level]||[]).push(i);});
   const list=$("#spellList");list.innerHTML="";
   if(!items.length){list.append(mkEmpty());return;}
@@ -1616,10 +1717,19 @@ const upcasts=sp=>sp.level>0&&(sp.higher||[]).length>0;
 // sentinel for the class/list filter's "ignore eligibility" option
 const ALL_SPELLS="__all";
 function compText(sp){const c=sp.comp||{};const p=[];if(c.v)p.push("V");if(c.s)p.push("S");if(c.m)p.push("M"+(c.mat?` (${c.mat})`:""));return p.join(", ")||"—";}
-function metaLine(sp){return `${sp.level===0?"Cantrip":ROMAN[sp.level]+"-level"} ${sp.school}${sp.ritual?" (ritual)":""}`;}
-// ONE source-book chip for the whole app: the picker's treatment is the house one.
-// Not to be confused with `.srcbadge`, which says who GRANTS a spell in your build.
-const bookChip=src=>Object.assign(el("span","bchip"),{textContent:src,title:bookName(src)});
+function metaLine(sp){const r=sp.ritual?" (ritual)":"";
+  return sp.level===0?`${sp.school} cantrip${r}`:`${ROMAN[sp.level]}-level ${sp.school}${r}`;}
+// ONE source-book chip for the whole app (D39). Its popover names the book in full and
+// says where the element is printed (D51). Not to be confused with `.srcbadge`, which
+// says who GRANTS a spell in your build.
+function bookChip(src,page){
+  const c=Object.assign(el("span","bchip"),{textContent:src});
+  attachTip(c,bookTip(src,page));
+  return c;}
+// full book name + where it is printed, for whatever element the chip sits on
+const bookTip=(src,page)=>`<h4>${esc(bookName(src))}</h4>`
+  +(page?`<div class="line"><b>Page</b><span>${esc(String(page))}</span></div>`:"")
+  +`<div class="line"><b>Code</b><span>${esc(src)}</span></div>`;
 function tipHTML(sp){return `<h4>${sp.name}</h4><div class="sub">${metaLine(sp)}</div>`
   +`<div class="line"><b>Time</b> ${sp.time}</div><div class="line"><b>Range</b> ${sp.range}</div>`
   +`<div class="line"><b>Duration</b> ${sp.conc?"Concentration, ":""}${sp.durTxt}</div>`
@@ -1665,25 +1775,60 @@ function accessHTML(sp){
   const merged=[].concat(...cats.map(([,items,k])=>items.map(x=>chip(x,k)))).join("");
   const rows=cats.map(([label,items,k])=>`<div class="acat"><span class="acl">${label}</span><div class="achips">${items.map(x=>chip(x,k)).join("")}</div></div>`).join("");
   return `<div class="access" data-exp="0">`
-    +`<div class="acc-row"><span class="accessh">Access</span>`
+    +`<div class="acc-row"><span class="secttl">Access</span>`
     +`<div class="achips acc-merged">${merged}</div>`
     +`<button class="acc-toggle" type="button" title="Show by category" aria-label="Show by category">⌄</button></div>`
     +`<div class="acc-cats">${rows}</div></div>`;}
+const abMod=v=>{const m=Math.floor((v-10)/2);return (m>=0?"+":"−")+Math.abs(m);};
+const AB_ORDER=["str","dex","con","int","wis","cha"];
+// a summon spell prints its creature's stat block beside it (D50) — collapsed by default
+function statblockHTML(sp){
+  const b=sp.statblock; if(!b)return "";
+  const line=(k,v)=>v?`<div class="sbr"><b>${k}</b><span>${ccText(v)}</span></div>`:"";
+  const kv=o=>Object.entries(o||{}).map(([k,v])=>`${k} ${v}`).join(", ");
+  const abils=AB_ORDER.filter(k=>b.abilities[k]!=null).map(k=>
+    `<div class="sbab"><span class="abchip ${k}">${ABIL_SHORT[k]}</span>`
+    +`<span class="sbav">${b.abilities[k]}</span><span class="sbam">${abMod(b.abilities[k])}</span></div>`).join("");
+  const secs=(b.sections||[]).map(sec=>`<div class="sbsec"><h5>${esc(sec.label)}</h5>`
+    +sec.items.map(it=>`<p>${it.name?`<b>${esc(it.name)}.</b> `:""}${it.text.map(ccText).join(" ")}</p>`).join("")
+    +`</div>`).join("");
+  return `<div class="sblock" data-exp="0">`
+    +`<button class="sb-head" type="button" aria-expanded="false">`
+      +`<span class="secttl">Stat block</span>`
+      +`<span class="sb-who">${esc(b.name)}</span><span class="sb-caret"></span></button>`
+    +`<div class="sb-body">`
+      +`<div class="sb-kind">${esc([b.kind,b.align].filter(Boolean).join(", "))}</div>`
+      +line("AC",b.ac)+line("HP",b.hp)+line("Speed",b.speed)
+      +(abils?`<div class="sbabs">${abils}</div>`:"")
+      +line("Saves",kv(b.saves))+line("Skills",kv(b.skills))
+      +line("Vulnerabilities",b.vulnerable)+line("Resistances",b.resist)
+      +line("Immunities",[b.immune,b.condImmune].filter(Boolean).join(", "))
+      +line("Senses",b.senses)+line("Languages",b.languages)
+      +line("CR",b.cr)+line("Prof. Bonus",b.pb)
+      +secs
+    +`</div></div>`;}
 function modalHTML(sp){
-  const grid=[["Level",sp.level===0?"Cantrip":ROMAN[sp.level]],["School",sp.school],["Casting time",sp.time],
-    ["Range",sp.range],["Components",compText(sp)],["Duration",(sp.conc?"Concentration, up to ":"")+sp.durTxt]];
-  const bk=sp.source!==CORE
-    ? ` <span class="bchip" title="${esc(sp.book||bookName(sp.source))}">${esc(sp.source)}</span>` : "";
+  // a cantrip says its level and school in the subtitle already — repeating them
+  // as their own rows was the top of the grid saying nothing (D49)
+  const grid=(sp.level===0?[]:[["Level",ROMAN[sp.level]],["School",sp.school]])
+    .concat([["Casting time",sp.time],["Range",sp.range],["Components",compText(sp)],
+             ["Duration",(sp.conc?"Concentration, up to ":"")+sp.durTxt]]);
+  const bk=sp.source!==CORE?` <span class="bchip" data-book="${esc(sp.source)}"${sp.page?` data-page="${esc(String(sp.page))}"`:""}>${esc(sp.source)}</span>`:"";
   return `<div class="box"><button class="x" type="button" title="Close" aria-label="Close">×</button>`
     +`<div class="mh"><h3>${esc(sp.name)}${bk}</h3>`
     +`<div class="sub">${metaLine(sp)}</div></div><div class="mb">`
     +`<div class="grid">${grid.map(([k,v])=>`<b>${k}</b><span>${v}</span>`).join("")}</div>`
     +(sp.desc||[]).map(descP).join("")
     +((sp.higher||[]).length?`<div class="hl">${sp.higher.map(descP).join("")}</div>`:"")
-    +accessHTML(sp)+`</div></div>`;}
+    +statblockHTML(sp)+accessHTML(sp)+`</div></div>`;}
 function openSpellModal(sp){hideTip();SPMODAL.innerHTML=modalHTML(sp);
   const at=SPMODAL.querySelector(".acc-toggle");
   if(at)at.onclick=()=>{const a=at.closest(".access");a.dataset.exp=a.dataset.exp==="1"?"0":"1";};
+  const sb=SPMODAL.querySelector(".sb-head");
+  if(sb)sb.onclick=()=>{const w=sb.closest(".sblock");const open=w.dataset.exp!=="1";
+    w.dataset.exp=open?"1":"0";sb.setAttribute("aria-expanded",String(open));};
+  // chips written as markup still get the popover treatment
+  SPMODAL.querySelectorAll(".bchip[data-book]").forEach(c=>attachTip(c,bookTip(c.dataset.book,c.dataset.page)));
   if(sp.source===HB_SRC){const mb=SPMODAL.querySelector(".mb");if(mb){const row=el("div","hbtools");
     row.append(el("span","hbtag","Homebrew"));const sp2=el("span");sp2.style.flex="1";row.append(sp2);
     const e=el("button","btn","Edit");e.onclick=()=>{SPMODAL.classList.add("hidden");openCustom(customFromSpell(sp),true);};
@@ -1868,8 +2013,18 @@ const FEAT_CATS=[["origin","Origin"],["general","General"],["epic","Epic boon"]]
 const charLevel=()=>state.classes.reduce((a,r)=>a+(r.level||0),0);
 function refreshAddFeat(){
   // Epic Boons unlock at character level 19 (the level-19 feat feature)
-  const epic=$("#epicBtn");if(epic)epic.classList.toggle("hidden",charLevel()<19);
+  const epic=$("#epicRow");if(epic)epic.classList.toggle("hidden",charLevel()<19);
 }
+// a slot's count, in line with its field. Three states, and none of them is an error:
+// `need` = still owed, `done` = filled, `over` = more taken than the level grants.
+function slotCount(node,have,cap){
+  if(!node)return;
+  const st=have>cap?"over":(cap&&have>=cap?"done":"need");
+  node.className="cnt "+st;
+  node.textContent=`${have}/${cap}`;
+  attachTip(node,tipBlock(st==="over"?"More than your level grants":st==="done"?"Slots filled":"Still to choose",
+    st==="over"?`You have taken ${have} where your level grants ${cap}. Nothing is removed — check with your DM.`
+      :st==="done"?`All ${cap} taken.`:`${cap-have} of ${cap} left to choose.`));}
 // feat budget: general feats from ASI levels (+Fighter/Rogue extras), 1 origin feat + 1 for Humans.
 // NOTE: data only carries spell-granting feats (extract.py filters the rest) — full feat lists need the mirror.
 const ASI_EXTRA={Fighter:[6,14],Rogue:[10]};
@@ -1886,11 +2041,10 @@ function featBudget(){
   const generalPicked=state.feats.filter(fk=>{const f=FEAT_BY[fk];return f&&!isOriginFeat(f)&&!isEpicBoon(f)&&!isFeatFS(f);}).length;
   return {general,origin,epic,originPicked,generalPicked,epicPicked,isHuman};
 }
-function renderFeatBudget(){const b=featBudget();const n=$("#featBudget");if(!n)return;
-  const need=b.originPicked<b.origin||b.generalPicked<b.general||b.epicPicked<b.epic;
-  n.className="budgetnote"+(need?" alert":"");
-  n.textContent=`origin ${b.originPicked}/${b.origin} · general ${b.generalPicked}/${b.general}`+(b.epic?` · epic ${b.epicPicked}/${b.epic}`:"");
-  n.title=need?"You still owe a feat at your level":"Feat slots filled";}
+function renderFeatBudget(){const b=featBudget();
+  slotCount($("#originCnt"),b.originPicked,b.origin);
+  slotCount($("#generalCnt"),b.generalPicked,b.general);
+  slotCount($("#epicCnt"),b.epicPicked,b.epic);}
 // ── optional features: invocations, metamagic, pact boons… (D28) ───────────
 // Slots come from each class/subclass's optionalfeatureProgression, so a "slot" is
 // {name, types, have} and nothing about a specific feature type is hardcoded here.
@@ -1923,15 +2077,14 @@ function renderOptFeats(){
   box.classList.toggle("hidden",!slots.length);
   box.innerHTML="";if(!slots.length)return;
   slots.forEach(sl=>{
-    const over=sl.picked.length>sl.cap;
-    const lab=el("label","fld");lab.append(document.createTextNode(sl.name+" "));
-    lab.append(Object.assign(el("span","budgetnote"+(over?" alert":"")),
-      {textContent:`${sl.picked.length}/${sl.cap}`,title:`${sl.giver} grants ${sl.cap} at this level`}));
-    box.append(lab);
+    box.append(el("label","fld",sl.name));
+    const row=el("div","fldrow");
     const btn=el("button","picksel ph");btn.append(el("span",null,`＋ ${sl.name.replace(/s$/,"").toLowerCase()}…`));
     btn.append(el("span","pk-caret","⌄"));
     btn.onclick=()=>openEntityPicker("opt",sl);
-    box.append(btn);
+    row.append(btn);
+    const cnt=el("span");row.append(cnt);slotCount(cnt,sl.picked.length,sl.cap);
+    box.append(row);
     const chips=el("div","chips");
     sl.picked.forEach(k=>{const o=OPT_BY[k];if(!o)return;
       const pr=prereqState(o);
@@ -2100,6 +2253,8 @@ $("#themeBtn").onclick=()=>{const r=document.documentElement,cur=r.getAttribute(
 function closeMenu(except){document.querySelectorAll(".menupop").forEach(p=>{if(p!==except)p.classList.add("hidden");});}
 function toggleMenu(pop){const el2=$(pop);const open=el2.classList.contains("hidden");closeMenu(open?el2:null);el2.classList.toggle("hidden");}
 $("#menuBtn").onclick=e=>{e.stopPropagation();toggleMenu("#menuPop");};
+$("#bswBtn").onclick=e=>{e.stopPropagation();renderBswPop();toggleMenu("#bswPop");
+  $("#bswBtn").setAttribute("aria-expanded",String(!$("#bswPop").classList.contains("hidden")));};
 $("#tMenuBtn").onclick=e=>{e.stopPropagation();toggleMenu("#tMenuPop");};
 $("#pickLevelBtn").onclick=e=>{e.stopPropagation();toggleMenu("#pickLevelPop");};
 document.addEventListener("click",e=>{if(!e.target.closest(".menu"))closeMenu();});

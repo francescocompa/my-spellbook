@@ -4,20 +4,26 @@
 > History → git log. Consumed phases and decision rationale → `ARCHIVE.md`.
 
 ## TL;DR (2026-08-26 · commit 7f57021 · v7 in progress · **LIVE on GitHub Pages**)
-- **State:** working, committed + **pushed** (clean tree). Last session shipped **three of v7's
-  tasks** — **T1** storage + migration, **T3** the build manager, **T2** activation
-  reconciliation — so the app now holds **many characters, each with several versions**, and
-  **nothing is ever pruned behind your back** (D42). Around them, two batches of Francesco's
-  notes: prerequisites as per-part verdict chips with a one-click fix on the crossed ones; the
-  material popover reduced to cost/consumed/material; **eligibility made a default rather than a
-  wall**; one source-book chip everywhere; the spell table centred with abbreviations restoring on
-  hover; and the `color-scheme` / drawn-caret fixes behind the "light scrollbars" and
-  off-centre-icon complaints. Decisions **D33–D42**. All verified in-browser; extract.py ↔
-  extract.js parity re-validated in Node (276/276 feats, 213/213 optional features).
-- **Next action:** **v7 · T4 (switcher)** — getting between builds without opening the manager.
-  **Done when:** the active build is visible and switchable from the main surface.
-  *(Then T5 export/import, T7 storage pressure. T6 closed by D37.)*
-- **Manual for Francesco:** ① **Check the live site** — the last push changes how storage works,
+- **State:** working, **uncommitted** (see Manual ⓪). v7 is now **T1–T4 done** — storage +
+  migration, activation reconciliation, the manager, and now the **header switcher**. On top of
+  that, a 15-note batch from Francesco: the Choices card rebuilt so **every giver is a group**;
+  feat slots carry an **in-line count tile** instead of a red label chip and taken feats went
+  **neutral**; the species picker **groups lineages** under their species; a **mobile jump bar**
+  and a top row that fits; the spell table's name column left-aligned and its header one row on a
+  phone; and in the spell modal a **collapsible summon stat block**, a **book popover with the
+  page**, cantrip-specific meta, and a real heading above Access. Two real bugs fell out:
+  **High Elf (and 24 other grants) silently lost their `choose` filter** — a third `known`/
+  `prepared` shape, `{"_":[…]}`, exactly like the `innate` gotcha — and `slotCastable` was a
+  closure local called from top-level `cellFor()`, so **the Spell table threw on any build with a
+  limited-use innate cast** (shipped, live). Decisions **D43–D52**. Verified in-browser at 375px
+  and desktop; extractor parity re-validated in Node (936 spells, 276/276 feats, 213/213 optional
+  features, 24/24 stat blocks byte-identical).
+- **Next action:** **v7 · T5 (export / import a build)** — JSON download + file/paste import
+  carrying `meta.sources` (D36 — file only, no URL). **Done when:** a build survives a round trip
+  through a file on another machine. *(Then T7 storage pressure. T6 closed by D37.)*
+- **Manual for Francesco:** ⓪ **Nothing is committed yet** — review, then
+  `git add -A && git commit && git push` (Pages redeploys from `main:/docs`, already rebuilt).
+  ① **Check the live site** — the last push changes how storage works,
   and an existing browser session runs the one-time migration on first load. ② Optional — ask
   GitHub Support to gc so the *old* unreachable commits (SHA 2c8bbb6 etc., held only in
   `backup/pre-purge-20260826` locally) stop being SHA-addressable. ③ To update the live site:
@@ -97,8 +103,14 @@ Sources join them, but every build remembers what it expected.
   *is* "save as new version" (D34), one action. Active build = accent left-bar + tint + `current`
   chip. *Verified:* switch loads the other build's state; rename at both levels; delete moves the
   active to a neighbour; **deleting every build never leaves zero**; survives reload.
-- [ ] **T4 · switcher** (`ui`, ~S). Getting between builds without opening the manager.
-  **Done when:** the active build is visible and switchable from the main surface.
+- [x] **T4 · switcher** (`ui`, ~S) — **DONE 2026-08-26.** `#bswBtn` sits in the header next to
+  the title: `▤ <character> <version>`, with the version chip appearing only when that character
+  has more than one. Its popover lists every build grouped by character (current marked), plus
+  **New build** and **Manage builds…**. Switching goes through `switchBuild()`, so the T2
+  activation dialog and the gap banner still apply. On a phone it takes its own full-width line
+  under the top row, which stays intact (D47/D52). *Verified:* switch both ways reloads the other
+  build's classes/species; duplicate → the `v2` chip appears; rename in the manager updates the
+  header; no console errors.
 - [ ] **T5 · export / import a build** (`data`, ~M). A build is currently one browser away
   from gone — localStorage, one device, no backup. JSON download + file/paste import, carrying
   `meta.sources` so an imported build tells you which books it expects (D36 — file only, no URL).
@@ -185,6 +197,62 @@ stays out. Server sync or accounts. Sharing a build as a rendered page, or via a
   out of this and are fixed (see Gotchas). *Rejected:* pruning only the active build (the inactive
   ones then rot silently); asking on every source change (it is a browse action, not a commitment).
 
+- **D43 (2026-08-26) Every giver in "Choices to make" is a group** — a giver with one choice
+  used to be a bare row and one with several a bordered box, so the same thing had two
+  treatments. Now every giver is a `.choicegroup`; the granting *feature* is named once above
+  the run of rows it owns (it used to repeat twice then vanish); and each row is one line —
+  what it asks for on the left, its control on the right. *Rejected:* a flat list with a quiet
+  giver label (Francesco's call — the box carries the grouping more clearly); an accordion per
+  giver (a pending choice can hide behind a fold).
+- **D44 (2026-08-26) A slot's count is a tile in line with its field, not a chip on the label**
+  — origin / general / epic each carry their own `n/cap` tile at the field's own height, in
+  three states: `need` (accent), `done` (green), `over` (red). The single `origin 0/1 · general
+  1/4 · epic 0/1` chip on the FEATS label is gone. Optional-feature slots use the same tile, so
+  the Character card has one language for "how many of these do I still owe".
+- **D45 (2026-08-26) A taken feat is neutral; red means exactly one thing** — the base `.chip`
+  was accent (a red-brown), so every general feat read as a warning. Chips are now neutral,
+  `origin` stays gold and `epic` indigo as category tints, and `.chip.unmet` — a prerequisite
+  that isn't met — is the only red chip in the card.
+- **D46 (2026-08-26) The species picker groups lineages under their species** — both extractors
+  emit `base` + `lineage` on every species record, and the picker renders one `.entgroup` per
+  base with its lineages as sub-rows (the same shape D43 gave the choices card). A species with
+  no lineages stays a flat row.
+- **D47 (2026-08-26) The top row and the table header stay ONE row on a phone** — the header
+  wrapped and the title truncated. The tab switch drops to short labels (`Build` / `Table`)
+  before the title is allowed to shrink, and the title never ellipsizes. In the spell table the
+  same rule holds by turning **Prepare daily** into its ☾ icon below 620px; the total-spells
+  chip is kept (it is information, the label is not). *Rejected:* collapsing the switch to
+  icons (ambiguous — the app's glyph vocabulary is already spent on the ⋯ menu).
+- **D48 (2026-08-26) Mobile navigation = a docked jump bar, not a second level of tabs** — five
+  stacked cards made reaching your classes from the spell list a very long scroll. A fixed
+  bottom bar gives one tap per section and tracks the one you're in. The page stays **one
+  continuous scroll** on purpose: the prepared budget and the spell list are read together.
+  *Rejected:* Build splitting into mobile sub-tabs (loses the budget while picking spells, and
+  stacks two tab rows); collapsible cards with sticky headers (reaching a section still means
+  scrolling past the folded ones). A smooth scroll is attempted and **falls back to an instant
+  jump** — some embedded webviews accept `behavior:"smooth"` and never move.
+- **D49 (2026-08-26) A cantrip's modal says it once** — the subtitle reads "`<School>` cantrip"
+  (was "Cantrip `<School>`") and the Level and School rows leave the grid, where they only
+  repeated the line above them. Levelled spells keep both rows.
+- **D50 (2026-08-26) Summon stat blocks live in the spell modal, collapsed** — 24 spells print a
+  creature beside them. They are matched by the bestiary's own **`summonedBySpell`** field, not
+  by parsing `{@creature}` refs out of spell text, so there are no cross-source false positives.
+  The section is collapsed by default (it is reference material, not part of reading the spell).
+  The importer keeps only these monsters from a bestiary file — a full one is megabytes.
+  **SRD gate:** a non-SRD stat block is stripped from an SRD spell in the public build.
+- **D51 (2026-08-26) A book chip carries a popover, not a native `title`** — full book name,
+  the page the inspected element is printed on, and the code. Both extractors now emit `page`
+  on spells, classes, subclasses, feats, species and optional features. Works on touch (the
+  shared `attachTip` treats a tap as hover).
+
+- **D52 (2026-08-26) The build switcher lives in the header, beside the title** — `▤ <character>
+  <version>`, with a popover grouped by character plus New build / Manage builds…. It is a quiet
+  label you can act on, not a control competing with the Build/Table switch, and it goes through
+  `switchBuild()` so T2's activation dialog still fires. *Rejected:* putting it in the ⋯ menu (T4
+  asks for it to be **visible**, and a menu isn't); a full-width build bar on every screen (chrome
+  on every view for what is usually a single-build session); replacing the app title on mobile
+  (D47 had just been spent making the title fit) — on a phone it takes its own line instead.
+
 ### Settled — recorded so they aren't re-proposed
 Headline + rejected options only; reasoning → `ARCHIVE.md#rationale`.
 - **D7** Source counts in chips — per-source `n/cap` on take chips, red over forecast.
@@ -253,6 +321,15 @@ Headline + rejected options only; reasoning → `ARCHIVE.md#rationale`.
   didn't regress. Confirm whether it should default to hidden.
 - [ ] **Book in the spell-pick modal rows** — D39 removed it from the eligible list only.
   ⚑ (open question for Francesco, 2026-08-26)
+- [ ] **extract.py ↔ extract.js grant divergence** (found 2026-08-26, **pre-existing**): the
+  Node parity harness now diffs `grants`, and finds 77 species + 73 subclass mismatches. Two
+  causes, both cosmetic-or-coverage rather than wrong output: Python always writes
+  `"feature": null` where JS omits the key; and JS finds TCE Artificer subclass spells that
+  extract.py's walker never reads. Prereqs, stat blocks and every count are exact.
+  ⚑ (owner: Francesco, 2026-08-26)
+- [ ] **`page` is not on every book chip** — the choices-card group header and the gap dialog
+  pass a source with no page, so their popover shows the book name only. Resolving the owner
+  entity back to its record would close it.
 - [ ] **IndexedDB** for imported data — localStorage may overflow on a full multi-book import
   (the importer reports quota errors but can't store). Related to T7.
 - [ ] Importer UI polish — a "clear imported data" button, per-source enable after import, a
@@ -346,6 +423,28 @@ Headline + rejected options only; reasoning → `ARCHIVE.md#rationale`.
 - **Static preview cache:** editing `src/index.html` needs a hard reload (query-bust) — a plain
   reload serves stale HTML and new `$("#…")` lookups return null. Editing it also re-opens a
   `file://`/`data:` preview tab and fronts it — drive the `http://localhost` tab.
+- **A top-level function may not call a closure local.** `cellFor()` (top level) called
+  `slotCastable`, a `const` inside `renderTable()` — so the whole Spell table threw
+  `ReferenceError` for any build holding a limited-use innate cast (a `1/LR` species grant is
+  enough). It shipped. `slotCastable` is module scope now; check this shape when a helper moves.
+- **`prepared`/`known`/`expanded` have THREE shapes, like `innate` does** — a bare list, a
+  cadence map, and a **class-requirement group map** (`{"_":[…]}` = no requirement). The group
+  form fell through to `spell_ref()` as a raw dict and silently discarded its `choose` filter:
+  25 grants read "a spell" with no filter, High Elf's Wizard cantrip among them. `ungroup()` in
+  both extractors handles it. **Same failure mode as the `innate` gotcha above — check it first
+  when a grant is unfiltered or missing.**
+- **Summon stat blocks (D50)** come from the bestiary's own `summonedBySpell` field, never from
+  parsing `{@creature}` refs. 24 spells carry one. `sb_text`/`sbText` expand the tags whose
+  meaning is in the tag NAME (`{@h}`, `{@atkr}`, `{@actSave}`, `{@hit}`) **before** `rich_strip`
+  reaches them — that is why `flatten_entries` takes a `strip` parameter. `_srd_subset()` strips
+  a non-SRD stat block off an SRD spell. The importer's `slimJson()` keeps only summon monsters
+  from a bestiary file; without it a full bestiary would reach localStorage.
+- **The mobile jump bar (D48) must not use `behavior:"smooth"` alone.** Some embedded webviews
+  accept the call and never scroll — and CSS `scroll-behavior:smooth` on `html` breaks even a
+  plain `scrollIntoView` there. `jumpTo()` asks for smooth and jumps after 180 ms if nothing
+  moved. Its button set is rebuilt only when the section list changes, so `bar.dataset.sig`
+  must be **cleared** whenever the bar is emptied (switching to the table tab) — otherwise
+  coming back finds a stale match and renders nothing.
 - **History purge:** old data-bearing commits are unreachable on origin but GitHub may still serve
   them by exact SHA until it gc's. `backup/pre-purge-20260826` (local) has the original.
 
@@ -357,4 +456,3 @@ Headline + rejected options only; reasoning → `ARCHIVE.md#rationale`.
 - v7 note batches — prerequisite chips, material popover, eligibility escape hatches, one book
   chip, table centring. → `ARCHIVE.md#v7-notes`
 
-⟳ Rename previous session → "Saved builds (T1–T3) and UI note batches"  · session: resolve by cwd + latest

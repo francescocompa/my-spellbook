@@ -46,15 +46,17 @@ function durationText(sp){const d=(sp.duration&&sp.duration[0])||{};const t=d.ty
   if(t==="special")return"Special";
   if(t==="timed"){const dd=d.duration||{};return `${dd.amount||""} ${dd.type||""}`+((dd.amount||0)!==1?"s":"");}
   return"—";}
-function flattenEntries(entries){const out=[];
+// `strip` swaps the tag-stripper: stat blocks need sbText, which expands the tags
+// that carry their meaning in the tag NAME ({@h}, {@atkr}, {@actSave}).
+function flattenEntries(entries,strip){const out=[];strip=strip||richStrip;
   (entries||[]).forEach(e=>{
-    if(typeof e==="string")out.push(richStrip(e));
+    if(typeof e==="string")out.push(strip(e));
     else if(e&&typeof e==="object"){
-      if(e.name)out.push(richStrip(e.name)+".");
-      flattenEntries(e.entries).forEach(x=>out.push(x));
+      if(e.name)out.push(strip(e.name)+".");
+      flattenEntries(e.entries,strip).forEach(x=>out.push(x));
       (e.items||[]).forEach(it=>{
-        if(typeof it==="string")out.push("• "+richStrip(it));
-        else if(it&&typeof it==="object")out.push("• "+richStrip(it.name||"")+" "+flattenEntries(it.entries||(it.entry?[it.entry]:[])).join(" "));});
+        if(typeof it==="string")out.push("• "+strip(it));
+        else if(it&&typeof it==="object")out.push("• "+strip(it.name||"")+" "+flattenEntries(it.entries||(it.entry?[it.entry]:[]),strip).join(" "));});
     }});
   return out.filter(Boolean);}
 const uniqSort=a=>[...new Set(a||[])].sort();
@@ -66,10 +68,15 @@ function parseChoose(choose){
   if(choose&&typeof choose==="object")choose=choose.choose!=null?choose.choose:choose;
   if(typeof choose!=="string")return{choice:true,desc:"a spell",filter:{}};
   const filt={};choose.split("|").forEach(part=>{const i=part.indexOf("=");if(i>=0)filt[part.slice(0,i).trim()]=part.slice(i+1).trim();});
+  const schools="school"in filt?filt.school.split(/[;,]/).map(x=>SCHOOL[x.trim().toUpperCase()]||x).join("/"):"";
+  const classes="class"in filt?filt.class.split(/[;,]/).map(x=>x.trim()).join("/"):"";
+  if(filt.level==="0"){            // a cantrip pick reads as English, not as a filter
+    const qual=[schools,classes].filter(Boolean).join(" ");
+    return{choice:true,filter:filt,desc:"a "+(qual?qual+" ":"")+"cantrip"};}
   const bits=[];
-  if("level"in filt)bits.push(filt.level==="0"?"cantrip":"level "+filt.level);
-  if("school"in filt)bits.push(filt.school.split(/[;,]/).map(s=>SCHOOL[s.trim().toUpperCase()]||s).join("/"));
-  if("class"in filt)bits.push(filt.class+" list");
+  if("level"in filt)bits.push("level "+filt.level);
+  if(schools)bits.push(schools);
+  if(classes)bits.push(classes+" list");
   return{choice:true,desc:bits.length?"choose "+bits.join(", "):"a spell",filter:filt};}
 function spellRef(s){
   if(s&&typeof s==="object")return "choose"in s?parseChoose(s.choose):parseChoose(s);
@@ -121,6 +128,12 @@ function emitCadence(b,at,cadmap,feature,feats){
     else if(payload&&typeof payload==="object"){Object.entries(payload).forEach(([freq,arr])=>{const n=numOf(freq)||1;
       const label=n===1?base:`${n}× ${base}`;(Array.isArray(arr)?arr:[arr]).forEach(s=>addSpellEntry(b,"innate",at,label,s,feature,feats));});}});}
 const isCadence=v=>v&&typeof v==="object"&&!Array.isArray(v)&&Object.keys(v).length>0&&Object.keys(v).every(k=>CADENCE_KEYS.has(k));
+// A prepared/known/expanded value has THREE shapes, like `innate` does: a bare list,
+// a cadence map, or a class-requirement group map — {"_":[…]} means "no requirement".
+// The group form fell through to spellRef() as a raw dict and silently discarded its
+// `choose` filter (High Elf's Wizard cantrip among 25 such grants). Flatten groups.
+const ungroup=v=>(v&&typeof v==="object"&&!Array.isArray(v)&&!isCadence(v))
+  ? Object.values(v).reduce((a,inner)=>a.concat(Array.isArray(inner)?inner:[inner]),[]) : v;
 function normAbility(a){ if(a==null)return null;
   if(typeof a==="string")return a==="inherit"?{inherit:true}:{fixed:a};
   if(a&&typeof a==="object"&&"choose"in a)return{choose:a.choose};
@@ -182,14 +195,17 @@ function parseBlock(block,feats){const ft=block.name;
   const b={fixed:[],picks:[],expansions:[],ability:normAbility(block.ability)};
   Object.entries(block.prepared||{}).forEach(([lvl,arr])=>{const at=numOf(lvl);
     if(isCadence(arr)){emitCadence(b,at,arr,ft,feats);return;}   // free casting on a cadence (feats)
-    asArr(arr).forEach(s=>addSpellEntry(b,"prepared",at,"prepared (free)",s,ft,feats));});
+    asArr(ungroup(arr)).forEach(s=>{ if(isCadence(s))emitCadence(b,at,s,ft,feats);
+      else addSpellEntry(b,"prepared",at,"prepared (free)",s,ft,feats);});});
   Object.entries(block.expanded||{}).forEach(([lvl,arr])=>{const at=SLOT_LEVEL_KEY[String(lvl)]!=null?SLOT_LEVEL_KEY[String(lvl)]:numOf(lvl);
     if(isCadence(arr)){emitCadence(b,at,arr,ft,feats);return;}
-    asArr(arr).forEach(s=>{ if(s&&typeof s==="object"&&"all"in s){const fc=chooseFilter({choose:s.all});b.expansions.push({atLevel:at,filter:fc[0],feature:ft||resolveFeature(feats,at,{choose:s.all})});}
+    asArr(ungroup(arr)).forEach(s=>{ if(isCadence(s))emitCadence(b,at,s,ft,feats);
+      else if(s&&typeof s==="object"&&"all"in s){const fc=chooseFilter({choose:s.all});b.expansions.push({atLevel:at,filter:fc[0],feature:ft||resolveFeature(feats,at,{choose:s.all})});}
       else addSpellEntry(b,"prepared",at,"expanded list",s,ft,feats);});});
   Object.entries(block.known||{}).forEach(([lvl,arr])=>{const at=numOf(lvl);
     if(isCadence(arr)){emitCadence(b,at,arr,ft,feats);return;}
-    asArr(arr).forEach(s=>addSpellEntry(b,"known",at,"always known",s,ft,feats));});
+    asArr(ungroup(arr)).forEach(s=>{ if(isCadence(s))emitCadence(b,at,s,ft,feats);
+      else addSpellEntry(b,"known",at,"always known",s,ft,feats);});});
   Object.entries(block.innate||{}).forEach(([lvlkey,cadmap])=>{const at=(String(lvlkey)==="_"||String(lvlkey)==="")?0:numOf(lvlkey);
     // a bare list (or string) under the level key is the at-will shorthand
     if(Array.isArray(cadmap)||typeof cadmap==="string"){
@@ -220,6 +236,93 @@ const ORDER_CANTRIP={
 const FS_CLASS_LEVEL={Fighter:1,Ranger:2,Paladin:2};
 
 // ── main: build a digest from a list of {name, json} files ──────────────────
+// ── summon stat blocks ──────────────────────────────────────────────────────
+// A few spells conjure a creature whose stat block the book prints beside them.
+// 5etools flags those monsters with `summonedBySpell`, which names the spell
+// directly — far more reliable than parsing {@creature} refs out of spell text.
+const SIZE_NAME={T:"Tiny",S:"Small",M:"Medium",L:"Large",H:"Huge",G:"Gargantuan"};
+const ALIGN_NAME={L:"Lawful",N:"Neutral",C:"Chaotic",G:"Good",E:"Evil",U:"Unaligned",A:"Any alignment",NX:"Neutral",NY:"Neutral"};
+const ABILITY_FULL={str:"Strength",dex:"Dexterity",con:"Constitution",int:"Intelligence",wis:"Wisdom",cha:"Charisma"};
+const ATK_WORD={m:"Melee",r:"Ranged",mw:"Melee Weapon",rw:"Ranged Weapon",ms:"Melee Spell",rs:"Ranged Spell"};
+function atkLabel(body,suffix){
+  const parts=String(body).split(",").map(x=>x.trim()).filter(Boolean).map(x=>ATK_WORD[x.toLowerCase()]||x);
+  if(parts.length>1){
+    const head=parts.map(p=>p.indexOf(" ")>=0?p.slice(0,p.lastIndexOf(" ")):p);
+    const tail=parts[parts.length-1].indexOf(" ")>=0?parts[parts.length-1].split(" ").pop():"";
+    return head.join(" or ")+((tail&&head.indexOf(tail)<0)?" "+tail:"")+suffix;}
+  return (parts[0]||body)+suffix;}
+const SB_TAGS=[
+  [/\{@atkr ([^}]*)\}/g,(m,a)=>atkLabel(a," Attack Roll:")],
+  [/\{@atk ([^}]*)\}/g,(m,a)=>atkLabel(a," Attack:")],
+  [/\{@actSave (\w+)\}/g,(m,a)=>(ABILITY_FULL[a.toLowerCase()]||a)+" Saving Throw:"],
+  [/\{@actSaveFail(?:\|[^}]*)?\}/g,()=>"Failure:"],
+  [/\{@actSaveSuccess(?:\|[^}]*)?\}/g,()=>"Success:"],
+  [/\{@actTrigger\}/g,()=>"Trigger:"],
+  [/\{@actResponse(?:\s[^}]*)?\}/g,()=>"Response:"],
+  [/\{@h\}/g,()=>"Hit: "],
+  [/\{@hit ([+\-]?\d+)\}/g,(m,a)=>/^\d/.test(a)?"+"+a:a],
+];
+function sbText(s){ if(typeof s!=="string")return s;
+  SB_TAGS.forEach(([rx,fn])=>{s=s.replace(rx,fn);});
+  s=s.split("summonSpellLevel").join("the spell's level");   // they scale off the slot used
+  return richStrip(s).replace(/\s{2,}/g," ").trim();}
+function sbEntries(arr){ return (arr||[]).map(e=>{
+    if(typeof e==="string")return{name:"",text:[sbText(e)]};
+    if(!e||typeof e!=="object")return null;
+    return{name:sbText(e.name||""),text:flattenEntries(e.entries,sbText).filter(Boolean)};})
+  .filter(o=>o&&(o.name||o.text.length));}
+function sbSpeed(sp){ if(!sp||typeof sp!=="object")return String(sp||"");
+  const out=[];["walk","burrow","climb","fly","swim"].forEach(mode=>{const v=sp[mode];
+    if(v==null)return; const n=(v&&typeof v==="object")?v.number:v, cond=(v&&typeof v==="object"&&v.condition)||"";
+    const lbl=mode==="walk"?"":mode[0].toUpperCase()+mode.slice(1)+" ";
+    out.push(lbl+n+" ft."+(cond?" "+cond:""));});
+  return out.join(", ");}
+function sbDTypes(arr,field){const out=[];(arr||[]).forEach(x=>{
+    if(typeof x==="string")out.push(x);
+    else if(x&&typeof x==="object"){const inner=sbDTypes(x[field]||[],field).join(", ");
+      const note=x.note||""; out.push((inner?(inner+" "+note).trim():note));}});
+  return out.filter(Boolean);}
+function sbType(t){ if(typeof t==="string")return t;
+  if(t&&typeof t==="object"){const inner=t.type;
+    if(inner&&typeof inner==="object"&&inner.choose)return inner.choose.join(" or ");
+    return inner!=null?sbType(inner):"";}
+  return "";}
+function sbAlign(arr){const out=[];(arr||[]).forEach(a=>{
+    if(typeof a==="string")out.push(ALIGN_NAME[a]||a);
+    else if(a&&typeof a==="object")(a.alignment||[]).forEach(x=>out.push(ALIGN_NAME[x]||x));});
+  return out.join(" ");}
+function sbAc(arr){const a=(arr||[])[0]; if(a==null)return "";
+  return (a&&typeof a==="object")?String(a.special||a.ac||""):String(a);}
+function statblock(m){
+  const size=(m.size||[]).map(x=>SIZE_NAME[x]||x).join(" or ");
+  const hp=m.hp||{};
+  const senses=(m.senses||[]).slice(); if(m.passive!=null)senses.push("Passive Perception "+m.passive);
+  const pick=o=>{const r={};Object.keys(o||{}).forEach(k=>{r[k]=o[k];});return r;};
+  const ab={};["str","dex","con","int","wis","cha"].forEach(k=>{if(m[k]!=null)ab[k]=m[k];});
+  const saves={};Object.keys(m.save||{}).forEach(k=>{saves[ABILITY_FULL[k]||k]=m.save[k];});
+  const skills={};Object.keys(m.skill||{}).forEach(k=>{if(k!=="other")skills[k[0].toUpperCase()+k.slice(1)]=m.skill[k];});
+  const sec=[["Traits",m.trait],["Actions",m.action],["Bonus Actions",m.bonus],
+             ["Reactions",m.reaction],["Legendary Actions",m.legendary]];
+  return {name:m.name,source:m.source||"",page:m.page,
+    kind:[size,sbType(m.type)].filter(Boolean).join(" "),align:sbAlign(m.alignment),
+    ac:sbAc(m.ac),
+    hp:String(hp.special||(hp.average?hp.average+" ("+(hp.formula||"")+")":"")),
+    speed:sbSpeed(m.speed),abilities:ab,saves:saves,skills:skills,
+    vulnerable:sbDTypes(m.vulnerable,"vulnerable").join(", "),
+    resist:sbDTypes(m.resist,"resist").join(", "),
+    immune:sbDTypes(m.immune,"immune").join(", "),
+    condImmune:sbDTypes(m.conditionImmune,"conditionImmune").join(", "),
+    senses:senses.join(", "),languages:(m.languages||[]).join(", "),
+    pb:m.pbNote||(m.pb?"+"+m.pb:""),
+    cr:(m.cr&&typeof m.cr==="object")?String(m.cr.cr||""):String(m.cr==null?"":m.cr),
+    srd:!!m.srd52,
+    sections:sec.filter(x=>x[1]&&x[1].length).map(([label,arr])=>({label,items:sbEntries(arr)}))};}
+// keep only the monsters a spell actually prints — a full bestiary file is ~MBs and
+// none of the rest is used, so it must never reach IMPORT_STAGE or localStorage
+function slimJson(j){ if(j&&Array.isArray(j.monster)){const keep=j.monster.filter(m=>m&&m.summonedBySpell);
+    if(keep.length!==j.monster.length){j=Object.assign({},j);j.monster=keep;}}
+  return j;}
+
 function buildDigest(files){
   const books={};
   const spells={}; const classes=[]; const subclasses=[]; const feats=[]; const races=[]; const optfeats=[];
@@ -246,11 +349,11 @@ function buildDigest(files){
           comp:components(sp),ritual:!!((sp.meta||{}).ritual),conc:!!dur.concentration,
           dmg:uniqSort(sp.damageInflict),cond:uniqSort(sp.conditionInflict),save:uniqSort(sp.savingThrow),
           atk:!!sp.spellAttack,durTxt:durationText(sp),desc:flattenEntries(sp.entries),
-          higher:flattenEntries(sp.entriesHigherLevel),reprinted:reprinted(sp),cls:[],sub:[],feat:[],race:[]};});
+          higher:flattenEntries(sp.entriesHigherLevel),reprinted:reprinted(sp),page:sp.page,cls:[],sub:[],feat:[],race:[]};});
       (j.class||[]).forEach(c=>{if(EXCLUDE_CLASS(c.name))return;   // sidekicks aren't player classes
         const cp=c.casterProgression,prepared=c.preparedSpellsProgression,known=c.spellsKnownProgression;
         const change=c.preparedSpellsChange;const isStatic=(change==="level")||(!!known&&!prepared);
-        const rec={name:c.name,source:c.source||"",group:bgroup(c.source||""),book:bname(c.source||""),reprinted:reprinted(c),
+        const rec={name:c.name,source:c.source||"",group:bgroup(c.source||""),book:bname(c.source||""),reprinted:reprinted(c),page:c.page,
           caster:cp,ability:c.spellcastingAbility,static:!!(isStatic&&cp),
           countType:prepared?"fixed":known?"known":(cp?"formula":null),
           subclassLevel:subclassLevel(c),cantrips:c.cantripProgression,prepared:prepared||known,
@@ -263,7 +366,7 @@ function buildDigest(files){
         classes.push(rec);});
       (j.subclass||[]).forEach(sc=>{if(EXCLUDE_CLASS(sc.className||""))return;
         const rec={name:sc.name||"",shortName:sc.shortName||sc.name||"",source:sc.source||"",
-        group:bgroup(sc.source||""),book:bname(sc.source||""),reprinted:reprinted(sc),
+        group:bgroup(sc.source||""),book:bname(sc.source||""),reprinted:reprinted(sc),page:sc.page,
         className:sc.className||"",classSource:sc.classSource||"",
         grants:parseGrants(sc.additionalSpells,subfeatIdx[(sc.className||"")+"|"+(sc.shortName||sc.name||"")+"|"+(sc.source||"")]),
         optFeatures:optProgression(sc)};
@@ -272,21 +375,22 @@ function buildDigest(files){
           rec.static=(sc.preparedSpellsChange==="level");rec.spellList=["Wizard","XPHB"];}
         subclasses.push(rec);});
       (j.feat||[]).forEach(ft=>{const cat=ft.category||"G";const hasSpells="additionalSpells"in ft;
-        feats.push({name:ft.name,source:ft.source||"",group:bgroup(ft.source||""),book:bname(ft.source||""),reprinted:reprinted(ft),
+        feats.push({name:ft.name,source:ft.source||"",group:bgroup(ft.source||""),book:bname(ft.source||""),reprinted:reprinted(ft),page:ft.page,
           category:cat,fsClass:({"FS:R":"Ranger","FS:P":"Paladin","FS":"Fighter"})[cat]||null,hasSpells,
           optFeatures:optProgression(ft),prereq:prereqText(ft),prereqs:prereqBlocks(ft),
           grants:hasSpells?parseGrants(ft.additionalSpells):{fixed:[],picks:[],expansions:[],optionGroups:[],ability:null}});});
       (j.optionalfeature||[]).forEach(o=>{const hasSpells="additionalSpells"in o;
         optfeats.push({name:o.name,source:o.source||"",group:bgroup(o.source||""),book:bname(o.source||""),
-          reprinted:reprinted(o),types:o.featureType||[],prereq:prereqText(o),prereqs:prereqBlocks(o),hasSpells,
+          reprinted:reprinted(o),page:o.page,types:o.featureType||[],prereq:prereqText(o),prereqs:prereqBlocks(o),hasSpells,
           grants:hasSpells?parseGrants(o.additionalSpells):{fixed:[],picks:[],expansions:[],optionGroups:[],ability:null}});});
-      const emitSpecies=(name,source,blocks)=>{const named=(blocks||[]).filter(b=>b.name);
-        if(named.length>1)named.forEach(b=>races.push({name:`${name} — ${b.name}`,source,group:bgroup(source),book:bname(source),reprinted:false,grants:parseGrants([b])}));
-        else races.push({name,source,group:bgroup(source),book:bname(source),reprinted:false,grants:parseGrants(blocks)});};
-      (j.race||[]).forEach(rc=>{emitSpecies(rc.name,rc.source||"",rc.additionalSpells);
+      // `base` is the parent species a lineage hangs off — the picker groups on it (D46)
+      const emitSpecies=(name,source,blocks,page,base,lineage)=>{const named=(blocks||[]).filter(b=>b.name);
+        if(named.length>1)named.forEach(b=>races.push({name:`${name} — ${b.name}`,source,group:bgroup(source),book:bname(source),reprinted:false,page,base:name,lineage:b.name,grants:parseGrants([b])}));
+        else races.push({name,source,group:bgroup(source),book:bname(source),reprinted:false,page,base:base||name,lineage:base?(lineage||name):"",grants:parseGrants(blocks)});};
+      (j.race||[]).forEach(rc=>{emitSpecies(rc.name,rc.source||"",rc.additionalSpells,rc.page);
         if(reprinted(rc)&&races.length)races[races.length-1].reprinted=true;});
       (Array.isArray(j.subrace)?j.subrace:[]).forEach(rc=>{const base=rc.raceName||"",nm=rc.name||"";
-        if(!rc.additionalSpells)return;emitSpecies(nm?`${base} (${nm})`:base,rc.source||"",rc.additionalSpells);});
+        if(!rc.additionalSpells)return;emitSpecies(nm?`${base} (${nm})`:base,rc.source||"",rc.additionalSpells,rc.page,base||null,nm||null);});
     }catch(e){report.errors.push(f.name+": "+e.message);}
   });
 
@@ -314,6 +418,12 @@ function buildDigest(files){
   races.forEach(r=>cnt(r.source,"species",counter));
   const sources={};Object.entries(counter).forEach(([src,c])=>{sources[src]={name:bname(src),group:bgroup(src),counts:c};});
 
+  files.forEach(f=>{const j=f.json;if(!j||!Array.isArray(j.monster))return;
+    j.monster.forEach(m=>{const ref=m&&m.summonedBySpell;if(!ref)return;
+      const parts=String(ref).split("|");
+      const sp=spells[spellKey(parts[0],parts[1]||m.source||"")];
+      if(sp)sp.statblock=statblock(m);});});
+
   const digest={meta:{spellCount:Object.keys(spells).length,imported:true},sources,
     spells:Object.values(spells),classes,subclasses,feats,races,optfeats};
   return {digest,report};
@@ -335,7 +445,7 @@ function zipWanted(path){
   if(/(^|\/)(generated|roll20|foundry|makebrew|partnered)\//.test(p))return false;
   if(/(^|\/)(adventure|book)\//.test(p))return false;   // long-form prose
   return true;}
-function usefulJson(j){return !!(j&&typeof j==="object"&&(Array.isArray(j.spell)||Array.isArray(j.class)||Array.isArray(j.subclass)||Array.isArray(j.feat)||Array.isArray(j.race)||Array.isArray(j.subrace)||Array.isArray(j.optionalfeature)||Array.isArray(j.book)||looksLikeLookup(j)));}
+function usefulJson(j){return !!(j&&typeof j==="object"&&((Array.isArray(j.monster)&&j.monster.some(m=>m&&m.summonedBySpell))||Array.isArray(j.spell)||Array.isArray(j.class)||Array.isArray(j.subclass)||Array.isArray(j.feat)||Array.isArray(j.race)||Array.isArray(j.subrace)||Array.isArray(j.optionalfeature)||Array.isArray(j.book)||looksLikeLookup(j)));}
 async function unzipJsonFiles(buf,onFile){
   if(typeof DecompressionStream==="undefined")throw new Error("This browser can’t unzip files. Upload the .json files individually instead.");
   const dv=new DataView(buf),bytes=new Uint8Array(buf),n=buf.byteLength,td=new TextDecoder();
@@ -355,8 +465,8 @@ async function unzipJsonFiles(buf,onFile){
     let raw; if(e.method===0)raw=comp; else if(e.method===8)raw=await inflateRaw(comp); else continue;
     let json=null;try{json=JSON.parse(td.decode(raw));}catch(_){json=null;}
     if(onFile)onFile(e.name,i+1,wanted.length);
-    if(json&&usefulJson(json))out.push({name:e.name.split("/").pop(),json}); }
+    if(json&&usefulJson(json))out.push({name:e.name.split("/").pop(),json:slimJson(json)}); }
   return out;}
 
-window.SB_extract={buildDigest,unzipJsonFiles};
+window.SB_extract={buildDigest,unzipJsonFiles,slimJson};
 })();

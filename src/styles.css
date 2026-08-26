@@ -73,7 +73,11 @@
   .fieldset{margin-bottom:14px}.fieldset:last-child{margin-bottom:0}
   .twocol{display:grid;grid-template-columns:1fr 1fr;gap:9px}
   .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
-  .chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:3px 8px 3px 10px;border-radius:16px;background:var(--accent-soft);color:var(--accent)}
+  /* a taken feat is a fact, not a warning — the base chip is neutral so red is left
+     to mean exactly one thing here: .chip.unmet, a prerequisite that isn't met (D45) */
+  .chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:3px 8px 3px 10px;
+    border-radius:16px;background:var(--panel-2);border:1px solid var(--line-strong);color:var(--ink)}
+  .chip button{color:var(--muted)}
   .chip button{border:none;background:none;color:inherit;cursor:pointer;font-size:13px;opacity:.7;padding:0;line-height:1}.chip button:hover{opacity:1}
   .note{font-size:11.5px;color:var(--muted);margin-top:8px;line-height:1.5}
   .hidden{display:none!important}
@@ -146,6 +150,8 @@
   .lvlgroup h3{font-size:12.5px;color:var(--accent);text-transform:uppercase;letter-spacing:.05em;padding-bottom:4px;border-bottom:2px solid var(--accent-soft);margin-bottom:2px;display:flex;gap:7px;align-items:center}
   .lvlgroup h3 .n{color:var(--muted);font-family:var(--sans);font-size:12px;font-weight:600;text-transform:none;letter-spacing:0;font-variant-numeric:tabular-nums}
   .sp{display:grid;grid-template-columns:1fr auto;gap:3px 12px;padding:7px 4px;border-bottom:1px solid var(--line);align-items:center}
+  /* a divider separates rows; after the last one it just underlines the list */
+  .sp:last-child,.entrow:last-child,.bldrow:last-child,.entgroup .entrow:last-child{border-bottom:none}
   .sp:hover{background:var(--accent-soft);border-radius:6px}
   /* a spell you can't take, surfaced by a search or the "every spell" option — dimmed,
      never pickable, and it says why (same treatment as a blocked feat in the pickers) */
@@ -179,9 +185,11 @@
   .srclist label small{color:var(--muted);margin-left:auto}
   .srclist input{accent-color:var(--accent)}
   .quick{display:flex;gap:7px;margin-bottom:14px;flex-wrap:wrap}
-  .choicerow{display:flex;gap:9px;align-items:center;flex-wrap:wrap;padding:8px 0;border-bottom:1px dashed var(--line)}
+  /* what the choice asks for on the left, its control on the right — one line.
+     The control used to drop to its own line and right-align, leaving dead space. */
+  .choicerow{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:6px 0;border-bottom:1px dashed var(--line)}
   .choicerow:last-child{border-bottom:none}
-  .choicerow .cg{font-size:11.5px;color:var(--muted);min-width:96px}
+  .choicerow .cg{flex:1 1 130px;min-width:0;font-size:11.5px;color:var(--muted)}
   .choicerow .cg b{color:var(--ink);display:inline;font-size:12.5px;vertical-align:middle}
   .choicerow .need{font-size:10px;color:var(--accent);font-weight:700;margin-left:4px}
   .choicerow select{width:auto;min-width:130px}
@@ -195,6 +203,8 @@
   table.spelltable th{text-align:center;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:600;padding:8px 10px;border-bottom:1px solid var(--line-strong);position:sticky;top:0;background:var(--panel)}
   table.spelltable td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:middle;text-align:center}
   table.spelltable .grouphdr td{text-align:left}
+  /* the name is the row's label, not one of its values — it reads down the left edge */
+  table.spelltable td.nm,table.spelltable th.nm{text-align:left}
   /* an abbreviated value: hovering restores the full one */
   table.spelltable td.abbr{cursor:help}
   table.spelltable tr:hover td{background:var(--accent-soft)}
@@ -212,10 +222,40 @@
 .menupop button:hover{background:var(--panel-2)}
 .menupop button.danger{color:var(--bad)} .menupop button.danger:hover{background:var(--bad-soft)}
 .menupop .sep{height:1px;background:var(--line);margin:4px 2px}
+/* ── build switcher (v7 · T4) ─────────────────────────────────────────────
+   The active build named on the main surface. Deliberately quiet: it is a label
+   you can act on, not a primary control competing with the Build/Table switch. */
+.buildswitch{align-self:center}
+.bswitch{display:flex;align-items:center;gap:7px;font:inherit;font-size:12.5px;
+  padding:5px 9px;border-radius:9px;border:1px solid var(--line);background:var(--panel-2);
+  color:var(--ink);cursor:pointer;max-width:min(260px,34vw)}
+.bswitch:hover{border-color:var(--accent)} .bswitch:hover .pk-caret::before{border-color:var(--accent)}
+.bswitch .mi{color:var(--muted);font-size:11px;flex:0 0 auto}
+.bswitch .bswchar{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.bswitch .bswver{flex:0 0 auto;font-size:10.5px;font-weight:600;color:var(--muted);
+  background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:0 6px}
+.bswitch .pk-caret{flex:0 0 auto;position:relative;width:12px;height:12px;font-size:0}
+.bswitch .pk-caret::before{content:"";position:absolute;left:50%;top:50%;width:5px;height:5px;
+  border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);
+  transform:translate(-50%,-50%) translateY(-1.8px) rotate(45deg)}
+.bswpop{left:0;right:auto;min-width:min(300px,86vw);max-height:min(60vh,420px);overflow:auto;padding:6px}
+.bswgrp{font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);
+  font-weight:700;padding:7px 9px 3px}
+.bswpop button.bswrow{display:block;width:100%;padding:6px 9px}
+.bswrowt{display:flex;align-items:center;gap:7px}
+.bswrow .bswn{font-size:12.5px;font-weight:600}
+.bswrow .bswcur{font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;
+  color:var(--accent);background:var(--accent-soft);border-radius:8px;padding:1px 6px}
+.bswrow .bsws{font-size:11px;color:var(--muted);margin-top:1px}
+.bswrow.on{background:var(--accent-soft)}
+.bswpop button.bswact{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--muted)}
+.bswpop button.bswact:hover{color:var(--ink)}
+.bswpop .mi{font-size:12px;width:14px;display:inline-block;text-align:center}
 @media (min-width:921px){ .col-left{max-height:calc(100vh - 28px);overflow-y:auto;overflow-x:hidden;scrollbar-width:thin} }
 .classrow input[type=number]{text-align:center}
 /* spell detail: tooltip + modal */
-.sptip{position:fixed;z-index:60;max-width:340px;background:var(--panel);border:1px solid var(--line-strong);border-radius:10px;box-shadow:0 14px 40px #0006;padding:11px 13px;font-size:12.5px;pointer-events:none;opacity:0;transition:opacity .1s}
+/* above .spmodal (70) — the book chip inside the spell modal has a popover too */
+.sptip{position:fixed;z-index:90;max-width:340px;background:var(--panel);border:1px solid var(--line-strong);border-radius:10px;box-shadow:0 14px 40px #0006;padding:11px 13px;font-size:12.5px;pointer-events:none;opacity:0;transition:opacity .1s}
 .sptip.show{opacity:1}
 .sptip h4{font-family:var(--font);font-size:14px;margin:0 0 3px}
 .sptip .sub{color:var(--muted);font-size:11px;margin-bottom:7px}
@@ -249,7 +289,11 @@
 /* access: collapsed = one merged scrollable row inline with the label + an expander;
    expanded = per-category rows. Both scroll horizontally, never widen the modal. */
 .spmodal .access{margin-top:12px;padding-top:10px;border-top:1px dashed var(--line)}
-.spmodal .access .accessh{flex:0 0 auto;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700}
+/* a SECTION heading (Access, Stat block) is a level above the labels inside it:
+   the house display face, ink, sentence case. The per-category labels below stay
+   the small muted uppercase treatment, so the two no longer read as siblings. */
+.spmodal .secttl{flex:0 0 auto;font-family:var(--font);font-size:13.5px;font-weight:600;
+  color:var(--ink);letter-spacing:0;text-transform:none}
 .spmodal .acc-row{display:flex;align-items:center;gap:9px;min-height:22px}
 .spmodal .acc-toggle{flex:0 0 auto;margin-left:auto;position:relative;width:22px;height:22px;
   border:none;background:none;color:var(--muted);cursor:pointer;font-size:0;padding:0;
@@ -263,7 +307,7 @@
 .spmodal .access[data-exp="1"] .acc-merged{display:none}
 .spmodal .acc-cats{margin-top:6px}
 .spmodal .acat{display:flex;align-items:center;gap:8px;margin:5px 0}
-.spmodal .acat .acl{flex:0 0 74px;font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:600}
+.spmodal .acat .acl{flex:0 0 74px;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600}
 /* still scrolls (drag / shift-wheel / trackpad) — the bar itself is just noise here */
 .spmodal .achips{flex:1;min-width:0;display:flex;gap:5px;overflow-x:auto;
   scrollbar-width:none;-ms-overflow-style:none}
@@ -272,10 +316,54 @@
 /* subtle category tint on the merged row so kinds stay distinguishable */
 .spmodal .achip.sub{border-color:var(--accent-soft);color:var(--accent)}
 .spmodal .achip.race,.spmodal .achip.feat{color:var(--muted)}
+/* stat block: a summon spell prints its creature beside it. Collapsed by default —
+   it is reference material, not part of reading the spell. */
+.spmodal .sblock{margin-top:12px;padding-top:10px;border-top:1px dashed var(--line)}
+.spmodal .sb-head{display:flex;align-items:center;gap:9px;width:100%;padding:0;border:none;
+  background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.spmodal .sb-who{flex:1;min-width:0;font-size:12px;color:var(--muted);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+/* drawn, not typed — a glyph caret sits wherever its font puts it (see .pk-caret) */
+.spmodal .sb-caret{flex:0 0 auto;position:relative;width:22px;height:22px;color:var(--muted);
+  transition:transform .15s,color .15s}
+.spmodal .sb-caret::before{content:"";position:absolute;left:50%;top:50%;width:7px;height:7px;
+  border-right:1.6px solid currentColor;border-bottom:1.6px solid currentColor;
+  transform:translate(-50%,-50%) translateY(-2.5px) rotate(45deg)}
+.spmodal .sb-head:hover{color:var(--accent)} .spmodal .sb-head:hover .sb-caret{color:var(--accent)}
+.spmodal .sblock[data-exp="1"] .sb-caret{transform:rotate(180deg)}
+.spmodal .sblock[data-exp="0"] .sb-body{display:none}
+.spmodal .sb-body{margin-top:9px;padding:11px 13px;border:1px solid var(--line);
+  border-radius:10px;background:var(--panel-2)}
+.spmodal .sb-kind{font-style:italic;color:var(--muted);font-size:12px;margin-bottom:7px}
+.spmodal .sbr{display:flex;gap:8px;font-size:12.5px;line-height:1.5;margin:2px 0}
+.spmodal .sbr b{flex:0 0 104px;color:var(--muted);font-weight:600}
+.spmodal .sbr span{flex:1;min-width:0}
+.spmodal .sbabs{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin:9px 0;padding:8px 0;
+  border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.spmodal .sbab{display:flex;align-items:baseline;gap:4px;justify-content:center}
+@media (max-width:620px){ .spmodal .sbabs{grid-template-columns:repeat(3,1fr);row-gap:9px} }
+.spmodal .sbav{font-size:13px;font-weight:600} .spmodal .sbam{font-size:11px;color:var(--muted)}
+.spmodal .sbsec{margin-top:11px}
+.spmodal .sbsec h5{margin:0 0 4px;font-family:var(--font);font-size:12.5px;font-weight:600;
+  color:var(--accent);border-bottom:1px solid var(--line);padding-bottom:3px}
+.spmodal .sbsec p{margin:0 0 6px;font-size:12.5px;line-height:1.5}
+.spmodal .sbsec p b{color:var(--ink)}
+@media (max-width:620px){.spmodal .sbr b{flex-basis:88px}}
 /* wizard spellbook: spells copied in beyond the free per-level allowance (allowed, not an error) */
 .dcell.copied{border-color:var(--accent);color:var(--accent)}
 .dcell.copied .dcap{color:var(--accent)}
 @media (max-width:620px){.spmodal{align-items:flex-end;padding:0}.spmodal .box{max-width:none;border-radius:16px 16px 0 0;max-height:88vh}}
+/* the selected-spells header is one row at every width: the title never wraps and the
+   Prepare-daily button falls back to its icon rather than pushing the row over (D47) */
+#tableView .card h2{flex-wrap:nowrap;min-width:0;gap:7px}
+#tableView .card h2 .ttl{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#tableView .card h2 .count{white-space:nowrap}
+.prepbtn .ico{display:none;font-size:14px;line-height:1}
+@media (max-width:620px){
+  #tableView .card h2{padding:12px 11px}
+  .prepbtn{padding:6px 9px}
+  .prepbtn .lbl{display:none} .prepbtn .ico{display:inline}
+}
 /* table extras */
 .concmark{color:var(--good);font-weight:700}
 .tableopts{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;font-size:12.5px;color:var(--muted)}
@@ -336,8 +424,9 @@ table.spelltable td.cmp .l.on{cursor:help}
 table.spelltable td.cmp .l:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
 .card h2 .menu{margin-left:0}
 /* right-align the control in each "choice to make" row */
-.choicerow>select,.choicerow>.picks{margin-left:auto}
+.choicerow>select,.choicerow>.picks{margin-left:auto;flex:0 0 auto}
 .choicerow .picks{justify-content:flex-end}
+@media (max-width:520px){ .choicerow select{min-width:0;max-width:52vw} }
 /* pick modal: stacked header, quick filters, scrollbar breathing room */
 .mh.mh-stack{flex-direction:column;align-items:stretch;gap:5px}
 .mh-row{display:flex;align-items:center;gap:10px}
@@ -350,6 +439,17 @@ table.spelltable td.cmp .l:focus-visible{outline:2px solid var(--accent);outline
 .pickbar .entgrants{flex:0 0 auto;white-space:nowrap}
 #pickList{max-height:52vh;overflow:auto;padding-right:10px}
 /* species / feat trigger buttons — look like the selects they replace */
+/* a field and the count of what it holds, on one line. The tile is the field's own
+   height so the pair reads as one control, not a label floating beside it (D44). */
+.fldrow{display:flex;align-items:stretch;gap:7px;margin-bottom:7px}
+.fldrow:last-of-type{margin-bottom:0}
+.fldrow .picksel{flex:1;min-width:0;margin-bottom:0}
+.cnt{flex:0 0 auto;display:flex;align-items:center;justify-content:center;min-width:46px;
+  padding:0 9px;border-radius:9px;border:1px solid var(--line-strong);background:var(--panel-2);
+  font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--muted);cursor:help}
+.cnt.need{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.cnt.done{border-color:transparent;background:var(--good-soft);color:var(--good)}
+.cnt.over{border-color:var(--bad);background:var(--bad-soft);color:var(--bad)}
 .picksel{display:flex;align-items:center;gap:8px;width:100%;text-align:left;font:inherit;font-size:13px;
   padding:6px 10px;border-radius:8px;border:1px solid var(--line-strong);background:var(--bg);color:var(--ink);cursor:pointer;margin-bottom:7px}
 .picksel:hover{border-color:var(--accent)}
@@ -364,6 +464,13 @@ table.spelltable td.cmp .l:focus-visible{outline:2px solid var(--accent);outline
 .picksel:hover .pk-caret::before{border-color:var(--accent)}
 /* entity picker rows: name + source + a preview of what it grants, then a select button */
 #entList{max-height:54vh;overflow:auto;margin:0 -4px}
+/* a species and its lineages read as one block (D46) */
+.entgroup{border:1px solid var(--line);border-radius:10px;background:var(--panel-2);
+  padding:7px 9px;margin:0 0 8px}
+.eghead{display:flex;align-items:center;gap:7px;padding-bottom:5px;border-bottom:1px solid var(--line)}
+.eghead b{font-size:13px}
+.eghead .cgn{margin-left:auto;font-size:10.5px;color:var(--muted);white-space:nowrap}
+.entgroup .entrow{padding-left:10px;border-bottom:1px dashed var(--line)}
 .entrow{display:flex;align-items:center;gap:10px;padding:8px 8px;border-bottom:1px solid var(--line)}
 .entrow:hover,.entrow.on{background:var(--accent-soft);border-radius:6px}
 .entmain{flex:1;min-width:0}
@@ -479,13 +586,15 @@ table.spelltable td.cmp .l:focus-visible{outline:2px solid var(--accent);outline
 .entrow .tk{flex:0 0 auto;padding:3px 10px;font-size:11px}
 .entrow .tk.on:hover{background:var(--bad-soft);border-color:var(--bad);color:var(--bad)}
 /* choices grouped by the entity that granted them (D30) */
-.choicegroup{border:1px solid var(--line);border-radius:10px;background:var(--panel-2);padding:8px 10px 4px;margin:0 0 8px}
-.cghead{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:2px}
+/* every giver is a group (D43) — one consistent block, never a bare row */
+.choicegroup{border:1px solid var(--line);border-radius:10px;background:var(--panel-2);padding:8px 11px;margin:0 0 8px}
+.choicegroup:last-child{margin-bottom:0}
+.cghead{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding-bottom:5px;border-bottom:1px solid var(--line)}
 .cghead b{font-size:13px}
-.cghead .cgn{margin-left:auto;font-size:10.5px;color:var(--muted)}
-.choicerow.ingroup{border:none;padding:5px 0;background:none}
-.choicerow.ingroup + .choicerow.ingroup{border-top:1px dashed var(--line)}
-.choicerow .cg b.sub{font-weight:600;color:var(--muted);font-size:12px}
+.cghead .cgn{margin-left:auto;font-size:10.5px;color:var(--muted);white-space:nowrap}
+/* the granting feature, named once above the run of rows it owns */
+.cgsub{font-size:11px;font-weight:600;color:var(--muted);margin:7px 0 1px;letter-spacing:.02em}
+.choicegroup .choicerow:last-child{border-bottom:none;padding-bottom:0}
 .ccat{font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);
   border:1px solid var(--line-strong);border-radius:4px;padding:0 5px;font-weight:600}
 /* subclass alert state (level ≥ unlock, none chosen) */
@@ -531,8 +640,7 @@ table.spelltable td.hasast{cursor:pointer}
 .cc-cond{color:var(--cc-cond);font-weight:600}
 .cc-range{color:var(--cc-range);font-weight:600}
 /* choices: source tag + what-to-do line */
-.choicerow .cg .bchip{margin-left:6px}
-.choicerow .cg .cwhat{display:block;margin-top:2px}
+.choicerow .cg .cwhat{display:block}
 /* pick modal: level filter as popover */
 .pickfiltermenu{position:relative;flex:none}
 .pickfiltermenu .menupop{right:0;left:auto;min-width:180px;padding:10px}
@@ -550,8 +658,9 @@ table.spelltable .pickcell.on:hover,table.spelltable .pickcell:hover{filter:brig
 .budgetnote{font-size:10px;font-weight:600;color:var(--muted);text-transform:none;letter-spacing:0;margin-left:6px;background:var(--panel-2);padding:1px 7px;border-radius:10px}
 .budgetnote.alert{color:var(--bad);background:var(--bad-soft)}
 #addOrigin{margin-bottom:6px}
-.chip.origin{background:var(--gold-soft);color:var(--gold)}
-.chip .fmark{font-size:9px;opacity:.85;margin-right:1px}
+.chip.origin{background:var(--gold-soft);border-color:transparent;color:var(--gold)}
+/* ✦ = grants spells. It keeps the accent inside a now-neutral chip, so it still reads. */
+.chip .fmark{font-size:9px;color:var(--accent);margin-right:1px}
 /* per-level toolbar (eligible list): inline, brightens on hover */
 .lvltools{display:inline-flex;align-items:center;gap:8px;margin-left:auto;opacity:.6;transition:opacity .12s}
 .lvlgroup:hover .lvltools{opacity:1}
@@ -566,7 +675,7 @@ table.spelltable .pickcell.on:hover,table.spelltable .pickcell:hover{filter:brig
 /* ── v8: epic boons, save chips, prepare-daily modal ── */
 #addFeat{margin-bottom:6px}
 #addEpic{margin-bottom:0}
-.chip.epic{background:var(--free-soft);color:var(--free)}
+.chip.epic{background:var(--free-soft);border-color:transparent;color:var(--free)}
 /* required-defence chips in the spell table (ability palette) */
 .savechip{display:inline-block;font-size:10px;font-weight:700;padding:1px 6px;border-radius:9px;line-height:1.5;background:var(--panel-2)}
 .savechip.str{color:var(--ab-str)}.savechip.dex{color:var(--ab-dex)}.savechip.con{color:var(--ab-con)}
@@ -631,3 +740,44 @@ table.spelltable .pickcell{cursor:help}
 .onboard h2{font-size:19px;margin-bottom:6px}
 .onboard p{color:var(--muted);font-size:13px;margin:0 auto 16px;max-width:400px}
 .onboard .btn.on{font-size:13.5px;padding:8px 16px}
+
+/* ── responsive: phone layout ─────────────────────────────────────────────── */
+  /* mobile section jump bar: docked, thumb-reachable, tracks the section you're in.
+     Hidden entirely above the one-column breakpoint, where all five cards are visible. */
+  .jumpbar{display:none}
+  @media (max-width:920px){
+    .jumpbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:55;gap:5px;
+      padding:7px 10px calc(7px + env(safe-area-inset-bottom));
+      background:var(--panel);background:color-mix(in srgb,var(--panel) 92%,transparent);
+      border-top:1px solid var(--line-strong);backdrop-filter:blur(10px);
+      overflow-x:auto;scrollbar-width:none}
+    .jumpbar::-webkit-scrollbar{display:none;height:0}
+    .jumpbar button{flex:1 0 auto;font:inherit;font-size:11.5px;font-weight:600;white-space:nowrap;
+      padding:6px 10px;border-radius:8px;border:1px solid transparent;background:none;
+      color:var(--muted);cursor:pointer}
+    .jumpbar button.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+    .wrap{padding-bottom:calc(76px + env(safe-area-inset-bottom))}
+  }
+  /* the top row stays ONE row on a phone: the title steps down and the tabs tighten
+     before anything is allowed to wrap (D47) */
+  .tabs button .short{display:none}
+  @media (max-width:620px){
+    .wrap{padding-left:14px;padding-right:14px}
+    header.top{gap:7px;flex-wrap:wrap;padding-bottom:11px;margin-bottom:14px}
+    /* forced onto its own full-width line, so the top row itself is untouched */
+    .buildswitch{order:9;flex:1 0 100%;margin-top:2px}
+    .bswitch{max-width:none;width:100%}
+    .bswitch .bswchar{flex:1;text-align:left}
+    .bswpop{left:0;right:0;min-width:0}
+    header.top h1{font-size:17px;white-space:nowrap;flex:0 0 auto}
+    header.top .spacer{flex:1 1 0;min-width:0}
+    /* the switch drops to its short labels before the title is allowed to shrink */
+    .tabs{flex:0 0 auto}
+    .tabs button{padding:5px 10px;font-size:12px;white-space:nowrap}
+    .tabs button .full{display:none} .tabs button .short{display:inline}
+    .iconbtn{flex:0 0 auto}
+  }
+  @media (max-width:400px){
+    header.top h1{font-size:15.5px}
+    .tabs button{padding:5px 8px;font-size:11.5px}
+  }

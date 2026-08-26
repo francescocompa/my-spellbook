@@ -106,16 +106,19 @@ def duration_text(sp):
         return f"{dd.get('amount','')} {dd.get('type','')}" + ("s" if dd.get('amount',0) != 1 else "")
     return "—"
 
-def flatten_entries(entries):
+def flatten_entries(entries, strip=None):
+    """`strip` swaps the tag-stripper: stat blocks need sb_text, which expands the
+       tags that carry their meaning in the tag name ({@h}, {@atkr}, {@actSave})."""
+    strip = strip or rich_strip
     out = []
     for e in entries or []:
-        if isinstance(e, str): out.append(rich_strip(e))
+        if isinstance(e, str): out.append(strip(e))
         elif isinstance(e, dict):
-            if e.get("name"): out.append(rich_strip(e["name"]) + ".")
-            out += flatten_entries(e.get("entries"))
+            if e.get("name"): out.append(strip(e["name"]) + ".")
+            out += flatten_entries(e.get("entries"), strip)
             for it in e.get("items", []):
-                if isinstance(it, str): out.append("• " + rich_strip(it))
-                elif isinstance(it, dict): out.append("• " + rich_strip(it.get("name", "")) + " " + " ".join(flatten_entries(it.get("entries") or it.get("entry") and [it["entry"]] or [])))
+                if isinstance(it, str): out.append("• " + strip(it))
+                elif isinstance(it, dict): out.append("• " + strip(it.get("name", "")) + " " + " ".join(flatten_entries(it.get("entries") or it.get("entry") and [it["entry"]] or [], strip)))
     return [x for x in out if x]
 
 spells = {}
@@ -143,6 +146,7 @@ for f in glob.glob(os.path.join(MIRROR, "spells", "spells-*.json")):
             "desc": flatten_entries(sp.get("entries")),
             "higher": flatten_entries(sp.get("entriesHigherLevel")),
             "reprinted": reprinted(sp),
+            "page": sp.get("page"),
             "srd": bool(sp.get("srd52")),
             "cls": [], "sub": [], "feat": [], "race": [],
         }
@@ -165,6 +169,155 @@ for src_l, byname in lookup.items():
             for ft in fmap: sp["feat"].append([ft, fsrc])
         for rsrc, rmap in (acc.get("race") or {}).items():
             for rc in rmap: sp["race"].append([rc, rsrc])
+
+# ---- summon stat blocks ----------------------------------------------------
+# A handful of spells conjure a creature whose stat block the book prints beside
+# them. 5etools flags those monsters with `summonedBySpell`, which is a far more
+# reliable hook than parsing {@creature} refs out of the spell text: it names the
+# spell directly, so no cross-source false positives.
+SIZE_NAME = {"T": "Tiny", "S": "Small", "M": "Medium", "L": "Large",
+             "H": "Huge", "G": "Gargantuan"}
+ALIGN_NAME = {"L": "Lawful", "N": "Neutral", "C": "Chaotic", "G": "Good", "E": "Evil",
+              "U": "Unaligned", "A": "Any alignment", "NX": "Neutral", "NY": "Neutral"}
+# stat-block-only rich tags. rich_strip() keeps the first segment of a {@tag …},
+# which is right for @damage/@condition/@action but wrong for these — they carry
+# their meaning in the TAG, not the body, so expand them before stripping.
+SB_TAGS = [
+    (re.compile(r"\{@atkr ([^}]*)\}"),
+     lambda m: _atk_label(m.group(1), " Attack Roll:")),
+    (re.compile(r"\{@atk ([^}]*)\}"),
+     lambda m: _atk_label(m.group(1), " Attack:")),
+    (re.compile(r"\{@actSave (\w+)\}"),
+     lambda m: ABILITY_FULL.get(m.group(1).lower(), m.group(1).title()) + " Saving Throw:"),
+    (re.compile(r"\{@actSaveFail(?:\|[^}]*)?\}"), lambda m: "Failure:"),
+    (re.compile(r"\{@actSaveSuccess(?:\|[^}]*)?\}"), lambda m: "Success:"),
+    (re.compile(r"\{@actTrigger\}"), lambda m: "Trigger:"),
+    (re.compile(r"\{@actResponse(?:\s[^}]*)?\}"), lambda m: "Response:"),
+    (re.compile(r"\{@h\}"), lambda m: "Hit: "),
+    (re.compile(r"\{@hit ([+\-]?\d+)\}"), lambda m: ("+" + m.group(1)) if m.group(1)[0].isdigit() else m.group(1)),
+]
+ABILITY_FULL = {"str": "Strength", "dex": "Dexterity", "con": "Constitution",
+                "int": "Intelligence", "wis": "Wisdom", "cha": "Charisma"}
+ATK_WORD = {"m": "Melee", "r": "Ranged", "mw": "Melee Weapon", "rw": "Ranged Weapon",
+            "ms": "Melee Spell", "rs": "Ranged Spell"}
+
+def _atk_label(body, suffix):
+    parts = [ATK_WORD.get(x.strip().lower(), x.strip()) for x in body.split(",") if x.strip()]
+    if len(parts) > 1:
+        head = [p.rsplit(" ", 1)[0] if " " in p else p for p in parts]
+        tail = parts[-1].rsplit(" ", 1)[-1] if " " in parts[-1] else ""
+        return " or ".join(head) + ((" " + tail) if tail and tail not in head else "") + suffix
+    return (parts[0] if parts else body) + suffix
+
+def sb_text(s):
+    """rich_strip for stat-block prose, plus the tags only monsters use."""
+    if not isinstance(s, str): return s
+    for rx, fn in SB_TAGS: s = rx.sub(fn, s)
+    # the summon stat blocks scale off the spell slot they were cast with
+    s = s.replace("summonSpellLevel", "the spell's level")
+    return re.sub(r"\s{2,}", " ", rich_strip(s)).strip()
+
+def sb_entries(arr):
+    """[{name, entries}] -> [{name, text:[…]}], names kept as their own field so the
+       app can render them as run-in headings rather than inline prose."""
+    out = []
+    for e in arr or []:
+        if isinstance(e, str):
+            out.append({"name": "", "text": [sb_text(e)]}); continue
+        if not isinstance(e, dict): continue
+        txt = flatten_entries(e.get("entries"), sb_text)
+        out.append({"name": sb_text(e.get("name") or ""), "text": [t for t in txt if t]})
+    return [o for o in out if o["name"] or o["text"]]
+
+def sb_speed(sp):
+    if not isinstance(sp, dict): return str(sp or "")
+    parts = []
+    for mode in ("walk", "burrow", "climb", "fly", "swim"):
+        v = sp.get(mode)
+        if v is None: continue
+        if isinstance(v, dict):
+            n, cond = v.get("number"), v.get("condition") or ""
+        else:
+            n, cond = v, ""
+        lbl = "" if mode == "walk" else mode.title() + " "
+        parts.append(f"{lbl}{n} ft.{(' ' + cond) if cond else ''}")
+    return ", ".join(parts)
+
+def sb_dtypes(arr, field):
+    """immune/resist/vulnerable: a mix of bare strings and {field:[…], note:…} groups."""
+    out = []
+    for x in arr or []:
+        if isinstance(x, str): out.append(x)
+        elif isinstance(x, dict):
+            inner = ", ".join(sb_dtypes(x.get(field) or [], field))
+            note = x.get("note") or ""
+            out.append(f"{inner} {note}".strip() if inner else note)
+    return [x for x in out if x]
+
+def sb_type(t):
+    if isinstance(t, str): return t
+    if isinstance(t, dict):
+        inner = t.get("type")
+        if isinstance(inner, dict) and inner.get("choose"):
+            return " or ".join(inner["choose"])
+        return sb_type(inner) if inner is not None else ""
+    return ""
+
+def sb_align(arr):
+    out = []
+    for a in arr or []:
+        if isinstance(a, str): out.append(ALIGN_NAME.get(a, a))
+        elif isinstance(a, dict): out += [ALIGN_NAME.get(x, x) for x in (a.get("alignment") or [])]
+    return " ".join(out)
+
+def sb_ac(arr):
+    for a in arr or []:
+        if isinstance(a, dict): return str(a.get("special") or a.get("ac") or "")
+        return str(a)
+    return ""
+
+def statblock(m):
+    size = " or ".join(SIZE_NAME.get(x, x) for x in (m.get("size") or []))
+    hp = m.get("hp") or {}
+    sec = [("Traits", m.get("trait")), ("Actions", m.get("action")),
+           ("Bonus Actions", m.get("bonus")), ("Reactions", m.get("reaction")),
+           ("Legendary Actions", m.get("legendary"))]
+    senses = list(m.get("senses") or [])
+    if m.get("passive") is not None: senses.append(f"Passive Perception {m['passive']}")
+    return {
+        "name": m["name"], "source": m.get("source", ""), "page": m.get("page"),
+        "kind": " ".join(x for x in (size, sb_type(m.get("type"))) if x),
+        "align": sb_align(m.get("alignment")),
+        "ac": sb_ac(m.get("ac")),
+        "hp": str(hp.get("special") or (f"{hp.get('average','')} ({hp.get('formula','')})" if hp.get("average") else "")),
+        "speed": sb_speed(m.get("speed")),
+        "abilities": {k: m.get(k) for k in ("str", "dex", "con", "int", "wis", "cha") if m.get(k) is not None},
+        "saves": {ABILITY_FULL.get(k, k): v for k, v in (m.get("save") or {}).items()},
+        "skills": {k.title(): v for k, v in (m.get("skill") or {}).items() if k != "other"},
+        "vulnerable": ", ".join(sb_dtypes(m.get("vulnerable"), "vulnerable")),
+        "resist": ", ".join(sb_dtypes(m.get("resist"), "resist")),
+        "immune": ", ".join(sb_dtypes(m.get("immune"), "immune")),
+        "condImmune": ", ".join(sb_dtypes(m.get("conditionImmune"), "conditionImmune")),
+        "senses": ", ".join(senses),
+        "languages": ", ".join(m.get("languages") or []),
+        "pb": m.get("pbNote") or (f"+{m['pb']}" if m.get("pb") else ""),
+        "cr": str(m.get("cr", "")) if not isinstance(m.get("cr"), dict) else str(m["cr"].get("cr", "")),
+        "srd": bool(m.get("srd52")),
+        "sections": [{"label": lbl, "items": sb_entries(arr)} for lbl, arr in sec if arr],
+    }
+
+sb_count = 0
+for f in glob.glob(os.path.join(MIRROR, "bestiary", "bestiary-*.json")):
+    if os.path.basename(f).lower().startswith("foundry"): continue
+    for m in load(f).get("monster", []):
+        ref = m.get("summonedBySpell")
+        if not ref: continue
+        nm = ref.split("|")[0]
+        src = ref.split("|")[1] if "|" in ref else m.get("source", "")
+        sp = spells.get(spell_key(nm, src))
+        if not sp: continue
+        sp["statblock"] = statblock(m)
+        sb_count += 1
 
 # ---- classes (casters AND non-casters) -------------------------------------
 def slot_table(groups):
@@ -189,11 +342,17 @@ def parse_choose(choose):
     for part in choose.split("|"):
         if "=" in part:
             k, v = part.split("=", 1); filt[k.strip()] = v.strip()
+    schools = "/".join(SCHOOL.get(x.strip().upper(), x)
+                       for x in re.split(r"[;,]", filt["school"])) if "school" in filt else ""
+    classes = "/".join(x.strip() for x in re.split(r"[;,]", filt["class"])) if "class" in filt else ""
+    if filt.get("level") == "0":            # a cantrip pick reads as English, not as a filter
+        qual = " ".join(x for x in (schools, classes) if x)
+        return {"choice": True, "filter": filt,
+                "desc": "a " + (qual + " " if qual else "") + "cantrip"}
     bits = []
-    if "level" in filt: bits.append("cantrip" if filt["level"] == "0" else f"level {filt['level']}")
-    if "school" in filt:
-        bits.append("/".join(SCHOOL.get(s.strip().upper(), s) for s in re.split(r"[;,]", filt["school"])))
-    if "class" in filt: bits.append(f"{filt['class']} list")
+    if "level" in filt: bits.append(f"level {filt['level']}")
+    if schools: bits.append(schools)
+    if classes: bits.append(classes + " list")
     return {"choice": True, "desc": ("choose " + ", ".join(bits)) if bits else "a spell", "filter": filt}
 
 def spell_ref(s):
@@ -254,6 +413,20 @@ def emit_cadence(b, at, cadmap, feature=None, feats=None):
 def is_cadence(v):
     return isinstance(v, dict) and bool(v) and all(k in CADENCE_KEYS for k in v)
 
+def ungroup(v):
+    """A prepared/known/expanded value has THREE shapes, like `innate` does: a bare
+       list, a cadence map, or a class-requirement group map — {"_": [...]} means
+       "no requirement". The group form was falling through to spell_ref() as a raw
+       dict, which silently discarded its `choose` filter and left 25 grants reading
+       "a spell" (High Elf's Wizard cantrip among them). Flatten groups; leave the
+       other two shapes for the caller's is_cadence/list handling."""
+    if isinstance(v, dict) and not is_cadence(v):
+        flat = []
+        for inner in v.values():
+            flat.extend(inner if isinstance(inner, list) else [inner])
+        return flat
+    return v
+
 def norm_ability(a):
     if a is None: return None
     if isinstance(a, str): return {"inherit": True} if a == "inherit" else {"fixed": a}
@@ -271,15 +444,19 @@ def parse_block(block, feats=None):
         if is_cadence(arr):                                 # free casting on a cadence (feats)
             emit_cadence(b, at, arr, ft, feats)
         else:
+            arr = ungroup(arr)
             for s in (arr if isinstance(arr, list) else [arr]):
-                add_spell_entry(b, "prepared", at, "prepared (free)", s, ft, feats)
+                if is_cadence(s): emit_cadence(b, at, s, ft, feats)
+                else: add_spell_entry(b, "prepared", at, "prepared (free)", s, ft, feats)
     for lvl, arr in (block.get("expanded") or {}).items():
         at = SLOT_LEVEL_KEY.get(str(lvl), int(re.sub(r"\D", "", str(lvl)) or 0))
         if is_cadence(arr):
             emit_cadence(b, at, arr, ft, feats)
             continue
-        for s in arr:
-            if isinstance(s, dict) and "all" in s:          # list expansion (Magical Secrets)
+        for s in ungroup(arr):
+            if is_cadence(s):
+                emit_cadence(b, at, s, ft, feats)
+            elif isinstance(s, dict) and "all" in s:        # list expansion (Magical Secrets)
                 f, _ = choose_filter({"choose": s["all"]})
                 b["expansions"].append({"atLevel": at, "filter": f,
                                         "feature": ft or resolve_feature(feats, at, {"choose": s["all"]})})
@@ -290,8 +467,11 @@ def parse_block(block, feats=None):
         if is_cadence(arr):
             emit_cadence(b, at, arr, ft, feats)
             continue
+        arr = ungroup(arr)
         arr = arr if isinstance(arr, list) else [arr]
-        for s in arr: add_spell_entry(b, "known", at, "always known", s, ft, feats)
+        for s in arr:
+            if is_cadence(s): emit_cadence(b, at, s, ft, feats)
+            else: add_spell_entry(b, "known", at, "always known", s, ft, feats)
     for lvlkey, cadmap in (block.get("innate") or {}).items():
         at = 0 if str(lvlkey) in ("_", "") else int(re.sub(r"\D", "", str(lvlkey)) or 0)
         # a bare list under the level key is the at-will shorthand for a single cadence
@@ -421,7 +601,7 @@ for f in glob.glob(os.path.join(MIRROR, "class", "class-*.json")):
         classes.append({
             "name": c["name"], "source": c.get("source", ""),
             "group": bgroup(c.get("source", "")), "book": bname(c.get("source", "")),
-            "reprinted": reprinted(c),
+            "reprinted": reprinted(c), "page": c.get("page"),
             "caster": cp,                       # full|artificer|1/2|1/3|pact|None
             "srd": bool(c.get("srd52")),
             "ability": c.get("spellcastingAbility"),
@@ -462,7 +642,7 @@ for f in glob.glob(os.path.join(MIRROR, "class", "class-*.json")):
         rec = {"name": sc.get("name", ""), "shortName": sc.get("shortName", sc.get("name", "")),
                "source": sc.get("source", ""), "group": bgroup(sc.get("source", "")),
                "book": bname(sc.get("source", "")), "reprinted": reprinted(sc),
-               "srd": bool(sc.get("srd52")),
+               "page": sc.get("page"), "srd": bool(sc.get("srd52")),
                "className": sc.get("className", ""), "classSource": sc.get("classSource", ""),
                "grants": parse_grants(sc.get("additionalSpells"),
                           SUBFEAT_INDEX.get((sc.get("className", ""),
@@ -549,6 +729,7 @@ for ft in load(os.path.join(MIRROR, "feats.json")).get("feat", []):
     has_spells = "additionalSpells" in ft
     feats.append({"name": ft["name"], "source": ft.get("source", ""), "group": bgroup(ft.get("source", "")),
                   "book": bname(ft.get("source", "")), "reprinted": reprinted(ft),
+                  "page": ft.get("page"),
                   "category": cat, "fsClass": fs_class,   # fighting-style feats attach to a class
                   "srd": bool(ft.get("srd52")),
                   "hasSpells": has_spells,               # non-spell feats are build-choice-only
@@ -566,7 +747,7 @@ for o in (load(_optpath).get("optionalfeature", []) if os.path.exists(_optpath) 
     has_spells = "additionalSpells" in o
     optfeats.append({"name": o["name"], "source": o.get("source", ""),
                      "group": bgroup(o.get("source", "")), "book": bname(o.get("source", "")),
-                     "reprinted": reprinted(o), "srd": bool(o.get("srd52")),
+                     "reprinted": reprinted(o), "page": o.get("page"), "srd": bool(o.get("srd52")),
                      "types": o.get("featureType") or [],
                      "prereq": _prereq_text(o), "prereqs": _prereq_blocks(o),
                      "hasSpells": has_spells,
@@ -574,25 +755,31 @@ for o in (load(_optpath).get("optionalfeature", []) if os.path.exists(_optpath) 
 
 # species (ALL, even without spells; split lineages that carry named blocks)
 races = []
-def emit_species(name, source, blocks, srd=False):
+def emit_species(name, source, blocks, srd=False, page=None, base=None, lineage=None):
+    """`base` is the parent species a lineage hangs off — the picker groups on it (D46)."""
     named = [b for b in (blocks or []) if b.get("name")]
     if len(named) > 1:
         for b in named:
             races.append({"name": f"{name} — {b['name']}", "source": source, "group": bgroup(source),
-                          "book": bname(source), "reprinted": False, "srd": srd, "grants": parse_grants([b])})
+                          "book": bname(source), "reprinted": False, "srd": srd, "page": page,
+                          "base": name, "lineage": b["name"], "grants": parse_grants([b])})
     else:
         races.append({"name": name, "source": source, "group": bgroup(source), "book": bname(source),
-                      "reprinted": False, "srd": srd, "grants": parse_grants(blocks)})
+                      "reprinted": False, "srd": srd, "page": page,
+                      "base": base or name, "lineage": (lineage or name) if base else "",
+                      "grants": parse_grants(blocks)})
 
 rd = load(os.path.join(MIRROR, "races.json"))
 for rc in rd.get("race", []):
-    emit_species(rc["name"], rc.get("source", ""), rc.get("additionalSpells"), bool(rc.get("srd52")))
+    emit_species(rc["name"], rc.get("source", ""), rc.get("additionalSpells"), bool(rc.get("srd52")),
+                 rc.get("page"))
     if reprinted(rc) and races: races[-1]["reprinted"] = True
 for rc in rd.get("subrace", []) if isinstance(rd.get("subrace"), list) else []:
     base = rc.get("raceName", ""); nm = rc.get("name") or ""
     if not rc.get("additionalSpells"):   # skip spell-less subraces (noise)
         continue
-    emit_species(f"{base} ({nm})" if nm else base, rc.get("source", ""), rc.get("additionalSpells"), bool(rc.get("srd52")))
+    emit_species(f"{base} ({nm})" if nm else base, rc.get("source", ""), rc.get("additionalSpells"),
+                 bool(rc.get("srd52")), rc.get("page"), base=base or None, lineage=nm or None)
 
 # ---- source registry (for the settings selector) ---------------------------
 src_counter = defaultdict(lambda: {"spells": 0, "classes": 0, "subclasses": 0, "feats": 0, "species": 0})
@@ -628,7 +815,15 @@ with open(out_path, "w", encoding="utf-8") as f:
 
 # ---- SRD 5.2 subset (CC-BY-4.0) — embedded in the public build -------------
 def _srd_subset():
-    ss = [s for s in spells.values() if s.get("srd")]
+    # an SRD spell may carry a stat block that is NOT itself SRD — drop those, or the
+    # public build would redistribute unlicensed text under the CC-BY footer
+    ss = []
+    for sp in spells.values():
+        if not sp.get("srd"): continue
+        sb = sp.get("statblock")
+        if sb and not sb.get("srd"):
+            sp = dict(sp); sp.pop("statblock", None)
+        ss.append(sp)
     sc = [c for c in classes if c.get("srd")]
     ssub = [s for s in subclasses if s.get("srd")]
     sf = [f_ for f_ in feats if f_.get("srd")]
@@ -654,6 +849,7 @@ print(f"SRD subset: spells={len(srd['spells'])} classes={len(srd['classes'])} "
       f"subclasses={len(srd['subclasses'])} feats={len(srd['feats'])} species={len(srd['races'])}"
       f" → {srd_path} ({os.path.getsize(srd_path)//1024} KB)")
 
+print(f"stat blocks attached to spells: {sb_count}")
 print(f"spells={len(spells)} classes={len(classes)} (casters="
       f"{sum(1 for c in classes if c['caster'])}) subclasses={len(subclasses)} "
       f"feats={len(feats)} species={len(races)} sources={len(sources)}")
