@@ -851,6 +851,9 @@ table.spelltable .pickcell{cursor:help}
   background:var(--panel-2);border:1px solid var(--line);border-radius:7px;padding:0 5px;cursor:help}
 .lockchip svg{width:9px;height:9px}
 label.fld .lockchip{text-transform:none}
+/* a label carrying a chip stays ONE line at any width — the text gives way, not the row */
+label.fld:has(.lockchip){display:flex;align-items:center;gap:0;min-width:0}
+label.fld .fldt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 
 /* ── custom spell sources (D55) ───────────────────────────────────────────── */
 .fld .fldnote{font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);opacity:.8;margin-left:4px}
@@ -4310,7 +4313,8 @@ function renderClassRows(){
     cl.append(cs);div.append(cl);
     const subLvl=c.subclassLevel||3, locked=row.level<subLvl;
     const needsSub=!locked && !row.subKey && (SUBS_OF[key(c.name,c.source)]||[]).some(visible);
-    const sc=el("div");const sl=el("label","fld","Subclass");
+    const sc=el("div");const sl=el("label","fld");
+    sl.append(el("span","fldt","Subclass"));      // its own span so it can ellipsize
     if(locked)sl.append(lockChip(subLvl,"The subclass"));
     sc.append(sl);
     const ss=el("select",needsSub?"alert":"");ss.append(new Option(locked?"— locked —":"— none —",""));

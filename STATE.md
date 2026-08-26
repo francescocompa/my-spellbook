@@ -3,7 +3,7 @@
 > Resume doc. One current-state block, edited in place.
 > History → git log. Consumed phases and decision rationale → `ARCHIVE.md`.
 
-## TL;DR (2026-08-26 · commit 7f57021 · v7 in progress · **LIVE on GitHub Pages**)
+## TL;DR (2026-08-26 · code at e12aae3, +handoff · v7: T1–T5 done, T7 left · **LIVE on GitHub Pages**)
 - **State:** working, committed. **v7 is T1–T5 done — only T7 remains.** Three note batches
   landed this session on top of the tasks. Batch one (15 notes): Choices as uniform groups,
   in-line feat count tiles, neutral chips, lineage-grouped species picker, mobile jump bar +
@@ -63,9 +63,9 @@ https://claude.ai/code/artifact/47dbe945-a18a-4444-af21-c0143faa2eb0
 
 ## Now — v7: saved builds
 
-One character at a time was the last hard limit in the app. T1–T3 removed it; what's left is
-getting around (T4), getting a build off this machine (T5), and telling the truth about
-storage limits (T7).
+One character at a time was the last hard limit in the app. T1–T3 removed it, T4 made builds
+reachable from the header and T5 got them off this machine as files. What's left is telling
+the truth about storage limits (T7).
 
 ### Shape *(settled by D33–D37)*
 ```
@@ -441,8 +441,8 @@ Headline + rejected options only; reasoning → `ARCHIVE.md#rationale`.
   (the importer reports quota errors but can't store). Related to T7.
 - [ ] Importer UI polish — a "clear imported data" button, per-source enable after import, a
   preset-library manager (monster-forge style ticking).
-- [ ] Wizard prepare-daily: separate **prepared subset** from the spellbook/known list (partly
-  addressed by D20 — book cap + copy modelled; the daily prepared *subset* pick is still flat).
+- [x] ~~Wizard prepare-daily: separate **prepared subset** from the spellbook/known list~~
+  **CLOSED 2026-08-26 → D62** — `chosen[idx].prep` is the daily subset, drawn from the book.
 - [ ] Custom-spell **manager** (list all homebrew to edit/delete without opening each).
 - [ ] High Elf true in-table cantrip swap; Human extra-origin restricted to origin cats.
 
@@ -593,4 +593,9 @@ Headline + rejected options only; reasoning → `ARCHIVE.md#rationale`.
   shared source checklist, unified feat picker. → `ARCHIVE.md#v65`
 - v7 note batches — prerequisite chips, material popover, eligibility escape hatches, one book
   chip, table centring. → `ARCHIVE.md#v7-notes`
+- v7 · T1–T5 — saved builds end to end: storage + migration, activation reconciliation, the
+  manager, the header switcher, and export/import as files.
+- v7 note batches 2–3 (2026-08-26) — SVG icon sweep, mobile jump bar, level preview + level
+  plan, custom spell sources, homebrew/UA import, wizard spellbook ≠ prepared. **D43–D65.**
 
+⟳ Rename previous session → "Level preview, custom sources, build export"  · session: resolve by cwd + latest

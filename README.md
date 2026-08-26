@@ -14,9 +14,20 @@ no internet, no install. Also publishable as-is (single file).
 - **Build** any character: class + subclass + level rows (true multiclass;
   non-caster classes allowed), species, spell-granting feats, manual extras.
 - **Saved builds**: many characters, each with several versions, from one manager
-  (⋯ → Builds…). Everything auto-saves. Books are a global setting, but every build
-  remembers the ones it was made with and tells you when they're off — picks are
-  flagged, never removed.
+  (⋯ → Builds…) and a switcher in the header. Everything auto-saves. Books are a
+  global setting, but every build remembers the ones it was made with and tells you
+  when they're off — picks are flagged, never removed. **Export** any build to a
+  `.spellbook.json` file and **import** it back on another machine; importing always
+  adds a build, never overwrites one.
+- **Level preview**: click the level chip to see the build at any lower level —
+  grants that haven't unlocked disappear, budgets follow, nothing is changed. For a
+  multiclass build an **order** panel sets which class each character level is taken
+  in. To actually *build* a loadout at a level, **save it as a version**.
+- **Custom spell sources**: a magic item, boon or blessing that grants spells —
+  with a shared charge pool (or per-spell uses), its own save DC / attack bonus /
+  casting ability, a fixed cast level, and a choice of always-prepared, cast-without-
+  preparing, or simply added to your spell list. Stored inside the build, so it
+  travels with an export.
 - **Choices to make** panel surfaces every spell choice a build implies —
   subclass options (Circle of the Land terrain), Magic Initiate's list, "choose N"
   picks (which open a filtered spell-pick modal), Fighting-Style spell options
@@ -25,6 +36,12 @@ no internet, no install. Also publishable as-is (single file).
   casters** (Sorcerer/Bard/Warlock) it shows the best-case *count per level* from
   the level-up swap rule and flags over-cap picks; **daily casters** re-prepare
   freely; **Wizard** shows the spellbook + daily-prepared dual budget.
+- **Homebrew & Unearthed Arcana**: the importer takes per-brew JSON from the
+  5etools [homebrew](https://github.com/TheGiddyLimit/homebrew) (D&D Beyond drops
+  included) and [prerelease](https://github.com/TheGiddyLimit/unearthed-arcana)
+  repositories alongside your core data — their books appear under "Homebrew & UA"
+  in Sources. Stage core data and brews together: building an import replaces the
+  previous one.
 - **Casting ability** is resolved per source (defaults to your shared class stat;
   lets you choose where the source allows) and is a grouping option in the table.
 - **Spell table** tab: streamlined rows (name, school, time, range, duration,
@@ -82,6 +99,8 @@ Built to match the `monster-forge` / `character-forge` house style: vanilla JS,
   ability scores.
 - High Elf's swappable cantrip shows as prepared (●) but is swapped in the
   Choices panel, not toggled in the table.
+- An import replaces the previously imported data rather than merging into it, so
+  adding one homebrew file means re-staging your core data with it.
 - Imported data lives in localStorage, which a full multi-book import can overflow;
   IndexedDB is the fix.
 - No custom-spell manager (homebrew is edited one spell at a time, from its modal).
