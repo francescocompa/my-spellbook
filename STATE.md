@@ -760,6 +760,12 @@ Headline + rejected options only; reasoning → `ARCHIVE.md#rationale`.
 - **`attachTip()` must be called AFTER an element's own `onclick`** — it used to overwrite the
   handler outright, which silently disabled the preview's "order…" button. It now preserves an
   existing handler; `detachTip()` clears a reused node's stale tip.
+- **A `<button>` may not contain a `<button>` — the parser HOISTS the inner one out.** This has
+  now bitten twice: the build-switcher row (caught while building it) and the stat block head,
+  where nesting the book icon inside the head button threw the icon AND the chevron out of the
+  header onto their own line. Any header that carries its own controls must be a `div` row of
+  sibling buttons, with the label part `flex:0 1 auto; min-width:0` + ellipsis so the TEXT gives
+  way and the controls never wrap.
 - **A nested action button must stop its click** — `xBtn` does. If a handler re-renders, the
   original event keeps bubbling and hits the *freshly attached* parent handler: dismissing the
   level preview immediately re-armed it that way. Watch for this in any rebuild-on-click.

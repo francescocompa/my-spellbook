@@ -2676,11 +2676,17 @@ function statblockHTML(sp){
     +`<button class="sb-prev" type="button" aria-label="Previous creature">‹</button>`
     +`<span class="sb-pos">1 / ${all.length}</span>`
     +`<button class="sb-next" type="button" aria-label="Next creature">›</button></div>`;
+  // The head is a ROW, not a button: a <button> cannot contain another <button> — the
+  // parser closes the outer one at the inner, which hoisted the book icon and the chevron
+  // out of the header and dropped them onto their own line. Same trap as `.bswrow`.
   return `<div class="sblock" data-exp="0" data-i="0">`
-    +`<button class="sb-head" type="button" aria-expanded="false">`
-      +`<span class="secttl">${esc(b.name)}</span>`
-      +`<span class="sb-who">stat block${all.length>1?` · ${all.length} forms`:""}</span>`
-      +booksBtn+`<span class="sb-caret"></span></button>`
+    +`<div class="sb-head">`
+      +`<button class="sb-toggle" type="button" aria-expanded="false">`
+        +`<span class="secttl">${esc(b.name)}</span>`
+        +`<span class="sb-who">stat block${all.length>1?` · ${all.length} forms`:""}</span></button>`
+      +booksBtn
+      +`<button class="sb-caretbtn" type="button" aria-label="Expand stat block">`
+        +`<span class="sb-caret"></span></button></div>`
     +panel
     +`<div class="sb-body">${sbBodyHTML(b)}</div>`+nav+`</div>`;}
 // What this BUILD changes about casting a granted spell — "without expending a spell
@@ -2710,9 +2716,11 @@ function modalHTML(sp){
 function openSpellModal(sp){hideTip();SPMODAL.innerHTML=modalHTML(sp);
   const at=SPMODAL.querySelector(".acc-toggle");
   if(at)at.onclick=()=>{const a=at.closest(".access");a.dataset.exp=a.dataset.exp==="1"?"0":"1";};
-  const sb=SPMODAL.querySelector(".sb-head");
-  if(sb)sb.onclick=()=>{const w=sb.closest(".sblock");const open=w.dataset.exp!=="1";
-    w.dataset.exp=open?"1":"0";sb.setAttribute("aria-expanded",String(open));};
+  const sbt=SPMODAL.querySelector(".sb-toggle");
+  if(sbt){const flip=()=>{const w=sbt.closest(".sblock");const open=w.dataset.exp!=="1";
+      w.dataset.exp=open?"1":"0";sbt.setAttribute("aria-expanded",String(open));};
+    sbt.onclick=flip;
+    const cb=SPMODAL.querySelector(".sb-caretbtn"); if(cb)cb.onclick=e=>{e.stopPropagation();flip();};}
   wireCreatureNav(sp);
   // chips written as markup still get the popover treatment
   SPMODAL.querySelectorAll(".bchip[data-book]").forEach(c=>attachTip(c,bookTip(c.dataset.book,c.dataset.page)));
