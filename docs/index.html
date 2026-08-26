@@ -2157,6 +2157,11 @@ function buildIndexes(){
 // assemble DATA from the three layers and rebuild indexes; call whenever content changes
 function assembleData(){
   IMPORTED=loadJSON(LS_IMPORT); CUSTOM=loadJSON(LS_CUSTOM);
+  // An import that stored but holds nothing (a bad zip, a half-written blob) used to WIN over
+  // the baked data and leave the app empty — which pops the welcome importer over a build that
+  // was working a moment ago. Content beats presence: an empty import falls back to baked.
+  const impOk=IMPORTED&&(((IMPORTED.spells||[]).length)||((IMPORTED.classes||[]).length));
+  if(IMPORTED&&!impOk)IMPORTED=null;
   const base=IMPORTED||BAKED||emptyDigest();
   DATA={meta:base.meta||{},sources:Object.assign({},base.sources),
     spells:(base.spells||[]).slice(),classes:base.classes||[],subclasses:base.subclasses||[],
