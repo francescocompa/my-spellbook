@@ -287,23 +287,25 @@ def statblock(m):
            ("Legendary Actions", m.get("legendary"))]
     senses = list(m.get("senses") or [])
     if m.get("passive") is not None: senses.append(f"Passive Perception {m['passive']}")
+    # every free-text field goes through sb_text — senses/languages/notes carry
+    # rich tags too ({@variantrule Darkness|XPHB} in the Imp's darkvision)
     return {
         "name": m["name"], "source": m.get("source", ""), "page": m.get("page"),
         "kind": " ".join(x for x in (size, sb_type(m.get("type"))) if x),
         "align": sb_align(m.get("alignment")),
-        "ac": sb_ac(m.get("ac")),
-        "hp": str(hp.get("special") or (f"{hp.get('average','')} ({hp.get('formula','')})" if hp.get("average") else "")),
-        "speed": sb_speed(m.get("speed")),
+        "ac": sb_text(sb_ac(m.get("ac"))),
+        "hp": sb_text(str(hp.get("special") or (f"{hp.get('average','')} ({hp.get('formula','')})" if hp.get("average") else ""))),
+        "speed": sb_text(sb_speed(m.get("speed"))),
         "abilities": {k: m.get(k) for k in ("str", "dex", "con", "int", "wis", "cha") if m.get(k) is not None},
         "saves": {ABILITY_FULL.get(k, k): v for k, v in (m.get("save") or {}).items()},
         "skills": {k.title(): v for k, v in (m.get("skill") or {}).items() if k != "other"},
-        "vulnerable": ", ".join(sb_dtypes(m.get("vulnerable"), "vulnerable")),
-        "resist": ", ".join(sb_dtypes(m.get("resist"), "resist")),
-        "immune": ", ".join(sb_dtypes(m.get("immune"), "immune")),
-        "condImmune": ", ".join(sb_dtypes(m.get("conditionImmune"), "conditionImmune")),
-        "senses": ", ".join(senses),
-        "languages": ", ".join(m.get("languages") or []),
-        "pb": m.get("pbNote") or (f"+{m['pb']}" if m.get("pb") else ""),
+        "vulnerable": sb_text(", ".join(sb_dtypes(m.get("vulnerable"), "vulnerable"))),
+        "resist": sb_text(", ".join(sb_dtypes(m.get("resist"), "resist"))),
+        "immune": sb_text(", ".join(sb_dtypes(m.get("immune"), "immune"))),
+        "condImmune": sb_text(", ".join(sb_dtypes(m.get("conditionImmune"), "conditionImmune"))),
+        "senses": sb_text(", ".join(senses)),
+        "languages": sb_text(", ".join(m.get("languages") or [])),
+        "pb": sb_text(m.get("pbNote") or (f"+{m['pb']}" if m.get("pb") else "")),
         "cr": str(m.get("cr", "")) if not isinstance(m.get("cr"), dict) else str(m["cr"].get("cr", "")),
         "srd": bool(m.get("srd52")),
         "sections": [{"label": lbl, "items": sb_entries(arr)} for lbl, arr in sec if arr],

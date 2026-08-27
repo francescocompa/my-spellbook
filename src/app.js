@@ -2601,10 +2601,13 @@ function scanIndex(books,j,path){
     // a real title always beats a bare code placeholder (same rule as mergeSources)
     if(name&&b.name===code)b.name=name;
     if(group==="brew")b.group="brew";
+    else if(group&&group!=="other"&&(!b.group||b.group==="other"))b.group=group;
     if(!b.creator&&creator)b.creator=creator;
     return b;};
   ((j._meta&&j._meta.sources)||[]).forEach(m=>{if(m&&m.json)declare(m.json,m.full||m.abbreviation,"brew");});
-  if(Array.isArray(j.book))j.book.forEach(b=>{if(b&&b.source&&!books[b.source])declare(b.source,b.name,b.group);});
+  // no `!books[…]` guard: a spell file scanned before books.json leaves a bare-code
+  // placeholder, and declare() is what backfills its real title and group
+  if(Array.isArray(j.book))j.book.forEach(b=>{if(b&&b.source)declare(b.source,b.name,b.group);});
   SCAN_FIELDS.forEach(([key,field])=>{const arr=Array.isArray(j[key])?j[key]:[];
     arr.forEach(e=>{if(!e||!e.source)return;const b=declare(e.source);
       b.counts[field]++; if(b.files.indexOf(path)<0)b.files.push(path);});});
@@ -2720,14 +2723,27 @@ async function importScanned(){
   const prog=$("#folderProgress");
   SCAN_BUSY=true;
   try{
-    const entries=(SCAN.entries||[]).filter(e=>want.has(e.path));
+    // A ticked book's files are not the whole import. Three file classes register under NO
+    // book — the spell-source lookup (class access, D91), books.json (titles/groups) and
+    // bestiary files (stat blocks live with the SPELL that references them, D86) — and the
+    // zip path ships them all. Stage every scanned file no book claims, alongside the picks.
+    const claimed=new Set();
+    Object.values(SCAN.books).forEach(b=>b.files.forEach(p=>claimed.add(p)));
+    const wanted=window.SB_extract.zipWanted;
+    const entries=(SCAN.entries||[]).filter(e=>want.has(e.path)||(wanted(e.path)&&!claimed.has(e.path)));
     if(!entries.length){prog.textContent="Those files are no longer reachable — rescan the folder.";return;}
+    // same contract as the unzip path: feature files first, so the form refs a feature adds
+    // to a familiar spell are registered before slimJson decides which monsters survive
+    entries.sort((a,b)=>window.SB_extract.readOrder(a.path)-window.SB_extract.readOrder(b.path));
+    window.SB_extract.resetFormRefs();
     let i=0;
     for(const e of entries){
       i++;
       try{const f=await e.getFile();
-        const j=window.SB_extract.slimJson(window.SB_extract.dropFoundryStubs(JSON.parse(await f.text())));
-        IMPORT_STAGE.push({name:e.path.split("/").pop(),json:j});
+        const j=window.SB_extract.dropFoundryStubs(JSON.parse(await f.text()));
+        // same gate as the unzip path: parse, keep only what the digest can use, slim
+        if(j&&window.SB_extract.usefulJson(j))
+          IMPORT_STAGE.push({name:e.path.split("/").pop(),json:window.SB_extract.slimJson(j)});
       }catch(_){}
       if(i%5===0||i===entries.length){
         prog.textContent=`Reading ${i}/${entries.length} file${entries.length===1?"":"s"}…`;

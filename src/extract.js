@@ -493,17 +493,19 @@ function statblock(m){
   const skills={};Object.keys(m.skill||{}).forEach(k=>{if(k!=="other")skills[k[0].toUpperCase()+k.slice(1)]=m.skill[k];});
   const sec=[["Traits",m.trait],["Actions",m.action],["Bonus Actions",m.bonus],
              ["Reactions",m.reaction],["Legendary Actions",m.legendary]];
+  // every free-text field goes through sbText — senses/languages/notes carry
+  // rich tags too ({@variantrule Darkness|XPHB} in the Imp's darkvision)
   return {name:m.name,source:m.source||"",page:m.page,
     kind:[size,sbType(m.type)].filter(Boolean).join(" "),align:sbAlign(m.alignment),
-    ac:sbAc(m.ac),
-    hp:String(hp.special||(hp.average?hp.average+" ("+(hp.formula||"")+")":"")),
-    speed:sbSpeed(m.speed),abilities:ab,saves:saves,skills:skills,
-    vulnerable:sbDTypes(m.vulnerable,"vulnerable").join(", "),
-    resist:sbDTypes(m.resist,"resist").join(", "),
-    immune:sbDTypes(m.immune,"immune").join(", "),
-    condImmune:sbDTypes(m.conditionImmune,"conditionImmune").join(", "),
-    senses:senses.join(", "),languages:(m.languages||[]).join(", "),
-    pb:m.pbNote||(m.pb?"+"+m.pb:""),
+    ac:sbText(sbAc(m.ac)),
+    hp:sbText(String(hp.special||(hp.average?hp.average+" ("+(hp.formula||"")+")":""))),
+    speed:sbText(sbSpeed(m.speed)),abilities:ab,saves:saves,skills:skills,
+    vulnerable:sbText(sbDTypes(m.vulnerable,"vulnerable").join(", ")),
+    resist:sbText(sbDTypes(m.resist,"resist").join(", ")),
+    immune:sbText(sbDTypes(m.immune,"immune").join(", ")),
+    condImmune:sbText(sbDTypes(m.conditionImmune,"conditionImmune").join(", ")),
+    senses:sbText(senses.join(", ")),languages:sbText((m.languages||[]).join(", ")),
+    pb:sbText(m.pbNote||(m.pb?"+"+m.pb:"")),
     cr:(m.cr&&typeof m.cr==="object")?String(m.cr.cr||""):String(m.cr==null?"":m.cr),
     srd:!!m.srd52,
     sections:sec.filter(x=>x[1]&&x[1].length).map(([label,arr])=>({label,items:sbEntries(arr)}))};}
@@ -820,7 +822,6 @@ async function unzipJsonFiles(buf,onFile){
   // archive would cost another full inflate.
   const featureFirst=n=>/^(optionalfeatures|feats)/i.test(String(n).split("/").pop())?0:1;
   resetFormRefs();
-  resetFormRefs();
   const wanted=entries.filter(e=>zipWanted(e.name))
     .sort((a,b)=>readOrder(a.name)-readOrder(b.name)),out=[];
   for(let i=0;i<wanted.length;i++){const e=wanted[i];
@@ -833,5 +834,5 @@ async function unzipJsonFiles(buf,onFile){
     if(json&&usefulJson(json))out.push({name:e.name.split("/").pop(),json:slimJson(json)}); }
   return out;}
 
-window.SB_extract={buildDigest,unzipJsonFiles,slimJson,zipWanted,dropFoundryStubs,readOrder,resetFormRefs};
+window.SB_extract={buildDigest,unzipJsonFiles,slimJson,zipWanted,dropFoundryStubs,readOrder,resetFormRefs,usefulJson};
 })();
