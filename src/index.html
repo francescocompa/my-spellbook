@@ -449,7 +449,12 @@
     <div class="fieldset">
       <label class="fld">Spells</label>
       <div id="csrcRows"></div>
-      <input type="search" id="csrcSearch" placeholder="add a spell by name…" autocomplete="off">
+      <div class="csaddrow">
+        <input type="search" id="csrcSearch" placeholder="add a spell by name…" autocomplete="off">
+        <!-- D96: some items grant a CHOICE, not a spell — "choose one 1st-level spell from the
+             bard or cleric list", re-chosen each long rest (Silverquill Primer). -->
+        <button class="btn" id="csrcAddPick" title="Grant a choice from a filtered list">or a choice…</button>
+      </div>
       <div id="csrcHits"></div>
     </div>
 

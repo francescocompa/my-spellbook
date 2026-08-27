@@ -1209,3 +1209,18 @@ label.fld .fldt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-wi
     header.top h1{font-size:15.5px}
     .tabs button{padding:5px 8px;font-size:11.5px}
   }
+
+/* ── custom source: a granted CHOICE, not a named spell (D96) ─────────────────── */
+.csaddrow{display:flex;gap:7px;align-items:stretch}
+.csaddrow input[type=search]{flex:1;min-width:0}
+.csaddrow .btn{flex:0 0 auto;white-space:nowrap}
+/* a pick names a rule, so it reads as sentence text rather than a spell title */
+.csrow .csnm.cspick{font-weight:500;font-style:italic;color:var(--free);
+  white-space:normal;overflow:visible;line-height:1.35}
+.csfilter{padding:0 0 10px 2px;display:flex;flex-direction:column;gap:6px}
+.csfrow{display:flex;align-items:flex-start;gap:8px}
+.csfrow .csflbl{flex:0 0 46px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;
+  color:var(--muted);font-weight:600;padding-top:5px}
+.csfrow .csfnote{font-size:11px;color:var(--muted);padding-top:5px}
+.csfchips{display:flex;flex-wrap:wrap;gap:4px;flex:1;min-width:0}
+.csfchips .cbtn.tiny{font-size:10.5px;padding:2px 7px;border-radius:6px}

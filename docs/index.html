@@ -1219,6 +1219,21 @@ label.fld .fldt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-wi
     .tabs button{padding:5px 8px;font-size:11.5px}
   }
 
+/* ── custom source: a granted CHOICE, not a named spell (D96) ─────────────────── */
+.csaddrow{display:flex;gap:7px;align-items:stretch}
+.csaddrow input[type=search]{flex:1;min-width:0}
+.csaddrow .btn{flex:0 0 auto;white-space:nowrap}
+/* a pick names a rule, so it reads as sentence text rather than a spell title */
+.csrow .csnm.cspick{font-weight:500;font-style:italic;color:var(--free);
+  white-space:normal;overflow:visible;line-height:1.35}
+.csfilter{padding:0 0 10px 2px;display:flex;flex-direction:column;gap:6px}
+.csfrow{display:flex;align-items:flex-start;gap:8px}
+.csfrow .csflbl{flex:0 0 46px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;
+  color:var(--muted);font-weight:600;padding-top:5px}
+.csfrow .csfnote{font-size:11px;color:var(--muted);padding-top:5px}
+.csfchips{display:flex;flex-wrap:wrap;gap:4px;flex:1;min-width:0}
+.csfchips .cbtn.tiny{font-size:10.5px;padding:2px 7px;border-radius:6px}
+
 </style>
 </head>
 <body>
@@ -1662,7 +1677,12 @@ label.fld .fldt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-wi
     <div class="fieldset">
       <label class="fld">Spells</label>
       <div id="csrcRows"></div>
-      <input type="search" id="csrcSearch" placeholder="add a spell by name…" autocomplete="off">
+      <div class="csaddrow">
+        <input type="search" id="csrcSearch" placeholder="add a spell by name…" autocomplete="off">
+        <!-- D96: some items grant a CHOICE, not a spell — "choose one 1st-level spell from the
+             bard or cleric list", re-chosen each long rest (Silverquill Primer). -->
+        <button class="btn" id="csrcAddPick" title="Grant a choice from a filtered list">or a choice…</button>
+      </div>
       <div id="csrcHits"></div>
     </div>
 
@@ -2972,7 +2992,11 @@ function resolveGrants(grants,level,tok,giver,out,sharedStat,giverSrc,owner){
   (grants.expansions||[]).forEach(e=>{ if((e.atLevel||0)<=level)out.expansions.push(Object.assign({},e.filter,{_atLevel:e.atLevel||0})); });
   (grants.picks||[]).forEach((p,j)=>{ if((p.atLevel||0)>level)return; const id=tok+":pk"+j;
     out.choices.push({id,count:p.count,filter:p.filter,kind:p.kind,recharge:p.recharge,giver:p.feature||giver,giverSrc,desc:p.desc,type:"pick",owner,note:p.note});
-    (state.choices[id]||[]).forEach(k=>spellOut(SPELL_BY[k],p.kind,p.recharge,p.feature,null,p.note)); });
+    // `extra` (a custom source's own DC/attack, a fixed cast level) was hardcoded null here
+    // while fixed grants passed theirs — so a spell you PICKED from a source silently lost the
+    // source's numbers. Nothing in the data emitted a pick with `extra` before D96, so it never
+    // showed; it would have the moment one did.
+    (state.choices[id]||[]).forEach(k=>spellOut(SPELL_BY[k],p.kind,p.recharge,p.feature,p.extra||null,p.note)); });
   (grants.optionGroups||[]).forEach((og,i)=>{ const id=tok+":og"+i; const names=og.options.map(o=>o.name);
     const sel=state.choices[id]||names[0];
     out.choices.push({id,type:"option",options:names,value:sel,giver,giverSrc,owner});
@@ -3051,8 +3075,60 @@ function csrcRecharge(cs,e){
   if(csrcPay(cs,e)==="pool"){const n=Math.max(1,e.cost||1);return `${n} charge${n>1?"s":""}`;}
   return csrcCadence(e);
 }
+// D96: an entry is either a NAMED spell (`key`) or a CHOICE from a filtered list (`pick`).
+// Silverquill Primer — "choose one 1st-level spell from the bard or cleric spell list… cast it
+// once before your next long rest" — is the second kind, and 5etools models none of it
+// (`attachedSpells: null`), so it can only ever be hand-authored. The grants tree already had
+// `picks`, filterSpells already split `class`/`school`/`level` on ";", and the choices panel
+// already renders them; a custom source simply never emitted any.
+const csrcIsPick=e=>!!(e&&e.pick);
+// rows are keyed by the spell key, but a pick has none — it carries its own id instead
+const csrcRowId=e=>e.key||e.id||"";
+function csrcPickFilter(e){
+  const p=e.pick||{}, f={};
+  if(p.level)f.level=p.level; if(p.class)f.class=p.class; if(p.school)f.school=p.school;
+  return f;
+}
+// The row label is a terse spec ("choose a spell · level 1st · Bard or Cleric list"); the
+// SUMMARY needs the same fact as English, because "cast choose a spell · level 1st …" is not a
+// sentence. Two renderings of one thing, deliberately.
+function csrcPickPhrase(e){
+  const p=e.pick||{};
+  const n=Math.max(1,p.take||1);
+  const lv=String(p.level||"").split(";").filter(Boolean)
+    .map(x=>+x===0?"cantrip":ROMAN[+x]).join(" or ");
+  const cl=String(p.class||"").split(";").filter(Boolean).join(" or ");
+  const sc=String(p.school||"").split(";").filter(Boolean)
+    .map(s=>SCHOOL_ABBR[s]||s).join(" or ");
+  let out=`choose ${n>1?n+" ":"a "}`;
+  if(lv)out+=(lv==="cantrip"?"cantrip":lv+"-level")+" ";
+  out+=(sc?sc+" ":"")+(n>1?"spells":"spell");
+  if(cl)out+=` from the ${cl} list`;
+  return out;
+}
+function csrcPickDesc(e){
+  const p=e.pick||{}, bits=[];
+  const lv=String(p.level||"").split(";").filter(Boolean)
+    .map(n=>+n===0?"cantrip":ROMAN[+n]).join(" or ");
+  if(lv)bits.push("level "+lv);
+  const cl=String(p.class||"").split(";").filter(Boolean).join(" or ");
+  if(cl)bits.push(cl+" list");
+  const sc=String(p.school||"").split(";").filter(Boolean)
+    .map(s=>SCHOOL_ABBR[s]||s).join(" or ");
+  if(sc)bits.push(sc);
+  const n=Math.max(1,p.take||1);
+  return `choose ${n>1?n+" spells":"a spell"}`+(bits.length?" · "+bits.join(" · "):" — any spell");
+}
 function customSourceGrants(cs){
-  const fixed=(cs.spells||[]).map(e=>{const sp=SPELL_BY[e.key]; if(!sp)return null;
+  const extraOf=cs=>{const x={};
+    if(cs.dc)x.dc=cs.dc; if(cs.atk)x.atk=cs.atk; return x;};
+  const picks=(cs.spells||[]).filter(csrcIsPick).map(e=>{
+    const x=extraOf(cs); if(e.level)x.castLv=+e.level; x.csrc=cs.name;
+    return {kind:cs.mode==="always"?"prepared":"innate",atLevel:0,
+            recharge:csrcRecharge(cs,e),count:Math.max(1,(e.pick||{}).take||1),
+            filter:csrcPickFilter(e),desc:csrcPickDesc(e),
+            feature:cs.name,note:e.note||null,extra:x};});
+  const fixed=(cs.spells||[]).filter(e=>!csrcIsPick(e)).map(e=>{const sp=SPELL_BY[e.key]; if(!sp)return null;
     const extra={};
     if(cs.dc)extra.dc=cs.dc;
     if(cs.atk)extra.atk=cs.atk;
@@ -3063,7 +3139,7 @@ function customSourceGrants(cs){
     return {kind:cs.mode==="always"?"prepared":"innate",atLevel:0,
             recharge:csrcRecharge(cs,e),note:e.note||null,
             spell:{name:sp.name,source:sp.source},feature:cs.name,extra};}).filter(Boolean);
-  return {fixed,picks:[],expansions:[],optionGroups:[],
+  return {fixed,picks,expansions:[],optionGroups:[],
           ability:cs.ability?{fixed:cs.ability}:null};
 }
 // a one-line description of how the source is powered, for its chip and the casts list.
@@ -4054,7 +4130,8 @@ function csrcSyncNums(){
 function csrcSummary(){
   const typed=($("#csrcName").value||"").trim();
   const name=typed||"This source";
-  const named=(CSRC.spells||[]).map(e=>{const sp=SPELL_BY[e.key];return sp?sp.name:e.key.split("|")[0];});
+  const named=(CSRC.spells||[]).map(e=>csrcIsPick(e)?csrcPickDesc(e)
+    :(SPELL_BY[e.key]?SPELL_BY[e.key].name:e.key.split("|")[0]));
   // mid-sentence, so the nameless fallback has to be lowercase — "and This source will…" is
   // the kind of thing a capitalised constant does to a sentence it was never written for
   if(!named.length)return `<i>Add a spell and ${typed?esc(typed):"this source"} will describe itself here.</i>`;
@@ -4067,10 +4144,14 @@ function csrcSummary(){
     // D95: one source can spend a pool AND carry spells on their own uses, so the sentence
     // has to be able to say both. Each spell is named with what IT costs while the list is
     // short enough to read — that is the half of a source you actually tune.
-    const nm=e=>{const sp=SPELL_BY[e.key];return esc(sp?sp.name:e.key.split("|")[0]);};
+    const nm=e=>esc(csrcIsPick(e)?csrcPickDesc(e)
+      :(SPELL_BY[e.key]?SPELL_BY[e.key].name:e.key.split("|")[0]));
     const join=a=>a.join(a.length===2?" and ":", ").replace(/, ([^,]*)$/," and $1");
-    const pooled=(CSRC.spells||[]).filter(e=>csrcPay(CSRC,e)==="pool");
-    const own=(CSRC.spells||[]).filter(e=>csrcPay(CSRC,e)!=="pool");
+    // D96: a choice gets its own clause — it is not something you "cast X" at
+    const plain=(CSRC.spells||[]).filter(e=>!csrcIsPick(e));
+    const picked=(CSRC.spells||[]).filter(csrcIsPick);
+    const pooled=plain.filter(e=>csrcPay(CSRC,e)==="pool");
+    const own=plain.filter(e=>csrcPay(CSRC,e)!=="pool");
     const clauses=[];
     if(pooled.length){
       const n=csrcHasPool(CSRC)?CSRC.pool:null;
@@ -4087,6 +4168,9 @@ function csrcSummary(){
         ? join(own.map(e=>`${nm(e)} <b>${esc(csrcCadence(e))}</b>`))
         : `${own.length} more on their own uses`;
       clauses.push((pooled.length?"":"cast ")+what);}
+    if(picked.length)
+      clauses.push(join(picked.map(e=>
+        `${csrcPickPhrase(e)} and cast it <b>${esc(csrcRecharge(CSRC,e))}</b>`)));
     // "all" only earns its place when there are two budgets to gather up; with one clause it
     // reads as a tic bolted onto the end of a sentence that was already finished
     how=clauses.length>1 ? clauses.join(", and ")+" — all without preparing"
@@ -4118,10 +4202,13 @@ function renderCsrcRows(){
   if(!CSRC.spells.length){
     box.append(el("div","csempty","No spells yet — search below to add one."));return;}
   CSRC.spells.forEach((e,i)=>{
-    const sp=SPELL_BY[e.key];
+    const isPick=csrcIsPick(e);
+    const sp=isPick?null:SPELL_BY[e.key];
     const wrap=el("div","csrowwrap");
     const row=el("div","csrow");
-    const nm=el("span","csnm",sp?sp.name:e.key.split("|")[0]);
+    // a pick names a RULE, not a spell, so it reads as its own description rather than a title
+    const nm=el("span","csnm"+(isPick?" cspick":""),
+      isPick?cap(csrcPickDesc(e)):(sp?sp.name:e.key.split("|")[0]));
     if(sp)attachSpell(nm,sp);
     row.append(nm);
     // D95: the inline control follows THIS spell's payment, not a source-wide mode. That also
@@ -4148,8 +4235,11 @@ function renderCsrcRows(){
       row.append(n);row.append(u);}
     // Every row can hold a note, so every row gets the caret — a fixed cast level is extra.
     // A row with something set says so while folded, or the fold would hide it.
-    const canLevel=sp&&sp.level>0;
-    const open=CSRC_ROW_OPEN.has(e.key);
+    // a pick has no spell key, so rows are identified by key-or-id (D96)
+    const rid=csrcRowId(e);
+    const canLevel=isPick||(sp&&sp.level>0);
+    const minLv=isPick?1:(sp?sp.level:1);
+    const open=CSRC_ROW_OPEN.has(rid);
     if(!open){
       if(e.level)row.append(el("span","cslvtag","at "+ROMAN[e.level]));
       if(e.note)row.append(icoEl("spark","csnotetag"));}
@@ -4158,10 +4248,10 @@ function renderCsrcRows(){
     car.setAttribute("aria-expanded",String(open));
     car.classList.toggle("up",open);
     car.onclick=ev=>{ev.stopPropagation();
-      if(open)CSRC_ROW_OPEN.delete(e.key);else CSRC_ROW_OPEN.add(e.key);
+      if(open)CSRC_ROW_OPEN.delete(rid);else CSRC_ROW_OPEN.add(rid);
       renderCsrcRows();};
     row.append(car);
-    row.append(xBtn(null,()=>{CSRC.spells.splice(i,1);CSRC_ROW_OPEN.delete(e.key);
+    row.append(xBtn(null,()=>{CSRC.spells.splice(i,1);CSRC_ROW_OPEN.delete(rid);
       renderCsrcRows();csrcSyncSummary();}));
     wrap.append(row);
     if(open){
@@ -4183,7 +4273,7 @@ function renderCsrcRows(){
       // ("as written", "cast at 5th") doesn't need one. Fixed width so the note gets the rest.
       if(canLevel){
         const lv=el("select");lv.className="cslv";lv.append(new Option("as written",""));
-        for(let L=sp.level;L<=9;L++)lv.append(new Option("cast at "+ROMAN[L],String(L)));
+        for(let L=minLv;L<=9;L++)lv.append(new Option("cast at "+ROMAN[L],String(L)));
         lv.value=e.level?String(e.level):"";
         lv.onchange=()=>{e.level=lv.value?+lv.value:null;csrcSyncSummary();};
         sub.append(lv);}
@@ -4194,8 +4284,50 @@ function renderCsrcRows(){
       nt.value=e.note||""; nt.spellcheck=false;
       nt.oninput=()=>{e.note=nt.value.trim()||null;};
       sub.append(nt);
-      wrap.append(sub);}
+      wrap.append(sub);
+      if(isPick)wrap.append(csrcFilterEditor(e));}
     box.append(wrap);});
+}
+// D96: the filter behind a choice row. Three wrapped chip rows — level, class, school — where
+// NOTHING ticked means "any", which is the same grammar filterSpells already reads (";"-joined
+// values, absent key = unconstrained). Empty-means-any is why these are chips and not selects:
+// a select needs an explicit "any" option that then has to be kept in sync with reality.
+function csrcChipRow(label,opts,cur,onSet){
+  const wrap=el("div","csfrow");
+  wrap.append(el("span","csflbl",label));
+  const box=el("div","cbrow csfchips");
+  const set=new Set(String(cur||"").split(";").filter(Boolean));
+  opts.forEach(([v,t])=>{
+    const b=el("button","cbtn tiny"+(set.has(v)?" on":""),t);b.type="button";
+    b.onclick=()=>{ set.has(v)?set.delete(v):set.add(v);
+      // preserve the option order rather than click order, so the description reads stably
+      onSet(opts.filter(o=>set.has(o[0])).map(o=>o[0]).join(";")); };
+    box.append(b);});
+  wrap.append(box);
+  return wrap;
+}
+function csrcFilterEditor(e){
+  const box=el("div","csfilter");
+  const p=e.pick;
+  const redraw=()=>{renderCsrcRows();csrcSyncSummary();};
+  const take=el("div","csfrow");
+  take.append(el("span","csflbl","Take"));
+  const n=el("input");n.type="number";n.min=1;n.max=9;n.value=Math.max(1,p.take||1);n.className="csn2";
+  n.oninput=()=>{p.take=Math.max(1,+n.value||1);csrcSyncSummary();
+    const t=box.parentNode&&box.parentNode.querySelector(".csnm"); if(t)t.textContent=cap(csrcPickDesc(e));};
+  take.append(n); take.append(el("span","csfnote","spell(s) — nothing ticked below means ANY"));
+  box.append(take);
+  box.append(csrcChipRow("Level",ROMAN.map((r,i)=>[String(i),i===0?"cantrip":r]),p.level,
+    v=>{p.level=v;redraw();}));
+  box.append(csrcChipRow("Class",csrcClassOpts(),p.class,v=>{p.class=v;redraw();}));
+  box.append(csrcChipRow("School",Object.entries(SCHOOL_ABBR).filter(([k])=>k!=="P")
+    .map(([k,v])=>[k,v.slice(0,4)]),p.school,v=>{p.school=v;redraw();}));
+  return box;
+}
+// the classes actually loaded, deduped by name — a filter offering a class you don't have
+// would silently match nothing
+function csrcClassOpts(){
+  return [...new Set((DATA.classes||[]).map(c=>c.name))].sort().map(n=>[n,n]);
 }
 function renderCsrcHits(){
   const box=$("#csrcHits"); box.innerHTML="";
@@ -6848,6 +6980,14 @@ $("#csrcNumsBtn").onclick=()=>{CSRC_OPEN.nums=!CSRC_OPEN.nums;csrcSyncNums();};
   if(n)n.addEventListener("input",()=>{csrcSyncNums();csrcSyncSummary();});});
 $("#csrcAbility").addEventListener("change",()=>{csrcSyncNums();csrcSyncSummary();});
 $("#csrcName").addEventListener("input",csrcSyncSummary);
+// D96: a choice row starts unconstrained and OPEN — an empty filter matches every spell, so
+// leaving it collapsed would hide the one thing you have to fill in.
+$("#csrcAddPick").onclick=()=>{
+  const id="pk"+Date.now().toString(36)+Math.floor(performance.now()%1000);
+  CSRC.spells.push({id,pick:{take:1,level:"",class:"",school:""},
+                    pay:csrcHasPool(CSRC)?"pool":"per",cost:1,count:1,unit:"lr"});
+  CSRC_ROW_OPEN.add(id);
+  renderCsrcRows();csrcSyncRule();csrcSyncSummary();};
 armConfirm($("#csrcDelete"),"Delete source",()=>{
   state.customSources=(state.customSources||[]).filter(x=>x.id!==CSRC.id);
   $("#csrcModal").classList.add("hidden");

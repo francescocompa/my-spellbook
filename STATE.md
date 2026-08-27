@@ -3,7 +3,7 @@
 > Resume doc. One current-state block, edited in place.
 > History → git log. Consumed phases and decision rationale → `ARCHIVE.md`.
 
-## TL;DR (2026-08-27 · code at 0503869, **pushed** · v7 COMPLETE · **LIVE on GitHub Pages**)
+## TL;DR (2026-08-27 · code at HEAD, **pushed** · v7 COMPLETE · **LIVE on GitHub Pages**)
 - **State:** working, committed, **pushed**, tree clean. **v7 is COMPLETE (T1–T5 + T7)** and the
   backlog's last standing item shipped. One session took the importer and the custom-source
   surface end to end, **D90–D95**: the app icon (D90); honest zip errors, unpack progress and the
@@ -12,8 +12,9 @@
   scanning indexed by book** (D92 — a homebrew repo is filed by category, so a *collection* brew
   hid its spells and D&D Beyond Drops was unfindable); the imported digest **moved to IndexedDB**
   (D93), closing T7; the **custom-source editor redesigned** progressive with a live summary
-  (D94); and its two **model gaps closed** — payment is per spell, and uses can be once-ever
-  (D95). Ten note batches (**D43–D89**) landed before that → `ARCHIVE.md#v7-batches`. Extractor
+  (D94); its two **model gaps closed** — payment is per spell, and uses can be once-ever
+  (D95); and a source may now grant a **choice** from filtered lists, not only a named spell
+  (D96 — Silverquill Primer). Ten note batches (**D43–D89**) landed before that → `ARCHIVE.md#v7-batches`. Extractor
   parity is byte-exact and now covers spell ACCESS as well as grants
   (`node scratchpad/cparity.js`, 26 ok / 0 fail).
 - **Next action:** 🔶 **decide the magic-item / reward import** — researched end to end this
@@ -416,6 +417,30 @@ stays out. Server sync or accounts. Sharing a build as a rendered page, or via a
   card, the D76 weighting explanation on a popover on the meter that states it. *Rejected:* one
   rule for every note (Francesco: "depends on the instance"); tightening the prose in place with no
   popovers (the removal warning has to stay long, and had nowhere to go).
+- **D96 (2026-08-27) A custom source may grant a CHOICE, not only a named spell** — some items
+  give you a spell **picked from one or more lists**, re-chosen on a long rest: Silverquill
+  Primer, *"if you study the primer at the end of a long rest, you can choose one 1st-level spell
+  from the bard or cleric spell list… you can cast the chosen spell once without a spell slot."*
+  5etools models **none** of it (`attachedSpells: null`), so this shape can only ever be
+  hand-authored — which is exactly what custom sources are for. **Almost all the machinery
+  already existed**: the grants tree has `picks`, `filterSpells` already splits `level`/`class`/
+  `school` on `;`, and the choices panel already renders and groups them. `customSourceGrants`
+  simply never emitted any. An entry is now **either a named spell (`key`) or a choice (`pick`)**
+  — `{take, level, class, school}`, empty meaning *any* — and rows are keyed by `key||id` since a
+  pick has no spell key. The filter is three wrapped chip rows in the row's existing disclosure;
+  chips rather than selects **because empty-means-any is the same grammar `filterSpells` reads**,
+  where a select would need an explicit "any" option to keep in sync. A pick reads as its rule
+  ("Choose a spell · level 1st · Bard or Cleric list") in the row and as English in the summary
+  ("choose a 1st-level spell from the Bard or Cleric list and cast it per long rest") — two
+  renderings of one fact, deliberately. **A latent bug fell out:** `resolveGrants` passed a
+  hardcoded `null` where fixed grants pass `g.extra`, so a PICKED spell would have silently lost
+  its source's DC, attack and fixed cast level. Nothing in the data emitted a pick with `extra`
+  before this, so it had never shown. *Verified:* Silverquill Primer end to end — 96 matching
+  spells, the choice grouped under its source in "Choices to make", and the picked spell landing
+  in the casts list as "Healing Word (1st) · 1/LR · Silverquill Primer" carrying its note.
+  *Rejected:* exposing only level+class (Francesco's call — school is free, `filterSpells`
+  already supports it); a separate "choices" section apart from the spell list (one list, two
+  kinds of row, is how the source actually reads).
 - **D95 (2026-08-27) HOW a spell is paid for belongs to the SPELL, and some uses never come
   back** — two gaps D65's model couldn't express, both found by auditing the 5etools item
   corpus and both now closed. ① **One source, several budgets.** D65 made `uses` a source-level
@@ -929,6 +954,13 @@ written up in full under Gotchas below — that is the copy to trust.
   a preview. `state.levelOrder` normalizes through `classLevelPlan()`; never trust it raw.
 - **Custom sources (D55)** synthesize a grants object (`customSourceGrants`) and ride
   `resolveGrants` with tok `x<id>` — they must never grow their own downstream path.
+- **A custom-source entry is a named spell OR a choice (D96).** `csrcIsPick(e)` (i.e. `e.pick`)
+  distinguishes them, and `csrcRowId(e)` = `e.key||e.id` because a pick has no spell key —
+  anything keying rows on `e.key` will collide or silently no-op on picks. A pick's filter uses
+  `filterSpells`' own grammar: `;`-joined values, **absent key = unconstrained**, so an empty
+  filter matches every spell (which is why a new choice row opens expanded). `picks` in the
+  grants tree carry `extra` now — they used to drop it, which would have cost a picked spell its
+  source's DC and attack.
 - **A spell's payment is per SPELL, not per source (D95).** `csrcPay(cs,e)` is the only correct
   way to ask how a spell is paid for: it reads `e.pay`, falls back to the pre-D95 source-level
   `cs.uses`, and finally infers from whether a pool exists. **Never read `cs.uses` directly** —
