@@ -441,6 +441,15 @@ stays out. Server sync or accounts. Sharing a build as a rendered page, or via a
   *Rejected:* exposing only level+class (Francesco's call — school is free, `filterSpells`
   already supports it); a separate "choices" section apart from the spell list (one list, two
   kinds of row, is how the source actually reads).
+  → **widened same day:** a choice also carries **`pick.swap`** — WHEN you may re-choose, which is
+  a **different clock** from how often you may cast. Silverquill uses a long rest for both, but
+  they are independent ("choose at dawn, cast twice per long rest" is legal, and a choice you can
+  never change is legal too). Closed list: chosen once / long rest / short rest / dawn / on level
+  up, defaulting to a long rest because that is what almost every such item uses and the row opens
+  expanded so it is seen rather than silently assumed. It rides the **desc**, so it reaches the
+  **Choices panel** — the one place you are actually deciding, and therefore the one place "when
+  can I change this?" belongs. The app's own `swappable` is derived from grant kind and could
+  never express it.
 - **D95 (2026-08-27) HOW a spell is paid for belongs to the SPELL, and some uses never come
   back** — two gaps D65's model couldn't express, both found by auditing the 5etools item
   corpus and both now closed. ① **One source, several budgets.** D65 made `uses` a source-level

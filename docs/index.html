@@ -1233,6 +1233,7 @@ label.fld .fldt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-wi
 .csfrow .csfnote{font-size:11px;color:var(--muted);padding-top:5px}
 .csfchips{display:flex;flex-wrap:wrap;gap:4px;flex:1;min-width:0}
 .csfchips .cbtn.tiny{font-size:10.5px;padding:2px 7px;border-radius:6px}
+.csfrow .csswap{flex:1;min-width:0;max-width:280px;font-size:12px}
 
 </style>
 </head>
@@ -3081,6 +3082,15 @@ function csrcRecharge(cs,e){
 // (`attachedSpells: null`), so it can only ever be hand-authored. The grants tree already had
 // `picks`, filterSpells already split `class`/`school`/`level` on ";", and the choices panel
 // already renders them; a custom source simply never emitted any.
+// D96b: WHEN you may re-choose is a different clock from how often you may CAST. Silverquill
+// Primer happens to use a long rest for both, but they are independent — "choose at dawn, cast
+// twice per long rest" is a legal item, and a choice you can never change is legal too. The
+// app's own `swappable` is derived from grant kind and can't express any of this; a custom
+// source can simply be told.
+const CSRC_SWAP=[["","chosen once — can't be changed"],["lr","re-chosen on a long rest"],
+                 ["sr","re-chosen on a short rest"],["dawn","re-chosen at dawn"],
+                 ["level","re-chosen when you gain a level"]];
+const csrcSwapText=v=>((CSRC_SWAP.find(x=>x[0]===(v||""))||[])[1])||"";
 const csrcIsPick=e=>!!(e&&e.pick);
 // rows are keyed by the spell key, but a pick has none — it carries its own id instead
 const csrcRowId=e=>e.key||e.id||"";
@@ -3104,6 +3114,8 @@ function csrcPickPhrase(e){
   if(lv)out+=(lv==="cantrip"?"cantrip":lv+"-level")+" ";
   out+=(sc?sc+" ":"")+(n>1?"spells":"spell");
   if(cl)out+=` from the ${cl} list`;
+  if(p.swap)out+=` (${csrcSwapText(p.swap)})`;
+  else if(p.swap==="")out+=" (chosen once)";
   return out;
 }
 function csrcPickDesc(e){
@@ -3117,7 +3129,11 @@ function csrcPickDesc(e){
     .map(s=>SCHOOL_ABBR[s]||s).join(" or ");
   if(sc)bits.push(sc);
   const n=Math.max(1,p.take||1);
-  return `choose ${n>1?n+" spells":"a spell"}`+(bits.length?" · "+bits.join(" · "):" — any spell");
+  // the swap clause rides the DESC, so it reaches the Choices panel — which is the one place
+  // you are actually deciding, and therefore the one place "when can I change this?" matters
+  const sw=csrcSwapText(p.swap);
+  return `choose ${n>1?n+" spells":"a spell"}`+(bits.length?" · "+bits.join(" · "):" — any spell")
+    +(p.swap==null?"":" · "+sw);
 }
 function customSourceGrants(cs){
   const extraOf=cs=>{const x={};
@@ -4317,6 +4333,13 @@ function csrcFilterEditor(e){
     const t=box.parentNode&&box.parentNode.querySelector(".csnm"); if(t)t.textContent=cap(csrcPickDesc(e));};
   take.append(n); take.append(el("span","csfnote","spell(s) — nothing ticked below means ANY"));
   box.append(take);
+  const swrow=el("div","csfrow");
+  swrow.append(el("span","csflbl","Change"));
+  const sw=el("select");sw.className="csswap";
+  CSRC_SWAP.forEach(([v,t])=>sw.append(new Option(t,v)));
+  sw.value=p.swap==null?"lr":p.swap;
+  sw.onchange=()=>{p.swap=sw.value;redraw();};
+  swrow.append(sw); box.append(swrow);
   box.append(csrcChipRow("Level",ROMAN.map((r,i)=>[String(i),i===0?"cantrip":r]),p.level,
     v=>{p.level=v;redraw();}));
   box.append(csrcChipRow("Class",csrcClassOpts(),p.class,v=>{p.class=v;redraw();}));
@@ -6984,7 +7007,9 @@ $("#csrcName").addEventListener("input",csrcSyncSummary);
 // leaving it collapsed would hide the one thing you have to fill in.
 $("#csrcAddPick").onclick=()=>{
   const id="pk"+Date.now().toString(36)+Math.floor(performance.now()%1000);
-  CSRC.spells.push({id,pick:{take:1,level:"",class:"",school:""},
+  // default to a long rest: it is what almost every "choose a spell" item uses, and the row
+  // opens expanded so it is seen and changeable rather than silently assumed
+  CSRC.spells.push({id,pick:{take:1,level:"",class:"",school:"",swap:"lr"},
                     pay:csrcHasPool(CSRC)?"pool":"per",cost:1,count:1,unit:"lr"});
   CSRC_ROW_OPEN.add(id);
   renderCsrcRows();csrcSyncRule();csrcSyncSummary();};
