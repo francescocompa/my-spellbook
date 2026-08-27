@@ -1,3 +1,11 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Custom spell source — redesign directions</title>
+<style>
+/* the app's real stylesheet, inlined so this file stands alone */
 :root{
     --bg:#f4f1ea; --panel:#fffdf8; --panel-2:#f0ebe0; --ink:#241f1a; --muted:#7a7066;
     --line:#e0d8ca; --line-strong:#cabfad; --accent:#8a3324; --accent-soft:#8a332415;
@@ -1106,57 +1114,6 @@ label.fld .fldt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-wi
 .cshit .cshl{color:var(--muted);font-size:11px;margin-left:auto}
 #csrcMode .cbtn{font-size:12px}
 
-/* ── custom spell source, direction A (D94) ───────────────────────────────────
-   The name and the spells are the surface; how it works is ONE readable line, and the
-   numbers a source rarely overrides fold away but announce themselves on their label. */
-.csrckind{margin-top:6px;font-size:12px}
-.csrckind::placeholder{font-style:italic}
-.ruleline{display:flex;align-items:center;gap:9px;margin:11px 0;padding:9px 11px;
-  background:var(--panel-2);border:1px solid var(--line);border-radius:9px}
-.ruleline .rl-txt{flex:1;min-width:0;font-size:12.5px;line-height:1.5;color:var(--muted)}
-.ruleline .rl-txt b{color:var(--ink);font-weight:600}
-.ruleline .rl-todo{color:var(--bad);font-style:normal}
-.ruleline .btn.tiny{flex:0 0 auto}
-.disc{border:1px dashed var(--line-strong);border-radius:9px;padding:10px 11px;margin-bottom:11px}
-.disc:last-of-type{margin-bottom:0}
-/* the disclosure head is a full-width button, so the whole strip is the hit target */
-.discbtn{display:flex;align-items:center;gap:7px;width:100%;background:none;border:none;
-  padding:0;margin:0;cursor:pointer;color:var(--ink);text-align:left;font:inherit}
-.discbtn .fldnote{flex:1;min-width:0;font-size:11px;color:var(--muted);overflow:hidden;
-  text-overflow:ellipsis;white-space:nowrap;text-transform:none;letter-spacing:0}
-/* a folded section that HAS a value must look different from an empty one */
-.hasval .discbtn .fldnote{color:var(--accent)}
-.disccaret{flex:0 0 auto;width:7px;height:7px;border-right:1.6px solid var(--muted);
-  border-bottom:1.6px solid var(--muted);transform:rotate(45deg) translate(-2px,-2px)}
-.discbtn[aria-expanded=true] .disccaret{transform:rotate(-135deg) translate(-2px,-2px)}
-#csrcNums{margin-top:10px}
-.csempty{font-size:12px;color:var(--muted);font-style:italic;padding:7px 0}
-.csrowwrap{border-bottom:1px dashed var(--line)}
-.csrowwrap:last-child{border-bottom:none}
-.csrowwrap .csrow{border-bottom:none}
-.csrowsub{display:flex;align-items:center;gap:7px;padding:0 0 8px 2px}
-/* a fixed cast level is folded away, so an unopened row that HAS one must still say so */
-.cslvtag{flex:0 0 auto;font-size:10.5px;color:var(--accent);background:var(--accent-soft);
-  border-radius:5px;padding:1px 6px}
-/* drawn, never typed (the .pk-caret rule) — a bare .pk-caret carries no styling of its own,
-   it is always scoped to its context, so the row caret draws its own. The ink of a rotated
-   square lives in its lower half, hence the upward nudge. */
-.csrowcar{flex:0 0 auto;position:relative;width:18px;height:18px;font-size:0;padding:0;
-  border:none;background:none;cursor:pointer;border-radius:5px}
-.csrowcar::before{content:"";position:absolute;left:50%;top:50%;width:6px;height:6px;
-  border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);
-  transform:translate(-50%,-50%) translateY(-2.1px) rotate(45deg)}
-.csrowcar:hover{background:var(--panel-2)}
-.csrowcar:hover::before{border-color:var(--accent)}
-.csrowcar.up::before{transform:translate(-50%,-50%) translateY(1.1px) rotate(-135deg)}
-.csrowcar.up::before{border-color:var(--accent)}
-.cssum{margin-top:13px;padding:10px 12px;border-radius:9px;background:var(--accent-soft);
-  border:1px solid var(--accent);font-size:12.5px;line-height:1.55;color:var(--ink)}
-.cssum b{color:var(--accent);font-weight:600}
-.cssum i{color:var(--muted)}
-.cssum .warnish{color:var(--bad)}
-.cssum.empty{background:none;border-style:dashed;border-color:var(--line-strong)}
-
 /* ── responsive: phone layout ─────────────────────────────────────────────── */
   /* mobile section jump bar: docked, thumb-reachable, tracks the section you're in.
      Hidden entirely above the one-column breakpoint, where all five cards are visible. */
@@ -1197,3 +1154,223 @@ label.fld .fldt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-wi
     header.top h1{font-size:15.5px}
     .tabs button{padding:5px 8px;font-size:11.5px}
   }
+
+</style>
+<style>
+/* mockup chrome only — everything below the rule uses the app's own classes */
+body{padding:24px;background:var(--bg);color:var(--ink)}
+.mkwrap{max-width:1500px;margin:0 auto}
+.mkhead{font-family:var(--font);font-size:22px;margin:0 0 4px}
+.mksub{color:var(--muted);font-size:13px;margin:0 0 22px;max-width:70ch;line-height:1.5}
+.mkgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(390px,1fr));gap:22px;align-items:start}
+.mkcol > h3{font-family:var(--font);font-size:15px;margin:0 0 3px}
+.mkcol > .why{color:var(--muted);font-size:12px;line-height:1.5;margin:0 0 10px;min-height:5.4em}
+.mkbox{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow);overflow:hidden}
+.mkbox .mh{padding:13px 15px 11px;border-bottom:1px solid var(--line)}
+.mkbox .mb{padding:14px 15px}
+.mkbox .prepnav{padding:11px 15px;border-top:1px solid var(--line);display:flex;align-items:center;gap:8px}
+.prepnav-sp{flex:1}
+.tag{display:inline-block;font-size:10px;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--muted);border:1px solid var(--line-strong);border-radius:5px;padding:1px 6px;margin-left:6px}
+
+/* ── B: the sentence ─────────────────────────────────────────── */
+.sent{font-family:var(--font);font-size:15px;line-height:2.15;color:var(--ink)}
+.sent .sin{display:inline-block;background:var(--panel-2);border:1px solid var(--line-strong);
+  border-radius:7px;padding:1px 8px;font-family:var(--sans);font-size:12.5px;color:var(--ink);
+  min-width:26px;text-align:center}
+.sent .sin.num{min-width:38px}
+.sent .sin.wide{min-width:120px;text-align:left}
+.sent .sin.pick{border-style:solid;border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+.sent .sin.ghost{color:var(--muted);border-style:dashed}
+.sent .opt{color:var(--muted)}
+
+/* ── A: progressive disclosure ───────────────────────────────── */
+.ruleline{display:flex;align-items:center;gap:8px;padding:9px 11px;background:var(--panel-2);
+  border:1px solid var(--line);border-radius:9px;font-size:12.5px;color:var(--ink)}
+.ruleline .rl-txt{flex:1;min-width:0}
+.ruleline .rl-txt b{font-weight:600}
+.disc{margin-top:9px;border:1px dashed var(--line-strong);border-radius:9px;padding:9px 11px}
+.disc .fld{margin-bottom:7px}
+
+/* ── C: two columns ──────────────────────────────────────────── */
+.twopane{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.twopane .pane{min-width:0}
+.twopane .pane + .pane{border-left:1px solid var(--line);padding-left:14px}
+
+/* shared spell-row shapes for the mockups */
+.mrow{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px dashed var(--line)}
+.mrow:last-child{border-bottom:0}
+.mrow .mnm{flex:1;min-width:0;font-family:var(--font);font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mrow .cost{font-size:11.5px;color:var(--muted);white-space:nowrap}
+.mrow .cost b{color:var(--ink);font-variant-numeric:tabular-nums}
+.mrow .mx{color:var(--muted);font-size:14px;line-height:1;cursor:default}
+.mrow .more{color:var(--muted);font-size:14px;line-height:1}
+.addspell{margin-top:9px;width:100%;padding:8px 10px;border-radius:8px;border:1px dashed var(--line-strong);
+  background:var(--bg);color:var(--muted);font-family:var(--sans);font-size:12.5px}
+.sumline{margin-top:11px;padding:9px 11px;border-radius:9px;background:var(--accent-soft);
+  border:1px solid var(--accent);color:var(--ink);font-size:12.5px;line-height:1.55}
+.sumline b{color:var(--accent)}
+.mini{font-size:11px;color:var(--muted);margin-top:7px;line-height:1.5}
+h4.grp{font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);
+  margin:14px 0 7px;font-weight:600}
+h4.grp:first-child{margin-top:0}
+</style>
+</head>
+<body>
+<div class="mkwrap">
+<h1 class="mkhead">Custom spell source — three redesign directions</h1>
+<p class="mksub">Same model (D55/D65), same data: a Staff of Fire with a shared charge pool, its own save DC,
+and three spells at different costs. Rendered in the app's real stylesheet so the comparison is honest.
+Today's version asks five equally-loud questions in a flat stack; each direction below picks a different
+thing to make loud.</p>
+
+<div class="mkgrid">
+
+  <!-- ────────────────────────────── A ────────────────────────────── -->
+  <div class="mkcol">
+    <h3>A · Progressive <span class="tag">recommended</span></h3>
+    <p class="why">The two things you always fill — the name and the spells — are the whole surface.
+    How it works collapses to one readable line you click to change; its own numbers only appear
+    when you ask for them. Same rule as D88: live state stays, options fold away.</p>
+    <div class="mkbox">
+      <div class="mh mh-stack">
+        <div class="mh-row"><h2>Staff of Fire</h2><button class="x ico" aria-label="Close">×</button></div>
+        <div class="sub">magic item, requires attunement</div>
+      </div>
+      <div class="mb">
+        <div class="ruleline">
+          <span class="rl-txt"><b>Cast without preparing</b> · a shared pool of <b>10</b> charges,
+            regains <b>1d6+4 at dawn</b></span>
+          <button class="btn tiny">Change</button>
+        </div>
+
+        <h4 class="grp">Spells</h4>
+        <div class="mrow"><span class="mnm">Burning Hands</span><span class="cost">costs <b>1</b></span><span class="more">⌄</span><span class="mx">×</span></div>
+        <div class="mrow"><span class="mnm">Fireball</span><span class="cost">costs <b>3</b></span><span class="more">⌄</span><span class="mx">×</span></div>
+        <div class="mrow"><span class="mnm">Wall of Fire</span><span class="cost">costs <b>4</b></span><span class="more">⌄</span><span class="mx">×</span></div>
+        <div class="addspell">add a spell by name…</div>
+        <p class="mini">Each row's ⌄ opens the rare per-spell bits — cast at a fixed level, its own cadence.</p>
+
+        <div class="disc">
+          <label class="fld">Its own numbers <span class="fldnote">set — DC 15, +7, Intelligence</span></label>
+          <span class="mini">Collapsed by default. Most items cast on your numbers; this one doesn't,
+          so it says so on the label.</span>
+        </div>
+      </div>
+      <div class="prepnav">
+        <button class="btn danger">Delete</button><span class="prepnav-sp"></span>
+        <button class="btn on">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ────────────────────────────── B ────────────────────────────── -->
+  <div class="mkcol">
+    <h3>B · The sentence</h3>
+    <p class="why">The model is already sentence-shaped, so the form is a sentence with the variable
+    parts as inline controls. The either/or that a toggle row hides — a shared pool <i>or</i> per-spell
+    uses — becomes a clause you can't misread, and the rare numbers read as an optional trailing clause.</p>
+    <div class="mkbox">
+      <div class="mh mh-stack">
+        <div class="mh-row"><h2>Spell source</h2><button class="x ico" aria-label="Close">×</button></div>
+        <div class="sub">A thing this character owns that grants spells.</div>
+      </div>
+      <div class="mb">
+        <p class="sent" style="margin:0">
+          <span class="sin wide">Staff of Fire</span>
+          is a <span class="sin wide ghost">magic item</span>.<br>
+          Its spells are <span class="sin pick">cast without preparing</span>,
+          spending <span class="sin pick">a shared pool</span> of
+          <span class="sin num">10</span> charges that regains
+          <span class="sin wide">1d6+4 at dawn</span>.<br>
+          <span class="opt">It casts using</span> <span class="sin">Int</span>
+          <span class="opt">at</span> <span class="sin num">DC 15</span>
+          <span class="opt">and</span> <span class="sin num">+7</span> <span class="opt">to hit.</span>
+        </p>
+
+        <h4 class="grp">Spells</h4>
+        <div class="mrow"><span class="mnm">Burning Hands</span><span class="cost">costs <b>1</b></span><span class="more">⌄</span><span class="mx">×</span></div>
+        <div class="mrow"><span class="mnm">Fireball</span><span class="cost">costs <b>3</b></span><span class="more">⌄</span><span class="mx">×</span></div>
+        <div class="mrow"><span class="mnm">Wall of Fire</span><span class="cost">costs <b>4</b></span><span class="more">⌄</span><span class="mx">×</span></div>
+        <div class="addspell">add a spell by name…</div>
+        <p class="mini">The third clause is dimmed until you touch it — blank means “uses my numbers”.</p>
+      </div>
+      <div class="prepnav">
+        <button class="btn danger">Delete</button><span class="prepnav-sp"></span>
+        <button class="btn on">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ────────────────────────────── C ────────────────────────────── -->
+  <div class="mkcol">
+    <h3>C · Two panes, with a live summary</h3>
+    <p class="why">Keeps every control visible — nothing to discover, nothing to expand — but splits
+    “what this thing is” from “what it casts”, and adds the one thing today's form never does:
+    reflects back, in a sentence, what you have actually built.</p>
+    <div class="mkbox">
+      <div class="mh mh-stack">
+        <div class="mh-row"><h2>Edit spell source</h2><button class="x ico" aria-label="Close">×</button></div>
+      </div>
+      <div class="mb">
+        <div class="twopane">
+          <div class="pane">
+            <h4 class="grp">The thing</h4>
+            <label class="fld">Name</label>
+            <input type="text" value="Staff of Fire" style="width:100%">
+            <label class="fld" style="margin-top:9px">Kind</label>
+            <input type="text" value="magic item, attunement" style="width:100%">
+            <h4 class="grp">Its rules</h4>
+            <div class="cbrow" style="flex-wrap:wrap;gap:5px">
+              <button class="btn tiny on">no preparing</button>
+              <button class="btn tiny">always prepared</button>
+              <button class="btn tiny">my spell list</button>
+            </div>
+            <div class="cbrow" style="flex-wrap:wrap;gap:5px;margin-top:7px">
+              <button class="btn tiny on">shared pool</button>
+              <button class="btn tiny">per-spell</button>
+            </div>
+            <div style="display:flex;gap:6px;margin-top:8px">
+              <input type="number" value="10" style="width:58px">
+              <input type="text" value="1d6+4 at dawn" style="flex:1;min-width:0">
+            </div>
+            <h4 class="grp">Its own numbers</h4>
+            <div style="display:flex;gap:6px">
+              <input type="text" value="15" style="width:52px" placeholder="DC">
+              <input type="text" value="+7" style="width:52px" placeholder="atk">
+              <input type="text" value="Int" style="flex:1;min-width:0">
+            </div>
+          </div>
+          <div class="pane">
+            <h4 class="grp">Its spells</h4>
+            <div class="mrow"><span class="mnm">Burning Hands</span><span class="cost"><b>1</b></span><span class="mx">×</span></div>
+            <div class="mrow"><span class="mnm">Fireball</span><span class="cost"><b>3</b></span><span class="mx">×</span></div>
+            <div class="mrow"><span class="mnm">Wall of Fire</span><span class="cost"><b>4</b></span><span class="mx">×</span></div>
+            <div class="addspell">add a spell…</div>
+          </div>
+        </div>
+        <div class="sumline">
+          <b>Staff of Fire</b> — cast Burning Hands, Fireball or Wall of Fire without preparing them,
+          spending from <b>10 charges</b> (regains 1d6+4 at dawn). Saves are <b>DC 15</b>, attacks <b>+7</b>.
+        </div>
+      </div>
+      <div class="prepnav">
+        <button class="btn danger">Delete</button><span class="prepnav-sp"></span>
+        <button class="btn on">Save</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<p class="mini" style="max-width:80ch;margin-top:26px;line-height:1.6">
+<b>What all three fix, whichever you pick:</b> the flat five-band stack that gives the name, the spells and
+the almost-never-used DC override identical weight; “Its own numbers” being permanently on screen to say
+“blank = use mine”; two toggle rows (five chips) standing between you and the content; and the Kind field
+truncating its own value. <b>On a phone</b> A and B are already one column; C folds to a single column and
+becomes A without the disclosures.
+</p>
+</div>
+</body>
+</html>

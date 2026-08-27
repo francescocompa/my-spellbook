@@ -1115,6 +1115,57 @@ label.fld .fldt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-wi
 .cshit .cshl{color:var(--muted);font-size:11px;margin-left:auto}
 #csrcMode .cbtn{font-size:12px}
 
+/* ── custom spell source, direction A (D94) ───────────────────────────────────
+   The name and the spells are the surface; how it works is ONE readable line, and the
+   numbers a source rarely overrides fold away but announce themselves on their label. */
+.csrckind{margin-top:6px;font-size:12px}
+.csrckind::placeholder{font-style:italic}
+.ruleline{display:flex;align-items:center;gap:9px;margin:11px 0;padding:9px 11px;
+  background:var(--panel-2);border:1px solid var(--line);border-radius:9px}
+.ruleline .rl-txt{flex:1;min-width:0;font-size:12.5px;line-height:1.5;color:var(--muted)}
+.ruleline .rl-txt b{color:var(--ink);font-weight:600}
+.ruleline .rl-todo{color:var(--bad);font-style:normal}
+.ruleline .btn.tiny{flex:0 0 auto}
+.disc{border:1px dashed var(--line-strong);border-radius:9px;padding:10px 11px;margin-bottom:11px}
+.disc:last-of-type{margin-bottom:0}
+/* the disclosure head is a full-width button, so the whole strip is the hit target */
+.discbtn{display:flex;align-items:center;gap:7px;width:100%;background:none;border:none;
+  padding:0;margin:0;cursor:pointer;color:var(--ink);text-align:left;font:inherit}
+.discbtn .fldnote{flex:1;min-width:0;font-size:11px;color:var(--muted);overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap;text-transform:none;letter-spacing:0}
+/* a folded section that HAS a value must look different from an empty one */
+.hasval .discbtn .fldnote{color:var(--accent)}
+.disccaret{flex:0 0 auto;width:7px;height:7px;border-right:1.6px solid var(--muted);
+  border-bottom:1.6px solid var(--muted);transform:rotate(45deg) translate(-2px,-2px)}
+.discbtn[aria-expanded=true] .disccaret{transform:rotate(-135deg) translate(-2px,-2px)}
+#csrcNums{margin-top:10px}
+.csempty{font-size:12px;color:var(--muted);font-style:italic;padding:7px 0}
+.csrowwrap{border-bottom:1px dashed var(--line)}
+.csrowwrap:last-child{border-bottom:none}
+.csrowwrap .csrow{border-bottom:none}
+.csrowsub{display:flex;align-items:center;gap:7px;padding:0 0 8px 2px}
+/* a fixed cast level is folded away, so an unopened row that HAS one must still say so */
+.cslvtag{flex:0 0 auto;font-size:10.5px;color:var(--accent);background:var(--accent-soft);
+  border-radius:5px;padding:1px 6px}
+/* drawn, never typed (the .pk-caret rule) — a bare .pk-caret carries no styling of its own,
+   it is always scoped to its context, so the row caret draws its own. The ink of a rotated
+   square lives in its lower half, hence the upward nudge. */
+.csrowcar{flex:0 0 auto;position:relative;width:18px;height:18px;font-size:0;padding:0;
+  border:none;background:none;cursor:pointer;border-radius:5px}
+.csrowcar::before{content:"";position:absolute;left:50%;top:50%;width:6px;height:6px;
+  border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);
+  transform:translate(-50%,-50%) translateY(-2.1px) rotate(45deg)}
+.csrowcar:hover{background:var(--panel-2)}
+.csrowcar:hover::before{border-color:var(--accent)}
+.csrowcar.up::before{transform:translate(-50%,-50%) translateY(1.1px) rotate(-135deg)}
+.csrowcar.up::before{border-color:var(--accent)}
+.cssum{margin-top:13px;padding:10px 12px;border-radius:9px;background:var(--accent-soft);
+  border:1px solid var(--accent);font-size:12.5px;line-height:1.55;color:var(--ink)}
+.cssum b{color:var(--accent);font-weight:600}
+.cssum i{color:var(--muted)}
+.cssum .warnish{color:var(--bad)}
+.cssum.empty{background:none;border-style:dashed;border-color:var(--line-strong)}
+
 /* ── responsive: phone layout ─────────────────────────────────────────────── */
   /* mobile section jump bar: docked, thumb-reachable, tracks the section you're in.
      Hidden entirely above the one-column breakpoint, where all five cards are visible. */
@@ -1564,40 +1615,58 @@ label.fld .fldt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-wi
     <div class="mh-row"><h2 id="csrcTitle">Custom spell source</h2><button class="x ico" id="csrcClose" data-ico="x" aria-label="Close"></button></div>
     <div class="sub">A thing this character owns that grants spells — a magic item, a boon, a blessing.</div>
   </div>
+  <!-- D94 · direction A: the two things you always fill — the name and the spells — ARE the
+       surface. How it works collapses to one readable line; the numbers a source rarely
+       overrides stay folded and announce themselves on the label when set. Same rule as D88:
+       live state stays visible, options fold away. The foot reflects the whole thing back as
+       a sentence, which is the one thing the old form never did. -->
   <div class="mb">
-    <div class="twocol">
-      <div><label class="fld" for="csrcName">Name</label>
-        <input type="text" id="csrcName" placeholder="Staff of Fire" autocomplete="off" spellcheck="false"></div>
-      <div><label class="fld" for="csrcKind">Kind</label>
-        <input type="text" id="csrcKind" placeholder="magic item, boon, blessing…" autocomplete="off" spellcheck="false"></div>
+    <div class="fieldset">
+      <label class="fld" for="csrcName">Name</label>
+      <input type="text" id="csrcName" placeholder="Staff of Fire" autocomplete="off" spellcheck="false">
+      <input type="text" id="csrcKind" class="csrckind" placeholder="magic item, boon, blessing… (optional)"
+             autocomplete="off" spellcheck="false">
     </div>
-    <div class="fieldset" style="margin-top:12px">
+
+    <div class="ruleline">
+      <span class="rl-txt" id="csrcRuleTxt"></span>
+      <button class="btn tiny" id="csrcRuleEdit" aria-expanded="false" aria-controls="csrcRules">Change</button>
+    </div>
+    <div class="disc hidden" id="csrcRules">
       <label class="fld">How its spells work</label>
       <div class="cbrow" id="csrcMode"></div>
-    </div>
-    <div class="fieldset hidden" id="csrcUsesBlock">
-      <label class="fld">Uses</label>
-      <div class="cbrow" id="csrcUses"></div>
-      <div class="poolrow hidden" id="csrcPoolRow">
-        <input type="number" id="csrcPool" min="0" max="99" placeholder="10">
-        <span class="poollbl">charges · regains</span>
-        <input type="text" id="csrcRecharge" placeholder="1d6+4 at dawn" autocomplete="off" spellcheck="false">
+      <div id="csrcUsesBlock">
+        <label class="fld" style="margin-top:10px">Uses</label>
+        <div class="cbrow" id="csrcUses"></div>
+        <div class="poolrow hidden" id="csrcPoolRow">
+          <input type="number" id="csrcPool" min="0" max="99" placeholder="10">
+          <span class="poollbl">charges · regains</span>
+          <input type="text" id="csrcRecharge" placeholder="1d6+4 at dawn" autocomplete="off" spellcheck="false">
+        </div>
       </div>
     </div>
-    <div class="fieldset">
-      <label class="fld">Its own numbers <span class="fldnote">blank = use mine</span></label>
-      <div class="csnums">
-        <label class="csnum"><span>Save DC</span><input type="text" id="csrcDC" placeholder="15" autocomplete="off"></label>
-        <label class="csnum"><span>Attack</span><input type="text" id="csrcAtk" placeholder="+7" autocomplete="off"></label>
-        <label class="csnum wide"><span>Casting ability</span><select id="csrcAbility"></select></label>
-      </div>
-    </div>
+
     <div class="fieldset">
       <label class="fld">Spells</label>
       <div id="csrcRows"></div>
       <input type="search" id="csrcSearch" placeholder="add a spell by name…" autocomplete="off">
       <div id="csrcHits"></div>
     </div>
+
+    <div class="disc" id="csrcNumsWrap">
+      <button class="discbtn" id="csrcNumsBtn" aria-expanded="false" aria-controls="csrcNums">
+        <span class="fld" style="margin:0">Its own numbers</span>
+        <span class="fldnote" id="csrcNumsSub"></span>
+        <span class="disccaret" aria-hidden="true"></span>
+      </button>
+      <div class="csnums hidden" id="csrcNums">
+        <label class="csnum"><span>Save DC</span><input type="text" id="csrcDC" placeholder="15" autocomplete="off"></label>
+        <label class="csnum"><span>Attack</span><input type="text" id="csrcAtk" placeholder="+7" autocomplete="off"></label>
+        <label class="csnum wide"><span>Casting ability</span><select id="csrcAbility"></select></label>
+      </div>
+    </div>
+
+    <div class="cssum" id="csrcSummary"></div>
   </div>
   <div class="prepnav">
     <button class="btn danger hidden" id="csrcDelete">Delete source</button>
@@ -3861,6 +3930,9 @@ function openCsrc(existing){
     CSRC.uses=(CSRC.spells||[]).some(e=>e.unit||e.count!=null)?"per":"pool";
   $("#csrcTitle").textContent=existing?"Edit spell source":"Custom spell source";
   $("#csrcDelete").classList.toggle("hidden",!existing);
+  // both disclosures start CLOSED on every open — a source you edited with the numbers open
+  // shouldn't reopen that way for the next one (D94)
+  CSRC_OPEN={rules:false,nums:false}; CSRC_ROW_OPEN=new Set();
   $("#csrcName").value=CSRC.name;
   $("#csrcKind").value=CSRC.kind||"";
   $("#csrcPool").value=CSRC.pool==null?"":CSRC.pool;
@@ -3881,8 +3953,86 @@ function openCsrc(existing){
 function csrcSyncMode(){
   $("#csrcUsesBlock").classList.toggle("hidden",CSRC.mode!=="innate");
   $("#csrcPoolRow").classList.toggle("hidden",CSRC.mode!=="innate"||CSRC.uses!=="pool");
-  renderCsrcRows();
+  csrcSyncRule(); renderCsrcRows(); csrcSyncNums(); csrcSyncSummary();
 }
+// ── D94: the collapsed surface ─────────────────────────────────────────────
+let CSRC_OPEN={rules:false,nums:false};   // which disclosures are open
+let CSRC_ROW_OPEN=new Set();              // which spell rows show their rare per-spell bits
+// The rule line says what the source IS, in the words the toggles use, so opening "Change"
+// never contradicts what you just read.
+function csrcRuleText(){
+  const mode=(CSRC_MODES.find(m=>m[0]===CSRC.mode)||[])[1]||CSRC.mode;
+  if(CSRC.mode!=="innate")return `<b>${esc(cap(mode))}</b>`;
+  if(CSRC.uses==="pool"){
+    const n=CSRC.pool==null||CSRC.pool===""?null:CSRC.pool;
+    // Unset is only a PROBLEM once there are spells to spend on — flagging a form you have
+    // not filled yet is noise, so an untouched source states it quietly.
+    if(n==null)return `<b>${esc(cap(mode))}</b> · a shared pool, `
+      +((CSRC.spells||[]).length?`<i class="rl-todo">charges not set yet</i>`:`<i>charges not set yet</i>`);
+    return `<b>${esc(cap(mode))}</b> · a shared pool of <b>${esc(String(n))}</b> charge${+n===1?"":"s"}`
+      +(CSRC.recharge?`, regains <b>${esc(CSRC.recharge)}</b>`:"");}
+  return `<b>${esc(cap(mode))}</b> · per-spell uses`;
+}
+const cap=s=>String(s||"").charAt(0).toUpperCase()+String(s||"").slice(1);
+function csrcSyncRule(){
+  const t=$("#csrcRuleTxt"); if(t)t.innerHTML=csrcRuleText();
+  const box=$("#csrcRules"),btn=$("#csrcRuleEdit");
+  if(box)box.classList.toggle("hidden",!CSRC_OPEN.rules);
+  if(btn){btn.textContent=CSRC_OPEN.rules?"Done":"Change";
+    btn.classList.toggle("on",CSRC_OPEN.rules);
+    btn.setAttribute("aria-expanded",String(CSRC_OPEN.rules));}
+}
+// The label carries the STATE — "set — DC 15, +7, Intelligence" — so a folded section can
+// never hide something you changed. Blank stays blank and says "uses mine".
+function csrcSyncNums(){
+  const dc=$("#csrcDC").value.trim(),atk=$("#csrcAtk").value.trim(),ab=$("#csrcAbility").value;
+  const bits=[]; if(dc)bits.push("DC "+dc); if(atk)bits.push(atk); if(ab)bits.push(ABIL[ab]||ab);
+  const sub=$("#csrcNumsSub");
+  if(sub)sub.textContent=bits.length?"set — "+bits.join(", "):"uses mine";
+  const wrap=$("#csrcNumsWrap"); if(wrap)wrap.classList.toggle("hasval",!!bits.length);
+  const box=$("#csrcNums"),btn=$("#csrcNumsBtn");
+  if(box)box.classList.toggle("hidden",!CSRC_OPEN.nums);
+  if(btn)btn.setAttribute("aria-expanded",String(CSRC_OPEN.nums));
+}
+// C's contribution: reflect the whole thing back as a sentence. The model is subtle enough
+// to build something you didn't mean — a pool with no charges, a source with no spells — and
+// nothing else in the modal ever says what you actually made.
+function csrcSummary(){
+  const typed=($("#csrcName").value||"").trim();
+  const name=typed||"This source";
+  const named=(CSRC.spells||[]).map(e=>{const sp=SPELL_BY[e.key];return sp?sp.name:e.key.split("|")[0];});
+  // mid-sentence, so the nameless fallback has to be lowercase — "and This source will…" is
+  // the kind of thing a capitalised constant does to a sentence it was never written for
+  if(!named.length)return `<i>Add a spell and ${typed?esc(typed):"this source"} will describe itself here.</i>`;
+  const list=named.length<=3?named.map(esc).join(named.length===2?" or ":", ").replace(/, ([^,]*)$/," or $1")
+    :`${esc(named[0])}, ${esc(named[1])} and ${named.length-2} more`;
+  let how;
+  if(CSRC.mode==="always")how=`have ${list} always prepared`;
+  else if(CSRC.mode==="list")how=`add ${list} to your spell list — you prepare them normally`;
+  else if(CSRC.uses==="pool"){
+    const n=CSRC.pool==null||CSRC.pool===""?null:CSRC.pool;
+    how=`cast ${list} without preparing, spending from `
+      +(n==null?`<b class="warnish">a pool with no charges set</b>`:`<b>${esc(String(n))} charge${+n===1?"":"s"}</b>`)
+      +(CSRC.recharge?` (regains ${esc(CSRC.recharge)})`:"");}
+  else {
+    // In per-spell mode the CADENCE is the whole point, so name it while the list is short
+    // enough to read; "each on its own uses" describes the shape but not what you built.
+    const cad=(CSRC.spells||[]).map(e=>{const sp=SPELL_BY[e.key];
+      return `${esc(sp?sp.name:e.key.split("|")[0])} <b>${esc(csrcCadence(e))}</b>`;});
+    how=named.length<=3?`cast ${cad.join(named.length===2?" and ":", ").replace(/, ([^,]*)$/," and $1")}`
+                        +` without preparing`
+                      :`cast ${list} without preparing, each on its own uses`;}
+  const dc=$("#csrcDC").value.trim(),atk=$("#csrcAtk").value.trim(),ab=$("#csrcAbility").value;
+  const num=[]; if(dc)num.push(`saves are <b>DC ${esc(dc)}</b>`);
+  if(atk)num.push(`attacks <b>${esc(atk)}</b>`);
+  if(ab)num.push(`it casts with <b>${esc(ABIL[ab]||ab)}</b>`);
+  return `<b>${esc(name)}</b> — ${how}.`+(num.length?" "+cap(num.join(", "))+".":"");
+}
+function csrcSyncSummary(){const b=$("#csrcSummary"); if(!b)return;
+  b.innerHTML=csrcSummary();
+  // an empty source has nothing to reflect back, so the accent frame would be pointing at a
+  // placeholder — it earns its colour only once there is something to describe
+  b.classList.toggle("empty",!(CSRC.spells||[]).length);}
 // a one-of chip row (the cbrow pattern, but single-select)
 function buildToggleRowSingle(box,pairs,cur,cb){
   box.innerHTML="";
@@ -3890,12 +4040,18 @@ function buildToggleRowSingle(box,pairs,cur,cb){
     b.onclick=()=>{[...box.children].forEach(x=>x.classList.remove("on"));b.classList.add("on");cb(v);};
     box.append(b);});
 }
+// D94: a row carries ONE control inline — the one this mode actually spends — and folds the
+// rare per-spell bit (cast at a fixed level) behind its own caret. The old row showed the
+// level dropdown on every spell, always, though almost nothing uses it.
 function renderCsrcRows(){
   const box=$("#csrcRows"); box.innerHTML="";
   const pool=CSRC.mode==="innate"&&CSRC.uses==="pool";
   const per =CSRC.mode==="innate"&&CSRC.uses!=="pool";
+  if(!CSRC.spells.length){
+    box.append(el("div","csempty","No spells yet — search below to add one."));return;}
   CSRC.spells.forEach((e,i)=>{
     const sp=SPELL_BY[e.key];
+    const wrap=el("div","csrowwrap");
     const row=el("div","csrow");
     const nm=el("span","csnm",sp?sp.name:e.key.split("|")[0]);
     if(sp)attachSpell(nm,sp);
@@ -3903,7 +4059,7 @@ function renderCsrcRows(){
     if(pool){
       const c=el("input");c.type="number";c.min=1;c.max=99;c.value=e.cost||1;c.className="csn2";
       c.title="Charges this spell costs";
-      c.oninput=()=>{e.cost=Math.max(1,+c.value||1);};
+      c.oninput=()=>{e.cost=Math.max(1,+c.value||1);csrcSyncSummary();};
       row.append(el("span","cslbl","costs"));row.append(c);}
     if(per){
       const n=el("input");n.type="number";n.min=1;n.max=99;n.value=e.count||1;n.className="csn2";
@@ -3912,15 +4068,33 @@ function renderCsrcRows(){
       u.onchange=()=>{e.unit=u.value;n.disabled=u.value==="will";};
       n.disabled=(e.unit||"lr")==="will";
       row.append(n);row.append(u);}
-    // "casts fireball as a 5th-level spell" — blank means the spell's own level
-    if(sp&&sp.level>0){
+    // "casts fireball as a 5th-level spell" — blank means the spell's own level. Rare, so it
+    // lives behind the caret; a row that HAS one says so, or folding it would hide a setting.
+    const canLevel=sp&&sp.level>0;
+    if(canLevel){
+      const open=CSRC_ROW_OPEN.has(e.key);
+      if(e.level&&!open)row.append(el("span","cslvtag","at "+ROMAN[e.level]));
+      const car=el("button","pk-caret csrowcar");car.type="button";
+      car.setAttribute("aria-label","Per-spell options");
+      car.setAttribute("aria-expanded",String(open));
+      car.classList.toggle("up",open);
+      car.onclick=ev=>{ev.stopPropagation();
+        if(open)CSRC_ROW_OPEN.delete(e.key);else CSRC_ROW_OPEN.add(e.key);
+        renderCsrcRows();};
+      row.append(car);}
+    row.append(xBtn(null,()=>{CSRC.spells.splice(i,1);CSRC_ROW_OPEN.delete(e.key);
+      renderCsrcRows();csrcSyncSummary();}));
+    wrap.append(row);
+    if(canLevel&&CSRC_ROW_OPEN.has(e.key)){
+      const sub=el("div","csrowsub");
+      sub.append(el("span","cslbl","Cast at"));
       const lv=el("select");lv.className="cslv";lv.append(new Option("as written",""));
-      for(let L=sp.level;L<=9;L++)lv.append(new Option("at "+ROMAN[L],String(L)));
+      for(let L=sp.level;L<=9;L++)lv.append(new Option(ROMAN[L]+" level",String(L)));
       lv.value=e.level?String(e.level):"";
       lv.onchange=()=>{e.level=lv.value?+lv.value:null;};
-      row.append(lv);}
-    row.append(xBtn(null,()=>{CSRC.spells.splice(i,1);renderCsrcRows();}));
-    box.append(row);});
+      sub.append(lv);
+      wrap.append(sub);}
+    box.append(wrap);});
 }
 function renderCsrcHits(){
   const box=$("#csrcHits"); box.innerHTML="";
@@ -3933,8 +4107,8 @@ function renderCsrcHits(){
       r.append(el("span",null,sp.name));
       r.append(el("span","cshl",(sp.level===0?"cantrip":"level "+sp.level)+" · "+sp.school));
       if(sp.source!==CORE)r.append(bookChip(sp.source,sp.page));
-      r.onclick=()=>{CSRC.spells.push({key:key(sp.name,sp.source),count:1,unit:"lr"});
-        $("#csrcSearch").value="";box.innerHTML="";renderCsrcRows();};
+      r.onclick=()=>{CSRC.spells.push({key:key(sp.name,sp.source),count:1,cost:1,unit:"lr"});
+        $("#csrcSearch").value="";box.innerHTML="";renderCsrcRows();csrcSyncSummary();};
       box.append(r);});
 }
 function saveCsrc(){
@@ -6549,6 +6723,19 @@ $("#csrcSave").onclick=saveCsrc;
 $("#csrcSearch").oninput=()=>renderCsrcHits();
 ["csrcPool","csrcRecharge","csrcDC","csrcAtk"].forEach(id=>{const n=$("#"+id);
   if(n)n.onkeydown=e=>{if(e.key==="Enter")$("#csrcSave").click();};});
+// D94: the rule line and the summary must never lag the fields they describe — a folded
+// section that reports stale state is worse than one left open.
+$("#csrcRuleEdit").onclick=()=>{CSRC_OPEN.rules=!CSRC_OPEN.rules;csrcSyncRule();};
+$("#csrcNumsBtn").onclick=()=>{CSRC_OPEN.nums=!CSRC_OPEN.nums;csrcSyncNums();};
+["csrcPool","csrcRecharge"].forEach(id=>{const n=$("#"+id);
+  if(n)n.addEventListener("input",()=>{
+    CSRC.pool=$("#csrcPool").value?Math.max(0,+$("#csrcPool").value||0):null;
+    CSRC.recharge=$("#csrcRecharge").value.trim();
+    csrcSyncRule();csrcSyncSummary();});});
+["csrcDC","csrcAtk"].forEach(id=>{const n=$("#"+id);
+  if(n)n.addEventListener("input",()=>{csrcSyncNums();csrcSyncSummary();});});
+$("#csrcAbility").addEventListener("change",()=>{csrcSyncNums();csrcSyncSummary();});
+$("#csrcName").addEventListener("input",csrcSyncSummary);
 armConfirm($("#csrcDelete"),"Delete source",()=>{
   state.customSources=(state.customSources||[]).filter(x=>x.id!==CSRC.id);
   $("#csrcModal").classList.add("hidden");

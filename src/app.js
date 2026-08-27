@@ -1450,6 +1450,9 @@ function openCsrc(existing){
     CSRC.uses=(CSRC.spells||[]).some(e=>e.unit||e.count!=null)?"per":"pool";
   $("#csrcTitle").textContent=existing?"Edit spell source":"Custom spell source";
   $("#csrcDelete").classList.toggle("hidden",!existing);
+  // both disclosures start CLOSED on every open — a source you edited with the numbers open
+  // shouldn't reopen that way for the next one (D94)
+  CSRC_OPEN={rules:false,nums:false}; CSRC_ROW_OPEN=new Set();
   $("#csrcName").value=CSRC.name;
   $("#csrcKind").value=CSRC.kind||"";
   $("#csrcPool").value=CSRC.pool==null?"":CSRC.pool;
@@ -1470,8 +1473,86 @@ function openCsrc(existing){
 function csrcSyncMode(){
   $("#csrcUsesBlock").classList.toggle("hidden",CSRC.mode!=="innate");
   $("#csrcPoolRow").classList.toggle("hidden",CSRC.mode!=="innate"||CSRC.uses!=="pool");
-  renderCsrcRows();
+  csrcSyncRule(); renderCsrcRows(); csrcSyncNums(); csrcSyncSummary();
 }
+// ── D94: the collapsed surface ─────────────────────────────────────────────
+let CSRC_OPEN={rules:false,nums:false};   // which disclosures are open
+let CSRC_ROW_OPEN=new Set();              // which spell rows show their rare per-spell bits
+// The rule line says what the source IS, in the words the toggles use, so opening "Change"
+// never contradicts what you just read.
+function csrcRuleText(){
+  const mode=(CSRC_MODES.find(m=>m[0]===CSRC.mode)||[])[1]||CSRC.mode;
+  if(CSRC.mode!=="innate")return `<b>${esc(cap(mode))}</b>`;
+  if(CSRC.uses==="pool"){
+    const n=CSRC.pool==null||CSRC.pool===""?null:CSRC.pool;
+    // Unset is only a PROBLEM once there are spells to spend on — flagging a form you have
+    // not filled yet is noise, so an untouched source states it quietly.
+    if(n==null)return `<b>${esc(cap(mode))}</b> · a shared pool, `
+      +((CSRC.spells||[]).length?`<i class="rl-todo">charges not set yet</i>`:`<i>charges not set yet</i>`);
+    return `<b>${esc(cap(mode))}</b> · a shared pool of <b>${esc(String(n))}</b> charge${+n===1?"":"s"}`
+      +(CSRC.recharge?`, regains <b>${esc(CSRC.recharge)}</b>`:"");}
+  return `<b>${esc(cap(mode))}</b> · per-spell uses`;
+}
+const cap=s=>String(s||"").charAt(0).toUpperCase()+String(s||"").slice(1);
+function csrcSyncRule(){
+  const t=$("#csrcRuleTxt"); if(t)t.innerHTML=csrcRuleText();
+  const box=$("#csrcRules"),btn=$("#csrcRuleEdit");
+  if(box)box.classList.toggle("hidden",!CSRC_OPEN.rules);
+  if(btn){btn.textContent=CSRC_OPEN.rules?"Done":"Change";
+    btn.classList.toggle("on",CSRC_OPEN.rules);
+    btn.setAttribute("aria-expanded",String(CSRC_OPEN.rules));}
+}
+// The label carries the STATE — "set — DC 15, +7, Intelligence" — so a folded section can
+// never hide something you changed. Blank stays blank and says "uses mine".
+function csrcSyncNums(){
+  const dc=$("#csrcDC").value.trim(),atk=$("#csrcAtk").value.trim(),ab=$("#csrcAbility").value;
+  const bits=[]; if(dc)bits.push("DC "+dc); if(atk)bits.push(atk); if(ab)bits.push(ABIL[ab]||ab);
+  const sub=$("#csrcNumsSub");
+  if(sub)sub.textContent=bits.length?"set — "+bits.join(", "):"uses mine";
+  const wrap=$("#csrcNumsWrap"); if(wrap)wrap.classList.toggle("hasval",!!bits.length);
+  const box=$("#csrcNums"),btn=$("#csrcNumsBtn");
+  if(box)box.classList.toggle("hidden",!CSRC_OPEN.nums);
+  if(btn)btn.setAttribute("aria-expanded",String(CSRC_OPEN.nums));
+}
+// C's contribution: reflect the whole thing back as a sentence. The model is subtle enough
+// to build something you didn't mean — a pool with no charges, a source with no spells — and
+// nothing else in the modal ever says what you actually made.
+function csrcSummary(){
+  const typed=($("#csrcName").value||"").trim();
+  const name=typed||"This source";
+  const named=(CSRC.spells||[]).map(e=>{const sp=SPELL_BY[e.key];return sp?sp.name:e.key.split("|")[0];});
+  // mid-sentence, so the nameless fallback has to be lowercase — "and This source will…" is
+  // the kind of thing a capitalised constant does to a sentence it was never written for
+  if(!named.length)return `<i>Add a spell and ${typed?esc(typed):"this source"} will describe itself here.</i>`;
+  const list=named.length<=3?named.map(esc).join(named.length===2?" or ":", ").replace(/, ([^,]*)$/," or $1")
+    :`${esc(named[0])}, ${esc(named[1])} and ${named.length-2} more`;
+  let how;
+  if(CSRC.mode==="always")how=`have ${list} always prepared`;
+  else if(CSRC.mode==="list")how=`add ${list} to your spell list — you prepare them normally`;
+  else if(CSRC.uses==="pool"){
+    const n=CSRC.pool==null||CSRC.pool===""?null:CSRC.pool;
+    how=`cast ${list} without preparing, spending from `
+      +(n==null?`<b class="warnish">a pool with no charges set</b>`:`<b>${esc(String(n))} charge${+n===1?"":"s"}</b>`)
+      +(CSRC.recharge?` (regains ${esc(CSRC.recharge)})`:"");}
+  else {
+    // In per-spell mode the CADENCE is the whole point, so name it while the list is short
+    // enough to read; "each on its own uses" describes the shape but not what you built.
+    const cad=(CSRC.spells||[]).map(e=>{const sp=SPELL_BY[e.key];
+      return `${esc(sp?sp.name:e.key.split("|")[0])} <b>${esc(csrcCadence(e))}</b>`;});
+    how=named.length<=3?`cast ${cad.join(named.length===2?" and ":", ").replace(/, ([^,]*)$/," and $1")}`
+                        +` without preparing`
+                      :`cast ${list} without preparing, each on its own uses`;}
+  const dc=$("#csrcDC").value.trim(),atk=$("#csrcAtk").value.trim(),ab=$("#csrcAbility").value;
+  const num=[]; if(dc)num.push(`saves are <b>DC ${esc(dc)}</b>`);
+  if(atk)num.push(`attacks <b>${esc(atk)}</b>`);
+  if(ab)num.push(`it casts with <b>${esc(ABIL[ab]||ab)}</b>`);
+  return `<b>${esc(name)}</b> — ${how}.`+(num.length?" "+cap(num.join(", "))+".":"");
+}
+function csrcSyncSummary(){const b=$("#csrcSummary"); if(!b)return;
+  b.innerHTML=csrcSummary();
+  // an empty source has nothing to reflect back, so the accent frame would be pointing at a
+  // placeholder — it earns its colour only once there is something to describe
+  b.classList.toggle("empty",!(CSRC.spells||[]).length);}
 // a one-of chip row (the cbrow pattern, but single-select)
 function buildToggleRowSingle(box,pairs,cur,cb){
   box.innerHTML="";
@@ -1479,12 +1560,18 @@ function buildToggleRowSingle(box,pairs,cur,cb){
     b.onclick=()=>{[...box.children].forEach(x=>x.classList.remove("on"));b.classList.add("on");cb(v);};
     box.append(b);});
 }
+// D94: a row carries ONE control inline — the one this mode actually spends — and folds the
+// rare per-spell bit (cast at a fixed level) behind its own caret. The old row showed the
+// level dropdown on every spell, always, though almost nothing uses it.
 function renderCsrcRows(){
   const box=$("#csrcRows"); box.innerHTML="";
   const pool=CSRC.mode==="innate"&&CSRC.uses==="pool";
   const per =CSRC.mode==="innate"&&CSRC.uses!=="pool";
+  if(!CSRC.spells.length){
+    box.append(el("div","csempty","No spells yet — search below to add one."));return;}
   CSRC.spells.forEach((e,i)=>{
     const sp=SPELL_BY[e.key];
+    const wrap=el("div","csrowwrap");
     const row=el("div","csrow");
     const nm=el("span","csnm",sp?sp.name:e.key.split("|")[0]);
     if(sp)attachSpell(nm,sp);
@@ -1492,7 +1579,7 @@ function renderCsrcRows(){
     if(pool){
       const c=el("input");c.type="number";c.min=1;c.max=99;c.value=e.cost||1;c.className="csn2";
       c.title="Charges this spell costs";
-      c.oninput=()=>{e.cost=Math.max(1,+c.value||1);};
+      c.oninput=()=>{e.cost=Math.max(1,+c.value||1);csrcSyncSummary();};
       row.append(el("span","cslbl","costs"));row.append(c);}
     if(per){
       const n=el("input");n.type="number";n.min=1;n.max=99;n.value=e.count||1;n.className="csn2";
@@ -1501,15 +1588,33 @@ function renderCsrcRows(){
       u.onchange=()=>{e.unit=u.value;n.disabled=u.value==="will";};
       n.disabled=(e.unit||"lr")==="will";
       row.append(n);row.append(u);}
-    // "casts fireball as a 5th-level spell" — blank means the spell's own level
-    if(sp&&sp.level>0){
+    // "casts fireball as a 5th-level spell" — blank means the spell's own level. Rare, so it
+    // lives behind the caret; a row that HAS one says so, or folding it would hide a setting.
+    const canLevel=sp&&sp.level>0;
+    if(canLevel){
+      const open=CSRC_ROW_OPEN.has(e.key);
+      if(e.level&&!open)row.append(el("span","cslvtag","at "+ROMAN[e.level]));
+      const car=el("button","pk-caret csrowcar");car.type="button";
+      car.setAttribute("aria-label","Per-spell options");
+      car.setAttribute("aria-expanded",String(open));
+      car.classList.toggle("up",open);
+      car.onclick=ev=>{ev.stopPropagation();
+        if(open)CSRC_ROW_OPEN.delete(e.key);else CSRC_ROW_OPEN.add(e.key);
+        renderCsrcRows();};
+      row.append(car);}
+    row.append(xBtn(null,()=>{CSRC.spells.splice(i,1);CSRC_ROW_OPEN.delete(e.key);
+      renderCsrcRows();csrcSyncSummary();}));
+    wrap.append(row);
+    if(canLevel&&CSRC_ROW_OPEN.has(e.key)){
+      const sub=el("div","csrowsub");
+      sub.append(el("span","cslbl","Cast at"));
       const lv=el("select");lv.className="cslv";lv.append(new Option("as written",""));
-      for(let L=sp.level;L<=9;L++)lv.append(new Option("at "+ROMAN[L],String(L)));
+      for(let L=sp.level;L<=9;L++)lv.append(new Option(ROMAN[L]+" level",String(L)));
       lv.value=e.level?String(e.level):"";
       lv.onchange=()=>{e.level=lv.value?+lv.value:null;};
-      row.append(lv);}
-    row.append(xBtn(null,()=>{CSRC.spells.splice(i,1);renderCsrcRows();}));
-    box.append(row);});
+      sub.append(lv);
+      wrap.append(sub);}
+    box.append(wrap);});
 }
 function renderCsrcHits(){
   const box=$("#csrcHits"); box.innerHTML="";
@@ -1522,8 +1627,8 @@ function renderCsrcHits(){
       r.append(el("span",null,sp.name));
       r.append(el("span","cshl",(sp.level===0?"cantrip":"level "+sp.level)+" · "+sp.school));
       if(sp.source!==CORE)r.append(bookChip(sp.source,sp.page));
-      r.onclick=()=>{CSRC.spells.push({key:key(sp.name,sp.source),count:1,unit:"lr"});
-        $("#csrcSearch").value="";box.innerHTML="";renderCsrcRows();};
+      r.onclick=()=>{CSRC.spells.push({key:key(sp.name,sp.source),count:1,cost:1,unit:"lr"});
+        $("#csrcSearch").value="";box.innerHTML="";renderCsrcRows();csrcSyncSummary();};
       box.append(r);});
 }
 function saveCsrc(){
@@ -4138,6 +4243,19 @@ $("#csrcSave").onclick=saveCsrc;
 $("#csrcSearch").oninput=()=>renderCsrcHits();
 ["csrcPool","csrcRecharge","csrcDC","csrcAtk"].forEach(id=>{const n=$("#"+id);
   if(n)n.onkeydown=e=>{if(e.key==="Enter")$("#csrcSave").click();};});
+// D94: the rule line and the summary must never lag the fields they describe — a folded
+// section that reports stale state is worse than one left open.
+$("#csrcRuleEdit").onclick=()=>{CSRC_OPEN.rules=!CSRC_OPEN.rules;csrcSyncRule();};
+$("#csrcNumsBtn").onclick=()=>{CSRC_OPEN.nums=!CSRC_OPEN.nums;csrcSyncNums();};
+["csrcPool","csrcRecharge"].forEach(id=>{const n=$("#"+id);
+  if(n)n.addEventListener("input",()=>{
+    CSRC.pool=$("#csrcPool").value?Math.max(0,+$("#csrcPool").value||0):null;
+    CSRC.recharge=$("#csrcRecharge").value.trim();
+    csrcSyncRule();csrcSyncSummary();});});
+["csrcDC","csrcAtk"].forEach(id=>{const n=$("#"+id);
+  if(n)n.addEventListener("input",()=>{csrcSyncNums();csrcSyncSummary();});});
+$("#csrcAbility").addEventListener("change",()=>{csrcSyncNums();csrcSyncSummary();});
+$("#csrcName").addEventListener("input",csrcSyncSummary);
 armConfirm($("#csrcDelete"),"Delete source",()=>{
   state.customSources=(state.customSources||[]).filter(x=>x.id!==CSRC.id);
   $("#csrcModal").classList.add("hidden");

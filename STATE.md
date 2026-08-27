@@ -23,10 +23,11 @@
   of the spell-**pick** modal (D89), and **eight backlog items closed**. Extractor parity is
   **byte-exact** — grants diff to 0 across all five arrays with 0 one-sided records
   (`node scratchpad/cparity.js`, 24/24).
-- **Next action:** **custom sources — a dedicated back-and-forth design session.** Francesco's
-  call from note batch 4, now deferred six times, and with T7 done it is the ONLY thing queued.
-  The D55/D65 *model* is right; its UI is not. **Done when:** the surface is interviewed end to
-  end and the redesign is a decision entry with a task line behind it.
+- **Next action:** **nothing is queued.** v7 is complete and the custom-sources redesign (D94) —
+  the last standing item — shipped. What is left is the open backlog below, none of it urgent:
+  the biggest are ability-score tracking (which would close the "prerequisites we can't check"
+  flag), magic-item ingestion to prefill a custom source, and detecting a real long-rest spell
+  swap. Pick one, or bring something new.
 - **Manual for Francesco:** ⓪ **Re-import again after D91** — any zip import made before it stored
   spells with **no class access at all** (`spells/sources.json` clobbered the real lookup). If your
   imported spells match no class, that is why; re-importing fixes it. ① **Re-import your 5etools
@@ -422,6 +423,28 @@ stays out. Server sync or accounts. Sharing a build as a rendered page, or via a
   card, the D76 weighting explanation on a popover on the meter that states it. *Rejected:* one
   rule for every note (Francesco: "depends on the instance"); tightening the prose in place with no
   popovers (the removal warning has to stay long, and had nowhere to go).
+- **D94 (2026-08-27) The custom-source editor is PROGRESSIVE — the name and the spells are the
+  surface, everything else folds, and the foot says what you built** — the long-deferred design
+  session, settled against three mockups rendered in the app's own stylesheet
+  (`scratchpad/csrc-mockups.html`). The old modal stacked **five equally-loud fieldsets**, so
+  "Its own numbers" — three fields you almost never fill, permanently on screen to announce
+  *blank = use mine* — carried the same weight as the spell list, and two toggle rows (five chips)
+  stood between you and the content. Now: name + kind, then **one rule line** stating what the
+  source is (*"Cast without preparing · a shared pool of 10 charges, regains 1d6+4 at dawn"*) with
+  a **Change** button opening the toggles; then the spells; then **Its own numbers folded**, its
+  label carrying the state (*"set — DC 15, +7, Intelligence"*, in accent when set, "uses mine"
+  when not) so a fold can never hide something you changed. A spell row keeps only the control its
+  mode actually spends and folds the rare fixed-cast-level behind a per-row caret — a row that HAS
+  one shows an `at 5th` tag, for the same reason. **From C (Francesco: "also C is decent"): a live
+  summary sentence** at the foot — *"Staff of Fire — cast Burning Hands or Fireball without
+  preparing, spending from 10 charges (regains 1d6+4 at dawn). Saves are DC 15…"* — because the
+  model is subtle enough to build something you didn't mean and nothing else ever said what you
+  made. It stays quiet (dashed, no accent) until there is something to describe. **Scope: the
+  modal only** — the Character card's chips are unchanged. The MODEL (D55/D65) is untouched;
+  `customSourceGrants` and every downstream path still resolve exactly as before.
+  *Rejected:* B, the whole form as an editable sentence (most distinctive, hardest to keep tidy as
+  the model grows); C's two-pane layout and its always-visible toggles (that density is what made
+  this a mess); reworking the card's chips or the casting surfaces (not what was complained about).
 - **D93 (2026-08-27) Imported content lives in IndexedDB; only the LOAD and the SAVE are async**
   — the digest was the one thing in localStorage large enough to matter (a full 5etools export is
   ~2.3 MB before a single brew), which made D92's folder scan a way to *choose* books the app
@@ -649,9 +672,9 @@ written up in full under Gotchas below — that is the copy to trust.
   plan is the equivalent, and it refuses to leave you with nothing.
 - [x] ~~Wizard prepare-daily: separate **prepared subset** from the spellbook/known list~~
   **CLOSED 2026-08-26 → D62** — `chosen[idx].prep` is the daily subset, drawn from the book.
-- [ ] **Custom sources UI redesign** — Francesco: "still a UI mess, let's do a dedicated back and
-  forth design session". The MODEL (D55/D65) stands; this is the surface. It is the **next
-  action**, ahead of T7.
+- [x] ~~**Custom sources UI redesign**~~ **CLOSED 2026-08-27 → D94** — direction A (progressive)
+  plus C's live summary sentence, modal only. The model (D55/D65) was never the problem and is
+  untouched.
 - [ ] **Polymorph / Shapechange / True Polymorph as creature sets** — Francesco: "technically a
   spell with multiple stat block options, but perhaps it would require full monster catalogue".
   Correct: their filters are open-ended (any Beast of CR ≤ your level, any creature of CR ≤ …),
@@ -858,6 +881,12 @@ written up in full under Gotchas below — that is the copy to trust.
   a preview. `state.levelOrder` normalizes through `classLevelPlan()`; never trust it raw.
 - **Custom sources (D55)** synthesize a grants object (`customSourceGrants`) and ride
   `resolveGrants` with tok `x<id>` — they must never grow their own downstream path.
+- **A folded section must carry its own state on its label (D94).** The custom-source editor
+  folds "how it works", "its own numbers" and each row's fixed cast level. Every one of them
+  reports what it is holding while closed — the rule line spells the mode out, the numbers label
+  reads "set — DC 15, +7, Intelligence" in accent, a row with a fixed level shows an `at 5th`
+  tag. A disclosure that hides a value you set is a trap, not a simplification. Both disclosures
+  and every row caret reset to CLOSED on each `openCsrc` (verified over 12 dirty-state reopens).
 - **Homebrew import**: books come from `_meta.sources` (group "brew"), spell access from the
   spell's INLINE `classes` field. Both only ADD to what the generated lookup knows.
   ~~An import replaces the previous one — stage core + brews together.~~ **Void since D86:** an
