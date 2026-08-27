@@ -681,6 +681,52 @@ written up in full in `GOTCHAS.md` — that is the copy to trust.
   *Rejected:* a hand-authored table in app.js (it would cover what I happened to write down, and
   the extractors are where content gaps are filled — PROSE_GRANTS and CAST_MODS set the pattern).
 
+- **D110 (2026-08-27)** **The Library: one surface, two panes.** The import modal and the Sources
+  modal merge into one **Library** modal with a tab bar — **Sources** (the everyday on/off list)
+  and **Manage** (import, refresh, remove: the rare and destructive work). One toolbar **Library**
+  button replaces both the Sources button and the ⋯ Import entry; onboarding opens straight to
+  Manage. The split keeps a free visibility toggle from sitting next to a storage-destroying
+  untick. (AskUserQuestion, 6 rounds + mockups.) *Rejected:* a full one-list merge (both states on
+  one row is a trap without heavy row design); two sharpened modals (the two-door confusion only
+  shrinks); stacked sections (recreates today's long scroll, Apply below the fold); drill-in
+  (cleanest Sources but hides Manage, and Refresh must stay discoverable).
+- **D111 (2026-08-27)** **Refresh imported data = one click, then report.** Re-reads the
+  remembered folder (or asks for input when there is none), re-parses with the **current**
+  extractor, re-imports exactly the books already kept, and reports a summary plus a parser
+  version stamp — the stamp answers "did the new parser actually run". Sits in the Manage
+  **bottom row** next to Apply, with the last-import stamp beside it (detail in a popover), plus
+  a ⋯-menu shortcut — it is the standing after-update chore. *Rejected:* review-before-apply (an
+  extra step on an action that only replaces same-key records); silent auto-refresh on version
+  change (permission re-grant needs a user gesture, and a background re-parse is a surprise);
+  a record-level diff in the report (a deep compare pass for a line that reads as noise).
+- **D112 (2026-08-27)** **Manage pane: one drop zone, one book list, parse on arrival.** The drop
+  zone takes a **.zip, JSON files, or a whole dragged folder** (dropped directories walk via
+  `getAsFileSystemHandle`, falling back to `webkitGetAsEntry`; a Chrome-dropped folder yields the
+  same rememberable handle as the picker). The *click* path stays two verbs — "browse files… ·
+  choose folder…" — because the native dialogs differ. Raw note: *"Can a single button work with
+  both? Either accepts a zip or a folder, depending on what I give. Otherwise, a compact
+  chooser."* Paste-JSON folds behind a disclosure. Files **parse on arrival** — the "Read staged
+  files" click is gone; chips remain for removing a bad file, nothing stored until Apply. The
+  folder-scan picker and "Your books" merge into **one three-state list** — kept (ticked) · new
+  (ticked, badged) · available in the scanned folder (unticked, dim) — and one Apply reconciles
+  all of it. A storage total line (`navigator.storage.estimate()`) sits in the footer. Onboarding
+  is the Manage tab plus a welcome banner; the Sources tab hides until content exists.
+  *Rejected:* folder-first or zip-first hierarchy (superseded by the universal zone); keeping
+  pick-then-plan (a third list); the explicit read step; a dedicated welcome screen (a second
+  surface that drifts); no storage info.
+- **D113 (2026-08-27)** **Sources pane: edition-first groups, actions behind the search bar.**
+  Groups become **2024 core · 2014 core · Supplements · Settings & adventures · Homebrew & UA ·
+  Other** — the "(alternate)" jargon folds into its parents, and the 2024/2014 split is an
+  **app-side display remap** of the 2024 codes (XPHB/XDMG/XMM), not an extractor change, so
+  already-imported digests regroup without a re-import. The pane gains the **search field** the
+  other book lists have; **Enable all / Disable all move into a compact menu inline right of the
+  search**; the "2024 core only" button is gone — it is a group header's all-tick now. Bestiary-
+  only books (XMM, MM…) stay **invisible** in every book list: stat blocks follow the spells that
+  reference them (D86) and the carousel builds its own book filter (D107). *Rejected:* making
+  bestiary books first-class registry entries (the D107 trap in reverse — both extractors, the
+  carousel filter and the gotcha would all rework for display value); merging alternates only;
+  a flat searched list (loses the shelf feel); extra edition preset buttons.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

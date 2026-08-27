@@ -4479,10 +4479,19 @@ function wireHelpNotes(){
 }
 
 // ── sources modal ────────────────────────────────────────────────────────
-const GROUP_ORDER=["core","supplement","supplement-alt","setting","setting-alt","brew","other"];
-const GROUP_NAME={core:"Core",supplement:"Supplements","supplement-alt":"Supplements (alternate)",
-  setting:"Settings & adventures","setting-alt":"Settings (alternate)",
-  brew:"Homebrew & UA",other:"Other"};
+// D113: edition-first display groups. The digest still stores 5etools' taxonomy (core /
+// supplement / supplement-alt / setting / setting-alt / brew / other); the remap below is
+// display-only, so already-imported digests regroup without a re-import.
+const GROUP_ORDER=["core24","core14","supplement","setting","brew","other"];
+const GROUP_NAME={core24:"2024 core",core14:"2014 core",supplement:"Supplements",
+  setting:"Settings & adventures",brew:"Homebrew & UA",other:"Other"};
+function srcGroupOf(code,s){
+  const g=(s&&s.group)||"other";
+  if(g==="core")return CORE_2024.includes(code)?"core24":"core14";
+  if(g==="supplement-alt")return "supplement";
+  if(g==="setting-alt")return "setting";
+  return GROUP_NAME[g]?g:g;   // an unknown group keeps its own shelf rather than vanishing
+}
 // ── shared grouped source checklist (D27) ──────────────────────────────────
 // One component for every place books are chosen: the global ⚙ Sources modal and each
 // picker's local override. `sel` is a Set the caller owns; `onChange` runs after any
@@ -4496,7 +4505,9 @@ function renderSourceChecklist(wrap,sel,onChange,codes,countOf,srcMap,opts){
   const gname=opts.groupName||GROUP_NAME;
   wrap.innerHTML="";
   const all=Object.entries(srcMap||DATA.sources).filter(([code])=>!codes||codes.has(code));
-  const byGroup={};all.forEach(([code,s])=>{(byGroup[s.group||"other"]=byGroup[s.group||"other"]||[]).push([code,s]);});
+  // opts.rawGroups keeps a caller's own group strings; everyone else gets the D113 remap
+  const gof=opts.rawGroups?((c,s)=>s.group||"other"):srcGroupOf;
+  const byGroup={};all.forEach(([code,s])=>{const g=gof(code,s);(byGroup[g]=byGroup[g]||[]).push([code,s]);});
   const groups=Object.keys(byGroup).sort(opts.groupSort||((a,b)=>{const ia=GROUP_ORDER.indexOf(a),ib=GROUP_ORDER.indexOf(b);return (ia<0?9:ia)-(ib<0?9:ib);}));
   groups.forEach(g=>{const gd=el("div","srcgroup");
     const gcodes=byGroup[g].map(x=>x[0]);
@@ -4507,7 +4518,7 @@ function renderSourceChecklist(wrap,sel,onChange,codes,countOf,srcMap,opts){
     allLab.append(el("span",null,allOn?"all":someOn?"some":"none"));allLab.append(allCb);h4.append(allLab);gd.append(h4);
     const list=el("div","srclist");
     byGroup[g].sort(opts.sortRows||((a,b)=>(((b[1].counts||{}).spells)||0)-(((a[1].counts||{}).spells)||0))).forEach(([code,s])=>{
-      const lab=el("label");const cb=el("input");cb.type="checkbox";cb.checked=sel.has(code);
+      const lab=el("label",opts.rowClass?opts.rowClass(code):null);const cb=el("input");cb.type="checkbox";cb.checked=sel.has(code);
       cb.onchange=()=>{cb.checked?sel.add(code):sel.delete(code);onChange();};
       lab.append(cb);lab.append(el("span",null,s.name));
       lab.append(el("small",null,countOf?countOf(code):`${s.counts.spells}sp`));list.append(lab);});
