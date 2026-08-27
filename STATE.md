@@ -3,7 +3,7 @@
 > Resume doc. One current-state block, edited in place.
 > History → git log. Consumed phases and decision rationale → `ARCHIVE.md`.
 
-## TL;DR (2026-08-27 · code at 3003784, pushed · v7: T1–T5 done, T7 left · **LIVE on GitHub Pages**)
+## TL;DR (2026-08-27 · code at 44d58ad, pushed · v7: T1–T5 done, T7 left · **LIVE on GitHub Pages**)
 - **State:** working, committed, **pushed**. **v7 is T1–T5 done — only T7 remains.** Seven note
   batches have landed on top of the tasks (**D43–D81**); their per-batch detail is in `Shipped`
   and `ARCHIVE.md#v7-batches`, not here. The last three, in brief: **batch 5** fixed the `x/0`
@@ -12,7 +12,10 @@
   introduced **creature sets + the stat block carousel**; **batch 7** closed two gaps in 5etools'
   own model — **prose-only grants** (Mystic Arcanum had `additionalSpells: null`, so the Warlock
   never got its arcana) and **grant modification notes** ("you can cast it without expending a
-  spell slot"). Verified in-browser at 375px and desktop each time; extractor parity checked in
+  spell slot"). **Batch 8 was a bug hunt, not a note batch:** the importer had been silently
+  corrupting every zip import — `zipWanted()` excluded `foundry-*.json` but not the
+  per-directory `foundry.json` files, whose stubs then overwrote real records (D82). Then three
+  carousel fixes. Verified in-browser at 375px and desktop each time; extractor parity checked in
   Node (`scratchpad/cparity.js`, `scratchpad/gparity.js` — both clean apart from a documented
   pre-existing `RHW` walker-scope diff).
 - **Next action:** **custom sources — a dedicated back-and-forth design session.** Francesco's
@@ -21,20 +24,20 @@
   decision entry with a task line behind it. Then **v7 · T7 (storage-pressure reporting)** — no
   count cap (D37); catch the quota failure on write and name the real cause. **Done when:** a
   failed save says what is using the space, not "something went wrong". *(Last task in v7.)*
-- **Manual for Francesco:** ⓪ **Re-import your 5etools data** — this is the one that bites.
-  Creature sets (D78) and the new prose grants / modification notes (D79) are produced by the
-  extractors, so an import made before them carries none of it. `assembleData` keeps the BAKED
-  monster map underneath an old import, but **per-spell `creatures` and grant notes cannot be
-  back-filled**. ① **Check the live site** — the push is out; Pages rebuilds `main:/docs`.
-  ② **Turn XMM on in Sources** if you want Find Familiar's 24 Monster Manual 2024 forms in the
-  default view — they were never missing, XMM is off (the carousel's book panel now says so).
+- **Manual for Francesco:** ⓪ **Re-import your 5etools data** — done once this session, but do
+  it again on any machine/browser that imported before **b3a734c**: every import made before that
+  commit has Foundry stubs baked into it (D82), on top of missing creature sets (D78) and grant
+  notes (D79). None of it back-fills. ① **Check the live site** — the push is out; Pages rebuilds
+  `main:/docs`. ② **Turn XMM on in Sources** if you want Find Familiar's 24 Monster Manual 2024
+  forms in the default view — they were never missing, XMM is off (the carousel's book panel now
+  says so, and lets you tick it locally).
   ③ Optional — ask GitHub Support to gc so the *old* unreachable commits (SHA 2c8bbb6 etc., held
   only in `backup/pre-purge-20260826` locally) stop being SHA-addressable. ④ To update the live
   site: `python3 extract.py` (if data changed) → `python3 build.py` → commit → push.
   ⑤ `dist/`, `data/`, `data-srd.json` are gitignored (local only); public SRD data is inlined in
   committed `docs/`. ⑥ **Open question:** the spell-**pick** modal's rows still show the printed
   book, which D39 removed from the eligible list. Say if it should follow.
-- **⚠ STATE is 830+ lines.** Seven batches of decisions have accumulated; `/resume` pays for all
+- **⚠ STATE is 850+ lines.** Seven batches of decisions have accumulated; `/resume` pays for all
   of it on every cold read. **Recommend running `/clean`** before the next substantive session —
   D43–D69 are settled and their rationale belongs in `ARCHIVE.md`.
 
@@ -509,6 +512,18 @@ stays out. Server sync or accounts. Sharing a build as a rendered page, or via a
   *Rejected:* filtering only by `migrationVersion` (the name test also saves parsing three large
   files); detecting the corruption at boot and warning (machinery for a one-off).
 
+- **D83 (2026-08-27) One book checklist, everywhere** — the carousel's book filter was
+  hand-rolled markup; it is now the shared grouped checklist (D27) with its group headers and
+  all/some/none toggles, seeded from the global Sources list but **local** — ticking there never
+  writes back. `renderSourceChecklist()` gained an optional per-source count label so it can
+  count *forms* instead of spells; every existing caller keeps the `Nsp` default. Two fixes fell
+  out that affect **every** checklist, not just this one: `GROUP_NAME`/`GROUP_ORDER` never
+  covered 5etools' `supplement-alt` / `setting-alt` groups, so ten books (the Plane Shift
+  crossovers among them) rendered as a raw key and sorted last. Also **the carousel's controls
+  are pinned**: the nav's viewport position is held across a repaint and the height difference
+  handed to the scroller, so a taller or shorter creature is absorbed above the controls rather
+  than shoving them under the cursor. The head stopped counting forms — `3 / 8` already does.
+
 ### Settled — recorded so they aren't re-proposed
 Headline + rejected options only; reasoning → `ARCHIVE.md#rationale`.
 - **D7** Source counts in chips — per-source `n/cap` on take chips, red over forecast.
@@ -760,6 +775,13 @@ Headline + rejected options only; reasoning → `ARCHIVE.md#rationale`.
 - **`attachTip()` must be called AFTER an element's own `onclick`** — it used to overwrite the
   handler outright, which silently disabled the preview's "order…" button. It now preserves an
   existing handler; `detachTip()` clears a reused node's stale tip.
+- **An empty stored import must not beat the baked data.** `assembleData` took `IMPORTED||BAKED`,
+  so a digest that stored but held nothing left `DATA` empty and popped the welcome importer over
+  a build that had been working. Content beats presence now.
+- **A list whose height changes under a fixed control must pin that control.** The creature
+  carousel holds `nav.getBoundingClientRect().top` across the repaint and adds the delta to the
+  modal's scroller. Any in-place swap under a control needs the same, or the control moves out
+  from under the cursor.
 - **A `<button>` may not contain a `<button>` — the parser HOISTS the inner one out.** This has
   now bitten twice: the build-switcher row (caught while building it) and the stat block head,
   where nesting the book icon inside the head button threw the icon AND the chevron out of the
@@ -841,6 +863,10 @@ Headline + rejected options only; reasoning → `ARCHIVE.md#rationale`.
 - v7 note batch 7 (2026-08-27) — prose-only grants and grant modification notes (D79), the
   Magical Secrets picker (D80), the carousel's book panel and bottom controls (D81), plus a
   two-pass audit of every XPHB class and subclass for missing spell sources. **D79–D81.**
+- v7 batch 8 (2026-08-27) — **the importer bug**: per-directory `foundry.json` stubs had been
+  overwriting real records in every zip import (D82); the stat block head rebuilt as sibling
+  buttons after the nested-`<button>` hoist; the carousel's shared book checklist, pinned
+  controls and the `-alt` source group names (D83); an empty import can no longer blank the app;
+  `serve.py` reads `PORT`. **D82–D83.**
 
-⟳ Rename previous session → "Note batches 4–7: icons, level cards, creature sets, Warlock grants" · session: resolve by cwd + latest
-  (The 2026-08-26 note naming "Level preview, custom sources, build export" was never applied — no session in this cwd matched it confidently. Dropped rather than carried a third time.)
+⟳ Rename previous session → "Warlock grants, foundry.json import bug, creature carousel" · session: resolve by cwd + latest
