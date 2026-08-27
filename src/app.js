@@ -3849,6 +3849,47 @@ function spellCreatures(sp){
   const out=sp.statblock?[{...sp.statblock,_ck:"@self"}]:[];
   (sp.creatures||[]).forEach(k=>{const m=(DATA.monsters||{})[k]; if(m)out.push({...m,_ck:k});});
   return out;}
+// ── forms a FEATURE adds to a spell (D109) ─────────────────────────────────
+// Pact of the Chain's Imp is not Find Familiar's form — it is YOURS, and only while you
+// have the feature. The extractors emit `forms` on the feat / optional feature; the build
+// decides which of them are live.
+function activeFormGrants(sp){
+  if(!sp)return [];
+  const want=key(sp.name,sp.source).toLowerCase(), out=[];
+  const take=(rec)=>((rec&&rec.forms)||[]).forEach(g=>{
+    if(String(g.spell||"").toLowerCase()!==want)return;
+    out.push({giver:rec.name,mode:g.mode||"add",creatures:g.creatures||[]});});
+  (state.feats||[]).forEach(fk=>take(FEAT_BY[fk]));
+  (state.optFeats||[]).forEach(ok=>take(OPT_BY[ok]));
+  return out;
+}
+// A 2014 ref carries no book, so it resolves to every book that prints that creature —
+// but a familiar list should offer Imp once. Prefer a copy from a book you have on, then
+// the newest edition of it.
+function pickFormKey(keys){
+  const on=keys.filter(k=>srcOn(k.split("|")[1]));
+  return (on.length?on:keys).slice()
+    .sort((a,b)=>srcRank(b.split("|")[1])-srcRank(a.split("|")[1]))[0];
+}
+function grantedCreatures(sp){
+  const out=[],seen=new Set();
+  activeFormGrants(sp).forEach(g=>{
+    const byName=new Map();
+    g.creatures.forEach(k=>{const n=k.split("|")[0].toLowerCase();
+      if(!byName.has(n))byName.set(n,[]); byName.get(n).push(k);});
+    byName.forEach(keys=>{const k=pickFormKey(keys), m=k&&(DATA.monsters||{})[k];
+      if(m&&!seen.has(k)){seen.add(k);out.push({...m,_ck:k,_from:g.giver});}});});
+  return out;
+}
+// what this BUILD may summon: the forms your features add, then the spell's own set. A
+// grant marked `only` replaces the list rather than widening it.
+function buildCreatures(sp){
+  const granted=grantedCreatures(sp);
+  if(!granted.length)return spellCreatures(sp);
+  if(activeFormGrants(sp).some(g=>g.mode==="only"))return granted;
+  const have=new Set(granted.map(c=>c._ck));
+  return granted.concat(spellCreatures(sp).filter(c=>!have.has(c._ck)));
+}
 // Which forms this character actually uses. Find Familiar carries 65 of them and nobody
 // prints 65 stat blocks; marking the two you take turns the appendix into a usable sheet.
 // It lives in the BUILD — a chosen familiar belongs to a character and travels with an
@@ -3862,14 +3903,16 @@ function toggleFav(sp,ck){
   if(cur.size)state.sbFav[k]=[...cur]; else delete state.sbFav[k];
   save();
 }
-// favourites first, original order within each half
+// favourites first, then the forms a feature granted, then the rest — original order
+// within each band. A form your build adds is the one you came here to look at.
 function orderedCreatures(sp,list){
   const f=new Set(favsFor(sp));
-  return [...list].sort((a,b)=>(f.has(b._ck)?1:0)-(f.has(a._ck)?1:0));
+  const rank=c=>f.has(c._ck)?0:c._from?1:2;
+  return [...list].map((c,i)=>[c,i]).sort((a,b)=>rank(a[0])-rank(b[0])||a[1]-b[1]).map(x=>x[0]);
 }
 // what a printed card shows: the marked forms, or the only form when there is just one
 function printCreatures(sp){
-  const all=spellCreatures(sp); if(!all.length)return [];
+  const all=buildCreatures(sp); if(!all.length)return [];
   const f=new Set(favsFor(sp));
   const picked=all.filter(c=>f.has(c._ck));
   return picked.length?picked:(all.length===1?all:[]);
@@ -3910,7 +3953,7 @@ function sbBodyHTML(b){
     +secs;
 }
 function statblockHTML(sp){
-  const all=spellCreatures(sp); if(!all.length)return "";
+  const all=orderedCreatures(sp,buildCreatures(sp)); if(!all.length)return "";
   const b=all[0];
   // only the FIRST frame is built as markup; stepping repaints the body in place, which
   // keeps the modal cheap when a spell reaches 65 forms
@@ -3993,7 +4036,7 @@ function openSpellModal(sp){hideTip();SPMODAL.innerHTML=modalHTML(sp);
 function wireCreatureNav(sp){
   const wrap=SPMODAL.querySelector(".sblock"); if(!wrap)return;
   const nav=wrap.querySelector(".sb-nav"); if(!nav)return;
-  const all=spellCreatures(sp);
+  const all=buildCreatures(sp);
   const panel=wrap.querySelector(".sb-bookpanel");
   const srcs=[...new Set(all.map(x=>x.source).filter(Boolean))].sort();
   // A creature's book is very often one the digest has no record of: `DATA.sources` is
@@ -4008,7 +4051,7 @@ function wireCreatureNav(sp){
   // unknown, and unknown must never read as excluded (D31). Known books still follow it.
   const bookSel=panel?new Set(srcs.filter(c=>DATA.sources[c]?srcOn(c):true)):null;
   const shown=()=>{ if(!bookSel)return orderedCreatures(sp,all);
-    const list=all.filter(x=>bookSel.has(x.source));
+    const list=all.filter(x=>x._from||bookSel.has(x.source));
     return orderedCreatures(sp,list.length?list:all); };
   const favBtn=wrap.querySelector(".sb-fav");
   // The controls sit under the block, so a taller or shorter creature would shove them —
@@ -4021,6 +4064,9 @@ function wireCreatureNav(sp){
     let i=Math.max(0,Math.min(+wrap.dataset.i||0,list.length-1)); wrap.dataset.i=String(i);
     const b=list[i];
     wrap.querySelector(".secttl").textContent=b.name;
+    // say WHY a form is on the list when it is not the spell's own
+    const who=wrap.querySelector(".sb-who");
+    if(who){who.textContent=b._from?b._from:"stat block";who.classList.toggle("granted",!!b._from);}
 
     nav.querySelector(".sb-pos").textContent=`${i+1} / ${list.length}`;
     if(favBtn){const on=favsFor(sp).includes(b._ck);
@@ -4893,7 +4939,7 @@ function printCardHTML(sp){
   // only the forms this character marked (or the single form a summon has) — Find Familiar
   // carries 65, and an appendix that prints all of them is not an appendix
   const cre=printCreatures(sp);
-  const all=spellCreatures(sp);
+  const all=buildCreatures(sp);
   const sb=cre.map(b=>`<div class="pcsb"><div class="pcsbn">${esc(b.name)}</div>${sbBodyHTML(b)}</div>`).join("")
     ||(all.length>1?`<p class="pcnote">${all.length} forms — mark the ones you use in the spell's details to print them.</p>`:"");
   return `<div class="pcard" id="${esc(cardId(sp))}">`

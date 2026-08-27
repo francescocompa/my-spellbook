@@ -530,6 +530,8 @@
 .spmodal .sb-fav svg{width:14px;height:14px;fill:none;stroke:currentColor}
 .spmodal .sb-fav.on{color:var(--gold)}
 .spmodal .sb-fav.on svg{fill:currentColor}
+/* a form your build adds, not one the spell prints — say which feature put it there */
+.spmodal .sb-who.granted{color:var(--gold)}
 /* the SAME grouped checklist every other picker uses (D27), seeded from the global list
    but local — ticking a book here never writes back */
 .spmodal .sb-bookpanel{margin-top:8px}

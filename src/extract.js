@@ -512,18 +512,56 @@ function statblock(m){
 const monType=m=>{const t=m&&m.type;return((t&&typeof t==="object")?t.type:t)||"";};
 const monCr=m=>{const c=m&&m.cr;const v=(c&&typeof c==="object")?c.cr:c;return v==null?"":String(v);};
 // D78 — the predicate that decides what leaves a bestiary. MUST stay identical to
-// extract.py's carried_monster(): summon blocks, plus CR 0 non-swarm beasts (which is
-// exactly Find Familiar's set in both editions).
-function carriedMonster(m){ if(!m)return false; if(m.summonedBySpell)return true;
-  return monType(m)==="beast"&&monCr(m)==="0"&&!/swarm/i.test(m.name||"");}
-function slimJson(j){ if(j&&Array.isArray(j.monster)){const keep=j.monster.filter(carriedMonster);
-    if(keep.length!==j.monster.length){j=Object.assign({},j);j.monster=keep;}}
-  return j;}
-const CREATURE_RE=/\{@creature ([^}|]+)(?:\|([^}|]*))?[^}]*\}/g;
-const BFILTER_RE=/\{@filter [^|}]*\|bestiary\|([^}]*)\}/g;
 const monKey=(name,src)=>String(name).trim()+"|"+String(src||"").trim().toUpperCase();
 
+// extract.py's carried_monster(): summon blocks, plus CR 0 non-swarm beasts (which is
+// exactly Find Familiar's set in both editions) — plus every form a FEATURE adds to a
+// familiar spell. Pact of the Chain's Imp is a CR 1 fiend, so it survives none of the
+// tests above on its own, and the refs live in feature prose. `slimJson` throws away
+// what this predicate rejects at READ time, so the feature files have to be scanned
+// before any bestiary file is slimmed — `scanFormRefs` below, called by the importer.
+// **Keep identical to extract.py's carried_monster / _scan_form_refs.**
+const FORM_REFS={names:new Set(),keys:new Set()};
+const FORM_CRE_RE=/\{@creature ([^}|]+)(?:\|([^}|]*))?[^}]*\}/g;
+const FORM_WORD_RE=/\bforms?\b/i;
+function resetFormRefs(){FORM_REFS.names.clear();FORM_REFS.keys.clear();}
+// accumulates: files arrive one at a time during an unzip, and each may name more forms
+function scanFormRefs(files){
+  const walk=(e,out)=>{ if(typeof e==="string")out.push(e);
+    else if(Array.isArray(e))e.forEach(x=>walk(x,out));
+    else if(e&&typeof e==="object")["entries","entry","items","rows","row"].forEach(k=>walk(e[k],out));};
+  (files||[]).forEach(f=>{const j=f&&f.json; if(!j)return;
+    [].concat(j.optionalfeature||[],j.feat||[]).forEach(rec=>{
+      const buf=[];walk(rec.entries,buf);
+      buf.join(" ").split(/(?<=[.!?])\s+/).forEach(sent=>{
+        if(!FORM_WORD_RE.test(sent))return;
+        let m; FORM_CRE_RE.lastIndex=0;
+        while((m=FORM_CRE_RE.exec(sent))){ FORM_REFS.names.add(String(m[1]).trim().toLowerCase());
+          if(m[2])FORM_REFS.keys.add(monKey(m[1],m[2])); }});});});
+}
+function carriedMonster(m){ if(!m)return false; if(m.summonedBySpell)return true;
+  if(FORM_REFS.names.has(String(m.name||"").trim().toLowerCase()))return true;
+  if(FORM_REFS.keys.has(monKey(m.name||"",m.source||"")))return true;
+  return monType(m)==="beast"&&monCr(m)==="0"&&!/swarm/i.test(m.name||"");}
+// A file's own feature refs are learned BEFORE its monsters are filtered, so no caller can
+// get this wrong by forgetting a step. Ordering still matters ACROSS files — a bestiary
+// slimmed before the feature file that names Imp has already dropped it — which is what
+// `readOrder` is for, and why the unzip path and the parity harness both sort by it.
+function slimJson(j){ if(!j)return j;
+  if(j.optionalfeature||j.feat)scanFormRefs([{json:j}]);
+  if(Array.isArray(j.monster)){const keep=j.monster.filter(carriedMonster);
+    if(keep.length!==j.monster.length){j=Object.assign({},j);j.monster=keep;}}
+  return j;}
+// feature files first: see slimJson. Exported so nothing re-implements it — a harness that
+// rolls its own file rules is exactly how the foundry.json bug hid for two sessions.
+const readOrder=n=>/^(optionalfeatures|feats)/i.test(String(n||"").split("/").pop())?0:1;
+const CREATURE_RE=/\{@creature ([^}|]+)(?:\|([^}|]*))?[^}]*\}/g;
+const SPELL_REF_RE=/\{@spell ([^}|]+)(?:\|([^}|]*))?[^}]*\}/;
+const FIXED_FORM_RE=/must be|is always|always takes the form/i;
+const BFILTER_RE=/\{@filter [^|}]*\|bestiary\|([^}]*)\}/g;
+
 function buildDigest(files){
+  scanFormRefs(files);            // additive: a folder scan never went through unzipJsonFiles
   const books={};
   const spells={}; const classes=[]; const subclasses=[]; const feats=[]; const races=[]; const optfeats=[];
   let lookup=null,lookupNamed=false;
@@ -602,11 +640,13 @@ function buildDigest(files){
           category:cat,fsClass:({"FS:R":"Ranger","FS:P":"Paladin","FS":"Fighter"})[cat]||null,hasSpells,
           catName:featCatName(cat,featCats),      // what the picker calls this category
           optFeatures:optProgression(ft),prereq:prereqText(ft,cat,featCats),prereqs:prereqBlocks(ft,cat,featCats),
-          grants:hasSpells?parseGrants(ft.additionalSpells):{fixed:[],picks:[],expansions:[],optionGroups:[],ability:null}});});
+          grants:hasSpells?parseGrants(ft.additionalSpells):{fixed:[],picks:[],expansions:[],optionGroups:[],ability:null},
+          _raw:ft});});
       (j.optionalfeature||[]).forEach(o=>{const hasSpells="additionalSpells"in o;
         optfeats.push({name:o.name,source:o.source||"",group:bgroup(o.source||""),book:bname(o.source||""),
           reprinted:reprinted(o),page:o.page,types:o.featureType||[],prereq:prereqText(o),prereqs:prereqBlocks(o),hasSpells,
-          grants:hasSpells?parseGrants(o.additionalSpells):{fixed:[],picks:[],expansions:[],optionGroups:[],ability:null}});});
+          grants:hasSpells?parseGrants(o.additionalSpells):{fixed:[],picks:[],expansions:[],optionGroups:[],ability:null},
+          _raw:o});});
       // `base` is the parent species a lineage hangs off — the picker groups on it (D46)
       const emitSpecies=(name,source,blocks,page,base,lineage)=>{const named=(blocks||[]).filter(b=>b.name);
         if(named.length>1)named.forEach(b=>races.push({name:`${name} — ${b.name}`,source,group:bgroup(source),book:bname(source),reprinted:false,page,base:name,lineage:b.name,grants:parseGrants([b])}));
@@ -688,7 +728,30 @@ function buildDigest(files){
     const out=keys.filter(k=>k!==own);
     if(out.length)sp.creatures=out;
     delete sp._raw;});
+  // forms a FEATURE adds to a spell — the mirror of extract.py's `_form_grants`. Narrow by
+  // construction: the sentence has to name FORMS and carry {@creature} refs, and the record
+  // has to reference a spell somewhere. **Keep identical to extract.py's _form_grants.**
+  const formGrants=rec=>{
+    const buf=[];walkText(rec.entries,buf);const txt=buf.join(" ");
+    const sm=SPELL_REF_RE.exec(txt); if(!sm)return [];
+    const spellKey=monKey(sm[1],sm[2]||(String(rec.source||"").startsWith("X")?"XPHB":"PHB"));
+    const out=[];
+    txt.split(/(?<=[.!?])\s+/).forEach(sent=>{
+      if(!FORM_WORD_RE.test(sent))return;
+      const keys=[],seen={};let m;CREATURE_RE.lastIndex=0;
+      while((m=CREATURE_RE.exec(sent))){
+        // a ref with no source resolves to every book that prints that creature, and the
+        // two extractors read the bestiary in different orders — so the CANDIDATES are
+        // sorted while the written order of the names is kept
+        const cands=m[2]?[monKey(m[1],m[2])]:(monByName[String(m[1]).trim().toLowerCase()]||[]).slice().sort();
+        cands.forEach(k=>{if(monPool[k]&&!seen[k]){seen[k]=1;keys.push(k);}});}
+      if(keys.length)out.push({spell:spellKey,creatures:keys,
+        mode:FIXED_FORM_RE.test(sent)?"only":"add"});});
+    return out;};
   const referenced={};Object.values(spells).forEach(sp=>(sp.creatures||[]).forEach(k=>{referenced[k]=1;}));
+  [].concat(optfeats,feats).forEach(rec=>{const fg=formGrants(rec._raw||rec);
+    if(fg.length){rec.forms=fg;fg.forEach(g=>g.creatures.forEach(k=>{referenced[k]=1;}));}
+    delete rec._raw;});
   const monsters={};Object.keys(referenced).sort().forEach(k=>{monsters[k]=statblock(monPool[k]);});
 
   const digest={meta:{spellCount:Object.keys(spells).length,imported:true},sources,
@@ -750,7 +813,16 @@ async function unzipJsonFiles(buf,onFile){
     const nameLen=dv.getUint16(p+28,true),extraLen=dv.getUint16(p+30,true),commLen=dv.getUint16(p+32,true);
     const lho=dv.getUint32(p+42,true),name=td.decode(bytes.subarray(p+46,p+46+nameLen));
     entries.push({name,method,compSize,lho}); p+=46+nameLen+extraLen+commLen; }
-  const wanted=entries.filter(e=>zipWanted(e.name)),out=[];
+  // `slimJson` throws away everything `carriedMonster` rejects the moment a bestiary file
+  // is read, so the FEATURE files have to be unpacked first — that is where the forms a
+  // feature adds to a familiar spell are named (Pact of the Chain's Imp is a CR 1 fiend
+  // and survives no other test). Ordering the queue costs nothing; a second pass over the
+  // archive would cost another full inflate.
+  const featureFirst=n=>/^(optionalfeatures|feats)/i.test(String(n).split("/").pop())?0:1;
+  resetFormRefs();
+  resetFormRefs();
+  const wanted=entries.filter(e=>zipWanted(e.name))
+    .sort((a,b)=>readOrder(a.name)-readOrder(b.name)),out=[];
   for(let i=0;i<wanted.length;i++){const e=wanted[i];
     const lnameLen=dv.getUint16(e.lho+26,true),lextraLen=dv.getUint16(e.lho+28,true);
     const start=e.lho+30+lnameLen+lextraLen,comp=bytes.subarray(start,start+e.compSize);
@@ -761,5 +833,5 @@ async function unzipJsonFiles(buf,onFile){
     if(json&&usefulJson(json))out.push({name:e.name.split("/").pop(),json:slimJson(json)}); }
   return out;}
 
-window.SB_extract={buildDigest,unzipJsonFiles,slimJson,zipWanted,dropFoundryStubs};
+window.SB_extract={buildDigest,unzipJsonFiles,slimJson,zipWanted,dropFoundryStubs,readOrder,resetFormRefs};
 })();

@@ -5,7 +5,7 @@ const fs=require("fs"),path=require("path");
 const MIRROR=process.argv[2]||"/Users/francescocompagnoni/Documents/D&D/5etool_mirror/5etools-v2.33.3/data";
 global.window={};
 new Function(fs.readFileSync("src/extract.js","utf8"))();
-const {buildDigest,slimJson,zipWanted,dropFoundryStubs}=window.SB_extract;
+const {buildDigest,slimJson,zipWanted,dropFoundryStubs,readOrder,resetFormRefs}=window.SB_extract;
 const files=[];
 const walk=(d,rel)=>{for(const e of fs.readdirSync(d,{withFileTypes:true})){
   const p=path.join(d,e.name), r=rel?rel+"/"+e.name:e.name;
@@ -13,9 +13,14 @@ const walk=(d,rel)=>{for(const e of fs.readdirSync(d,{withFileTypes:true})){
   if(!zipWanted(r))continue;                      // the SAME predicate the importer uses
   let j; try{j=JSON.parse(fs.readFileSync(p,"utf8"));}catch(_){continue;}
   j=dropFoundryStubs(j);
-  files.push({name:e.name,json:slimJson(j)});
+  files.push({name:e.name,raw:j});
 }};
 walk(MIRROR,"");
+// same ordering the unzip path uses, from the same exported rule: a bestiary slimmed
+// before the feature file that names Imp has already dropped it (see slimJson)
+resetFormRefs();
+files.sort((a,b)=>readOrder(a.name)-readOrder(b.name));
+files.forEach(f=>{f.json=slimJson(f.raw);delete f.raw;});
 const {digest,report}=buildDigest(files);
 const py=JSON.parse(fs.readFileSync("data/data.json","utf8"));
 let fail=0;
@@ -88,6 +93,17 @@ const gkey={classes:e=>e.name+"|"+e.source,
   const withCls=(digest.spells||[]).filter(s=>s.cls&&s.cls.length).length;
   const pyCls=(py.spells||[]).filter(s=>s.cls&&s.cls.length).length;
   cmp("spells with class access",withCls,pyCls);
+}
+// forms a FEATURE adds to a spell: the newest hand-parsed field, and the one most likely
+// to drift between the two extractors (each has its own walker and its own sentence split)
+{
+  const fm=d=>[].concat(d.optfeats||[],d.feats||[])
+    .filter(x=>x.forms&&x.forms.length)
+    .map(x=>x.name+"|"+x.source+"→"+JSON.stringify(x.forms)).sort().join(";");
+  const jf=fm(digest), pf=fm(py);
+  cmp("feature form grants",jf.length,pf.length);
+  if(jf!==pf){fail++;console.log("FAIL form grants differ\n  js:",jf.slice(0,220),"\n  py:",pf.slice(0,220));}
+  else console.log("ok   form-grant records:",jf?jf.split(";").length:0);
 }
 console.log("report:",JSON.stringify(report).slice(0,160));
 process.exit(fail?1:0);

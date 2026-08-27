@@ -321,6 +321,9 @@ def statblock(m):
 # CR 0 beasts) and it keeps the digest to ~90 stat blocks. Filters are expanded for XPHB
 # spells only; a named ref to a creature outside that set simply doesn't resolve. Widening
 # the set later is a change here and in extract.js, and nowhere else.
+def _mon_key(name, src):
+    return f"{name.strip()}|{(src or '').strip().upper()}"
+
 def _cr_of(m):
     cr = m.get("cr")
     c = cr.get("cr") if isinstance(cr, dict) else cr
@@ -330,17 +333,50 @@ def _type_of(m):
     t = m.get("type")
     return (t.get("type") if isinstance(t, dict) else t) or ""
 
+# ...plus every form a FEATURE adds to a familiar spell. Pact of the Chain's Imp is a CR 1
+# fiend and Strixhaven's mascots are constructs, so none of them survives the predicate
+# below on its own — and the refs live in feature prose, which is parsed a thousand lines
+# further down, long after the bestiary has been read and thrown away. So the feature
+# files are scanned for those refs FIRST, with a walker of their own (the shared one is
+# not defined yet at this point in the file), and the predicate admits what they name.
+_FORM_CRE_RE = re.compile(r"\{@creature ([^}|]+)(?:\|([^}|]*))?[^}]*\}")
+_FORM_WORD_RE = re.compile(r"\bforms?\b", re.I)
+_FORM_SENT_SPLIT = re.compile(r"(?<=[.!?])\s+")
+
+def _scan_form_refs():
+    """Names and keys of creatures a feature offers as a spell's form. Pre-pass."""
+    names, keys = set(), set()
+    def walk(e, out):
+        if isinstance(e, str): out.append(e)
+        elif isinstance(e, list):
+            for x in e: walk(x, out)
+        elif isinstance(e, dict):
+            for k in ("entries", "entry", "items", "rows", "row"): walk(e.get(k), out)
+    for fn, key in (("optionalfeatures.json", "optionalfeature"), ("feats.json", "feat")):
+        path = os.path.join(MIRROR, fn)
+        if not os.path.exists(path): continue
+        for rec in load(path).get(key, []):
+            buf = []; walk(rec.get("entries"), buf)
+            for sent in _FORM_SENT_SPLIT.split(" ".join(buf)):
+                if not _FORM_WORD_RE.search(sent): continue
+                for nm, src in _FORM_CRE_RE.findall(sent):
+                    names.add(nm.strip().lower())
+                    if src: keys.add(_mon_key(nm, src))
+    return names, keys
+
+FORM_REF_NAMES, FORM_REF_KEYS = _scan_form_refs()
+
 def carried_monster(m):
     """The predicate BOTH extractors use to decide what leaves the bestiary."""
     if m.get("summonedBySpell"): return True
+    if (m.get("name") or "").strip().lower() in FORM_REF_NAMES: return True
+    if _mon_key(m.get("name", ""), m.get("source", "")) in FORM_REF_KEYS: return True
     return (_type_of(m) == "beast" and _cr_of(m) == "0"
             and "swarm" not in (m.get("name") or "").lower())
 
 CREATURE_RE = re.compile(r"\{@creature ([^}|]+)(?:\|([^}|]*))?[^}]*\}")
 BFILTER_RE = re.compile(r"\{@filter [^|}]*\|bestiary\|([^}]*)\}")
 
-def _mon_key(name, src):
-    return f"{name.strip()}|{(src or '').strip().upper()}"
 
 sb_count = 0
 mon_pool = {}          # "Name|SRC" -> raw monster, every candidate we may ship
@@ -402,8 +438,45 @@ for sp in spells.values():
         creature_sets += 1
 
 for sp in spells.values(): sp.pop("_raw", None)
+
+# ---- forms a FEATURE adds to a spell ----------------------------------------
+# Pact of the Chain does not change what Find Familiar is; it changes what YOU may
+# summon with it. 5etools states that in the feature's prose and nowhere else — the
+# bestiary's `summonedBySpell` links a monster to a spell, so it cannot express "this
+# feature widens that list", and D50's rule (never parse {@creature} refs off a spell)
+# does not reach the case at all. Narrow by construction: a sentence has to name FORMS
+# and carry {@creature} refs, and the feature has to reference a spell somewhere. Across
+# the whole 2024 corpus that is three records — Pact of the Chain twice and Strixhaven
+# Mascot — and it picks up homebrew that follows the same wording for free.
+SPELL_REF_RE = re.compile(r"\{@spell ([^}|]+)(?:\|([^}|]*))?[^}]*\}")
+FORM_SENT_RE = re.compile(r"\bforms?\b", re.I)
+FIXED_FORM_RE = re.compile(r"must be|is always|always takes the form", re.I)
+
+def _form_grants(rec):
+    buf = []; _walk_text(rec.get("entries"), buf); txt = " ".join(buf)
+    m = SPELL_REF_RE.search(txt)
+    if not m:
+        return []
+    spell_key = _mon_key(m.group(1), m.group(2) or ("XPHB" if rec.get("source", "").startswith("X") else "PHB"))
+    out = []
+    for sent in _SENT_RE.split(txt):
+        if not FORM_SENT_RE.search(sent):
+            continue
+        keys, seen = [], set()
+        for name, src in CREATURE_RE.findall(sent):
+            # a ref with no source resolves to every book that prints that creature, and
+            # the two extractors read the bestiary in different orders — so the CANDIDATES
+            # are sorted while the written order of the names is kept
+            cands = [_mon_key(name, src)] if src else sorted(mon_by_name.get(name.strip().lower(), []))
+            for k in cands:
+                if k in mon_pool and k not in seen:
+                    seen.add(k); keys.append(k)
+        if keys:
+            out.append({"spell": spell_key, "creatures": keys,
+                        "mode": "only" if FIXED_FORM_RE.search(sent) else "add"})
+    return out
+
 referenced = {k for sp in spells.values() for k in sp.get("creatures", [])}
-monsters = {k: statblock(mon_pool[k]) for k in sorted(referenced)}
 
 # ---- classes (casters AND non-casters) -------------------------------------
 def slot_table(groups):
@@ -1087,6 +1160,10 @@ for ft in _featdata.get("feat", []):
                   "prereq": _prereq_text(ft, cat, _featcats),
                   "prereqs": _prereq_blocks(ft, cat, _featcats),
                   "grants": parse_grants(ft.get("additionalSpells")) if has_spells else dict(EMPTY_GRANTS)})
+    _fg = _form_grants(ft)
+    if _fg:
+        feats[-1]["forms"] = _fg
+        for _g in _fg: referenced.update(_g["creatures"])
 
 # ---- optional features (invocations, metamagic, pact boons, maneuvers…) ----
 # Extracted generically: every featureType, with its prerequisites as display text.
@@ -1103,6 +1180,10 @@ for o in (load(_optpath).get("optionalfeature", []) if os.path.exists(_optpath) 
                      "prereq": _prereq_text(o), "prereqs": _prereq_blocks(o),
                      "hasSpells": has_spells,
                      "grants": parse_grants(o.get("additionalSpells")) if has_spells else dict(EMPTY_GRANTS)})
+    _fg = _form_grants(o)
+    if _fg:
+        optfeats[-1]["forms"] = _fg
+        for _g in _fg: referenced.update(_g["creatures"])
 
 # species (ALL, even without spells; split lineages that carry named blocks)
 races = []
@@ -1154,6 +1235,9 @@ FULL_MC = [
 PACT = [(1,1),(2,1),(2,2),(2,2),(2,3),(2,3),(2,4),(2,4),(2,5),(2,5),
         (3,5),(3,5),(3,5),(3,5),(3,5),(3,5),(4,5),(4,5),(4,5),(4,5)]
 
+# built here, not when the spells were done: a feature can reference a stat block too,
+# and `referenced` only holds those once the feat and optional-feature loops have run
+monsters = {k: statblock(mon_pool[k]) for k in sorted(referenced) if k in mon_pool}
 digest = {
     "meta": {"mirror": os.path.basename(os.path.dirname(MIRROR)), "spellCount": len(spells)},
     "sources": sources, "spells": list(spells.values()), "classes": classes,

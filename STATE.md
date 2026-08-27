@@ -3,38 +3,42 @@
 > Resume doc. One current-state block, edited in place.
 > History → git log. Consumed phases and decision rationale → `ARCHIVE.md`.
 
-## TL;DR (2026-08-27 · code at ecd05be, **pushed** · v7 COMPLETE · **LIVE on GitHub Pages**)
-- **State:** working, committed, **pushed**, tree clean. **v7 is COMPLETE (T1–T5 + T7)** and the
-  backlog's last standing item shipped. One session took the importer and the custom-source
-  surface end to end, **D90–D95**: the app icon (D90); honest zip errors, unpack progress and the
-  **clobbered spell-lookup fix** (D91 — *every zip import had been storing spells no class could
-  cast*, and `cparity.js` never noticed because it diffed grants but not access); **folder
-  scanning indexed by book** (D92 — a homebrew repo is filed by category, so a *collection* brew
-  hid its spells and D&D Beyond Drops was unfindable); the imported digest **moved to IndexedDB**
-  (D93), closing T7; the **custom-source editor redesigned** progressive with a live summary
-  (D94); its two **model gaps closed** — payment is per spell, and uses can be once-ever
-  (D95); and a source may now grant a **choice** from filtered lists, not only a named spell
-  (D96 — Silverquill Primer), each carrying **when it may be re-chosen** as a clock of its own. Ten note batches (**D43–D89**) landed before that → `ARCHIVE.md#v7-batches`. Extractor
-  parity is byte-exact and now covers spell ACCESS as well as grants
-  (`node scratchpad/cparity.js`, 26 ok / 0 fail).
-- **Next action:** 🔶 **decide the magic-item / reward import** — researched end to end this
-  session and parked on Francesco's call; the findings, the numbers and the one real trap are in
-  the backlog item below. **Done when:** rewards-first vs items-first vs neither is a decision
-  entry with a task line behind it. Everything else in the backlog is open but unurgent — the
-  biggest is ability-score tracking, which would close the "prerequisites we can't check" flag.
-- **Manual for Francesco:** ⓪ **Re-import again after D91** — any zip import made before it stored
-  spells with **no class access at all** (`spells/sources.json` clobbered the real lookup). If your
-  imported spells match no class, that is why; re-importing fixes it. ① **Re-import your 5etools
-  data on every browser** — an import made
-  before 0de78ed carries no `catName`, no `exclusiveCat` and no `castMods`, and one made before
-  **b3a734c** also has Foundry stubs baked in (D82). None of it back-fills. Re-importing is cheap
-  now: it **adds** rather than replacing, and the "Your books" panel is where you drop what you
-  don't want. ② **Turn XMM on in Sources** if you want Find Familiar's 24 Monster Manual 2024
-  forms in the default view (D81). ③ Optional — ask GitHub Support to gc so the *old* unreachable
-  commits (SHA 2c8bbb6 etc., held only in `backup/pre-purge-20260826` locally) stop being
-  SHA-addressable. ④ To update the live site: `python3 extract.py` (if data changed) →
-  `python3 build.py` → commit → push. ⑤ `dist/`, `data/`, `data-srd.json` are gitignored (local
-  only); public SRD data is inlined in committed `docs/`.
+## TL;DR (2026-08-27 · code at 340f1ee + **uncommitted D109 work** · v7 COMPLETE · **LIVE on GitHub Pages**)
+- **State:** working, **partly uncommitted** — the form-grants change (D109) is in the tree and
+  built but not committed. This session shipped the **print / PDF surface end to end** and one
+  real data bug. Print (**D97–D103, D106–D108**): a fourth `none` state for a zero-cap slot tile;
+  the sheet is **always the spell table** under a build summary; a **tracker** of everything
+  expendable as tick boxes (slots as a one-row table incl. Pact, uses capped at 6 then a written
+  total, per-class prepared/cantrip counts with **write-in boxes** for attack and DC); a **legend**
+  of only the marks used; an optional **spell-card appendix** with full rules text, level groups
+  and same-document links; **all-preparable-unticked** for daily casters; light/dark, portrait/
+  landscape, page-per-level, notes page — all in a remembered modal that states what a setting
+  costs. Also: the **published build installs and runs offline** (D99 — manifest, service worker,
+  icon set, `docs/` only); source DC/attack **narrowed to what each spell rolls** (D100); grouping
+  by source **folds a subclass or invocation back into its class** (D104); summon **forms you mark**
+  print and lead the carousel (D105); and a **feature can add forms** to a familiar spell (D109 —
+  Pact of the Chain). The creature book filter was checking against a registry that has no bestiary
+  books, which is why Find Familiar opened on **2 of 65** forms → Gotchas. Parity is exact and now
+  covers the new `forms` field (`node scratchpad/cparity.js`, 0 fail).
+- **Next action:** commit and push the tree (`python3 build.py` → commit → push), then the standing
+  🔶 **decide the magic-item / reward import** — researched, parked on Francesco's call; findings
+  and the one real trap are in the backlog below. **Done when:** rewards-first vs items-first vs
+  neither is a decision entry with a task line behind it.
+- **Manual for Francesco:** ⓪ **Re-import your 5etools data** — this is now the standing chore and
+  it back-fills nothing. After **D109** an import carries a feature's granted familiar forms and
+  their stat blocks; after **D91** it no longer stores spells with no class access at all; after
+  **b3a734c** it has no Foundry stubs (D82); after **0de78ed** it has `catName`, `exclusiveCat`
+  and `castMods`. Re-importing is cheap — it **adds** rather than replacing, and "Your books" is
+  where you drop what you don't want. Do it on every browser. ① **Print from Chrome or Safari**,
+  not from an in-app PDF writer: the filename and the clickable spell links come from the
+  browser's own export, and some hosts ignore both (D108). ② **Turn XMM on in Sources** for Find
+  Familiar's Monster Manual 2024 forms in the default view (D81). ③ Optional — ask GitHub Support
+  to gc so the old unreachable commits (SHA 2c8bbb6 etc., held only in
+  `backup/pre-purge-20260826` locally) stop being SHA-addressable. ④ To update the live site:
+  `python3 extract.py` (if data changed) → `python3 build.py` → commit → push. ⑤ `dist/`, `data/`,
+  `data-srd.json` are gitignored (local only); public SRD data is inlined in committed `docs/`.
+- ⚠ **STATE is 1126 lines.** `/resume` pays that on every read. A full `/clean` is overdue — the
+  v7 batches, the settled-decision list and the shipped list are the obvious candidates.
 
 ## What this is
 Offline single-page D&D 2024 spell planner. Two builds from one source:
@@ -727,6 +731,21 @@ written up in full under Gotchas below — that is the copy to trust.
   honour both; an in-app PDF writer may ignore them and save under the host app's name. The print
   modal says so rather than leaving it as a mystery. *Rejected:* generating the PDF in-page (a
   bundled PDF library, for a file the browser already knows how to make); UA-sniffing the host.
+- **D109 (2026-08-27)** A **feature** can add forms to a familiar spell, and those forms are yours,
+  not the spell's. Pact of the Chain's Imp is a CR 1 fiend that survives none of D78's carried-
+  monster tests, and 5etools states the list only in the feature's prose — the bestiary's
+  `summonedBySpell` links a monster to a SPELL and cannot express "this feature widens that list",
+  so D50's rule (never parse `{@creature}` refs off a spell) does not reach the case. Both
+  extractors now emit `forms:[{spell,creatures,mode}]` on feats and optional features, parsed
+  narrowly: the sentence must name **forms** and carry `{@creature}` refs, and the record must
+  reference a spell. Across the 2024 corpus that is two records, and it picks up homebrew with the
+  same wording for free. At runtime the grant is live only while you hold the feature; a ref with
+  no book resolves to every book that prints the creature, so the app offers **one** copy — from a
+  book you have on, newest edition first. Granted forms are exempt from the stat-block book filter
+  (a form your feature adds is not an option from a book you don't use) and rank **second in the
+  carousel, after your marked favourites**. `mode:"only"` replaces the list instead of widening it.
+  *Rejected:* a hand-authored table in app.js (it would cover what I happened to write down, and
+  the extractors are where content gaps are filled — PROSE_GRANTS and CAST_MODS set the pattern).
 
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
@@ -1102,8 +1121,22 @@ written up in full under Gotchas below — that is the copy to trust.
 - **Custom sources** (2026-08-27) — **D94–D95**: the editor redesigned progressive with a live
   summary and per-spell notes, then its two model gaps closed (payment per spell; a `total` unit
   for uses that never reset). The D55/D65 model was never the problem; D95 widened it.
+- **Print / save as PDF** (2026-08-27) — **D97–D103, D106–D108**. The whole printed surface: the
+  sheet is the spell table under a build summary, with a tick-box tracker for everything
+  expendable, a legend of the marks it uses, an optional full-text spell-card appendix with
+  internal links, and a remembered settings modal (colour, orientation, tracker, cards,
+  all-preparable, page-per-level, notes) that says what a setting will cost.
+- **Offline install** (2026-08-27) — **D99**. `build.py` writes a manifest, a stale-while-revalidate
+  service worker and a 192/512/maskable icon set into `docs/` only; registration is guarded on
+  `__PUBLIC__`. ⚑ Registration is **unverified** — the in-app browser refuses to register a worker
+  and Chrome was unreachable from the session (owner: Francesco, 2026-08-27).
+- **Table & data fixes** (2026-08-27) — **D100** (a source states only the numbers a spell rolls),
+  **D104** (grouping by source folds a subclass or invocation into its class), **D105** (marked
+  summon forms print and lead the carousel), **D109** (a feature can add forms to a familiar
+  spell), plus the creature-book filter bug → Gotchas.
 - **v7 note batches 1–10** (2026-08-26 → 2026-08-27) — **D43–D89**. Ten batches of notes plus two
   bug hunts on top of the tasks. Per-batch narrative → `ARCHIVE.md#v7-batches`; the earlier notes
   → `ARCHIVE.md#v7-notes`. The load-bearing outcomes are the decisions above and the Gotchas
   below — this list used to restate them a third time.
 
+⟳ Rename previous session → "Print sheet, PDF options and familiar forms" · session: resolve by cwd + latest
