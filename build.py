@@ -9,8 +9,19 @@
 Run `python extract.py` first to (re)generate data/data.json from a 5etools
 mirror; then `python build.py`.
 """
-import json, os
+import json, os, shutil
 ROOT = os.path.dirname(os.path.abspath(__file__))
+
+def copy_icon(dest):
+    """apple-touch-icon.png lives in src/ and is copied beside every build.
+
+    The favicon is a data URI inside the HTML, but iOS ignores data: URIs for
+    apple-touch-icon and Safari on the desktop falls back to it too, so this one
+    has to be a real file next to index.html or the tag 404s.
+    """
+    src = os.path.join(ROOT, "src", "apple-touch-icon.png")
+    if os.path.exists(src):
+        shutil.copyfile(src, os.path.join(ROOT, dest, "apple-touch-icon.png"))
 
 def read(*p): return open(os.path.join(ROOT, *p), encoding="utf-8").read()
 
@@ -39,6 +50,7 @@ dist = html.replace('<script src="../data/data.js"></script>',
 os.makedirs(os.path.join(ROOT, "dist"), exist_ok=True)
 with open(os.path.join(ROOT, "dist", "index.html"), "w", encoding="utf-8") as f:
     f.write(dist)
+copy_icon("dist")
 
 # 2b. docs/index.html — public GitHub Pages build. Ships the SRD 5.2 subset
 # (CC-BY-4.0, safe to distribute); importing a 5etools export adds the rest.
@@ -52,5 +64,6 @@ with open(os.path.join(ROOT, "docs", "index.html"), "w", encoding="utf-8") as f:
     f.write(shell)
 with open(os.path.join(ROOT, "docs", ".nojekyll"), "w", encoding="utf-8") as f:
     f.write("")
+copy_icon("docs")
 
 print(f"data.js {len(data_json)//1024} KB · dist {len(dist)//1024} KB (with data) · docs {len(shell)//1024} KB (SRD subset)")

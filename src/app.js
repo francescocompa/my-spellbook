@@ -1997,14 +1997,20 @@ function filterDigest(d,keep){
 const digestSize=d=>DIGEST_ARRAYS.reduce((n,a)=>n+((d[a]||[]).length),0);
 
 let PLAN=null;   // {stored, incoming, merged, keep:Set, fresh:Set, report}
-function planFromStage(incoming,report){
+function planFromStage(incoming,report,only){
   PLAN_Q="";
   const stored=IMPORTED||emptyDigest();
   const merged=mergeDigests(stored,incoming||emptyDigest());
   const had=new Set(Object.keys(stored.sources||{}));
   const fresh=new Set(Object.keys((incoming&&incoming.sources)||{}).filter(c=>!had.has(c)));
-  PLAN={stored,incoming:incoming||emptyDigest(),merged,report,fresh,
-        keep:new Set(Object.keys(merged.sources||{}))};
+  // Default: everything merged is kept (staging files is itself the choice of what to add).
+  // `only` comes from the folder scan, where one file can carry books you did NOT tick — those
+  // must not ride along. Books you already HAVE always stay ticked; dropping one is destructive
+  // and is only ever done by hand in this panel.
+  const keep=only&&only.length
+    ? new Set([...had,...only.filter(c=>merged.sources&&merged.sources[c])])
+    : new Set(Object.keys(merged.sources||{}));
+  PLAN={stored,incoming:incoming||emptyDigest(),merged,report,fresh,keep};
 }
 function planCounts(code){
   const c=(PLAN.merged.sources[code]||{}).counts||{};
@@ -2062,15 +2068,222 @@ function renderImportPlanFoot(){
     btn.textContent=dropped?`Apply (${dropped} book${dropped===1?"":"s"} removed)`:"Apply";
     btn.classList.toggle("danger",!!dropped);}
 }
-function buildImport(){
+// ── folder scan: index a local library BY BOOK (D92) ───────────────────────────
+// A homebrew repository is filed by CATEGORY — spell/, class/, subclass/, collection/ — so one
+// brew's content scatters across folders and a "collection" brew keeps its spells in collection/,
+// which is why "D&D Beyond Drops" is unfindable by browsing. Point the app at the folder instead:
+// it walks every .json ONCE, keeps only a book index (name, creator, counts, which files), and
+// throws each parsed file away. Peak memory is the largest single file, not the library.
+// Nothing is stored until books are ticked and imported.
+let SCAN=null;                 // {books:{code:{…}}, files, bytes, skipped, ms}
+let SCAN_PICK=new Set(), SCAN_Q="", SCAN_GROUP="none", FOLDER=null, SCAN_BUSY=false;
+const SCAN_GROUPS={none:"Every book",creator:"By creator",content:"By what it holds"};
+
+// A directory handle is a live object — localStorage can't hold one, IndexedDB can.
+function fsdb(){return new Promise((res,rej)=>{const r=indexedDB.open("spellForgeFolder",1);
+  r.onupgradeneeded=()=>{try{r.result.createObjectStore("h");}catch(_){}};
+  r.onerror=()=>rej(r.error); r.onsuccess=()=>res(r.result);});}
+async function folderRemember(h){try{const db=await fsdb();await new Promise((res,rej)=>{
+  const t=db.transaction("h","readwrite");t.objectStore("h").put(h,"dir");
+  t.oncomplete=res;t.onerror=()=>rej(t.error);});}catch(_){}}
+async function folderRecall(){try{const db=await fsdb();return await new Promise(res=>{
+  const t=db.transaction("h","readonly"),q=t.objectStore("h").get("dir");
+  q.onsuccess=()=>res(q.result||null);q.onerror=()=>res(null);});}catch(_){return null;}}
+async function folderForget(){try{const db=await fsdb();await new Promise(res=>{
+  const t=db.transaction("h","readwrite");t.objectStore("h").delete("dir");t.oncomplete=res;t.onerror=res;});}catch(_){}
+  FOLDER=null;}
+// Permission does NOT survive a reload: a remembered handle must be re-granted, and the grant
+// has to be asked for inside a user gesture. `ask` is false on the silent boot check.
+async function folderUsable(h,ask){
+  if(!h||typeof h.queryPermission!=="function")return false;
+  try{ if(await h.queryPermission({mode:"read"})==="granted")return true;
+       if(!ask)return false;
+       return await h.requestPermission({mode:"read"})==="granted"; }catch(_){return false;}
+}
+const FSA=()=>typeof window.showDirectoryPicker==="function";
+
+// Both walkers yield the SAME shape — {path, getFile} — so the scan has one code path, and
+// both filter through the importer's own zipWanted() rather than a private copy of the rules.
+async function folderEntries(handle){
+  const out=[];
+  const walk=async(dir,base)=>{
+    for await(const [name,h] of dir.entries()){
+      if(name==="_img"||name.charAt(0)===".")continue;
+      const p=base?base+"/"+name:name;
+      if(h.kind==="directory"){await walk(h,p);continue;}
+      if(/\.json$/i.test(name))out.push({path:p,getFile:()=>h.getFile()});}};
+  await walk(handle,"");
+  return out;
+}
+function inputEntries(list){
+  return [...list].filter(f=>/\.json$/i.test(f.name)&&!/(^|\/)_img\//.test(f.webkitRelativePath||""))
+    .map(f=>({path:f.webkitRelativePath||f.name,getFile:async()=>f}));
+}
+function scanCreator(path){
+  const base=(path.split("/").pop()||"").replace(/\.json$/i,"");
+  const i=base.indexOf(";");
+  return i>0?base.slice(0,i).trim():"";
+}
+const SCAN_FIELDS=[["spell","spells"],["class","classes"],["subclass","subclasses"],
+  ["feat","feats"],["race","species"],["subrace","species"],["optionalfeature","optfeats"]];
+function scanIndex(books,j,path){
+  if(!j||typeof j!=="object")return;
+  const creator=scanCreator(path);
+  const declare=(code,name,group)=>{
+    let b=books[code];
+    if(!b)b=books[code]={code,name:name||code,group:group||"other",creator,
+      counts:{spells:0,classes:0,subclasses:0,feats:0,species:0,optfeats:0},files:[]};
+    // a real title always beats a bare code placeholder (same rule as mergeSources)
+    if(name&&b.name===code)b.name=name;
+    if(group==="brew")b.group="brew";
+    if(!b.creator&&creator)b.creator=creator;
+    return b;};
+  ((j._meta&&j._meta.sources)||[]).forEach(m=>{if(m&&m.json)declare(m.json,m.full||m.abbreviation,"brew");});
+  if(Array.isArray(j.book))j.book.forEach(b=>{if(b&&b.source&&!books[b.source])declare(b.source,b.name,b.group);});
+  SCAN_FIELDS.forEach(([key,field])=>{const arr=Array.isArray(j[key])?j[key]:[];
+    arr.forEach(e=>{if(!e||!e.source)return;const b=declare(e.source);
+      b.counts[field]++; if(b.files.indexOf(path)<0)b.files.push(path);});});
+}
+const scanTotal=b=>{const c=b.counts;return c.spells+c.classes+c.subclasses+c.feats+c.species+c.optfeats;};
+async function runScan(entries){
+  const books={}; let read=0,bytes=0,skipped=0,bad=0;
+  const t0=performance.now(), prog=$("#folderProgress"), wanted=window.SB_extract.zipWanted;
+  for(let i=0;i<entries.length;i++){
+    const e=entries[i];
+    if(!wanted(e.path)){skipped++;continue;}
+    try{const f=await e.getFile(); bytes+=f.size||0;
+      const j=JSON.parse(await f.text());
+      scanIndex(books,window.SB_extract.dropFoundryStubs(j),e.path); read++;
+    }catch(_){bad++;}
+    // yield to the paint loop, or a 1,300-file scan freezes the tab it is reporting into
+    if(i%15===0||i===entries.length-1){
+      if(prog)prog.textContent=`Scanning ${i+1}/${entries.length} — ${Object.keys(books).length} books so far…`;
+      await new Promise(r=>setTimeout(r,0));}
+  }
+  return {books,read,bytes,skipped,bad,ms:Math.round(performance.now()-t0)};
+}
+async function scanEntries(entries,label){
+  if(SCAN_BUSY)return; SCAN_BUSY=true;
+  const prog=$("#folderProgress");
+  try{
+    if(!window.SB_extract){prog.textContent="Importer failed to load.";return;}
+    if(!entries.length){prog.textContent="No .json files in that folder.";return;}
+    SCAN=await runScan(entries);
+    SCAN.entries=entries;   // kept so importing re-reads only the ticked books' files
+    SCAN_PICK=new Set(); SCAN_Q="";
+    const n=Object.keys(SCAN.books).length, withC=scanBooks().length;
+    prog.innerHTML=`Scanned <b>${esc(label||"folder")}</b> — ${SCAN.read} file${SCAN.read===1?"":"s"}, `
+      +`${Math.round(SCAN.bytes/1048576)} MB, <b>${withC}</b> book${withC===1?"":"s"} with content`
+      +(n>withC?` (${n-withC} more declare nothing this app uses)`:"")
+      +`. Nothing is stored yet.`;
+    renderScan();
+  }catch(e){prog.textContent="Couldn’t scan that folder: "+(e.message||e);}
+  finally{SCAN_BUSY=false;}
+}
+// a book with no spells/classes/feats/species/optional features is noise in a 1,000-row list
+function scanBooks(){return SCAN?Object.values(SCAN.books).filter(b=>scanTotal(b)>0):[];}
+function scanShown(){
+  const q=SCAN_Q.trim().toLowerCase();
+  let list=scanBooks();
+  if(q)list=list.filter(b=>b.name.toLowerCase().includes(q)||b.code.toLowerCase().includes(q)
+    ||(b.creator||"").toLowerCase().includes(q));
+  return list;
+}
+function scanGroupOf(b){
+  if(SCAN_GROUP==="creator")return b.creator||"Unattributed";
+  if(SCAN_GROUP==="content"){const c=b.counts;
+    if(c.spells)return "Spells";
+    if(c.classes||c.subclasses)return "Classes & subclasses";
+    if(c.species)return "Species";
+    if(c.feats)return "Feats";
+    return "Optional features";}
+  return "all";
+}
+function scanCountLabel(b){
+  const c=b.counts,bits=[];
+  if(c.spells)bits.push(c.spells+"sp"); if(c.classes)bits.push(c.classes+"cl");
+  if(c.subclasses)bits.push(c.subclasses+"sub"); if(c.feats)bits.push(c.feats+"ft");
+  if(c.species)bits.push(c.species+"sp."); if(c.optfeats)bits.push(c.optfeats+"opt");
+  return bits.join(" ")||"—";
+}
+function renderScan(){
+  const box=$("#folderBooks"); if(!box)return;
+  if(!SCAN){box.classList.add("hidden");return;}
+  box.classList.remove("hidden");
+  const shown=scanShown();
+  // synthesize the srcMap the shared checklist eats, with `group` set by the chosen mode
+  const map={}; const names={all:"Every book"};
+  shown.slice().sort((a,b)=>a.name.localeCompare(b.name)).forEach(b=>{
+    const g=scanGroupOf(b); names[g]=g==="all"?`Every book (${shown.length})`:g;
+    map[b.code]={name:b.name,group:g,counts:b.counts};});
+  const list=$("#folderList");
+  if(shown.length)renderSourceChecklist(list,SCAN_PICK,renderScanFoot,null,
+      code=>scanCountLabel(SCAN.books[code]),map,
+      {groupName:names,
+       groupSort:(a,b)=>a==="all"?-1:b==="all"?1:a.localeCompare(b),
+       sortRows:(a,b)=>a[1].name.localeCompare(b[1].name)});
+  else {list.innerHTML="";list.append(el("div","empty","No book matches that."));}
+  const q=$("#folderQuick"); q.innerHTML="";
+  const f=el("input","planq"); f.type="search"; f.value=SCAN_Q;
+  f.placeholder="search "+scanBooks().length+" books…"; f.spellcheck=false;
+  f.oninput=e=>{SCAN_Q=e.target.value;renderScan();
+    const n=$("#folderQuick .planq"); if(n){n.focus();n.setSelectionRange(n.value.length,n.value.length);}};
+  q.append(f);
+  const quick=(label,fn,on)=>{const b=el("button","btn"+(on?" on":""),label);
+    b.onclick=()=>{fn();renderScan();};q.append(b);};
+  quick(SCAN_Q?"Tick shown":"Tick all",()=>shown.forEach(b=>SCAN_PICK.add(b.code)));
+  Object.keys(SCAN_GROUPS).forEach(g=>quick(SCAN_GROUPS[g],()=>{SCAN_GROUP=g;},SCAN_GROUP===g));
+  renderScanFoot();
+}
+function renderScanFoot(){
+  const sub=$("#folderPickSub"); if(!sub||!SCAN)return;
+  const picked=[...SCAN_PICK].filter(c=>SCAN.books[c]);
+  const ents=picked.reduce((n,c)=>n+scanTotal(SCAN.books[c]),0);
+  const files=new Set(); picked.forEach(c=>SCAN.books[c].files.forEach(p=>files.add(p)));
+  sub.textContent=picked.length
+    ? `${picked.length} book${picked.length===1?"":"s"} ticked · ${ents} entries from ${files.size} file${files.size===1?"":"s"}`
+    : "Tick the books you want, then import.";
+  const btn=$("#folderImport"); if(btn)btn.disabled=!picked.length;
+}
+// Re-read ONLY the files backing the ticked books, then hand them to the normal staging flow so
+// D86's "Your books" panel and its Apply still decide what is stored.
+async function importScanned(){
+  if(!SCAN||SCAN_BUSY)return;
+  const picked=[...SCAN_PICK].filter(c=>SCAN.books[c]);
+  if(!picked.length)return;
+  const want=new Set(); picked.forEach(c=>SCAN.books[c].files.forEach(p=>want.add(p)));
+  const prog=$("#folderProgress");
+  SCAN_BUSY=true;
+  try{
+    const entries=(SCAN.entries||[]).filter(e=>want.has(e.path));
+    if(!entries.length){prog.textContent="Those files are no longer reachable — rescan the folder.";return;}
+    let i=0;
+    for(const e of entries){
+      i++;
+      try{const f=await e.getFile();
+        const j=window.SB_extract.slimJson(window.SB_extract.dropFoundryStubs(JSON.parse(await f.text())));
+        IMPORT_STAGE.push({name:e.path.split("/").pop(),json:j});
+      }catch(_){}
+      if(i%5===0||i===entries.length){
+        prog.textContent=`Reading ${i}/${entries.length} file${entries.length===1?"":"s"}…`;
+        await new Promise(r=>setTimeout(r,0));}
+    }
+    prog.textContent="";
+    renderImportStage();
+    buildImport(picked);      // the ticked books define the keep-list
+  }finally{SCAN_BUSY=false;}
+}
+function buildImport(only){
   const files=IMPORT_STAGE.filter(f=>!f.error).map(f=>({name:f.name,json:f.json}));
   const rep=$("#importReport");
   if(!files.length){rep.textContent="Stage at least one valid file first.";return;}
   if(!window.SB_extract){rep.textContent="Importer failed to load.";return;}
   rep.textContent="Reading…";
   const res=window.SB_extract.buildDigest(files);const digest=res.digest,report=res.report;
-  if(!digest.spells.length&&!digest.classes.length){rep.textContent="No spells or classes found in these files.";return;}
-  planFromStage(digest,report); renderImportPlan();
+  // was "no spells or classes" — which rejected a perfectly good feats-only or species-only brew
+  // (D&D Beyond's Expanded Racial Feats is exactly that). Any entity the app models counts.
+  if(!digestSize(digest)){rep.textContent="No spells, classes, feats or species found in these files.";return;}
+  planFromStage(digest,report,only); renderImportPlan();
   rep.innerHTML=`Read ${files.length} file${files.length===1?"":"s"} — ${importSummary(report)}.`
     +` <b>Nothing is stored yet:</b> choose the books below, then Apply.`;
 }
@@ -2087,6 +2300,8 @@ function applyImport(){
   SRC.add(HB_SRC); saveSources();
   assembleData();pruneState();
   IMPORT_STAGE=[];renderImportStage();
+  // those books are in your data now — leaving them ticked in the scan reads as pending work
+  SCAN_PICK=new Set(); renderScan();
   planFromStage(null,PLAN.report); renderImportPlan();
   refreshAll();render();
   const nb=Object.keys(out.sources).length;
@@ -2099,7 +2314,16 @@ function openImport(welcome){closeMenu();const r=$("#importReport");
   const w=$("#importWelcome");if(w)w.classList.toggle("hidden",!welcome);
   const t=$("#importTitle");if(t)t.textContent=welcome?"Load your spell data":"Import 5etools data";
   planFromStage(null,null); renderImportPlan();
-  renderImportStage();$("#importModal").classList.remove("hidden");}
+  renderImportStage();$("#importModal").classList.remove("hidden");
+  // A remembered folder is recalled SILENTLY — `false` means never prompt for permission here,
+  // because a permission request outside a user gesture is refused anyway. The Rescan button
+  // asks for real when it is clicked.
+  renderScan(); folderButtons();
+  if(FSA()&&!FOLDER)folderRecall().then(async h=>{
+    if(h&&await folderUsable(h,false)){FOLDER=h;folderButtons();}
+    else if(h){FOLDER=h;folderButtons();          // known but not yet granted — Rescan will ask
+      const p=$("#folderProgress"); if(p&&!p.textContent)p.textContent="Folder remembered — press Rescan to re-open it.";}
+  });}
 function clearImport(){try{localStorage.removeItem(LS_IMPORT);}catch(e){}assembleData();pruneState();refreshAll();render();}
 // no-content build (public deploy): pop the import modal in welcome mode, once
 let onboardShown=false;
@@ -3588,20 +3812,26 @@ const GROUP_NAME={core:"Core",supplement:"Supplements","supplement-alt":"Supplem
 // One component for every place books are chosen: the global ⚙ Sources modal and each
 // picker's local override. `sel` is a Set the caller owns; `onChange` runs after any
 // mutation. `codes` limits the list to the sources actually present in that picker.
-function renderSourceChecklist(wrap,sel,onChange,codes,countOf,srcMap){
+// `opts` lets a caller that is NOT the Sources list reuse this exact control (D83 — one book
+// checklist everywhere) with its own group labels, group order and row order: the folder scan
+// groups by creator or by what a book contains, and sorts by name rather than by spell count.
+// Every existing caller passes no opts and behaves exactly as before.
+function renderSourceChecklist(wrap,sel,onChange,codes,countOf,srcMap,opts){
+  opts=opts||{};
+  const gname=opts.groupName||GROUP_NAME;
   wrap.innerHTML="";
   const all=Object.entries(srcMap||DATA.sources).filter(([code])=>!codes||codes.has(code));
   const byGroup={};all.forEach(([code,s])=>{(byGroup[s.group||"other"]=byGroup[s.group||"other"]||[]).push([code,s]);});
-  const groups=Object.keys(byGroup).sort((a,b)=>{const ia=GROUP_ORDER.indexOf(a),ib=GROUP_ORDER.indexOf(b);return (ia<0?9:ia)-(ib<0?9:ib);});
+  const groups=Object.keys(byGroup).sort(opts.groupSort||((a,b)=>{const ia=GROUP_ORDER.indexOf(a),ib=GROUP_ORDER.indexOf(b);return (ia<0?9:ia)-(ib<0?9:ib);}));
   groups.forEach(g=>{const gd=el("div","srcgroup");
     const gcodes=byGroup[g].map(x=>x[0]);
     const allOn=gcodes.every(c=>sel.has(c)), someOn=gcodes.some(c=>sel.has(c));
-    const h4=el("h4",null,GROUP_NAME[g]||g);
+    const h4=el("h4",null,gname[g]||g);
     const allLab=el("label","all");const allCb=el("input");allCb.type="checkbox";allCb.checked=allOn;allCb.indeterminate=someOn&&!allOn;
     allCb.onchange=()=>{gcodes.forEach(c=>allCb.checked?sel.add(c):sel.delete(c));onChange();};
     allLab.append(el("span",null,allOn?"all":someOn?"some":"none"));allLab.append(allCb);h4.append(allLab);gd.append(h4);
     const list=el("div","srclist");
-    byGroup[g].sort((a,b)=>(((b[1].counts||{}).spells)||0)-(((a[1].counts||{}).spells)||0)).forEach(([code,s])=>{
+    byGroup[g].sort(opts.sortRows||((a,b)=>(((b[1].counts||{}).spells)||0)-(((a[1].counts||{}).spells)||0))).forEach(([code,s])=>{
       const lab=el("label");const cb=el("input");cb.type="checkbox";cb.checked=sel.has(code);
       cb.onchange=()=>{cb.checked?sel.add(code):sel.delete(code);onChange();};
       lab.append(cb);lab.append(el("span",null,s.name));
@@ -3710,8 +3940,54 @@ $("#importPasteAdd").onclick=()=>{const t=$("#importPaste").value.trim();if(!t)r
   catch(e){$("#importReport").textContent="Pasted text isn’t valid JSON.";}};
 $("#importClear").onclick=()=>{IMPORT_STAGE=[];renderImportStage();
   planFromStage(null,null);renderImportPlan();$("#importReport").textContent="";};
-$("#importBuild").onclick=buildImport;
+$("#importBuild").onclick=()=>buildImport();   // no `only` — staging IS the choice of what to add
 $("#importApply").onclick=applyImport;
+
+// ── folder scan wiring (D92) ───────────────────────────────────────────────────
+// Two ways in. showDirectoryPicker gives a handle we can REMEMBER between sessions; where it
+// doesn't exist (Safari, Firefox) a webkitdirectory input does the same scan for one session.
+function folderButtons(){
+  const remembered=!!FOLDER;
+  const r=$("#folderRescan"), f=$("#folderForget");
+  if(r)r.classList.toggle("hidden",!remembered);
+  if(f)f.classList.toggle("hidden",!remembered);
+  const p=$("#folderPick"); if(p)p.textContent=remembered?"Choose another folder…":"Choose folder…";
+  const sub=$("#folderSub");
+  if(sub)sub.textContent=remembered?(FOLDER.name||"remembered folder"):(FSA()?"":"one session at a time in this browser");
+}
+async function scanHandle(h,remember){
+  if(remember)await folderRemember(h);
+  FOLDER=h; folderButtons();
+  $("#folderProgress").textContent="Reading the folder…";
+  await scanEntries(await folderEntries(h),h.name||"folder");
+}
+$("#folderPick").onclick=async()=>{
+  if(SCAN_BUSY)return;
+  if(!FSA()){$("#folderInput").click();return;}
+  try{const h=await window.showDirectoryPicker({id:"spellbookLibrary",mode:"read"});
+    await scanHandle(h,true);}
+  catch(e){ if(e&&e.name==="AbortError")return;      // the user simply closed the picker
+    $("#folderProgress").textContent="Couldn’t open that folder: "+(e.message||e);}
+};
+$("#folderRescan").onclick=async()=>{
+  if(SCAN_BUSY)return;
+  const prog=$("#folderProgress");
+  // A remembered handle is not a granted one — permission dies with the session, and asking
+  // has to happen inside this click. If it's gone (moved, renamed, denied), say so and offer
+  // the picker rather than failing silently.
+  if(!FOLDER||!await folderUsable(FOLDER,true)){
+    prog.innerHTML="That folder isn’t reachable any more — choose it again.";
+    await folderForget(); folderButtons(); return;}
+  try{await scanHandle(FOLDER,false);}
+  catch(e){prog.textContent="Couldn’t read that folder: "+(e.message||e);
+    await folderForget(); folderButtons();}
+};
+$("#folderForget").onclick=async()=>{await folderForget();SCAN=null;SCAN_PICK=new Set();
+  $("#folderProgress").textContent="";renderScan();folderButtons();};
+$("#folderInput").onchange=e=>{const l=e.target.files;
+  if(l&&l.length)scanEntries(inputEntries(l),l[0].webkitRelativePath?l[0].webkitRelativePath.split("/")[0]:"folder");
+  e.target.value="";};
+$("#folderImport").onclick=importScanned;
 $("#srcAskKeep").onclick=()=>{$("#srcAskModal").classList.add("hidden");const f=SRCASK&&SRCASK.after;SRCASK=null;if(f)f(false);};
 $("#srcAskSwitch").onclick=()=>{$("#srcAskModal").classList.add("hidden");const f=SRCASK&&SRCASK.after;SRCASK=null;if(f)f(true);};
 $("#buildsBtn").onclick=openBuilds;

@@ -266,6 +266,42 @@
       <button class="btn" id="importClear">Clear staged</button>
       <button class="btn on" id="importBuild">Read staged files</button>
     </div>
+    <!-- D92: a library is filed by CATEGORY (spell/, class/, collection/…), so one brew's content
+         scatters across folders and a "collection" brew keeps its spells in collection/. Scanning
+         indexes the whole folder BY BOOK instead, holding one file at a time. -->
+    <div class="importplan" id="folderScan">
+      <div class="iph"><b>Or scan a folder</b><span class="sub" id="folderSub"></span>
+        <button class="helpbtn" data-help="folderHelp" aria-expanded="false" aria-label="About scanning a folder"></button></div>
+      <div class="helpbody hidden" id="folderHelp">
+        <p>Point this at an unzipped 5etools <code>data</code> folder, or a homebrew repository you
+        cloned or extracted. It reads every <code>.json</code> <b>once</b> to learn which books are in
+        there and how much each one holds, then throws the file away — only one file is ever in memory,
+        so a library far too big to import as a <code>.zip</code> scans fine.</p>
+        <p>Repositories are filed by <b>category</b> — <code>spell/</code>, <code>class/</code>,
+        <code>collection/</code> — so one brew's content is spread across folders, and a “collection”
+        brew keeps its spells in <code>collection/</code> rather than <code>spell/</code>. That is why
+        browsing for something like <i>D&amp;D Beyond Drops</i> fails. This list is by <b>book</b>.</p>
+        <p>Artwork (<code>_img/</code>) is skipped. <b>Nothing is stored</b> until you tick books and
+        import — and even then the “Your books” list below still decides what is kept.</p>
+      </div>
+      <div class="prepnav" style="border:none;padding:0 0 8px">
+        <button class="btn on" id="folderPick">Choose folder…</button>
+        <button class="btn hidden" id="folderRescan">Rescan</button>
+        <span class="prepnav-sp"></span>
+        <button class="btn hidden" id="folderForget">Forget folder</button>
+      </div>
+      <input type="file" id="folderInput" webkitdirectory directory multiple hidden>
+      <div id="folderProgress" class="note"></div>
+      <div id="folderBooks" class="hidden">
+        <div class="quick" id="folderQuick"></div>
+        <div id="folderList" class="importplanlist"></div>
+        <div class="prepnav" style="border:none;padding:10px 0 0">
+          <span class="sub" id="folderPickSub" style="color:var(--muted);font-size:12px"></span>
+          <span class="prepnav-sp"></span>
+          <button class="btn on" id="folderImport">Import ticked books</button>
+        </div>
+      </div>
+    </div>
     <!-- D86: ONE list decides what is in your data. Every book you already have plus every
          book the staged files hold; a tick means "keep it". Nothing is written until Apply. -->
     <div id="importPlan" class="importplan hidden">

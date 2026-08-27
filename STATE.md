@@ -411,6 +411,28 @@ stays out. Server sync or accounts. Sharing a build as a rendered page, or via a
   card, the D76 weighting explanation on a popover on the meter that states it. *Rejected:* one
   rule for every note (Francesco: "depends on the instance"); tightening the prose in place with no
   popovers (the removal warning has to stay long, and had nowhere to go).
+- **D92 (2026-08-27) A library is scanned BY BOOK, one file at a time — the folder is the unit,
+  not the zip** — a homebrew repository is filed by **category** (`spell/`, `class/`,
+  `collection/`…), so one brew's content scatters across folders and a *collection* brew keeps its
+  spells in `collection/` — which is why **D&D Beyond Drops** could not be found by browsing
+  (`collection/D&D Beyond; D&D Beyond Drops.json`, 8 spells + 10 feats). **Or scan a folder** walks
+  every `.json` once, keeps only a book index (name, creator from the `Author; Brew.json`
+  filename, per-type counts, which files), and **throws each parsed file away** — peak memory is
+  the largest single file (6 MB), not the library (316 MB / 1,314 files / 1,549 books, ~2 s local).
+  The list is **flat and search-first** with **grouping tools** (every book · by creator · by what
+  it holds) — Francesco's call. Ticking re-reads **only the ticked books' files** and hands them to
+  the normal staging flow, so D86's "Your books" panel and Apply still decide what is stored;
+  `planFromStage` gained an `only` argument so books riding along in the same file are **not**
+  kept. Reached two ways: `showDirectoryPicker` where it exists, with the handle **remembered in
+  IndexedDB** and re-granted on Rescan (permission never survives a reload — a lost folder says so
+  and offers the picker), and a `webkitdirectory` input everywhere else. `_img/` is skipped and
+  `zipWanted()` is reused rather than re-implemented. Two fixes fell out: `buildImport` rejected a
+  digest with **no spells or classes**, which killed a legitimate feats-only brew (D&D Beyond's
+  Expanded Racial Feats), and `renderSourceChecklist` gained an `opts` argument (group labels,
+  group order, row order) so this list **is** the shared checklist (D83) rather than a fork.
+  *Rejected:* grouping by creator or content as the primary shape (search wins at 1,000 rows);
+  File System Access as the only path (Chromium-only); importing everything scanned (316 MB has
+  nowhere to go — localStorage is ~5 MB).
 - **D91 (2026-08-27) A zip that can't work says why, and the lookup file is chosen by NAME**
   — chasing "the homebrew zip won't import" turned up one UX failure and one silent data bug.
   ① **The zip.** A GitHub "Download ZIP" of `TheGiddyLimit/homebrew` is **gigabytes** (the repo is
@@ -670,6 +692,20 @@ written up in full under Gotchas below — that is the copy to trust.
   now diffs `cls`/`sub`/`feat`/`race` per spell and asserts the with-access COUNT against
   extract.py; reintroduce the bug and it reports 921 diffs. If imported spells ever match no
   class again, look here first.
+- **A brew's own `_meta.sources` outranks its `book[]` entries (D92).** A collection brew may carry
+  `book` records that REUSE its source code for sub-products: "D&D Beyond Drops" ships four, all
+  map bundles. `book[]` was applied first and overwrote unconditionally, so the last one won and
+  eight spells filed themselves under **"D&D Beyond Drops—Sewer Maps"** in group `other` — off the
+  "Homebrew & UA" shelf and effectively unfindable. `_meta.sources` now runs FIRST, records the
+  code in `brewSrc`, and `book[]` may not rename anything in that set.
+- **The folder scan must reuse `zipWanted()`, never its own filter (D92).** Same rule the zip
+  reader learned the hard way. It also skips `_img/` at the WALK (the FSA path) and by
+  `webkitRelativePath` (the input path) — a synthetic entry list bypasses both, so a test that
+  fabricates entries is not testing the filter.
+- **A remembered directory handle is not a granted one (D92).** The handle survives in IndexedDB;
+  the READ PERMISSION dies with the session and can only be re-requested inside a user gesture.
+  `folderUsable(h,ask)` takes `ask=false` on the silent recall in `openImport` and `true` in the
+  Rescan click. If it fails, forget the handle and offer the picker — never fail silently.
 - **A big zip fails as a lie (D91).** `file.arrayBuffer()` on an oversized archive throws
   `NotReadableError`, whose stock message blames *"permission problems"* — the cause is size.
   `stageZip` refuses above `MAX_ZIP` (512 MB) by measured size, translates the OOM, and passes the

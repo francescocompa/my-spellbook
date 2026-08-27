@@ -531,12 +531,17 @@ function buildDigest(files){
 
   // pass 1: books first (names/groups), stash the lookup, and index granting features
   const subfeatIdx={}, clsfeatIdx={};   // keyed like extract.py's SUB/CLSFEAT_INDEX
+  const brewSrc=new Set();              // sources a brew declared as its own — book[] may not rename these
   files.forEach(f=>{const j=f.json;if(!j||typeof j!=="object")return;
-    if(Array.isArray(j.book)){j.book.forEach(b=>{if(b.source)books[b.source]={name:b.name||b.source,group:b.group||"other"};});report.books+=j.book.length;}
-    // homebrew / UA files carry no book entry — their identity is _meta.sources
-    // ({json: code, full: name}). Grouped under "brew" so the checklist shelves them.
+    // `_meta.sources` ({json: code, full: name}) is a brew's OWN identity and it goes FIRST,
+    // because a collection brew may also carry `book` entries that reuse its source code for
+    // sub-products. "D&D Beyond Drops" ships four, all map bundles; book[] used to overwrite
+    // and the LAST one won, so eight spells filed themselves under a book called
+    // "D&D Beyond Drops—Sewer Maps" in group "other" — off the "Homebrew & UA" shelf entirely
+    // and effectively unfindable. A brew's own name wins, and its group stays "brew".
     const metaSrc=j._meta&&Array.isArray(j._meta.sources)?j._meta.sources:[];
-    metaSrc.forEach(m=>{if(m&&m.json&&!books[m.json])books[m.json]={name:m.full||m.abbreviation||m.json,group:"brew"};});
+    metaSrc.forEach(m=>{if(m&&m.json){books[m.json]={name:m.full||m.abbreviation||m.json,group:"brew"};brewSrc.add(m.json);}});
+    if(Array.isArray(j.book)){j.book.forEach(b=>{if(b.source&&!brewSrc.has(b.source))books[b.source]={name:b.name||b.source,group:b.group||"other"};});report.books+=j.book.length;}
     // TWO files in a 5etools export are lookup-SHAPED: generated/gendata-spell-source-lookup.json
     // (keys folded to lowercase — the one extract.py reads) and spells/sources.json (keys in
     // ORIGINAL case). Whichever arrived last used to win, and when that was sources.json every
