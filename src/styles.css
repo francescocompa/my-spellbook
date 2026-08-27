@@ -1138,6 +1138,7 @@ label.fld .fldt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-wi
    rest. The old version carried a "Cast at" label that wrapped and a select that ate the row. */
 .csrowsub{display:flex;align-items:center;gap:7px;padding:0 0 9px 2px;flex-wrap:wrap}
 .csrowsub .cslv{flex:0 0 auto;width:118px;max-width:118px}
+.csrowsub .cspay{flex:0 0 auto;width:158px;max-width:158px}
 .csrowsub .csnote{flex:1 1 170px;min-width:0;font-size:12px}
 .csrowsub .csnote::placeholder{font-style:italic}
 /* a per-spell control must not resize with its own value — a fixed width keeps the caret and

@@ -1147,6 +1147,7 @@ label.fld .fldt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-wi
    rest. The old version carried a "Cast at" label that wrapped and a select that ate the row. */
 .csrowsub{display:flex;align-items:center;gap:7px;padding:0 0 9px 2px;flex-wrap:wrap}
 .csrowsub .cslv{flex:0 0 auto;width:118px;max-width:118px}
+.csrowsub .cspay{flex:0 0 auto;width:158px;max-width:158px}
 .csrowsub .csnote{flex:1 1 170px;min-width:0;font-size:12px}
 .csrowsub .csnote::placeholder{font-style:italic}
 /* a per-spell control must not resize with its own value — a fixed width keeps the caret and
@@ -1644,14 +1645,17 @@ label.fld .fldt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-wi
       <button class="btn tiny" id="csrcRuleEdit" aria-expanded="false" aria-controls="csrcRules">Change</button>
     </div>
     <div class="disc hidden" id="csrcRules">
-      <div class="csnums">
-        <label class="csnum wide"><span>Casting</span><select id="csrcMode"></select></label>
-        <label class="csnum wide" id="csrcUsesBlock"><span>Uses</span><select id="csrcUses"></select></label>
-      </div>
-      <div class="poolrow hidden" id="csrcPoolRow">
-        <input type="number" id="csrcPool" min="0" max="99" placeholder="10">
-        <span class="poollbl">charges · regains</span>
-        <input type="text" id="csrcRecharge" placeholder="1d6+4 at dawn" autocomplete="off" spellcheck="false">
+      <label class="csnum wide" style="max-width:230px"><span>Casting</span><select id="csrcMode"></select></label>
+      <!-- D95: a source HAS a charge pool or it doesn't; leaving the size blank means it
+           doesn't. Which spells spend it is decided per spell, not here — real items mix a
+           pool with at-will and once-ever spells freely. -->
+      <div id="csrcUsesBlock">
+        <label class="fld" style="margin-top:10px">Charge pool <span class="fldnote">blank = no pool</span></label>
+        <div class="poolrow" id="csrcPoolRow">
+          <input type="number" id="csrcPool" min="0" max="99" placeholder="none">
+          <span class="poollbl">charges · regains</span>
+          <input type="text" id="csrcRecharge" placeholder="1d6+4 at dawn" autocomplete="off" spellcheck="false">
+        </div>
       </div>
     </div>
 
@@ -3014,19 +3018,37 @@ function setPreview(l){
 // Two labels per unit: the SHORT one fits a fixed-width control on a crowded spell row
 // ("/LR"), the long one reads as prose in the summary sentence ("per long rest").
 const CSRC_UNITS=[["lr","per long rest","/LR"],["sr","per short rest","/SR"],
-                  ["dawn","per dawn","/dawn"],["will","at will","at will"]];
+                  ["dawn","per dawn","/dawn"],
+                  // D95 gap 2: uses that NEVER come back. 5etools calls this `limited`
+                  // ("Once the spell has been cast three times, the bracelet can no longer
+                  // cast it"); every other unit here recharges, so there was no way to say it.
+                  ["total","in total","total"],
+                  ["will","at will","at will"]];
 const csrcUnitShort=u=>((CSRC_UNITS.find(x=>x[0]===u)||[])[2])||u;
 const CSRC_MODES=[["innate","cast without preparing"],["always","always prepared"],
                   ["list","added to my spell list"]];
 function csrcCadence(e){ if(e.unit==="will")return "at will";
-  const u=(CSRC_UNITS.find(x=>x[0]===e.unit)||[])[1]||e.unit;
   const n=Math.max(1,e.count||1);
+  if(e.unit==="total")return n===1?"once only":`${n} times total`;
+  const u=(CSRC_UNITS.find(x=>x[0]===e.unit)||[])[1]||e.unit;
   return n===1?u:`${n}× ${u}`;}
-// A source spends EITHER a shared pool of charges (most magic items: "10 charges, regains
-// 1d6+4 at dawn", each spell costing some) OR per-spell uses (a boon's 1/long rest). D65.
+// D95 gap 1: how a spell is PAID FOR belongs to the spell, not the source.
+// D65 made it a source-level either/or — a shared pool of charges OR per-spell uses — but real
+// items mix them freely: Demonomicon of Iggwilv casts Tasha's Hideous Laughter at will AND
+// spends an 8-charge pool; Crook of Rao has a 6-charge pool AND Gate once ever. 38 items in the
+// 5etools corpus carry more than one budget. A source-level enum also starts LYING the moment
+// one spell differs, which is the folded-state-disagrees-with-reality problem D94 removed.
+// A source now simply HAS a charge pool or doesn't (`pool`), and each spell says how it pays.
+// Legacy sources carry `uses` and no per-spell `pay`; they are read, never rewritten in place.
+function csrcPay(cs,e){
+  if(e&&(e.pay==="pool"||e.pay==="per"))return e.pay;
+  if(cs.uses==="pool"||cs.uses==="per")return cs.uses;      // pre-D95 shape
+  return cs.pool!=null&&cs.pool!==""?"pool":"per";
+}
+const csrcHasPool=cs=>cs.pool!=null&&cs.pool!=="";
 function csrcRecharge(cs,e){
   if(cs.mode==="always")return "always prepared";
-  if(cs.uses==="pool"){const n=Math.max(1,e.cost||1);return `${n} charge${n>1?"s":""}`;}
+  if(csrcPay(cs,e)==="pool"){const n=Math.max(1,e.cost||1);return `${n} charge${n>1?"s":""}`;}
   return csrcCadence(e);
 }
 function customSourceGrants(cs){
@@ -3044,12 +3066,15 @@ function customSourceGrants(cs){
   return {fixed,picks:[],expansions:[],optionGroups:[],
           ability:cs.ability?{fixed:cs.ability}:null};
 }
-// a one-line description of how the source is powered, for its chip and the casts list
+// a one-line description of how the source is powered, for its chip and the casts list.
+// A source may now carry BOTH a pool and spells on their own uses (D95), so this names both.
 function csrcPower(cs){
   if(cs.mode==="always")return "always prepared";
   if(cs.mode==="list")return "added to your spell list";
-  if(cs.uses==="pool")return `${cs.pool||0} charges`+(cs.recharge?" · regains "+cs.recharge:"");
-  return "per-spell uses";
+  const own=(cs.spells||[]).filter(e=>csrcPay(cs,e)==="per").length;
+  if(!csrcHasPool(cs))return "per-spell uses";
+  const pool=`${cs.pool} charges`+(cs.recharge?" · regains "+cs.recharge:"");
+  return own?`${pool} · ${own} on their own uses`:pool;
 }
 
 // ── compute ──────────────────────────────────────────────────────────────
@@ -3960,10 +3985,11 @@ function openCsrc(existing){
   const md=$("#csrcMode");md.innerHTML="";
   CSRC_MODES.forEach(([v,t])=>md.append(new Option(t,v)));
   md.value=CSRC.mode; md.onchange=()=>{CSRC.mode=md.value;csrcSyncMode();};
-  const us=$("#csrcUses");us.innerHTML="";
-  // terse — the "Uses" label above already supplies the noun, and the long forms truncated
-  [["pool","a shared pool"],["per","per-spell"]].forEach(([v,t])=>us.append(new Option(t,v)));
-  us.value=CSRC.uses||"pool"; us.onchange=()=>{CSRC.uses=us.value;csrcSyncMode();};
+  // D95: no source-level "Uses" select any more — payment is per spell, and the pool is just
+  // a thing the source has. Normalise the draft ONCE on open so every row carries its own
+  // `pay` and the legacy `uses` enum stops being consulted.
+  (CSRC.spells||[]).forEach(e=>{ if(e.pay!=="pool"&&e.pay!=="per")e.pay=csrcPay(CSRC,e); });
+  delete CSRC.uses;
   $("#csrcSearch").value=""; $("#csrcHits").innerHTML=""; $("#csrcErr").textContent="";
   csrcSyncMode();
   $("#csrcModal").classList.remove("hidden");
@@ -3971,8 +3997,8 @@ function openCsrc(existing){
 }
 // only "cast without preparing" spends uses at all, and only a pool needs a pool size
 function csrcSyncMode(){
+  // only "cast without preparing" spends anything, so the pool is meaningless otherwise
   $("#csrcUsesBlock").classList.toggle("hidden",CSRC.mode!=="innate");
-  $("#csrcPoolRow").classList.toggle("hidden",CSRC.mode!=="innate"||CSRC.uses!=="pool");
   csrcSyncRule(); renderCsrcRows(); csrcSyncNums(); csrcSyncSummary();
 }
 // ── D94: the collapsed surface ─────────────────────────────────────────────
@@ -3980,18 +4006,26 @@ let CSRC_OPEN={rules:false,nums:false};   // which disclosures are open
 let CSRC_ROW_OPEN=new Set();              // which spell rows show their rare per-spell bits
 // The rule line says what the source IS, in the words the toggles use, so opening "Change"
 // never contradicts what you just read.
+// D95: a source can now be BOTH — a pool plus spells on their own uses — so the line names
+// both rather than picking one. It is the only always-visible statement of what this is, so
+// it must never describe a shape the spells below contradict.
 function csrcRuleText(){
   const mode=(CSRC_MODES.find(m=>m[0]===CSRC.mode)||[])[1]||CSRC.mode;
-  if(CSRC.mode!=="innate")return `<b>${esc(cap(mode))}</b>`;
-  if(CSRC.uses==="pool"){
-    const n=CSRC.pool==null||CSRC.pool===""?null:CSRC.pool;
-    // Unset is only a PROBLEM once there are spells to spend on — flagging a form you have
-    // not filled yet is noise, so an untouched source states it quietly.
-    if(n==null)return `<b>${esc(cap(mode))}</b> · a shared pool, `
-      +((CSRC.spells||[]).length?`<i class="rl-todo">charges not set yet</i>`:`<i>charges not set yet</i>`);
-    return `<b>${esc(cap(mode))}</b> · a shared pool of <b>${esc(String(n))}</b> charge${+n===1?"":"s"}`
-      +(CSRC.recharge?`, regains <b>${esc(CSRC.recharge)}</b>`:"");}
-  return `<b>${esc(cap(mode))}</b> · per-spell uses`;
+  const head=`<b>${esc(cap(mode))}</b>`;
+  if(CSRC.mode!=="innate")return head;
+  const spells=CSRC.spells||[];
+  const onPool=spells.filter(e=>csrcPay(CSRC,e)==="pool").length;
+  const onOwn=spells.length-onPool;
+  const bits=[];
+  if(csrcHasPool(CSRC))
+    bits.push(`a pool of <b>${esc(String(CSRC.pool))}</b> charge${+CSRC.pool===1?"":"s"}`
+      +(CSRC.recharge?`, regains <b>${esc(CSRC.recharge)}</b>`:""));
+  else if(onPool)
+    // a spell says it costs charges from a pool that doesn't exist — the one real contradiction
+    bits.push(`<i class="rl-todo">${onPool} spell${onPool===1?"":"s"} spend${onPool===1?"s":""} charges, but there is no pool</i>`);
+  if(onOwn)bits.push(`<b>${onOwn}</b> on their own uses`);
+  if(!bits.length)bits.push(spells.length?`each spell on its own uses`:`<i>no charge pool</i>`);
+  return head+" · "+bits.join(" · ");
 }
 const cap=s=>String(s||"").charAt(0).toUpperCase()+String(s||"").slice(1);
 function csrcSyncRule(){
@@ -4029,27 +4063,34 @@ function csrcSummary(){
   let how;
   if(CSRC.mode==="always")how=`have ${list} always prepared`;
   else if(CSRC.mode==="list")how=`add ${list} to your spell list — you prepare them normally`;
-  else if(CSRC.uses==="pool"){
-    const n=CSRC.pool==null||CSRC.pool===""?null:CSRC.pool;
-    // name what each spell COSTS while the list is short enough to read — the costs are the
-    // half of a pool source you actually tune, and the summary was silent on them
-    const costs=(CSRC.spells||[]).map((e,ix)=>{const sp=SPELL_BY[e.key];
-      const c=Math.max(1,e.cost||1);
-      return `${esc(sp?sp.name:e.key.split("|")[0])} (<b>${c}</b>${ix?"":` charge${c===1?"":"s"}`})`;});
-    const what=named.length<=3
-      ? costs.join(named.length===2?" or ":", ").replace(/, ([^,]*)$/," or $1")
-      : list;
-    how=`cast ${what} without preparing, spending from `
-      +(n==null?`<b class="warnish">a pool with no charges set</b>`:`<b>${esc(String(n))} charge${+n===1?"":"s"}</b>`)
-      +(CSRC.recharge?` (regains ${esc(CSRC.recharge)})`:"");}
   else {
-    // In per-spell mode the CADENCE is the whole point, so name it while the list is short
-    // enough to read; "each on its own uses" describes the shape but not what you built.
-    const cad=(CSRC.spells||[]).map(e=>{const sp=SPELL_BY[e.key];
-      return `${esc(sp?sp.name:e.key.split("|")[0])} <b>${esc(csrcCadence(e))}</b>`;});
-    how=named.length<=3?`cast ${cad.join(named.length===2?" and ":", ").replace(/, ([^,]*)$/," and $1")}`
-                        +` without preparing`
-                      :`cast ${list} without preparing, each on its own uses`;}
+    // D95: one source can spend a pool AND carry spells on their own uses, so the sentence
+    // has to be able to say both. Each spell is named with what IT costs while the list is
+    // short enough to read — that is the half of a source you actually tune.
+    const nm=e=>{const sp=SPELL_BY[e.key];return esc(sp?sp.name:e.key.split("|")[0]);};
+    const join=a=>a.join(a.length===2?" and ":", ").replace(/, ([^,]*)$/," and $1");
+    const pooled=(CSRC.spells||[]).filter(e=>csrcPay(CSRC,e)==="pool");
+    const own=(CSRC.spells||[]).filter(e=>csrcPay(CSRC,e)!=="pool");
+    const clauses=[];
+    if(pooled.length){
+      const n=csrcHasPool(CSRC)?CSRC.pool:null;
+      const what=pooled.length<=3
+        ? join(pooled.map((e,ix)=>{const c=Math.max(1,e.cost||1);
+            return `${nm(e)} (<b>${c}</b>${ix?"":` charge${c===1?"":"s"}`})`;}))
+        : `${pooled.length} spells`;
+      clauses.push(`cast ${what} spending from `
+        +(n==null?`<b class="warnish">a pool with no charges set</b>`
+                 :`<b>${esc(String(n))} charge${+n===1?"":"s"}</b>`)
+        +(CSRC.recharge?` (regains ${esc(CSRC.recharge)})`:""));}
+    if(own.length){
+      const what=own.length<=3
+        ? join(own.map(e=>`${nm(e)} <b>${esc(csrcCadence(e))}</b>`))
+        : `${own.length} more on their own uses`;
+      clauses.push((pooled.length?"":"cast ")+what);}
+    // "all" only earns its place when there are two budgets to gather up; with one clause it
+    // reads as a tic bolted onto the end of a sentence that was already finished
+    how=clauses.length>1 ? clauses.join(", and ")+" — all without preparing"
+                         : (clauses[0]||`cast ${list}`)+" without preparing";}
   const dc=$("#csrcDC").value.trim(),atk=$("#csrcAtk").value.trim(),ab=$("#csrcAbility").value;
   const num=[]; if(dc)num.push(`saves are <b>DC ${esc(dc)}</b>`);
   if(atk)num.push(`attacks <b>${esc(atk)}</b>`);
@@ -4073,8 +4114,7 @@ function buildToggleRowSingle(box,pairs,cur,cb){
 // level dropdown on every spell, always, though almost nothing uses it.
 function renderCsrcRows(){
   const box=$("#csrcRows"); box.innerHTML="";
-  const pool=CSRC.mode==="innate"&&CSRC.uses==="pool";
-  const per =CSRC.mode==="innate"&&CSRC.uses!=="pool";
+  const spends=CSRC.mode==="innate";
   if(!CSRC.spells.length){
     box.append(el("div","csempty","No spells yet — search below to add one."));return;}
   CSRC.spells.forEach((e,i)=>{
@@ -4084,7 +4124,11 @@ function renderCsrcRows(){
     const nm=el("span","csnm",sp?sp.name:e.key.split("|")[0]);
     if(sp)attachSpell(nm,sp);
     row.append(nm);
-    if(pool){
+    // D95: the inline control follows THIS spell's payment, not a source-wide mode. That also
+    // means no folded-state tag is needed for it — which way a spell pays is always on screen.
+    const pay=spends&&csrcPay(CSRC,e)==="pool";
+    const per=spends&&!pay;
+    if(pay){
       const c=el("input");c.type="number";c.min=1;c.max=99;c.value=e.cost||1;c.className="csn2";
       c.title="Charges this spell costs";
       c.oninput=()=>{e.cost=Math.max(1,+c.value||1);csrcSyncSummary();};
@@ -4097,8 +4141,9 @@ function renderCsrcRows(){
       CSRC_UNITS.forEach(([v,,short])=>u.append(new Option(short,v)));u.value=e.unit||"lr";
       // "at will" has no count to set: grey the number out rather than leave a live field
       // whose value means nothing
+      // "at will" has no count; "total" very much does (3 casts, ever) so it stays live
       const syncWill=()=>{const w=u.value==="will";n.disabled=w;n.classList.toggle("off",w);};
-      u.onchange=()=>{e.unit=u.value;syncWill();csrcSyncSummary();};
+      u.onchange=()=>{e.unit=u.value;syncWill();csrcSyncRule();csrcSyncSummary();};
       syncWill();
       row.append(n);row.append(u);}
     // Every row can hold a note, so every row gets the caret — a fixed cast level is extra.
@@ -4121,6 +4166,19 @@ function renderCsrcRows(){
     wrap.append(row);
     if(open){
       const sub=el("div","csrowsub");
+      // D95: which budget this spell spends. Offered only when the source spends anything at
+      // all — "always prepared" and "added to my spell list" have no uses to pay with.
+      if(spends){
+        const py=el("select");py.className="cspay";
+        py.append(new Option("from the charge pool","pool"));
+        py.append(new Option("its own uses","per"));
+        py.value=csrcPay(CSRC,e);
+        py.onchange=()=>{e.pay=py.value;
+          // give the newly-relevant field a sane value rather than a silent 1/undefined
+          if(e.pay==="pool"&&e.cost==null)e.cost=1;
+          if(e.pay==="per"&&!e.unit){e.unit="lr";e.count=e.count||1;}
+          renderCsrcRows();csrcSyncRule();csrcSyncSummary();};
+        sub.append(py);}
       // No separate "Cast at" label — it wrapped, and a select that names its own options
       // ("as written", "cast at 5th") doesn't need one. Fixed width so the note gets the rest.
       if(canLevel){
@@ -4150,7 +4208,9 @@ function renderCsrcHits(){
       r.append(el("span",null,sp.name));
       r.append(el("span","cshl",(sp.level===0?"cantrip":"level "+sp.level)+" · "+sp.school));
       if(sp.source!==CORE)r.append(bookChip(sp.source,sp.page));
-      r.onclick=()=>{CSRC.spells.push({key:key(sp.name,sp.source),count:1,cost:1,unit:"lr"});
+      // a new spell defaults to whichever budget the source actually has (D95)
+      r.onclick=()=>{CSRC.spells.push({key:key(sp.name,sp.source),count:1,cost:1,unit:"lr",
+                                       pay:csrcHasPool(CSRC)?"pool":"per"});
         $("#csrcSearch").value="";box.innerHTML="";renderCsrcRows();csrcSyncSummary();};
       box.append(r);});
 }
@@ -4162,6 +4222,10 @@ function saveCsrc(){
   CSRC.dc=$("#csrcDC").value.trim();
   CSRC.atk=$("#csrcAtk").value.trim();
   CSRC.ability=$("#csrcAbility").value;
+  // D95: persist the per-spell shape and retire the source-level enum, so a source saved
+  // once never falls back through the legacy branch of csrcPay again
+  (CSRC.spells||[]).forEach(e=>{ if(e.pay!=="pool"&&e.pay!=="per")e.pay=csrcPay(CSRC,e); });
+  delete CSRC.uses;
   if(!CSRC.name){$("#csrcErr").textContent="Give it a name.";return;}
   if(!CSRC.spells.length){$("#csrcErr").textContent="Add at least one spell.";return;}
   const list=state.customSources=state.customSources||[];
@@ -5107,6 +5171,10 @@ function rechargeShort(recharge,isCantrip){
   if(/dawn/.test(r))return "1/dawn";
   if(/charge/.test(r))return "chg";
   if(/always/.test(r))return "at will";
+  // D95's `total` unit: uses that never come back. Without these the casts list showed a
+  // bare "—" for Crook of Rao's Gate, which reads as "no limit" — the exact opposite.
+  if(/once only/.test(r))return "1 ever";
+  {const t=r.match(/(\d+)\s*times total/); if(t)return t[1]+" ever";}
   return "—";
 }
 // compact table values: school / casting time / duration / range
@@ -6774,7 +6842,8 @@ $("#csrcNumsBtn").onclick=()=>{CSRC_OPEN.nums=!CSRC_OPEN.nums;csrcSyncNums();};
   if(n)n.addEventListener("input",()=>{
     CSRC.pool=$("#csrcPool").value?Math.max(0,+$("#csrcPool").value||0):null;
     CSRC.recharge=$("#csrcRecharge").value.trim();
-    csrcSyncRule();csrcSyncSummary();});});
+    // clearing the pool size removes the pool, which changes what every row is paying with
+    renderCsrcRows(); csrcSyncRule();csrcSyncSummary();});});
 ["csrcDC","csrcAtk"].forEach(id=>{const n=$("#"+id);
   if(n)n.addEventListener("input",()=>{csrcSyncNums();csrcSyncSummary();});});
 $("#csrcAbility").addEventListener("change",()=>{csrcSyncNums();csrcSyncSummary();});

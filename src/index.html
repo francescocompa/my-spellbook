@@ -432,14 +432,17 @@
       <button class="btn tiny" id="csrcRuleEdit" aria-expanded="false" aria-controls="csrcRules">Change</button>
     </div>
     <div class="disc hidden" id="csrcRules">
-      <div class="csnums">
-        <label class="csnum wide"><span>Casting</span><select id="csrcMode"></select></label>
-        <label class="csnum wide" id="csrcUsesBlock"><span>Uses</span><select id="csrcUses"></select></label>
-      </div>
-      <div class="poolrow hidden" id="csrcPoolRow">
-        <input type="number" id="csrcPool" min="0" max="99" placeholder="10">
-        <span class="poollbl">charges · regains</span>
-        <input type="text" id="csrcRecharge" placeholder="1d6+4 at dawn" autocomplete="off" spellcheck="false">
+      <label class="csnum wide" style="max-width:230px"><span>Casting</span><select id="csrcMode"></select></label>
+      <!-- D95: a source HAS a charge pool or it doesn't; leaving the size blank means it
+           doesn't. Which spells spend it is decided per spell, not here — real items mix a
+           pool with at-will and once-ever spells freely. -->
+      <div id="csrcUsesBlock">
+        <label class="fld" style="margin-top:10px">Charge pool <span class="fldnote">blank = no pool</span></label>
+        <div class="poolrow" id="csrcPoolRow">
+          <input type="number" id="csrcPool" min="0" max="99" placeholder="none">
+          <span class="poollbl">charges · regains</span>
+          <input type="text" id="csrcRecharge" placeholder="1d6+4 at dawn" autocomplete="off" spellcheck="false">
+        </div>
       </div>
     </div>
 

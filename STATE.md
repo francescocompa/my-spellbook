@@ -423,6 +423,30 @@ stays out. Server sync or accounts. Sharing a build as a rendered page, or via a
   card, the D76 weighting explanation on a popover on the meter that states it. *Rejected:* one
   rule for every note (Francesco: "depends on the instance"); tightening the prose in place with no
   popovers (the removal warning has to stay long, and had nowhere to go).
+- **D95 (2026-08-27) HOW a spell is paid for belongs to the SPELL, and some uses never come
+  back** — two gaps D65's model couldn't express, both found by auditing the 5etools item
+  corpus and both now closed. ① **One source, several budgets.** D65 made `uses` a source-level
+  either/or — a shared pool OR per-spell uses — but **38 items carry more than one**:
+  Demonomicon of Iggwilv casts Tasha's Hideous Laughter *at will* AND spends an 8-charge pool;
+  Crook of Rao has a 6-charge pool AND Gate once ever; 26 of the 38 are "something + at will".
+  A source now simply **has a charge pool or doesn't** (`pool` blank = none) and each spell
+  carries **`pay:"pool"|"per"`**. The source-level select is gone — it would start *lying* the
+  moment one spell differed, which is the folded-state-disagrees-with-reality problem D94 was
+  about. The switch lives in the row's existing caret disclosure, and **no folded-state tag is
+  needed**: which budget a spell spends is always visible in its inline control. ② **Uses that
+  never reset.** 5etools' `limited` ("Once the spell has been cast three times, the bracelet can
+  no longer cast it") had no equivalent — every unit recharged. New **`total`** unit: "3 times
+  total", "once only". *Measured:* of the 332 items whose spell data is structured, expressible
+  went **268 → 295 → 312 (81% → 89% → 94%)**; the remaining 20 use `other`/`ritual`, which carry
+  no frequency data anywhere but prose, and 84 more items ship a flat spell list with no usage
+  data at all. **Legacy sources are read, never rewritten in place** — `csrcPay()` falls back
+  through the old `uses` enum, so a source saved before this resolves correctly without being
+  opened; the editor normalises and drops `uses` on open and on save. *Rejected:* keeping `uses`
+  as a source-level DEFAULT with per-spell overrides (same expressive power, but the rule line
+  and the chip would describe a shape the rows contradict); telling the user to make two sources
+  for one item (breaks the chip, the summary and "one item is one thing").
+  → `rechargeShort()` had to learn the new unit too: Gate rendered as a bare **"—"** in the
+  casts list, which reads as *no limit* — the exact opposite of once-ever.
 - **D94 (2026-08-27) The custom-source editor is PROGRESSIVE — the name and the spells are the
   surface, everything else folds, and the foot says what you built** — the long-deferred design
   session, settled against three mockups rendered in the app's own stylesheet
@@ -892,6 +916,14 @@ written up in full under Gotchas below — that is the copy to trust.
   a preview. `state.levelOrder` normalizes through `classLevelPlan()`; never trust it raw.
 - **Custom sources (D55)** synthesize a grants object (`customSourceGrants`) and ride
   `resolveGrants` with tok `x<id>` — they must never grow their own downstream path.
+- **A spell's payment is per SPELL, not per source (D95).** `csrcPay(cs,e)` is the only correct
+  way to ask how a spell is paid for: it reads `e.pay`, falls back to the pre-D95 source-level
+  `cs.uses`, and finally infers from whether a pool exists. **Never read `cs.uses` directly** —
+  it is legacy-only and the editor deletes it on open and save. A source may hold a pool AND
+  spells on their own uses at once, so anything describing a source (the rule line, `csrcPower`,
+  the summary) has to be able to say both. Adding a UNIT means updating `CSRC_UNITS` **and**
+  `rechargeShort()` — the latter falls through to "—", which reads as *no limit* and is the
+  opposite of what `total` means.
 - **A folded section must carry its own state on its label (D94).** The custom-source editor
   folds "how it works", "its own numbers" and each row's fixed cast level. Every one of them
   reports what it is holding while closed — the rule line spells the mode out, the numbers label
