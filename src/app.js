@@ -2781,6 +2781,11 @@ async function refreshImported(){
   const stored=Object.keys((IMPORTED&&IMPORTED.sources)||{});
   if(!stored.length){rep.textContent="Nothing imported yet — Refresh re-reads books you already imported.";return;}
   if(SCAN_BUSY)return;
+  // openImport's handle recall is fire-and-forget, so on the first click of a session FOLDER
+  // is still null and this would fall through to "choose the folder" — a button that only
+  // opens the modal. Wait for the recall here; the permission prompt is still inside this
+  // click's gesture, which is the whole reason folderUsable takes ask=true.
+  if(!FOLDER&&FSA()){try{const h=await folderRecall(); if(h)FOLDER=h; folderButtons();}catch(_){}}
   if(FOLDER&&await folderUsable(FOLDER,true)){
     try{await scanEntries(await folderEntries(FOLDER),FOLDER.name||"folder");}
     catch(e){rep.textContent="Couldn’t read the remembered folder: "+(e.message||e);return;}

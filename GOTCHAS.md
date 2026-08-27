@@ -320,6 +320,12 @@
   (plus the bookless aux files) and re-parsing, THEN restores the keep-set, because
   `planFromStage` re-defaults it. Anything comparing `PLAN.keep` against `merged.sources` must
   expect codes the merge hasn't seen yet.
+- **`openImport`'s folder recall is fire-and-forget, so a caller that needs `FOLDER` must await
+  its own (D111).** The recall is an async IndexedDB read the modal never waits on; on the first
+  click of a session `FOLDER` is still null immediately after `openImport` returns. `refreshImported`
+  therefore fell straight through to "choose the folder" — a one-click action that only opened the
+  modal. It now awaits `folderRecall()` itself, still inside the click, which is what keeps the
+  permission prompt (`folderUsable(h,true)`) inside a user gesture.
 - **A dropped folder's handles must be collected synchronously in the drop handler.**
   `DataTransferItem.getAsFileSystemHandle()` calls are made for every item BEFORE the first
   `await` — the DataTransfer goes stale at the first microtask, and a late call returns null.
