@@ -38,6 +38,7 @@ const ICONS={
   trash:_I('<path d="M2.7 4.3h10.6M6.4 4.3V3.2a1 1 0 0 1 1-1h1.2a1 1 0 0 1 1 1v1.1"/><path d="m4.3 4.3.6 8.1a1.2 1.2 0 0 0 1.2 1.1h3.8a1.2 1.2 0 0 0 1.2-1.1l.6-8.1"/>'),
   order:_I('<path d="M2.4 3.9h6.4M2.4 8h4.4M2.4 12.1h2.6"/><path d="M12.1 3.4v9.2M12.1 12.6 10.4 11M12.1 12.6 13.8 11"/>'),
   bookmark:_I('<path d="M4.1 2.7h7.8v10.6L8 10.5l-3.9 2.8z"/>'),
+  star:_I('<path d="M8 2.2 9.85 6l4.15.6-3 2.95.71 4.15L8 11.74 4.29 13.7 5 9.55 2 6.6 6.15 6z"/>'),
   print:_I('<path d="M4.6 6.1V2.7h6.8v3.4"/><rect x="2.4" y="6.1" width="11.2" height="4.8" rx="1.4"/><path d="M4.6 9.3h6.8v4H4.6z"/>'),
 };
 // the small × remove button used inside chips and rows
@@ -264,7 +265,7 @@ const LS="spellForge.v2";                      // legacy single-build blob (kept
 // build can never carry them by accident. Each build only records the list it was seen under.
 let SRC=new Set(Object.keys(DATA.sources));    // all on by default
 const state={
-  classes:[], speciesKey:"", feats:[], optFeats:[], featSlots:{},
+  classes:[], speciesKey:"", feats:[], optFeats:[], featSlots:{}, sbFav:{},
   filters:{q:"",levels:new Set(),school:"",cls:"",time:new Set(),comp:new Set(),tags:new Set(),save:"",dmg:"",books:null,reprint:"dedupe",chosen:false},
   chosen:{},   // rowId -> {cantrips:[], spells:[]}
   choices:{},  // choiceId -> option name | [spellKey,…]
@@ -290,20 +291,22 @@ const newBuildId=()=>"b"+Date.now().toString(36)+(bidSeq++).toString(36);
 const activeBuild=()=>BUILDS.builds[BUILDS.activeId];
 
 const blankBuildState=()=>({classes:[],speciesKey:"",feats:[],optFeats:[],featSlots:{},levelOrder:[],
-  customSources:[],chosen:{},choices:{},nextRowId:1,filters:null});
+  customSources:[],chosen:{},choices:{},sbFav:{},nextRowId:1,filters:null});
 // the live `state` <-> the plain object stored in a build
 function serializeState(){ const f=state.filters; return {
   classes:state.classes, speciesKey:state.speciesKey, feats:state.feats, optFeats:state.optFeats,
   featSlots:state.featSlots||{},          // which slot each feat was spent from (D84)
   nextRowId:state.nextRowId, chosen:state.chosen, choices:state.choices,
   levelOrder:state.levelOrder||[], customSources:state.customSources||[],
+  sbFav:state.sbFav||{},                  // which summon forms this character actually uses
   filters:{...f,levels:[...f.levels],time:[...f.time],comp:[...f.comp],tags:[...f.tags],
            books:f.books?[...f.books]:null},
 };}
 function applyState(s){ s=s||blankBuildState();
   Object.assign(state,{classes:s.classes||[],speciesKey:s.speciesKey||"",feats:s.feats||[],
     optFeats:s.optFeats||[],featSlots:s.featSlots||{},chosen:s.chosen||{},choices:s.choices||{},
-    nextRowId:s.nextRowId||1,levelOrder:s.levelOrder||[],customSources:s.customSources||[]});
+    nextRowId:s.nextRowId||1,levelOrder:s.levelOrder||[],customSources:s.customSources||[],
+    sbFav:s.sbFav||{}});
   state.filters=s.filters
     ? Object.assign(FILTER_DEFAULT(),s.filters,{levels:new Set(s.filters.levels||[]),
         time:new Set(s.filters.time||[]),comp:new Set(s.filters.comp||[]),tags:new Set(s.filters.tags||[]),
@@ -713,11 +716,29 @@ function compute(){
       }
     });
     recExp[r.idx]=o.expansions;
-    o.fixed.forEach(g=>g.srcIdx=r.idx);   // tag class-owned always-prepared grants with the row
+    // tag class-owned grants with the row they came from — a subclass's always-prepared
+    // spells and a class feature's free casts belong to that class, not to a source of
+    // their own, which is what lets the table fold Light Domain back into Cleric
+    o.fixed.forEach(g=>g.srcIdx=r.idx);
+    o.freeCasts.forEach(g=>{if(g.srcIdx==null)g.srcIdx=r.idx;});
     gout.fixed.push(...o.fixed);gout.freeCasts.push(...o.freeCasts);gout.choices.push(...o.choices);
   });
   state.feats.forEach(fk=>{const f=FEAT_BY[fk];if(f)resolveGrants(f.grants,charLevel,"f"+fk,f.name,gout,sharedStat,f.source);});
-  state.optFeats.forEach(ok=>{const o=OPT_BY[ok];if(o)resolveGrants(o.grants,charLevel,"o"+ok,o.name,gout,sharedStat,o.source);});
+  // An optional feature is resolved outside the caster loop (a feat can grant one too), so
+  // its owner is found by which class's progression opened the slot it fills — that is what
+  // makes a Warlock's invocation spells part of Warlock. Tag by range rather than resolving
+  // into a private bucket: `resolveGrants` also fills expansions and choices, and rerouting
+  // those would change more than grouping.
+  const optOwner=o=>{let idx=null;
+    casters.forEach(r=>[r.c,r.sub].filter(Boolean).forEach(sc=>
+      (sc.optFeatures||[]).forEach(pr=>{ if(pr.types.some(t=>(o.types||[]).includes(t)))idx=r.idx; })));
+    return idx;};
+  state.optFeats.forEach(ok=>{const o=OPT_BY[ok];if(!o)return;
+    const f0=gout.fixed.length,c0=gout.freeCasts.length;
+    resolveGrants(o.grants,charLevel,"o"+ok,o.name,gout,sharedStat,o.source);
+    const own=optOwner(o); if(own==null)return;
+    for(let i=f0;i<gout.fixed.length;i++)if(gout.fixed[i].srcIdx==null)gout.fixed[i].srcIdx=own;
+    for(let i=c0;i<gout.freeCasts.length;i++)if(gout.freeCasts[i].srcIdx==null)gout.freeCasts[i].srcIdx=own;});
   if(state.speciesKey){const sp=RACE_BY[state.speciesKey];if(sp)resolveGrants(sp.grants,charLevel,"r",sp.name,gout,sharedStat,sp.source);}
   (state.customSources||[]).forEach(cs=>{
     if(cs.mode==="list")return;          // not a grant — it widens the eligible pool below
@@ -748,7 +769,9 @@ function compute(){
 
   // fixed grants become always-prepared/free picks in the pool
   const freeCasts=gout.freeCasts;
-  gout.fixed.forEach(g=>{const e=want(g.rec);e.srcs.add(g.src);if(!e.grants.some(x=>x.src===g.src))e.grants.push({src:g.src,recharge:g.recharge,ability:g.ability,note:g.note});
+  // the pool keeps a REDUCED copy of each grant — `srcIdx` has to come along or the table
+  // cannot tell that Light Domain's always-prepared spells belong to Cleric (D104)
+  gout.fixed.forEach(g=>{const e=want(g.rec);e.srcs.add(g.src);if(!e.grants.some(x=>x.src===g.src))e.grants.push({src:g.src,recharge:g.recharge,ability:g.ability,note:g.note,srcIdx:g.srcIdx});
     if(g.srcIdx!=null)e.always.add(g.srcIdx);});   // its own class can't re-prepare an always-prepared spell
   freeCasts.forEach(fc=>{const rec=grantRec(fc.name);if(rec){want(rec).srcs.add(fc.src);}});
   const choices=gout.choices;
@@ -1510,6 +1533,11 @@ function applyImportedState(st){
     if(held.has(String(k))&&SLOTS_FOR[String(v)])out.featSlots[String(k)]=String(v);});
   out.levelOrder=(Array.isArray(st.levelOrder)?st.levelOrder:[]).map(x=>idMap.get(x)).filter(Boolean);
   out.customSources=Array.isArray(st.customSources)?JSON.parse(JSON.stringify(st.customSources)):[];
+  // marked summon forms — keyed by spell, so no renumbering; strings only, nothing trusted
+  out.sbFav={};
+  Object.entries((st.sbFav&&typeof st.sbFav==="object")?st.sbFav:{}).forEach(([k,v])=>{
+    const list=(Array.isArray(v)?v:[]).map(String).filter(Boolean);
+    if(list.length)out.sbFav[String(k)]=list;});
   out.chosen={};
   Object.entries(st.chosen||{}).forEach(([k,v])=>{const nk=idMap.has(+k)?idMap.get(+k):k;
     out.chosen[nk]={cantrips:(v&&v.cantrips||[]).map(String),spells:(v&&v.spells||[]).map(String),
@@ -2877,8 +2905,9 @@ function renderTableCastMods(){
     attachTip(chip,castModTip(m,String(m.drop||"").split("")));
     box.append(chip);});
 }
-function renderTable(){
-  renderTableCastMods();
+// the rows the sheet holds. Split out of renderTable so the print dialog can say what a
+// setting is about to cost without rendering anything.
+function tableRows(){
   const rows=[]; const seenSrc=new Set();
   const push=o=>{const kk=key(o.sp.name,o.sp.source)+"|"+o.src; if(seenSrc.has(kk))return; seenSrc.add(kk); rows.push(o);};
   R.casters.forEach(r=>{const cart=R.cart[r.idx];
@@ -2897,7 +2926,38 @@ function renderTable(){
   // innate / free casts
   R.freeCasts.forEach(fc=>{if(fc.choice)return;const sp=grantRec(fc.name);if(sp)
     push({sp,src:srcTidy(fc.src),type:fc.swappable?"swap":"cast",ability:fc.ability,
-      recharge:fc.recharge,sel:true,dc:fc.dc,atk:fc.atk,castLv:fc.castLv,note:fc.note});});
+      recharge:fc.recharge,sel:true,dc:fc.dc,atk:fc.atk,castLv:fc.castLv,note:fc.note,
+      ownIdx:fc.srcIdx});});
+  if(PRINT_MODE&&PRINT.eligible)addPreparableRows(push,rows);
+  return rows;
+}
+// Print-only: every spell a DAILY caster could prepare, with an empty box beside it, so
+// the list can be prepared on paper. A level-swap caster has nothing to prepare, and a
+// wizard's preparable list is its own spellbook — already on the sheet, already marked.
+// Anything genuinely picked was pushed first, so `push`'s dedupe keeps its real marker.
+function addPreparableRows(push,rows){
+  const covered=new Set();
+  (R.casters||[]).forEach(r=>{
+    if(r.static)return;
+    const cart=R.cart[r.idx]; if(cart&&cart.known&&cart.known.book)return;
+    covered.add(r.idx);
+    [...R.pool.values()].forEach(e=>{
+      if(e.sp.level<1||e.sp.level>r.maxLvl)return;
+      if(!e.takers.some(t=>t.idx===r.idx))return;
+      push({sp:e.sp,src:classLabel(r),type:"prep",ability:r.ability,recharge:null,sel:true,
+        idx:r.idx,rkey:key(e.sp.name,e.sp.source),cantrip:false,levelSwap:false,
+        prepared:false,blank:true});});
+  });
+  // Printing the whole list means preparing on paper from scratch — so today's picks get
+  // the same empty box as everything else. Marking them differently states a decision the
+  // sheet exists to let you re-make. A cantrip is not prepared, and neither an
+  // always-prepared grant nor an innate cast is yours to choose, so those keep their marks.
+  rows.forEach(r=>{ if(r.type==="prep"&&covered.has(r.idx)&&r.sp.level>0)r.blank=true; });
+}
+function renderTable(){
+  renderTableCastMods();
+  const rows=tableRows();
+  if(PRINT_MODE)PRINT_ROWS=rows;
 
   const tbl=$("#spellTable");tbl.innerHTML="";
   $("#tableChip").textContent=rows.length?rows.length+" spells":"";
@@ -2908,12 +2968,24 @@ function renderTable(){
 
   const g=tableOpts.group;                 // outer grouping; level is always the inner group
   const outer=g==="ability"||g==="source";
-  const outerKey=r=> g==="ability"?(r.ability||"zzz"):String(r.src);
-  const outerLabel=r=> g==="ability"?(ABIL[r.ability]||"Other casting"):r.src;
+  // Grouping by source groups by WHERE IT CAME FROM, and a subclass, a class feature and
+  // an invocation all came from the class — splitting Light Domain out of Cleric answers a
+  // question nobody asked at the table. Only a genuinely separate source (a feat, an item,
+  // your species) keeps its own group; a feat that ADDS to your list isn't one of those,
+  // because those spells were picked as the class and already carry its row.
+  const ownerIdx=r=> r.idx!=null?r.idx:(r.ownIdx!=null?r.ownIdx:null);
+  const casterOf=i=>(R.casters||[]).find(c=>c.idx===i);
+  const outerKey=r=>{ if(g==="ability")return r.ability||"zzz";
+    const o=ownerIdx(r); return o!=null?"c"+o:"s"+r.src; };
+  const outerLabel=r=>{ if(g==="ability")return ABIL[r.ability]||"Other casting";
+    const o=ownerIdx(r), c=o!=null&&casterOf(o); return c?classLabel(c):r.src; };
   rows.sort((a,b)=> (outer?String(outerKey(a)).localeCompare(String(outerKey(b))):0) || a.sp.level-b.sp.level || a.sp.name.localeCompare(b.sp.name));
 
   // grouping already carries a fact, so its column is suppressed on top of the hidden set
-  const suppressed=new Set(g==="ability"?["ability"]:g==="source"?["ability","build"]:[]);
+  // Grouping by source used to suppress the Source column, because the header said the
+  // same thing. Since D104 the header says the CLASS — so the column is the only place
+  // left that names Light Domain rather than Cleric, and it stays.
+  const suppressed=new Set(g==="ability"?["ability"]:g==="source"?["ability"]:[]);
   const cols=visibleCols(suppressed);
   // a real thead/tbody, not a bare header row: `display:table-header-group` is what
   // repeats the column names on every printed page, and a three-page spell list
@@ -2924,7 +2996,7 @@ function renderTable(){
   attachTip(hrow.firstChild,tipBlock("Preparation status","Hover a marker for what it means."));
   const span=cols.length;
 
-  let lastOuter=null,lastLevel=null;
+  let lastOuter=null,lastLevel=null,groupN=0;
   rows.forEach(row=>{const {sp,type,recharge,sel}=row; const src=row.src;
     if(outer){const ok=outerKey(row); if(ok!==lastOuter){lastOuter=ok;lastLevel=null;
       const gr=el("tr","grouphdr outer");const td=el("td");td.colSpan=span;
@@ -2934,7 +3006,8 @@ function renderTable(){
         if(abils.length){const w=el("span","hdr-abils");w.innerHTML=abils.map(abChip).join("");td.append(w);}}
       gr.append(td);tbody.append(gr);}}
     if(sp.level!==lastLevel){lastLevel=sp.level;
-      const gr=el("tr","grouphdr lvl");const td=el("td");td.colSpan=span;
+      const brk=PRINT_MODE&&PRINT.brk&&groupN++>0;
+      const gr=el("tr","grouphdr lvl"+(brk?" pgbrk":""));const td=el("td");td.colSpan=span;
       td.append(el("span",null,sp.level===0?"Cantrips":ROMAN[sp.level]+" level"));
       gr.append(td);tbody.append(gr);}
     // in the book but not prepared today: real, castable-if-you-prepare-it, but not live
@@ -2990,6 +3063,8 @@ function cellFor(k,row){
   if(k==="mark"){
     // read-only status indicator: ✓ always-prepared · ● prepared today · ✦ innate
     const ind=el("td","pickcell");
+    // print-only: a spell you COULD prepare, waiting for a pencil
+    if(row.blank){ind.append(el("span","prepbox"));return ind;}
     if(type==="free"){ind.innerHTML=ICONS.check;ind.classList.add("always");attachTip(ind,tipBlock("Always prepared","A free grant — it doesn’t count against your prepared list."));}
     else if(type==="swap"){ind.innerHTML=ICONS.dot;ind.classList.add("on");attachTip(ind,tipBlock("Prepared","Swappable on a long rest — change it in Choices."));}
     else if(type==="cast"){ind.innerHTML=ICONS.spark;ind.classList.add("innate");attachTip(ind,tipBlock("Innate / free cast","Cast without preparing it."+(recharge?" Cadence: "+recharge+".":"")));}
@@ -3001,7 +3076,14 @@ function cellFor(k,row){
     else if(row.levelSwap){ind.innerHTML=ICONS.dot;ind.classList.add("on");attachTip(ind,tipBlock("Known","This class learns spells on level-up, not daily — you can swap one whenever you gain a level."));}
     else{ind.innerHTML=ICONS.dot;ind.classList.add("on");attachTip(ind,tipBlock("Prepared today","Change it with Prepare daily."));}
     return ind;}
-  if(k==="name"){const td=el("td","nm");td.textContent=sp.name;attachSpell(td,sp);
+  if(k==="name"){const td=el("td","nm");
+    // with cards on, the name is a same-document link — which is what a PDF turns into
+    // clickable internal navigation. The FIRST row for a spell carries the return anchor.
+    if(PRINT_MODE&&PRINT.cards){
+      const back="row-"+cardId(sp); if(!document.getElementById(back))td.id=back;
+      const a=el("a",null,sp.name); a.href="#"+cardId(sp); td.append(a);
+    } else td.textContent=sp.name;
+    attachSpell(td,sp);
     if(sp.ritual)td.append(Object.assign(el("span"),{textContent:" R",style:"color:var(--gold);font-size:10px;font-weight:700"}));
     return td;}
   if(k==="save"){const td=el("td","savecell");td.innerHTML=defenceHTML(sp);return td;}
@@ -3727,7 +3809,11 @@ const tipRows=(title,rows)=>`<h4 style="margin-bottom:6px">${esc(title)}</h4>`
 // entry's name as its own short "Title." line) — render it distinctly, not as body.
 const _TITLE_RE=/^[A-Z][A-Za-z0-9'’/\- ]{0,48}\.$/;
 const isDescTitle=p=>_TITLE_RE.test(p)&&p.split(/\s+/).length<=5;
-const descP=p=>isDescTitle(p)?`<p class="spttl">${esc(p.replace(/\.\s*$/,""))}</p>`:`<p>${ccText(p)}</p>`;
+// 5etools writes a sub-heading as its own paragraph and a list item as a paragraph that
+// happens to start with a bullet. Marking the second kind is what stops Thaumaturgy's six
+// options printing as six loose sentences.
+const descP=p=>isDescTitle(p)?`<p class="spttl">${esc(p.replace(/\.\s*$/,""))}</p>`
+  :/^\s*[•\u2022]/.test(p)?`<p class="bul">${ccText(p)}</p>`:`<p>${ccText(p)}</p>`;
 // who grants access to this spell. Collapsed by default: a single scrollable row of all
 // sources inline with the label, an expander at the end reveals the per-category line-up.
 // Edition duplicates collapsed (prefer newest source via srcRank).
@@ -3757,10 +3843,37 @@ const AB_ORDER=["str","dex","con","int","wis","cha"];
 // source filter — Find Familiar alone reaches 65 forms across a dozen books.
 // Flag, don't prune (D42): a form from a book you have switched off is still one of the
 // spell's forms — it is filtered in the carousel's own book panel, not deleted here.
+// `_ck` is the creature's stable identity: the spell's own printed block is "@self", any
+// other form is its bestiary key. Favourites are stored against these.
 function spellCreatures(sp){
-  const out=sp.statblock?[sp.statblock]:[];
-  (sp.creatures||[]).forEach(k=>{const m=(DATA.monsters||{})[k]; if(m)out.push(m);});
+  const out=sp.statblock?[{...sp.statblock,_ck:"@self"}]:[];
+  (sp.creatures||[]).forEach(k=>{const m=(DATA.monsters||{})[k]; if(m)out.push({...m,_ck:k});});
   return out;}
+// Which forms this character actually uses. Find Familiar carries 65 of them and nobody
+// prints 65 stat blocks; marking the two you take turns the appendix into a usable sheet.
+// It lives in the BUILD — a chosen familiar belongs to a character and travels with an
+// export, exactly like a custom source (D55).
+const favKey=sp=>key(sp.name,sp.source);
+const favsFor=sp=>((state.sbFav||{})[favKey(sp)])||[];
+function toggleFav(sp,ck){
+  if(!state.sbFav)state.sbFav={};
+  const k=favKey(sp), cur=new Set(state.sbFav[k]||[]);
+  cur.has(ck)?cur.delete(ck):cur.add(ck);
+  if(cur.size)state.sbFav[k]=[...cur]; else delete state.sbFav[k];
+  save();
+}
+// favourites first, original order within each half
+function orderedCreatures(sp,list){
+  const f=new Set(favsFor(sp));
+  return [...list].sort((a,b)=>(f.has(b._ck)?1:0)-(f.has(a._ck)?1:0));
+}
+// what a printed card shows: the marked forms, or the only form when there is just one
+function printCreatures(sp){
+  const all=spellCreatures(sp); if(!all.length)return [];
+  const f=new Set(favsFor(sp));
+  const picked=all.filter(c=>f.has(c._ck));
+  return picked.length?picked:(all.length===1?all:[]);
+}
 // the body of ONE stat block — the carousel repaints just this when you step
 function sbBodyHTML(b){
   const line=(k,v)=>v?`<div class="sbr"><b>${k}</b><span>${ccText(v)}</span></div>`:"";
@@ -3806,6 +3919,9 @@ function statblockHTML(sp){
   // head stays a title rather than a control strip
   const booksBtn=(all.length<2||srcs.length<2)?"":
     `<button class="sb-books ico" type="button" title="Which books these forms come from" aria-label="Filter by book">${ICONS.book}</button>`;
+  // the star only earns its place where there is a choice to record
+  const favBtn=all.length<2?"":
+    `<button class="sb-fav ico" type="button" aria-pressed="false" aria-label="Mark this form">${ICONS.star}</button>`;
   const panel=(all.length<2||srcs.length<2)?"":
     `<div class="sb-bookpanel srcpanel hidden"><div class="sb-booknote"></div><div class="sb-booklist"></div></div>`;
   // controls sit BELOW the block: you read the creature, then step to the next one
@@ -3821,7 +3937,7 @@ function statblockHTML(sp){
       +`<button class="sb-toggle" type="button" aria-expanded="false">`
         +`<span class="secttl">${esc(b.name)}</span>`
         +`<span class="sb-who">stat block</span></button>`
-      +booksBtn
+      +favBtn+booksBtn
       +`<button class="sb-caretbtn" type="button" aria-label="Expand stat block">`
         +`<span class="sb-caret"></span></button></div>`
     +panel
@@ -3880,11 +3996,21 @@ function wireCreatureNav(sp){
   const all=spellCreatures(sp);
   const panel=wrap.querySelector(".sb-bookpanel");
   const srcs=[...new Set(all.map(x=>x.source).filter(Boolean))].sort();
-  // seeded from the global Sources list, but LOCAL — ticking a book here never writes back
-  const bookSel=panel?new Set(srcs.filter(srcOn)):null;
-  const shown=()=>{ if(!bookSel)return all;
+  // A creature's book is very often one the digest has no record of: `DATA.sources` is
+  // built from spell and class content, and MM, XMM, XDMG, ToA, WDH and friends publish
+  // monsters and nothing else. Filtering the checklist against it dropped 8 of Find
+  // Familiar's 12 books from the list entirely — and, worse, `srcOn` reported those books
+  // as OFF, so the carousel opened on 2 of 65 forms and only showed the rest once you
+  // unticked everything and hit the fallback. The list is built from the FORMS instead.
+  const sbMap={}; srcs.forEach(c=>{const s=DATA.sources[c];
+    sbMap[c]={name:(s&&s.name)||c,group:(s&&s.group)||"other",counts:{spells:0}};});
+  // A book the source list has never heard of cannot be "off in your sources" — it is
+  // unknown, and unknown must never read as excluded (D31). Known books still follow it.
+  const bookSel=panel?new Set(srcs.filter(c=>DATA.sources[c]?srcOn(c):true)):null;
+  const shown=()=>{ if(!bookSel)return orderedCreatures(sp,all);
     const list=all.filter(x=>bookSel.has(x.source));
-    return list.length?list:all; };
+    return orderedCreatures(sp,list.length?list:all); };
+  const favBtn=wrap.querySelector(".sb-fav");
   // The controls sit under the block, so a taller or shorter creature would shove them —
   // and the page — under the cursor. Pin the nav's viewport position across the repaint and
   // give the difference to the scroller, so every size change is absorbed above it.
@@ -3897,6 +4023,9 @@ function wireCreatureNav(sp){
     wrap.querySelector(".secttl").textContent=b.name;
 
     nav.querySelector(".sb-pos").textContent=`${i+1} / ${list.length}`;
+    if(favBtn){const on=favsFor(sp).includes(b._ck);
+      favBtn.classList.toggle("on",on); favBtn.setAttribute("aria-pressed",String(on));
+      favBtn.title=on?"Marked — this form prints and comes first":"Mark this form: only marked forms print";}
     const body=wrap.querySelector(".sb-body"); if(body)body.innerHTML=sbBodyHTML(b);
     nav.querySelector(".sb-prev").disabled=list.length<2;
     nav.querySelector(".sb-next").disabled=list.length<2;
@@ -3905,6 +4034,14 @@ function wireCreatureNav(sp){
   };
   const step=d=>{const list=shown(); if(!list.length)return;
     wrap.dataset.i=String(((+wrap.dataset.i||0)+d+list.length)%list.length); paint();};
+  if(favBtn)favBtn.onclick=e=>{e.stopPropagation();
+    const list=shown(); const b=list[Math.max(0,Math.min(+wrap.dataset.i||0,list.length-1))];
+    if(!b)return;
+    toggleFav(sp,b._ck);
+    // marking re-sorts the carousel under the cursor, so follow the creature you marked
+    const after=shown(); const j=after.findIndex(x=>x._ck===b._ck);
+    if(j>=0)wrap.dataset.i=String(j);
+    paint();};
   nav.querySelector(".sb-prev").onclick=e=>{e.stopPropagation();step(-1);};
   nav.querySelector(".sb-next").onclick=e=>{e.stopPropagation();step(1);};
   nav.onclick=e=>e.stopPropagation();
@@ -3914,13 +4051,15 @@ function wireCreatureNav(sp){
       const t=wrap.querySelector(".sb-toggle");if(t)t.setAttribute("aria-expanded","true");}};}
   if(panel){panel.onclick=e=>e.stopPropagation();
     const list=panel.querySelector(".sb-booklist"), note=panel.querySelector(".sb-booknote");
-    const off=srcs.filter(x=>!srcOn(x));
+    const off=srcs.filter(x=>!bookSel.has(x));
     note.textContent=off.length
       ? `${off.length} of these books ${off.length===1?"is":"are"} off in your sources — tick one to include its forms here.`
       : "";
+    const forms=code=>all.filter(y=>y.source===code).length;
+    // a bestiary book has no spell count to sort on, so sort by what IS being counted
     const draw=()=>renderSourceChecklist(list,bookSel,()=>{draw();wrap.dataset.i="0";paint();},
-      new Set(srcs),code=>{const n=all.filter(y=>y.source===code).length;
-        return `${n} form${n===1?"":"s"}`;});
+      new Set(srcs),code=>{const n=forms(code); return `${n} form${n===1?"":"s"}`;},
+      sbMap,{sortRows:(a,b)=>forms(b[0])-forms(a[0])||a[1].name.localeCompare(b[1].name)});
     draw();}
   paint();
 }
@@ -4575,10 +4714,34 @@ document.addEventListener("click",e=>{if(!e.target.closest(".menu"))closeMenu();
 // Paper always gets the SPELL TABLE, whichever tab is on screen — that is the sheet you
 // bring to a session, and the Build tab is a set of controls, not a document. What the
 // build was is carried by the summary line instead, which is all a printed sheet needs
-// to say whose it is. The table is re-rendered first because `render()` only refreshes
-// it while its own tab is showing.
+// to say whose it is. Everything below the summary is built fresh on `beforeprint` and
+// torn down on `afterprint`, so the screen never carries 30 spell cards around.
+const LS_PRINT="spellForge.print.v1";
+const PRINT={theme:"light",orient:"portrait",tracker:true,cards:true,eligible:false,brk:false,notes:false};
+let PRINT_MODE=false;          // renderTable reads this: it prints more than it shows
+let TITLE_BEFORE=null;
+function loadPrintOpts(){ try{const t=JSON.parse(localStorage.getItem(LS_PRINT)||"null");
+  if(t&&typeof t==="object")Object.keys(PRINT).forEach(k=>{if(t[k]!=null)PRINT[k]=t[k];});}catch(e){}
+  applyPrintOpts(); }
+function savePrintOpts(){ try{localStorage.setItem(LS_PRINT,JSON.stringify(PRINT));}catch(e){}
+  applyPrintOpts(); }
+// The selector-scoped options ride on the document; `@page` is not selector-scoped at
+// all, so page size gets its own style element. Both are inert until something prints.
+function applyPrintOpts(){
+  document.documentElement.dataset.print=PRINT.theme;
+  document.body.classList.toggle("pr-break",!!PRINT.brk);
+  let st=$("#prPageRule");
+  if(!st){st=el("style");st.id="prPageRule";document.head.append(st);}
+  st.textContent=`@media print{@page{size:${PRINT.orient==="landscape"?"landscape":"portrait"};margin:14mm}}`;
+}
+
+// The name the PDF is saved under: browsers take it from document.title at print time.
+function printDocName(){
+  const m=(activeBuild()||{}).meta||{};
+  const n=[m.character,m.name].filter(x=>String(x||"").trim()).join(" — ");
+  return (n||"My Spellbook").replace(/[\\/:*?"<>|]+/g," ").trim();
+}
 function printHeadLine(){
-  renderTable();
   const box=$("#printHead"); if(!box)return;
   box.innerHTML="";
   const meta=(activeBuild()||{}).meta||{};
@@ -4597,8 +4760,235 @@ function printHeadLine(){
   if(PREVIEW.level!=null)
     box.append(el("div","phnote","Previewed at level "+PREVIEW.level+" — not a saved version."));
 }
-addEventListener("beforeprint",printHeadLine);
-$("#printBtn").onclick=()=>{closeMenu();printHeadLine();print();};
+
+// ── the tracker: everything expendable, as boxes to tick ───────────────────
+// The app already knows every one of these; on screen they are counts, and a count is
+// the one thing you cannot mark off mid-session.
+const USE_UNIT={LR:"per long rest",SR:"per short rest",dawn:"per dawn"};
+const BOX_CAP=6;    // past this, boxes stop being tickable and become a written total
+// `rechargeShort` has already normalised every cadence string both extractors emit, so
+// the tracker reads ITS output rather than inventing a second parser. `chg` means paid
+// from a shared pool, which gets a row of its own — boxes there would double-count.
+function useBoxes(short){
+  if(!short||short==="at will"||short==="—"||short==="chg")return null;
+  let m=short.match(/^(\d+)\/(LR|SR|dawn)$/); if(m)return {n:+m[1],note:USE_UNIT[m[2]]};
+  m=short.match(/^(\d+) ever$/); if(m)return {n:+m[1],note:"total — never regained"};
+  return null;
+}
+function boxes(n){const bx=el("span","trbox");for(let i=0;i<n;i++)bx.append(el("span","tb"));return bx;}
+// A 20-charge staff is 20 boxes nobody can tick apart at 3mm. Past the cap it becomes a
+// line to write the remaining count on, which is how a character sheet has always done it.
+function useRow(label,n,note){
+  const row=el("div","trrow");
+  row.append(el("span","trlbl",label));
+  if(n<=BOX_CAP)row.append(boxes(n));
+  else{const w=el("span","trfillw");w.append(el("span","trfill"));w.append(el("span","trof","/"+n));row.append(w);}
+  if(note)row.append(el("span","trnote",note));
+  return row;
+}
+function renderPrintTracker(){
+  const box=$("#printTracker"); if(!box)return;
+  box.innerHTML="";
+  if(!PRINT.tracker)return;
+  const sec=t=>{const h=el("div","trsec");h.append(el("span","trh",t));box.append(h);};
+
+  // ── per class: what you prepare, and the two numbers only you can fill in ──
+  const casters=(R.casters||[]).filter(r=>r.caster);
+  if(casters.length){
+    sec("Casting");
+    const t=el("table","trtbl trcast");
+    const hr=el("tr");["Class","Prepared","Cantrips","Spell attack","Save DC"]
+      .forEach(h=>hr.append(el("th",null,h)));
+    const hd=el("thead");hd.append(hr);t.append(hd);
+    const tb=el("tbody");
+    casters.forEach(r=>{
+      const c=R.caps&&R.caps[r.idx];
+      const tr=el("tr");
+      tr.append(el("td","trcls",classLabel(r)+" "+effLevel(r.row)));
+      tr.append(el("td",null,c?String(c.total):"—"));
+      tr.append(el("td",null,r.cantrips?String(r.cantrips):"—"));
+      // the app models neither ability scores nor proficiency, so these are honestly blank
+      // rather than wrong — a ruled field is the truthful version of "we can't know"
+      const blank=()=>{const td=el("td","trblank");td.append(el("span","trfill"));return td;};
+      tr.append(blank(),blank());
+      tb.append(tr);});
+    t.append(tb);box.append(t);
+  }
+
+  // ── slots: one tidy row of columns, Pact included ─────────────────────────
+  const cols=[];
+  if(R.mcSlots)R.mcSlots.forEach((n,i)=>{if(n>0)cols.push([ROMAN[i+1],n,false]);});
+  if(R.pactRec){const p=R.pactRec.pact;cols.push(["Pact "+ROMAN[p.lvl],p.num,true]);}
+  if(cols.length){
+    sec("Spell slots");
+    // a table, not a flex row: nine levels plus Pact have to sit in ONE row of columns at
+    // any width, and only a table guarantees that without shrinking the boxes
+    const t=el("table","trtbl trslots");
+    const hr=el("tr"),br=el("tr");
+    cols.forEach(([lab,n,pact])=>{
+      hr.append(el("th",pact?"pact":null,lab));
+      const td=el("td",pact?"pact":null);td.append(boxes(n));br.append(td);});
+    const hd=el("thead");hd.append(hr);t.append(hd);
+    const tb=el("tbody");tb.append(br);t.append(tb);
+    box.append(t);
+    if(R.pactRec)box.append(el("div","trnote","Pact slots return on a short rest."));
+  }
+
+  // ── limited uses: item charges first (a shared pool is ONE row, not one per
+  //    spell), then every innate cast with a countable cadence ───────────────
+  const uses=[];
+  (state.customSources||[]).forEach(cs=>{
+    if(!csrcHasPool(cs)||!(+cs.pool>0))return;
+    const note=["charges",cs.recharge?"regains "+cs.recharge:""].filter(Boolean).join(" · ");
+    uses.push([cs.name,+cs.pool,note]);});
+  (R.freeCasts||[]).forEach(fc=>{
+    if(fc.choice)return;
+    const u=useBoxes(rechargeShort(fc.recharge,fc.level===0)); if(!u)return;
+    uses.push([fc.name+" · "+fc.src,u.n,u.note]);});
+  if(uses.length){ sec("Limited uses");
+    uses.forEach(([lab,n,note])=>box.append(useRow(lab,n,note))); }
+  if(!box.children.length)box.append(el("div","trnone","No slots or limited uses at this level."));
+}
+
+// ── the legend ─────────────────────────────────────────────────────────────
+// Only for symbols the sheet actually uses: a legend explaining a mark that never
+// appears is the same noise as a column of dashes.
+function renderPrintLegend(){
+  const box=$("#printLegend"); if(!box)return;
+  box.innerHTML="";
+  const rows=PRINT_ROWS, has=f=>rows.some(f);
+  const items=[];
+  const ico=(n,cls)=>{const w=el("span","lgi"+(cls?" "+cls:""));w.innerHTML=ICONS[n];return w;};
+  if(has(r=>r.type==="free"))items.push([ico("check","always"),"Always prepared — a free grant that costs you nothing"]);
+  if(has(r=>r.type==="cast"))items.push([ico("spark","innate"),"Innate — cast without preparing it"]);
+  if(has(r=>r.inBook&&!r.prepared))items.push([ico("book","inbook"),"In your spellbook, not prepared today"]);
+  if(has(r=>!r.blank&&r.type!=="free"&&r.type!=="cast"&&!(r.inBook&&!r.prepared)))
+    items.push([ico("dot","on"),"Prepared or known"]);
+  if(has(r=>r.blank))items.push([el("span","prepbox"),"You could prepare this — tick what you take"]);
+  if(has(r=>r.sp.ritual))items.push([el("span","lgt","R"),"Ritual — castable without a slot at 10 extra minutes"]);
+  if(has(r=>r.sp.conc))items.push([ico("check"),"In the Conc column: concentration"]);
+  if(has(r=>r.sp.atk))items.push([el("span","savechip atk","Atk"),"A spell attack roll"]);
+  if(has(r=>(r.sp.save||[]).length))items.push([el("span","savechip dex","Dex"),"The save your target rolls"]);
+  items.push([el("span","lgc","V S M"),"Components. A struck letter is one your build removes; gold M costs money, red M is consumed."]);
+  if(has(r=>r.dc||r.atk))items.push([el("span","ownnum","DC 16"),"The source's own numbers, not your spellcasting"]);
+  if($("#spellTable").querySelector("sup.ast"))items.push([el("span","lgt","*"),"Also castable with your own spell slots"]);
+  if(!items.length)return;
+  box.append(el("div","lgh","What the marks mean"));
+  const grid=el("div","lggrid");
+  items.forEach(([mark,text])=>{const r=el("div","lgrow");r.append(mark);r.append(el("span","lgx",text));grid.append(r);});
+  box.append(grid);
+}
+
+// ── the spell-card appendix ────────────────────────────────────────────────
+// A sheet you never have to look anything up from. The table's spell names link here
+// and each card links back — same-document links, which is what a PDF turns into
+// clickable internal navigation.
+const cardId=sp=>"sp-"+key(sp.name,sp.source).toLowerCase().replace(/[^a-z0-9]+/g,"-");
+let PRINT_ROWS=[];      // what renderTable last put on the sheet — the cards follow it
+function printCardHTML(sp){
+  const eff=compEffect(sp,modsForSpell(sp,null));
+  const grid=[["Casting time",sp.time],["Range",sp.range],["Components",compModalHTML(sp,eff)],
+              ["Duration",(sp.conc?"Concentration, up to ":"")+sp.durTxt]];
+  const bk=sp.source+(sp.page?" p."+sp.page:"");
+  // only the forms this character marked (or the single form a summon has) — Find Familiar
+  // carries 65, and an appendix that prints all of them is not an appendix
+  const cre=printCreatures(sp);
+  const all=spellCreatures(sp);
+  const sb=cre.map(b=>`<div class="pcsb"><div class="pcsbn">${esc(b.name)}</div>${sbBodyHTML(b)}</div>`).join("")
+    ||(all.length>1?`<p class="pcnote">${all.length} forms — mark the ones you use in the spell's details to print them.</p>`:"");
+  return `<div class="pcard" id="${esc(cardId(sp))}">`
+    +`<h4><a href="#row-${esc(cardId(sp))}">${esc(sp.name)}</a><span class="pcbk">${esc(bk)}</span></h4>`
+    +`<div class="pcsub">${metaLine(sp)}</div>`
+    +`<div class="pcgrid">${grid.map(([k,v])=>`<b>${k}</b><span>${v}</span>`).join("")}</div>`
+    +`<div class="pctext">`+(sp.desc||[]).map(descP).join("")
+    +((sp.higher||[]).length?`<div class="hl">${sp.higher.map(descP).join("")}</div>`:"")+`</div>`
+    +grantNotes(sp).map(n=>`<div class="gnote"><b>${esc(n.src)}</b><p>${ccText(n.note)}</p></div>`).join("")
+    +eff.why.map(m=>`<div class="gnote cmod"><b>${esc(m.giver+" · "+m.feature)}</b>`
+      +(m.when?`<span class="cmwhen">${esc(m.when)}</span>`:"")
+      +`<p>${ccText(m.note)}</p></div>`).join("")
+    +sb+`</div>`;
+}
+function renderPrintCards(){
+  const box=$("#printCards"); if(!box)return;
+  box.innerHTML="";
+  if(!PRINT.cards||!PRINT_ROWS.length)return;
+  const seen=new Set(), list=[];
+  PRINT_ROWS.forEach(r=>{const k=key(r.sp.name,r.sp.source); if(seen.has(k))return; seen.add(k); list.push(r.sp);});
+  list.sort((a,b)=>a.level-b.level||a.name.localeCompare(b.name));
+  // grouped by level like the table above it, and broken by page on the same setting —
+  // an appendix ordered differently from the sheet it belongs to is a second index
+  let html=`<h3 class="pcsec">Spell details</h3>`, lastL=null, n=0;
+  list.forEach(sp=>{
+    if(sp.level!==lastL){
+      if(lastL!==null)html+=`</div>`;
+      lastL=sp.level;
+      html+=`<h5 class="pclv${PRINT.brk&&n++>0?" pgbrk":""}">${sp.level===0?"Cantrips":ROMAN[sp.level]+" level"}</h5><div class="pcards">`;
+    }
+    html+=printCardHTML(sp);});
+  if(lastL!==null)html+=`</div>`;
+  box.innerHTML=html;
+}
+function renderPrintNotes(){
+  const box=$("#printNotes"); if(!box)return;
+  box.innerHTML="";
+  if(!PRINT.notes)return;
+  box.innerHTML=`<h3 class="pcsec">Notes</h3><div class="prlines">`
+    +Array.from({length:22},()=>`<span></span>`).join("")+`</div>`;
+}
+
+// ── the print run ──────────────────────────────────────────────────────────
+// beforeprint/afterprint carry it, so Cmd+P and the menu item take the same path and
+// the saved settings apply either way.
+function printBuild(){
+  PRINT_MODE=true;
+  TITLE_BEFORE=document.title; document.title=printDocName();
+  printHeadLine(); renderTable();
+  renderPrintTracker(); renderPrintLegend(); renderPrintCards(); renderPrintNotes();
+}
+function printDone(){
+  PRINT_MODE=false;
+  if(TITLE_BEFORE!=null){document.title=TITLE_BEFORE;TITLE_BEFORE=null;}
+  ["#printTracker","#printLegend","#printCards","#printNotes"].forEach(id=>{const n=$(id);if(n)n.innerHTML="";});
+  PRINT_ROWS=[]; renderTable();
+}
+addEventListener("beforeprint",printBuild);
+addEventListener("afterprint",printDone);
+
+// ── the settings modal ─────────────────────────────────────────────────────
+const PR_FIELDS={prTracker:"tracker",prCards:"cards",prEligible:"eligible",prBreak:"brk",prNotes:"notes"};
+function openPrintModal(){
+  $("#prTheme").value=PRINT.theme; $("#prOrient").value=PRINT.orient;
+  Object.entries(PR_FIELDS).forEach(([id,k])=>{$("#"+id).checked=!!PRINT[k];});
+  printCountNote();
+  $("#printModal").classList.remove("hidden");
+}
+// what the settings are about to cost, before you spend the paper finding out — counted
+// through the same PRINT_MODE path that builds the sheet, so "all preparable" reports the
+// number it actually adds rather than a vague promise
+function printCountNote(){
+  const n=$("#prCount"); if(!n)return;
+  const was=PRINT_MODE; PRINT_MODE=true;
+  const rows=tableRows(); PRINT_MODE=was;
+  const cards=new Set(rows.map(r=>key(r.sp.name,r.sp.source))).size;
+  const bits=[rows.length+" row"+(rows.length===1?"":"s")+" on the sheet"];
+  if(PRINT.cards)bits.push(cards+" spell card"+(cards===1?"":"s"));
+  if(PRINT.notes)bits.push("a notes page");
+  n.textContent=bits.join(" · ")+".";
+  // ticking a setting that changes nothing reads as a broken setting unless it says why
+  if(PRINT.eligible&&!rows.some(r=>r.blank))
+    n.textContent+=" Nothing to prepare — no class here prepares from a whole list.";
+}
+$("#printBtn").onclick=()=>{closeMenu();openPrintModal();};
+$("#prClose").onclick=()=>$("#printModal").classList.add("hidden");
+$("#printModal").onclick=e=>{if(e.target.id==="printModal")$("#printModal").classList.add("hidden");};
+$("#prTheme").onchange=e=>{PRINT.theme=e.target.value;savePrintOpts();};
+$("#prOrient").onchange=e=>{PRINT.orient=e.target.value;savePrintOpts();};
+Object.entries(PR_FIELDS).forEach(([id,k])=>{
+  $("#"+id).onchange=e=>{PRINT[k]=e.target.checked;savePrintOpts();printCountNote();};});
+$("#prGo").onclick=()=>{$("#printModal").classList.add("hidden");
+  // the dialog has to be gone before the page is snapshotted, and a modal that is still
+  // fading would print over the sheet
+  setTimeout(()=>print(),60);};
 
 // ── offline: the published build installs as an app ────────────────────────
 // A service worker needs real files at a real origin. dist/ is opened over file:// (no
@@ -4673,6 +5063,7 @@ let BOOT_MODE="fresh";
   $("#fReprint").value=state.filters.reprint;
   $("#fq").value=state.filters.q;
   loadTableOpts(); $("#tGroup").value=tableOpts.group; renderColMenu();
+  loadPrintOpts();
   maybeOnboard();
   fillIcons(); wireHelpNotes();
   refreshAll();render();

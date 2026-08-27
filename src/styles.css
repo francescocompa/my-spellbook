@@ -522,6 +522,14 @@
   color:var(--muted);cursor:pointer;border-radius:6px;display:flex;align-items:center;justify-content:center}
 .spmodal .sb-books:hover{color:var(--accent);background:var(--panel-2)}
 .spmodal .sb-books svg{width:14px;height:14px}
+/* mark a form you actually use: it leads the carousel, and it is the one that prints */
+.spmodal .sb-fav{flex:0 0 auto;width:24px;height:24px;border:none;background:none;padding:0;
+  display:inline-flex;align-items:center;justify-content:center;border-radius:7px;
+  color:var(--muted);cursor:pointer}
+.spmodal .sb-fav:hover{color:var(--gold);background:var(--panel-2)}
+.spmodal .sb-fav svg{width:14px;height:14px;fill:none;stroke:currentColor}
+.spmodal .sb-fav.on{color:var(--gold)}
+.spmodal .sb-fav.on svg{fill:currentColor}
 /* the SAME grouped checklist every other picker uses (D27), seeded from the global list
    but local — ticking a book here never writes back */
 .spmodal .sb-bookpanel{margin-top:8px}
@@ -1231,33 +1239,63 @@ label.fld .fldt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-wi
 .csfchips .cbtn.tiny{font-size:10.5px;padding:2px 7px;border-radius:6px}
 .csfrow .csswap{flex:1;min-width:0;max-width:280px;font-size:12px}
 
+/* a 5etools bullet paragraph, on screen as well as on paper */
+.spmodal .mb p.bul,.sptip p.bul{padding-left:1.1em;text-indent:-1.1em}
+
 /* ── print / save as PDF ─────────────────────────────────────────────────────────
-   Paper gets whichever tab is on screen: the Build tab is the record of a character's
-   choices, the Spell table is the sheet you bring to a session. Neither carries the
-   header bar on paper, so `.printhead` names the page instead — screen-hidden, filled
-   on `beforeprint`. */
-.printhead{display:none}
+   Paper always gets the spell table, under a line naming the build. Everything below
+   that line is built on `beforeprint` into `.printonly` containers and torn down after,
+   so the screen never carries a spell-card appendix around. */
+.printhead,.printonly{display:none}
+
+/* the settings modal (on screen) */
+.prgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.propt{display:flex;align-items:flex-start;gap:9px;padding:8px 9px;border-radius:9px;cursor:pointer}
+.propt:hover{background:var(--panel-2)}
+.propt input{margin-top:2px;flex:0 0 auto;accent-color:var(--accent)}
+.propt span{display:flex;flex-direction:column;gap:2px;min-width:0}
+.propt b{font-size:12.5px;font-weight:600}
+.propt em{font-style:normal;font-size:11.5px;color:var(--muted);line-height:1.4}
+#prCount{margin:10px 2px 0;font-size:11.5px;color:var(--muted)}
+.prfoot{margin:6px 2px 0;font-size:11px;color:var(--muted);line-height:1.45;
+  padding-top:7px;border-top:1px solid var(--line)}
 
 @media print{
-  /* the LIGHT palette, on white. A dark-theme screen would otherwise print a black
-     page; flattening every colour to black would lose the marker meanings that the
-     pickcell and chip tints carry, so the hues stay and only the grounds go. Soft
-     tints become transparent — a full-bleed background is ink spent on nothing, and
-     browsers drop it by default anyway. */
-  /* the dark palette is declared as `:root:not([data-theme="light"])`, which outranks a
-     plain `:root` no matter how late it comes — the override has to match that shape or
-     a dark-mode screen prints a black page anyway */
-  :root,:root:not([data-theme="light"]),:root[data-theme="dark"],:root[data-theme="light"]{
+  /* The LIGHT sheet, on white — the default. A dark-theme screen would otherwise print
+     a black page. Flattening every colour to black would lose what the pickcell and chip
+     tints mean, so the hues stay and only the grounds go; soft tints become transparent,
+     since a full-bleed background is ink spent on nothing.
+     The dark palette is declared as `:root:not([data-theme="light"])`, which outranks a
+     plain `:root` however late it comes — these have to match that shape to land, and
+     each excludes `[data-print="dark"]` so the two colour modes never both apply. */
+  :root:not([data-print="dark"]),
+  :root:not([data-theme="light"]):not([data-print="dark"]),
+  :root[data-theme="dark"]:not([data-print="dark"]),
+  :root[data-theme="light"]:not([data-print="dark"]){
     --bg:#fff; --panel:#fff; --panel-2:#fff; --ink:#1a1613; --muted:#5f574e;
     --line:#ccc4b6; --line-strong:#a9a091; --accent:#8a3324; --accent-soft:transparent;
     --gold:#7d5f1c; --gold-soft:transparent; --good:#2f5a3a; --good-soft:transparent;
     --free:#4a469a; --free-soft:transparent; --bad:#962e22; --bad-soft:transparent;
     --shadow:none;
   }
+  /* The DARK sheet — for a PDF that is read on a screen. The palette is restated rather
+     than inherited so it prints dark from a light screen too, and `print-color-adjust`
+     is the only way to stop the browser helpfully dropping every background. */
+  :root[data-print="dark"]{
+    --bg:#17140f; --panel:#211d16; --panel-2:#2a251c; --ink:#ece4d6; --muted:#a99e8d;
+    --line:#3a3225; --line-strong:#4c4130; --accent:#d97a5f; --accent-soft:#d97a5f1f;
+    --gold:#d4ad5a; --gold-soft:#d4ad5a1c; --good:#7fbb8c; --good-soft:#7fbb8c18;
+    --free:#a6a1e6; --free-soft:#a6a1e618; --bad:#e0796b; --bad-soft:#e0796b1c;
+    --shadow:none;
+    -webkit-print-color-adjust:exact; print-color-adjust:exact;
+  }
+  /* @page size is set by #prPageRule — a rule element, because `@page` cannot be
+     selector-scoped and so cannot read a setting off the document */
   @page{margin:14mm}
-  body{background:#fff}
+  body{background:var(--bg)}
   .wrap{max-width:none;padding:0}
   .layout{display:block}            /* two columns are a screen affordance */
+  .printonly{display:block}
 
   /* every control, popover and browsing surface. `#secSpells` is the spell FINDER —
      a search box and 900 rows you did not pick — so it never belongs on paper. */
@@ -1269,34 +1307,176 @@ label.fld .fldt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-wi
      `#tableView.hidden` outranks `.hidden` on specificity, so it wins its !important. */
   #buildView{display:none!important}
   #tableView.hidden{display:block!important}
-  /* :has is what removes the empty row a hidden placeholder leaves behind; without it
-     the fallback is a stray count tile, which is untidy rather than wrong */
-  .fldrow:has(.picksel.ph){display:none}
 
-  .printhead{display:block;margin:0 0 14px;padding:0 0 9px;border-bottom:1.5px solid var(--ink)}
+  .printhead{display:block;margin:0 0 12px;padding:0 0 9px;border-bottom:1.5px solid var(--ink)}
   .printhead .phttl{font-family:var(--font);font-size:20px;font-weight:600;
     display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
   .printhead .phver{font-family:var(--sans);font-size:12px;font-weight:400;color:var(--muted)}
   .printhead .phsub{font-size:12px;color:var(--muted);margin-top:3px}
   .printhead .phnote{font-size:11px;color:var(--accent);margin-top:5px}
 
-  /* a card is a sheet of paper's worth of one topic: let it break, but never orphan
-     its own heading at the foot of a page */
-  .card{box-shadow:none;border:1px solid var(--line);margin-bottom:12px;break-inside:auto}
-  .card h2{break-after:avoid;padding:9px 12px}
-  .card .body{padding:11px 12px}
+  /* ── the tracker: what you spend, as boxes to tick ───────────────────────── */
+  #printTracker{margin:0 0 12px;break-inside:avoid}
+  .trsec{margin:9px 0 3px}
+  .trh{font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600}
+  .trrow{display:flex;align-items:center;gap:9px;padding:1.5px 0;font-size:10px}
+  .trlbl{min-width:56mm;font-weight:600}
+  .trbox{display:flex;gap:3px;flex-wrap:wrap}
+  /* a printed box has to survive being drawn at 300dpi and written in with a pen: under
+     about 3mm a tick mark fills it entirely */
+  .tb{width:3.4mm;height:3.4mm;border:.3mm solid var(--line-strong);border-radius:.7mm;display:inline-block}
+  /* past the box cap: a field to write the remaining count in, then the total */
+  .trfillw{display:flex;align-items:center;gap:4px}
+  .trfill{display:inline-block;width:14mm;height:5mm;border:.3mm solid var(--line-strong);border-radius:.8mm}
+  .trof{font-size:10px;color:var(--muted)}
+  .trnote{font-size:9px;color:var(--muted)}
+  .trnone{font-size:10px;color:var(--muted)}
+  /* both tracker tables: hairline rules, no box, columns that stay in ONE row */
+  .trtbl{width:100%;border-collapse:collapse;font-size:10px;margin:1px 0 2px}
+  .trtbl th{font-size:8.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);
+    font-weight:600;text-align:left;padding:0 6px 2px 0;border:none;white-space:nowrap}
+  .trtbl td{padding:2px 6px 3px 0;border:none;vertical-align:top}
+  .trslots th,.trslots td{text-align:left;width:1%;white-space:nowrap}
+  .trslots th.pact,.trslots td.pact{padding-left:7mm}
+  .trslots th.pact{color:var(--free)}
+  .trcast td{border-top:.2mm solid var(--line)}
+  .trcast .trcls{font-weight:600;white-space:nowrap}
+  /* the two numbers only you can fill in: a box you can actually write "+11" inside,
+     not a rule that a pen sits on top of */
+  .trcast .trblank{width:24mm}
+  .trcast .trblank .trfill{width:18mm;height:6mm}
+  /* an unticked preparable spell — the same box, in the table's marker column */
+  .pickcell .prepbox{width:2.9mm;height:2.9mm;border:.3mm solid var(--line-strong);
+    border-radius:.6mm;display:inline-block;vertical-align:middle}
+  /* on the dark sheet the divider tones are nearly the ground — a box you cannot see is
+     a box you cannot tick */
+  :root[data-print="dark"] .tb,
+  :root[data-print="dark"] .pickcell .prepbox,
+  :root[data-print="dark"] .prlines span{border-color:var(--muted)}
+
+  /* no box around anything: paper already has edges. What survives is hairline rules —
+     the row divider, the group headings, the section rules — and nothing else. */
+  .card{box-shadow:none;border:none;border-radius:0;background:none;margin:0 0 10px;break-inside:auto}
+  .card h2{break-after:avoid;padding:0 0 4px;border-bottom:.3mm solid var(--ink);
+    font-size:12px;background:none;margin-bottom:7px}
+  .card .body{padding:0}
+  /* "Your casting" sat flush against the rule above it */
+  .tblcastmods{margin:0 0 8px;padding:0;border:none;gap:6px}
+  .tblcastmods .tcmlbl{font-size:8px}
   select,input[type=number],input[type=search],input[type=text]{
     border:none;background:none;padding:1px 0;-webkit-appearance:none;appearance:none}
 
-  /* the spell list is the point of printing: keep its column names on every page */
+  /* The spell list is the point of printing: keep its column names on every page, and
+     make thirteen columns FIT. A page has no horizontal scroll to fall back on, so the
+     screen's nowrap badges and chips have to be allowed to wrap here, and the type comes
+     down a size — the alternative is a Source column sliced off at the paper's edge.
+     Landscape is the setting for anyone who would rather keep the size. */
   .tablewrap{overflow:visible}
-  table.spelltable{font-size:10.5px}
+  table.spelltable{font-size:9px;width:100%;table-layout:auto}
   table.spelltable thead{display:table-header-group}
-  table.spelltable th{position:static;padding:5px 6px}
-  table.spelltable td{padding:4px 6px}
+  table.spelltable th{position:static;padding:4px 3px;border-bottom:.3mm solid var(--line-strong);
+    background:none;font-size:7.5px}
+  table.spelltable td{padding:3px 3px;border-bottom:.15mm solid var(--line)}
+  table.spelltable .srcbadge{white-space:normal;padding:0;background:none;border-radius:0;font-size:9px}
+  table.spelltable td.cmp{font-size:9px;letter-spacing:0}
+  table.spelltable .savechip,table.spelltable .achip{padding:0 2px}
+  table.spelltable .grouphdr td{border-bottom:.2mm solid var(--line-strong);padding-top:7px}
   table.spelltable tr{break-inside:avoid}
   table.spelltable .grouphdr{break-after:avoid}
+  table.spelltable .grouphdr.pgbrk{break-before:page}
   table.spelltable tr:hover td{background:none}
+  table.spelltable td.nm a{color:inherit;text-decoration:none}
+
+  /* ── the legend: only the marks this sheet actually uses ─────────────────── */
+  #printLegend{margin:8px 0 0;break-inside:avoid}
+  .lgh{font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);
+    font-weight:600;margin-bottom:4px}
+  .lggrid{display:grid;grid-template-columns:1fr 1fr;gap:2px 9mm;font-size:9px}
+  .lgrow{display:flex;align-items:baseline;gap:6px}
+  .lgrow .lgi{flex:0 0 auto;display:inline-flex;width:9px}
+  .lgrow .lgi svg{width:9px;height:9px}
+  .lgi.always{color:var(--good)} .lgi.innate{color:var(--gold)}
+  .lgi.on{color:var(--accent)} .lgi.inbook{color:var(--muted)}
+  .lgrow .lgt{flex:0 0 auto;font-weight:700;color:var(--gold);width:9px;text-align:center}
+  .lgrow .lgc{flex:0 0 auto;font-size:8.5px;letter-spacing:.04em;font-weight:600}
+  .lgrow .prepbox{flex:0 0 auto}
+  .lgx{color:var(--muted)}
+
+  /* ── the spell-card appendix ─────────────────────────────────────────────── */
+  .pcsec{break-before:page;font-family:var(--font);font-size:15px;font-weight:600;
+    margin:0 0 10px;padding-bottom:6px;border-bottom:1.5px solid var(--ink)}
+  /* two columns: a spell is a short document, and one per page-width wastes half the
+     sheet on line lengths nobody wants to read */
+  /* the appendix repeats the table's own level grouping — an index ordered differently
+     from the sheet it belongs to is a second index */
+  .pclv{font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);
+    font-weight:600;margin:0 0 5px;padding-bottom:2px;border-bottom:.2mm solid var(--line);
+    break-after:avoid}
+  .pclv.pgbrk{break-before:page;margin-top:0}
+  .pcards{column-count:2;column-gap:9mm;margin-bottom:6mm}
+  .pcard{break-inside:avoid;margin:0 0 5mm}
+  /* the hierarchy: name (serif, dark) → subtitle → stat grid → text. Each step drops a
+     size and a weight, so a column of cards reads as a list of spells rather than a wall */
+  .pcard h4{font-family:var(--font);font-size:11.5px;font-weight:600;margin:0 0 1px;
+    display:flex;align-items:baseline;gap:6px;break-after:avoid}
+  .pcard h4 a{color:inherit;text-decoration:none}
+  .pcard .pcbk{margin-left:auto;font-family:var(--sans);font-size:8px;font-weight:400;color:var(--muted)}
+  .pcard .pcsub{font-size:8.5px;color:var(--muted);margin-bottom:3px;font-style:italic}
+  .pcard .pcgrid{display:grid;grid-template-columns:auto 1fr;gap:0 6px;font-size:8.5px;
+    margin-bottom:4px;padding-bottom:3px;border-bottom:.15mm solid var(--line)}
+  .pcard .pcgrid b{color:var(--muted);font-weight:600;white-space:nowrap}
+  .pcard p{margin:0 0 2.5px;font-size:9px;line-height:1.38;text-align:justify;hyphens:auto}
+  /* 5etools writes a sub-heading as its own paragraph and a list item as a "•" paragraph.
+     Left alone they print as loose prose, which is what makes Thaumaturgy and Elementalism
+     read as a run-on — a title gets weight, a bullet gets a hanging indent. */
+  .pcard p.spttl{font-weight:600;color:var(--ink);margin:4px 0 1.5px;text-align:left;break-after:avoid}
+  .pcard p.bul{padding-left:3.4mm;text-indent:-3.4mm;text-align:left;margin-bottom:1px}
+  .pcard .hl p{font-size:8.5px;font-style:italic;color:var(--muted);margin-top:3px}
+  .pcard .gnote{font-size:8.5px;margin-top:3px;padding-left:5px;border-left:.3mm solid var(--accent)}
+  .pcard .gnote b{display:block;color:var(--accent)}
+  .pcard .pcnote{font-size:8.5px;color:var(--muted);font-style:italic}
+  /* ── a marked summon form, printed with the spell that calls it ──────────────
+     This is the one thing on the sheet that IS a box: a stat block is a self-contained
+     object you read as a unit, and every printed one since 1977 has been ruled off from
+     the text around it. Inside, three bands separated by hairlines — the defences, the
+     ability table, then the traits — with the labels in one column and their values in
+     another, so a column of numbers actually lines up. */
+  .pcsb{margin-top:5px;break-inside:avoid;border:.25mm solid var(--line-strong);border-radius:1mm;
+    padding:2.5mm 3mm;background:none}
+  .pcsbn{font-family:var(--font);font-size:10.5px;font-weight:600;line-height:1.2;
+    margin:0 0 .5mm;break-after:avoid}
+  .pcsb .sb-kind{font-size:8px;font-style:italic;color:var(--muted);margin-bottom:1.5mm;
+    padding-bottom:1.5mm;border-bottom:.15mm solid var(--line)}
+  /* label / value as a real two-column grid, not a flex row that ragged-aligns */
+  .pcsb .sbr{display:grid;grid-template-columns:15mm 1fr;gap:0 2mm;font-size:8.5px;line-height:1.4;
+    align-items:baseline}
+  .pcsb .sbr b{color:var(--muted);font-weight:600;font-size:7.5px;text-transform:uppercase;
+    letter-spacing:.04em;white-space:nowrap}
+  /* the ability table: figures are tabular so the Mod and Save columns read down */
+  .pcsb .sbabs{margin:1.5mm 0;padding:1.5mm 0;border-top:.15mm solid var(--line);
+    border-bottom:.15mm solid var(--line)}
+  .pcsb table.sbab{font-size:8px;border-collapse:collapse;width:100%;
+    font-variant-numeric:tabular-nums}
+  .pcsb table.sbab td,.pcsb table.sbab th{padding:.2mm 0;border:none}
+  .pcsb table.sbab td.mh{font-size:6.5px;text-transform:uppercase;letter-spacing:.04em;
+    color:var(--muted);text-align:right;font-weight:600}
+  .pcsb table.sbab td.sbal{white-space:nowrap;padding-right:1mm}
+  .pcsb table.sbab td.sbal .abchip{font-size:6.5px;font-weight:700;letter-spacing:.04em;
+    padding:0;background:none;border:none}
+  .pcsb table.sbab td.sbal .sbav{font-weight:600;margin-left:1mm}
+  .pcsb table.sbab td.sbn{text-align:right;padding-right:2.5mm;color:var(--muted)}
+  .pcsb table.sbab td.sbn.prof{color:var(--ink);font-weight:700}
+  /* traits, actions, reactions — each a labelled band, its heading never orphaned */
+  .pcsb .sbsec{margin-top:1.5mm;padding-top:1.5mm;border-top:.15mm solid var(--line)}
+  .pcsb .sbsec h5{font-family:var(--font);font-size:8.5px;font-weight:600;margin:0 0 .5mm;
+    color:var(--accent);break-after:avoid}
+  .pcsb .sbsec p{font-size:8px;line-height:1.38;margin:0 0 1mm;text-align:left}
+  .pcsb .sbsec p b{font-weight:700;color:var(--ink)}
+
+  /* ── a page to write on ──────────────────────────────────────────────────── */
+  #printNotes .pcsec{break-before:page}
+  .prlines{display:flex;flex-direction:column;gap:9mm}
+  .prlines span{display:block;border-bottom:.2mm solid var(--line)}
 
   /* links carry no href on paper, and the SRD notice has to stay legible (CC BY 4.0) */
   a{text-decoration:none;color:var(--ink)}

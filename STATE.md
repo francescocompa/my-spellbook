@@ -656,6 +656,77 @@ written up in full under Gotchas below — that is the copy to trust.
   is none" (D31). A spell that rolls neither falls through to the casting-ability chip like any
   other row. *Rejected:* showing the numbers only in the tooltip (they are the reason that column
   exists for an item); dropping the row's ability chip when a source has its own numbers.
+- **D101 (2026-08-27)** The sheet's anatomy is **summary → tracker → table → cards → notes**, and
+  the tracker is **boxes, not counts** — on screen a slot count is information; on paper it is the
+  one thing you cannot mark off mid-session. It covers everything the app already knows is
+  expendable: each spell slot, Pact Magic on its own line (short rest), each limited innate cast,
+  and each item's charge pool as **one** row (a shared pool listed per spell would double-count
+  it). Box counts read `rechargeShort()`'s output rather than re-parsing cadence strings, so the
+  tracker cannot disagree with the Casts column; a `chg` cadence means "paid from a pool", which
+  has its own row. Optional **all preparable spells, unticked** prints every spell a *daily*
+  caster could prepare with an empty box, so a Cleric or Druid list can be prepared on paper —
+  Francesco's addition. Level-swap casters are skipped (nothing to prepare) and so are wizards
+  (their preparable list is their spellbook, already on the sheet and already marked); anything
+  genuinely picked is pushed first, so the dedupe keeps its real marker.
+- **D102 (2026-08-27)** Optional **spell cards** print the full rules text of every spell on the
+  sheet as a two-column appendix, and the table's spell names are **same-document links** into
+  them, which is what a PDF turns into clickable internal navigation; each card links back to its
+  first row. Cards carry the stat grid, every paragraph, the at-higher-levels clause, the book and
+  page, and any grant or casting-rule note. *Rejected:* compact cards (they truncate exactly the
+  spells that needed one); one card per page-width (half the sheet spent on unreadable line
+  lengths).
+- **D103 (2026-08-27)** Print options live in a **remembered modal** (⋯ → Print / save as PDF…) —
+  colour (light on white / dark as on screen), page (portrait / landscape), and five toggles — and
+  the modal states what the current settings will cost, counted through the same code path that
+  builds the sheet. The **PDF filename is the build name**: browsers take it from `document.title`,
+  so it is swapped on `beforeprint` and restored on `afterprint`. Everything below the summary is
+  **built on `beforeprint` and torn down on `afterprint`**, so the screen never carries a 31-card
+  appendix around and ⌘P takes exactly the same path as the button. `@page` cannot be
+  selector-scoped, so page size gets its own injected rule element. *Rejected:* options in the ⋯
+  menu (five toggles and two selects is a form, not a menu); a print-only route that ⌘P bypasses.
+- **D104 (2026-08-27)** Grouping by source groups by **where it came from**, and a subclass, a
+  class feature and an invocation all came from the class — Light Domain is not a source separate
+  from Cleric, and splitting it out answers a question nobody asked at the table. Every grant
+  resolved inside a caster's loop is tagged with that caster's row (`srcIdx`, now on free casts as
+  well as always-prepared ones), and an optional feature — resolved outside the loop, since a feat
+  can grant one — is tagged by which class's progression opened the slot it fills. Only a genuinely
+  separate source keeps its own group: a feat, an item, your species. A feat that **adds to your
+  list** (a Dragonmark) is not one of those, and needs no special case: those spells are picked as
+  the class and already carry its row. The Source **column** still names the specific giver — the
+  folding is the group header only. *Rejected:* a hand-kept list of "class-ish" source names
+  (wrong the moment a book invents a new feature type).
+- **D105 (2026-08-27)** A summon spell's stat blocks print, but only the forms this character
+  **marks** — a star in the stat-block header, stored in the build so it travels with an export
+  (D55's rule). Find Familiar carries 65 forms; an appendix that prints all of them is not an
+  appendix. Marked forms also lead the carousel, since the form you use is the one you open the
+  spell to see. A spell with exactly **one** form prints it unmarked (marking the only option is
+  a chore, not a choice); a multi-form spell with nothing marked prints a line saying how to mark
+  them, rather than silently omitting the block. *Rejected:* printing the first N forms (the first
+  is alphabetical, not yours); a global favourites list (a familiar belongs to a character).
+- **D106 (2026-08-27)** The printed sheet is **hairlines only** — no box around the table, no card
+  borders; a row rule, a heading rule, and nothing else, because paper already has edges. The
+  tracker's slots and per-class numbers are **tables**, not flex rows: nine slot levels plus Pact
+  have to sit in one row of columns at any width, and only a table guarantees that without
+  shrinking the boxes below a tickable 3 mm. Past **6** uses the boxes become a ruled field and a
+  `/N` total — twenty 3 mm boxes are not tickable apart, and a written count is how a character
+  sheet has always done it. Each caster gets its prepared and cantrip counts plus **blank ruled
+  fields for spell attack and save DC**, which the app cannot compute (it models neither ability
+  scores nor proficiency) and must not guess. A **legend** prints only the marks the sheet
+  actually uses. *Rejected:* the per-class numbers in the group headers (they only exist when you
+  group by source; the block is always there and always right).
+- **D107 (2026-08-27)** Printing a daily caster's **whole** list means preparing on paper from
+  scratch, so every one of that class's preparable rows gets the same empty box — marking today's
+  picks differently states a decision the sheet exists to let you re-make. Cantrips, always-prepared
+  grants and innate casts keep their own marks: none of them is yours to choose. A level-swap
+  caster (Warlock, Sorcerer, Bard) is untouched — it knows spells, it does not prepare them. The
+  two write-in fields are **boxes, not rules**: a rule is something a pen sits on top of.
+- **D108 (2026-08-27)** The PDF's **filename and internal links belong to the browser's own
+  export**, and there is nothing in the page that can substitute for either. The name comes from
+  `document.title` at print time (set, and verified set) and the links from same-document anchors
+  (79 forward, 75 back, none broken, no duplicate ids, in-page navigation works). Chrome and Safari
+  honour both; an in-app PDF writer may ignore them and save under the host app's name. The print
+  modal says so rather than leaving it as a mystery. *Rejected:* generating the PDF in-page (a
+  bundled PDF library, for a file the browser already knows how to make); UA-sniffing the host.
 
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
@@ -708,6 +779,16 @@ written up in full under Gotchas below — that is the copy to trust.
 → closed backlog items (all of them, including this session's): `ARCHIVE.md#closed-backlog`
 
 ## Gotchas
+- **`DATA.sources` knows only books that publish SPELLS or CLASSES — not bestiary books (D107).**
+  Both extractors build the source registry from spell/class content, so MM, XMM, XDMG, ToA, WDH,
+  WDMM, BAM and friends are absent even when their monsters are loaded. Anything that filters a
+  creature list against `DATA.sources` therefore (a) drops most books from the checklist and
+  (b) reads them as OFF, because `srcOn()` cannot say yes to a code it has never seen. That is
+  exactly what happened to Find Familiar: 8 of its 12 books were invisible and its carousel opened
+  on **2 of 65** forms, with the full set appearing only when you unticked everything and hit the
+  "empty selection shows all" fallback. `wireCreatureNav` now builds its own source map from the
+  FORMS and defaults an unknown book to on — unknown must never read as excluded (D31). Any future
+  creature-side filter has to do the same.
 - **Content assembly:** `window.__DATA__` (baked) is optional now. `assembleData()` picks
   imported > baked > empty, merges custom homebrew, calls `buildIndexes()`. Indexes
   (CLS_BY, SPELL_BY, …) are `let`, rebuilt on every content change — never captured.

@@ -34,7 +34,7 @@
         <button id="hbBtn"><span class="mi ico" data-ico="stack"></span>My homebrew…</button>
         <button id="importBtn"><span class="mi ico" data-ico="download"></span>Import 5etools…</button>
         <button id="sourcesBtn"><span class="mi ico" data-ico="gear"></span>Sources…</button>
-        <button id="printBtn"><span class="mi ico" data-ico="print"></span>Print / save as PDF</button>
+        <button id="printBtn"><span class="mi ico" data-ico="print"></span>Print / save as PDF…</button>
         <button id="themeBtn"><span class="mi ico" data-ico="theme"></span>Toggle theme</button>
         <div class="sep"></div>
         <button id="resetBtn" class="danger"><span class="mi ico" data-ico="reset"></span>Reset build</button>
@@ -44,6 +44,8 @@
 
   <!-- print only: paper has no header bar, so the sheet has to say whose it is -->
   <div class="printhead" id="printHead" aria-hidden="true"></div>
+  <!-- everything expendable, as boxes to tick with a pencil at the table -->
+  <div class="printonly" id="printTracker" aria-hidden="true"></div>
 
   <div class="layout" id="buildView">
     <div class="col-left">
@@ -164,6 +166,12 @@
         <p class="note" id="tableEmpty"></p></div>
     </div>
   </div>
+
+  <!-- print only: what the marks in the table mean, then the spell-card appendix,
+       then a ruled page to write on -->
+  <div class="printonly" id="printLegend" aria-hidden="true"></div>
+  <div class="printonly" id="printCards" aria-hidden="true"></div>
+  <div class="printonly" id="printNotes" aria-hidden="true"></div>
 
   <!-- mobile only: one tap per section instead of a five-card scroll (D48) -->
   <nav class="jumpbar hidden" id="jumpBar" aria-label="Jump to section"></nav>
@@ -414,6 +422,40 @@
   <div class="prepnav">
     <span class="prepnav-sp"></span>
     <button class="btn on" id="nbCreate">Create build</button>
+  </div>
+</div></div>
+<div class="modal hidden" id="printModal"><div class="box narrow">
+  <div class="mh mh-stack">
+    <div class="mh-row"><h2>Print / save as PDF</h2><button class="x ico" id="prClose" data-ico="x" aria-label="Close"></button></div>
+    <div class="sub">The sheet is your spell table, under a line that says whose it is. These settings are remembered.</div>
+  </div>
+  <div class="mb">
+    <div class="prgrid">
+      <div><label class="fld" for="prTheme">Colour</label><select id="prTheme">
+        <option value="light">Light — on white</option>
+        <option value="dark">Dark — as on screen</option></select></div>
+      <div><label class="fld" for="prOrient">Page</label><select id="prOrient">
+        <option value="portrait">Portrait</option>
+        <option value="landscape">Landscape — fits every column</option></select></div>
+    </div>
+    <label class="propt"><input type="checkbox" id="prTracker">
+      <span><b>Slot &amp; use tracker</b><em>Boxes to tick: every spell slot, Pact Magic, each limited free cast, each item's charges.</em></span></label>
+    <label class="propt"><input type="checkbox" id="prCards">
+      <span><b>Spell cards</b><em>Full rules text for every spell on the sheet, as an appendix. The table's spell names link to them.</em></span></label>
+    <label class="propt"><input type="checkbox" id="prEligible">
+      <span><b>All preparable spells, unticked</b><em>For classes that prepare from their whole list (Cleric, Druid, Paladin) — print everything you could prepare with an empty box, and prepare on paper.</em></span></label>
+    <label class="propt"><input type="checkbox" id="prBreak">
+      <span><b>A page per spell level</b><em>Start each level group on a fresh page. Easier to flip through, more pages.</em></span></label>
+    <label class="propt"><input type="checkbox" id="prNotes">
+      <span><b>Ruled notes page</b><em>A blank page at the end to write on.</em></span></label>
+    <p class="note" id="prCount"></p>
+    <p class="note prfoot">The file's name and its clickable spell links come from your browser's own
+      PDF export. Chrome and Safari honour both; some in-app PDF writers ignore them and save the
+      page under the app's name — open this page in a browser to print if that happens.</p>
+  </div>
+  <div class="prepnav">
+    <span class="prepnav-sp"></span>
+    <button class="btn on" id="prGo">Print…</button>
   </div>
 </div></div>
 <div class="modal hidden" id="csrcModal"><div class="box narrow">
