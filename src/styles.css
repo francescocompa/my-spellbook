@@ -679,6 +679,9 @@ table.spelltable td.cmp .l.iffy{color:var(--good);cursor:help;
 .cnt.need{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
 .cnt.done{border-color:transparent;background:var(--good-soft);color:var(--good)}
 .cnt.over{border-color:var(--bad);background:var(--bad-soft);color:var(--bad)}
+/* `none` = your level grants no such slot yet. Nothing is owed, so the tile steps back:
+   dashed and dimmed, holding its place in the column without asking for anything. */
+.cnt.none{border-style:dashed;border-color:var(--line);background:transparent;color:var(--muted);opacity:.6}
 .picksel{display:flex;align-items:center;gap:8px;width:100%;text-align:left;font:inherit;font-size:13px;
   padding:6px 10px;border-radius:8px;border:1px solid var(--line-strong);background:var(--bg);color:var(--ink);cursor:pointer;margin-bottom:7px}
 .picksel:hover{border-color:var(--accent)}
@@ -784,6 +787,8 @@ table.spelltable td.cmp .l.iffy{color:var(--good);cursor:help;
 .bpill.over .bv{color:var(--bad)}
 .bpill.done{border-color:transparent;background:var(--good-soft);color:var(--good)}
 .bpill.done .bv{color:var(--good)}
+.bpill.none{border-style:dashed;border-color:var(--line);color:var(--muted);opacity:.6}
+.bpill.none .bv{color:var(--muted)}
 /* prerequisites you don't meet: dimmed, below a bare divider, never hidden by default */
 .entsep{margin:14px 0 4px;border-top:1px solid var(--line-strong)}
 .entrow.blocked{opacity:.5}
@@ -1225,3 +1230,75 @@ label.fld .fldt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-wi
 .csfchips{display:flex;flex-wrap:wrap;gap:4px;flex:1;min-width:0}
 .csfchips .cbtn.tiny{font-size:10.5px;padding:2px 7px;border-radius:6px}
 .csfrow .csswap{flex:1;min-width:0;max-width:280px;font-size:12px}
+
+/* ── print / save as PDF ─────────────────────────────────────────────────────────
+   Paper gets whichever tab is on screen: the Build tab is the record of a character's
+   choices, the Spell table is the sheet you bring to a session. Neither carries the
+   header bar on paper, so `.printhead` names the page instead — screen-hidden, filled
+   on `beforeprint`. */
+.printhead{display:none}
+
+@media print{
+  /* the LIGHT palette, on white. A dark-theme screen would otherwise print a black
+     page; flattening every colour to black would lose the marker meanings that the
+     pickcell and chip tints carry, so the hues stay and only the grounds go. Soft
+     tints become transparent — a full-bleed background is ink spent on nothing, and
+     browsers drop it by default anyway. */
+  /* the dark palette is declared as `:root:not([data-theme="light"])`, which outranks a
+     plain `:root` no matter how late it comes — the override has to match that shape or
+     a dark-mode screen prints a black page anyway */
+  :root,:root:not([data-theme="light"]),:root[data-theme="dark"],:root[data-theme="light"]{
+    --bg:#fff; --panel:#fff; --panel-2:#fff; --ink:#1a1613; --muted:#5f574e;
+    --line:#ccc4b6; --line-strong:#a9a091; --accent:#8a3324; --accent-soft:transparent;
+    --gold:#7d5f1c; --gold-soft:transparent; --good:#2f5a3a; --good-soft:transparent;
+    --free:#4a469a; --free-soft:transparent; --bad:#962e22; --bad-soft:transparent;
+    --shadow:none;
+  }
+  @page{margin:14mm}
+  body{background:#fff}
+  .wrap{max-width:none;padding:0}
+  .layout{display:block}            /* two columns are a screen affordance */
+
+  /* every control, popover and browsing surface. `#secSpells` is the spell FINDER —
+     a search box and 900 rows you did not pick — so it never belongs on paper. */
+  header.top,.jumpbar,.modal,.sptip,.prqpop,.menu,.menupop,#secSpells,
+  #filterPanel,#addClass,.pk-caret,.btn,.pickbtn,button.x,.xsm,.ico-only,
+  .csaddrow,.picksel.ph{display:none!important}
+  /* the sheet is the spell table, whatever tab is on screen: the Build tab is a set of
+     controls, and the summary line above already says which build these spells are.
+     `#tableView.hidden` outranks `.hidden` on specificity, so it wins its !important. */
+  #buildView{display:none!important}
+  #tableView.hidden{display:block!important}
+  /* :has is what removes the empty row a hidden placeholder leaves behind; without it
+     the fallback is a stray count tile, which is untidy rather than wrong */
+  .fldrow:has(.picksel.ph){display:none}
+
+  .printhead{display:block;margin:0 0 14px;padding:0 0 9px;border-bottom:1.5px solid var(--ink)}
+  .printhead .phttl{font-family:var(--font);font-size:20px;font-weight:600;
+    display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+  .printhead .phver{font-family:var(--sans);font-size:12px;font-weight:400;color:var(--muted)}
+  .printhead .phsub{font-size:12px;color:var(--muted);margin-top:3px}
+  .printhead .phnote{font-size:11px;color:var(--accent);margin-top:5px}
+
+  /* a card is a sheet of paper's worth of one topic: let it break, but never orphan
+     its own heading at the foot of a page */
+  .card{box-shadow:none;border:1px solid var(--line);margin-bottom:12px;break-inside:auto}
+  .card h2{break-after:avoid;padding:9px 12px}
+  .card .body{padding:11px 12px}
+  select,input[type=number],input[type=search],input[type=text]{
+    border:none;background:none;padding:1px 0;-webkit-appearance:none;appearance:none}
+
+  /* the spell list is the point of printing: keep its column names on every page */
+  .tablewrap{overflow:visible}
+  table.spelltable{font-size:10.5px}
+  table.spelltable thead{display:table-header-group}
+  table.spelltable th{position:static;padding:5px 6px}
+  table.spelltable td{padding:4px 6px}
+  table.spelltable tr{break-inside:avoid}
+  table.spelltable .grouphdr{break-after:avoid}
+  table.spelltable tr:hover td{background:none}
+
+  /* links carry no href on paper, and the SRD notice has to stay legible (CC BY 4.0) */
+  a{text-decoration:none;color:var(--ink)}
+  footer.credit{margin-top:16px;font-size:9.5px;break-inside:avoid}
+}

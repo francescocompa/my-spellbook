@@ -38,6 +38,7 @@ const ICONS={
   trash:_I('<path d="M2.7 4.3h10.6M6.4 4.3V3.2a1 1 0 0 1 1-1h1.2a1 1 0 0 1 1 1v1.1"/><path d="m4.3 4.3.6 8.1a1.2 1.2 0 0 0 1.2 1.1h3.8a1.2 1.2 0 0 0 1.2-1.1l.6-8.1"/>'),
   order:_I('<path d="M2.4 3.9h6.4M2.4 8h4.4M2.4 12.1h2.6"/><path d="M12.1 3.4v9.2M12.1 12.6 10.4 11M12.1 12.6 13.8 11"/>'),
   bookmark:_I('<path d="M4.1 2.7h7.8v10.6L8 10.5l-3.9 2.8z"/>'),
+  print:_I('<path d="M4.6 6.1V2.7h6.8v3.4"/><rect x="2.4" y="6.1" width="11.2" height="4.8" rx="1.4"/><path d="M4.6 9.3h6.8v4H4.6z"/>'),
 };
 // the small × remove button used inside chips and rows
 function xBtn(cls,onClick){const b=el("button",(cls||"")+" ico xsm");b.innerHTML=ICONS.x;
@@ -2020,9 +2021,13 @@ function renderEntBudget(){
   if(b.epic)box.append(budgetPill("epic boon",b.epicPicked,b.epic,b.epicPicked<b.epic));
 }
 function budgetPill(label,have,cap,owed){
-  const p=el("span","bpill"+(owed?" owed":have>cap?" over":" done"));
+  // the same four states as slotCount: a cap of 0 is "none at this level", not "filled"
+  const st=have>cap?"over":!cap?"none":owed?"owed":"done";
+  const p=el("span","bpill "+st);
   p.append(el("span","bl",label));p.append(el("span","bv",`${have}/${cap}`));
-  p.title=owed?`You still owe ${cap-have} ${label} at this level`:have>cap?`One too many ${label}`:`${label} filled`;
+  p.title=st==="over"?`One too many ${label}`
+    :st==="none"?`Your level grants no ${label} yet`
+    :st==="owed"?`You still owe ${cap-have} ${label} at this level`:`${label} filled`;
   return p;
 }
 
@@ -2839,6 +2844,15 @@ function defenceHTML(sp){
   if(saves.length)return saves.map(ab=>`<span class="savechip ${ab}" title="${esc(ABIL[ab]||ab)} saving throw">${esc(ABIL_SHORT[ab]||ab)}</span>`).join(" ");
   if(sp.atk)return `<span class="savechip atk" title="Spell attack roll">Atk</span>`;
   return "—"; }
+// A source's own numbers, narrowed to what THIS spell actually rolls: the save DC only
+// when the spell forces a save, the attack bonus only when it needs an attack roll, both
+// only when it needs both. Without it a Staff of Frost quotes "DC 16 · +8" beside Ray of
+// Frost — a DC nothing in that spell ever calls for. With no spell record to check
+// against, both are stated: an unverifiable case must not read as "there is none" (D31).
+function ownNumbers(sp,dc,atk){
+  if(!sp)return {dc:dc||null,atk:atk||null};
+  return {dc:(sp.save&&sp.save.length)?(dc||null):null, atk:sp.atk?(atk||null):null};
+}
 function srcTidy(giver){ // "Land · Polar Land" → "Land (Polar)", "Magic Initiate · Wizard Spells" → "Magic Initiate (Wizard)"
   const p=String(giver).split(" · ");
   if(p.length<2)return giver;
@@ -2901,8 +2915,13 @@ function renderTable(){
   // grouping already carries a fact, so its column is suppressed on top of the hidden set
   const suppressed=new Set(g==="ability"?["ability"]:g==="source"?["ability","build"]:[]);
   const cols=visibleCols(suppressed);
-  const thead=el("tr");cols.forEach(k=>thead.append(el("th",k==="name"?"nm":null,TABLE_COLS[k].label)));tbl.append(thead);
-  attachTip(thead.firstChild,tipBlock("Preparation status","Hover a marker for what it means."));
+  // a real thead/tbody, not a bare header row: `display:table-header-group` is what
+  // repeats the column names on every printed page, and a three-page spell list
+  // without them is unreadable at the table.
+  const hrow=el("tr");cols.forEach(k=>hrow.append(el("th",k==="name"?"nm":null,TABLE_COLS[k].label)));
+  const thead=el("thead");thead.append(hrow);tbl.append(thead);
+  const tbody=el("tbody");tbl.append(tbody);
+  attachTip(hrow.firstChild,tipBlock("Preparation status","Hover a marker for what it means."));
   const span=cols.length;
 
   let lastOuter=null,lastLevel=null;
@@ -2913,17 +2932,17 @@ function renderTable(){
       else{td.append(el("span",null,outerLabel(row)));
         const abils=[...new Set(rows.filter(x=>outerKey(x)===ok).map(x=>x.ability).filter(Boolean))];
         if(abils.length){const w=el("span","hdr-abils");w.innerHTML=abils.map(abChip).join("");td.append(w);}}
-      gr.append(td);tbl.append(gr);}}
+      gr.append(td);tbody.append(gr);}}
     if(sp.level!==lastLevel){lastLevel=sp.level;
       const gr=el("tr","grouphdr lvl");const td=el("td");td.colSpan=span;
       td.append(el("span",null,sp.level===0?"Cantrips":ROMAN[sp.level]+" level"));
-      gr.append(td);tbl.append(gr);}
+      gr.append(td);tbody.append(gr);}
     // in the book but not prepared today: real, castable-if-you-prepare-it, but not live
     const tr=el("tr",!sel?"unsel":(row.inBook&&!row.prepared)?"unprep":"");
     cols.forEach(k=>{const td=cellFor(k,row);
       if(td.textContent==="—")td.classList.add("nil");   // an empty slot reads quieter than a value
       tr.append(td);});
-    tbl.append(tr);
+    tbody.append(tr);
   });
 }
 // column menu: a checkbox per column, drag a row to move it (D29). Fixed columns
@@ -2995,9 +3014,14 @@ function cellFor(k,row){
   if(k==="conc"){const td=el("td",sp.conc?"concmark":"");
     if(sp.conc)td.innerHTML=ICONS.check; else td.textContent="—"; return td;}
   if(k==="ability"){const td=el("td");
-    if(row.dc||row.atk){td.innerHTML=`<span class="ownnum">${esc([row.dc?"DC "+row.dc:"",row.atk?row.atk:""].filter(Boolean).join(" · "))}</span>`;
-      attachTip(td,tipBlock("The source's own numbers","This is cast by "+(row.src||"a source")+" using its own save DC / attack bonus, not your spellcasting."));
+    const own=ownNumbers(sp,row.dc,row.atk);
+    if(own.dc||own.atk){
+      td.innerHTML=`<span class="ownnum">${esc([own.dc?"DC "+own.dc:"",own.atk||""].filter(Boolean).join(" · "))}</span>`;
+      const what=own.dc&&own.atk?"save DC and attack bonus":own.dc?"save DC":"attack bonus";
+      attachTip(td,tipBlock("The source's own numbers",
+        "This is cast by "+(row.src||"a source")+" using its own "+what+", not your spellcasting."));
       return td;}
+    // a spell that rolls neither states the casting ability like any other row
     td.innerHTML=row.ability?abChip(row.ability):"—";return td;}
   if(k==="casts"){
     // innate recharge, with * when the spell is also castable via your own slots
@@ -3379,8 +3403,11 @@ function renderSlots(){
       n.innerHTML=c.choice?c.desc:(c.name+(lv!=null?` <span style="color:var(--muted)">(${ROMAN[lv]}${c.castLv?" fixed":""})</span>`:""));
       const lab=rechargeShort(c.recharge,c.level===0),atWill=lab==="at will";
       row.append(n);
-      if(c.dc||c.atk)row.append(Object.assign(el("span","ownnum"),
-        {textContent:[c.dc?"DC "+c.dc:"",c.atk?"atk "+c.atk:""].filter(Boolean).join(" · ")}));
+      // same narrowing as the table's Ability column — a CHOICE row names no single
+      // spell, so there it describes the grant and both numbers stand
+      const own=c.choice?{dc:c.dc||null,atk:c.atk||null}:ownNumbers(grantRec(c.name),c.dc,c.atk);
+      if(own.dc||own.atk)row.append(Object.assign(el("span","ownnum"),
+        {textContent:[own.dc?"DC "+own.dc:"",own.atk?"atk "+own.atk:""].filter(Boolean).join(" · ")}));
       row.append(el("span","rc"+(atWill?" will":""),lab));row.append(el("span","src",c.src));box.append(row);});
     cw.append(box);}
 }
@@ -4129,16 +4156,23 @@ function refreshAddFeat(){
   // Epic Boons unlock at character level 19 (the level-19 feat feature)
   const epic=$("#epicRow");if(epic)epic.classList.toggle("hidden",charLevel()<19);
 }
-// a slot's count, in line with its field. Three states, and none of them is an error:
-// `need` = still owed, `done` = filled, `over` = more taken than the level grants.
+// a slot's count, in line with its field. FOUR states, and none of them is an error:
+// `need` = still owed, `done` = filled, `over` = more taken than the level grants, and
+// `none` = your level grants no such slot at all yet (a level-3 character owes zero
+// general feats). `none` is dimmed and unavailable, never accented — a cap of 0 used to
+// fall through to `need`, painting an urgent 0/0 for a slot that isn't due yet and
+// promising "0 of 0 left to choose".
 function slotCount(node,have,cap){
   if(!node)return;
-  const st=have>cap?"over":(cap&&have>=cap?"done":"need");
+  const st=have>cap?"over":!cap?"none":have>=cap?"done":"need";
   node.className="cnt "+st;
   node.textContent=`${have}/${cap}`;
-  attachTip(node,tipBlock(st==="over"?"More than your level grants":st==="done"?"Slots filled":"Still to choose",
-    st==="over"?`You have taken ${have} where your level grants ${cap}. Nothing is removed — check with your DM.`
-      :st==="done"?`All ${cap} taken.`:`${cap-have} of ${cap} left to choose.`));}
+  const TIP={
+    over:["More than your level grants",`You have taken ${have} where your level grants ${cap}. Nothing is removed — check with your DM.`],
+    none:["None at this level","Your level grants none of these yet. You can still take one — it will read as more than your level grants."],
+    done:["Slots filled",`All ${cap} taken.`],
+    need:["Still to choose",`${cap-have} of ${cap} left to choose.`]};
+  attachTip(node,tipBlock(TIP[st][0],TIP[st][1]));}
 // feat budget: general feats from ASI levels (+Fighter/Rogue extras), 1 origin feat + 1 for Humans.
 // NOTE: data only carries spell-granting feats (extract.py filters the rest) — full feat lists need the mirror.
 const ASI_EXTRA={Fighter:[6,14],Rogue:[10]};
@@ -4536,6 +4570,45 @@ $("#bswBtn").onclick=e=>{e.stopPropagation();renderBswPop();toggleMenu("#bswPop"
 $("#tMenuBtn").onclick=e=>{e.stopPropagation();toggleMenu("#tMenuPop");};
 $("#pickLevelBtn").onclick=e=>{e.stopPropagation();toggleMenu("#pickLevelPop");};
 document.addEventListener("click",e=>{if(!e.target.closest(".menu"))closeMenu();});
+
+// ── print / save as PDF ────────────────────────────────────────────────────
+// Paper always gets the SPELL TABLE, whichever tab is on screen — that is the sheet you
+// bring to a session, and the Build tab is a set of controls, not a document. What the
+// build was is carried by the summary line instead, which is all a printed sheet needs
+// to say whose it is. The table is re-rendered first because `render()` only refreshes
+// it while its own tab is showing.
+function printHeadLine(){
+  renderTable();
+  const box=$("#printHead"); if(!box)return;
+  box.innerHTML="";
+  const meta=(activeBuild()||{}).meta||{};
+  const ttl=el("div","phttl",meta.character||"My Spellbook");
+  if(meta.name)ttl.append(el("span","phver",meta.name));
+  box.append(ttl);
+  const bits=[];
+  const lv=charLevel(); if(lv)bits.push("Level "+lv);
+  state.classes.forEach(r=>{const c=CLS_BY[r.clsKey];if(!c)return;
+    const sub=r.subKey&&SUB_BY[r.subKey];
+    bits.push(c.name+(sub?" ("+(sub.shortName||sub.name)+")":"")+" "+effLevel(r));});
+  const race=RACE_BY[state.speciesKey]; if(race)bits.push(race.name);
+  box.append(el("div","phsub",bits.join(" · ")));
+  // a preview is a VIEW of a lower level, not a build — on paper, unsaid, it would
+  // read as the character itself (D54)
+  if(PREVIEW.level!=null)
+    box.append(el("div","phnote","Previewed at level "+PREVIEW.level+" — not a saved version."));
+}
+addEventListener("beforeprint",printHeadLine);
+$("#printBtn").onclick=()=>{closeMenu();printHeadLine();print();};
+
+// ── offline: the published build installs as an app ────────────────────────
+// A service worker needs real files at a real origin. dist/ is opened over file:// (no
+// worker possible) and serve.py sends no-store on purpose, so registering in either
+// would only cache the thing being edited. Only the Pages build ships sw.js, and only
+// it sets __PUBLIC__. Registration failing is not an error worth surfacing: the app is
+// fully usable online, it just will not have installed itself.
+if(typeof window!=="undefined"&&window.__PUBLIC__&&"serviceWorker" in navigator
+   &&(location.protocol==="https:"||location.hostname==="localhost"||location.hostname==="127.0.0.1"))
+  addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 
 // ── test helper: random sample build (local only) ──────────────────────────
 function randomBuild(){

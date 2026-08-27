@@ -6,6 +6,12 @@
 <title>My Spellbook</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 512 512%22%3E%3Crect width=%22512%22 height=%22512%22 rx=%22112%22 fill=%22%238a3324%22/%3E%3Cg transform=%22translate(56.32 56.32) scale(0.78)%22%3E%3Cpath fill=%22%23f4f1ea%22 d=%22M101.1 24.88 135.5 157l88.1 4.8-3-17.2-1.9-11.2 123.3 7.4 4.9 27.8 75.9 4.2-32.5-124.62-289.2-23.3zm-18.82 1.6c-30.5 11.9-55.7 53.1-49.8 75.32l3.3 11.8c.6-1.8 1.3-3.5 2.1-5.3 9.9-23.72 26.5-46.82 50.3-58.92l-5.9-22.9zm10.8 41.6c-16.7 10-29.9 28.1-38 47.42-5.2 12.5-8 25.6-8.7 36.5l17.46 63.5c12.8-21.2 30.19-42.3 53.96-52.4L93.08 68.08zM240.3 152.8l20.2 117.4 87 4.3L326.8 158l-86.5-5.2zm46.8 21.2a25.29 20.33 24.87 0 1 2.4 0 25.29 20.33 24.87 0 1 27.2 22.4 25.29 20.33 24.87 0 1-13.2 19.2l20.8 37.5-48.7-2.2 10.9-36.1a25.29 20.33 24.87 0 1-18.5-20.6 25.29 20.33 24.87 0 1 19.1-20.2zm-146.8 1.3 15 57.6 81.2 3.4-9.8-56.2-86.4-4.8zm-17.9 5.6c-21.8 10.6-39.52 36.3-51.73 59.4l12.46 45.3c10.27-15.7 23.97-32.8 53.57-49.9l-14.3-54.8zm227.8 5.9 9.7 54.7 81.7 3.5-14.1-53.9-77.3-4.3zM160 251.1l31.2 119.6 289.2 23.2-34-130.6-83.3-3.5 6 33.9-123.8-6.3-5.7-32.9-79.6-3.4zm-18.6 2.7c-32 19.4-39.7 35.9-51.79 55.4l21.49 78.1c.3-.5.6-1.1.9-1.6 10.6-19.3 27.8-37.7 51.1-48.5l-21.7-83.4zM168 355.7c-17.7 9.1-31.2 23.7-39.6 39-4.5 8.1-7.3 16.3-8.7 23.7l11.7 42.4 1.6.2c-3.8-27.6 11.4-60.5 41.3-81.1l-6.3-24.2zm26.3 34c-32.6 17.3-46.5 52.4-41.8 72.9l289.8 24.5c-5.3-7.8-8.7-17.9-8.6-28.5l-22.4-9 46.3-7.3-13.5-12.8c5.6-7 13.7-13.1 24.9-17.7l-274.7-22.1z%22/%3E%3C/g%3E%3C/svg%3E">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#f4f1ea" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#17140f" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Spellbook">
 <style>
 :root{
     --bg:#f4f1ea; --panel:#fffdf8; --panel-2:#f0ebe0; --ink:#241f1a; --muted:#7a7066;
@@ -688,6 +694,9 @@ table.spelltable td.cmp .l.iffy{color:var(--good);cursor:help;
 .cnt.need{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
 .cnt.done{border-color:transparent;background:var(--good-soft);color:var(--good)}
 .cnt.over{border-color:var(--bad);background:var(--bad-soft);color:var(--bad)}
+/* `none` = your level grants no such slot yet. Nothing is owed, so the tile steps back:
+   dashed and dimmed, holding its place in the column without asking for anything. */
+.cnt.none{border-style:dashed;border-color:var(--line);background:transparent;color:var(--muted);opacity:.6}
 .picksel{display:flex;align-items:center;gap:8px;width:100%;text-align:left;font:inherit;font-size:13px;
   padding:6px 10px;border-radius:8px;border:1px solid var(--line-strong);background:var(--bg);color:var(--ink);cursor:pointer;margin-bottom:7px}
 .picksel:hover{border-color:var(--accent)}
@@ -793,6 +802,8 @@ table.spelltable td.cmp .l.iffy{color:var(--good);cursor:help;
 .bpill.over .bv{color:var(--bad)}
 .bpill.done{border-color:transparent;background:var(--good-soft);color:var(--good)}
 .bpill.done .bv{color:var(--good)}
+.bpill.none{border-style:dashed;border-color:var(--line);color:var(--muted);opacity:.6}
+.bpill.none .bv{color:var(--muted)}
 /* prerequisites you don't meet: dimmed, below a bare divider, never hidden by default */
 .entsep{margin:14px 0 4px;border-top:1px solid var(--line-strong)}
 .entrow.blocked{opacity:.5}
@@ -1235,6 +1246,78 @@ label.fld .fldt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-wi
 .csfchips .cbtn.tiny{font-size:10.5px;padding:2px 7px;border-radius:6px}
 .csfrow .csswap{flex:1;min-width:0;max-width:280px;font-size:12px}
 
+/* ── print / save as PDF ─────────────────────────────────────────────────────────
+   Paper gets whichever tab is on screen: the Build tab is the record of a character's
+   choices, the Spell table is the sheet you bring to a session. Neither carries the
+   header bar on paper, so `.printhead` names the page instead — screen-hidden, filled
+   on `beforeprint`. */
+.printhead{display:none}
+
+@media print{
+  /* the LIGHT palette, on white. A dark-theme screen would otherwise print a black
+     page; flattening every colour to black would lose the marker meanings that the
+     pickcell and chip tints carry, so the hues stay and only the grounds go. Soft
+     tints become transparent — a full-bleed background is ink spent on nothing, and
+     browsers drop it by default anyway. */
+  /* the dark palette is declared as `:root:not([data-theme="light"])`, which outranks a
+     plain `:root` no matter how late it comes — the override has to match that shape or
+     a dark-mode screen prints a black page anyway */
+  :root,:root:not([data-theme="light"]),:root[data-theme="dark"],:root[data-theme="light"]{
+    --bg:#fff; --panel:#fff; --panel-2:#fff; --ink:#1a1613; --muted:#5f574e;
+    --line:#ccc4b6; --line-strong:#a9a091; --accent:#8a3324; --accent-soft:transparent;
+    --gold:#7d5f1c; --gold-soft:transparent; --good:#2f5a3a; --good-soft:transparent;
+    --free:#4a469a; --free-soft:transparent; --bad:#962e22; --bad-soft:transparent;
+    --shadow:none;
+  }
+  @page{margin:14mm}
+  body{background:#fff}
+  .wrap{max-width:none;padding:0}
+  .layout{display:block}            /* two columns are a screen affordance */
+
+  /* every control, popover and browsing surface. `#secSpells` is the spell FINDER —
+     a search box and 900 rows you did not pick — so it never belongs on paper. */
+  header.top,.jumpbar,.modal,.sptip,.prqpop,.menu,.menupop,#secSpells,
+  #filterPanel,#addClass,.pk-caret,.btn,.pickbtn,button.x,.xsm,.ico-only,
+  .csaddrow,.picksel.ph{display:none!important}
+  /* the sheet is the spell table, whatever tab is on screen: the Build tab is a set of
+     controls, and the summary line above already says which build these spells are.
+     `#tableView.hidden` outranks `.hidden` on specificity, so it wins its !important. */
+  #buildView{display:none!important}
+  #tableView.hidden{display:block!important}
+  /* :has is what removes the empty row a hidden placeholder leaves behind; without it
+     the fallback is a stray count tile, which is untidy rather than wrong */
+  .fldrow:has(.picksel.ph){display:none}
+
+  .printhead{display:block;margin:0 0 14px;padding:0 0 9px;border-bottom:1.5px solid var(--ink)}
+  .printhead .phttl{font-family:var(--font);font-size:20px;font-weight:600;
+    display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+  .printhead .phver{font-family:var(--sans);font-size:12px;font-weight:400;color:var(--muted)}
+  .printhead .phsub{font-size:12px;color:var(--muted);margin-top:3px}
+  .printhead .phnote{font-size:11px;color:var(--accent);margin-top:5px}
+
+  /* a card is a sheet of paper's worth of one topic: let it break, but never orphan
+     its own heading at the foot of a page */
+  .card{box-shadow:none;border:1px solid var(--line);margin-bottom:12px;break-inside:auto}
+  .card h2{break-after:avoid;padding:9px 12px}
+  .card .body{padding:11px 12px}
+  select,input[type=number],input[type=search],input[type=text]{
+    border:none;background:none;padding:1px 0;-webkit-appearance:none;appearance:none}
+
+  /* the spell list is the point of printing: keep its column names on every page */
+  .tablewrap{overflow:visible}
+  table.spelltable{font-size:10.5px}
+  table.spelltable thead{display:table-header-group}
+  table.spelltable th{position:static;padding:5px 6px}
+  table.spelltable td{padding:4px 6px}
+  table.spelltable tr{break-inside:avoid}
+  table.spelltable .grouphdr{break-after:avoid}
+  table.spelltable tr:hover td{background:none}
+
+  /* links carry no href on paper, and the SRD notice has to stay legible (CC BY 4.0) */
+  a{text-decoration:none;color:var(--ink)}
+  footer.credit{margin-top:16px;font-size:9.5px;break-inside:avoid}
+}
+
 </style>
 </head>
 <body>
@@ -1260,12 +1343,16 @@ label.fld .fldt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-wi
         <button id="hbBtn"><span class="mi ico" data-ico="stack"></span>My homebrew…</button>
         <button id="importBtn"><span class="mi ico" data-ico="download"></span>Import 5etools…</button>
         <button id="sourcesBtn"><span class="mi ico" data-ico="gear"></span>Sources…</button>
+        <button id="printBtn"><span class="mi ico" data-ico="print"></span>Print / save as PDF</button>
         <button id="themeBtn"><span class="mi ico" data-ico="theme"></span>Toggle theme</button>
         <div class="sep"></div>
         <button id="resetBtn" class="danger"><span class="mi ico" data-ico="reset"></span>Reset build</button>
       </div>
     </div>
   </header>
+
+  <!-- print only: paper has no header bar, so the sheet has to say whose it is -->
+  <div class="printhead" id="printHead" aria-hidden="true"></div>
 
   <div class="layout" id="buildView">
     <div class="col-left">
@@ -2552,6 +2639,7 @@ const ICONS={
   trash:_I('<path d="M2.7 4.3h10.6M6.4 4.3V3.2a1 1 0 0 1 1-1h1.2a1 1 0 0 1 1 1v1.1"/><path d="m4.3 4.3.6 8.1a1.2 1.2 0 0 0 1.2 1.1h3.8a1.2 1.2 0 0 0 1.2-1.1l.6-8.1"/>'),
   order:_I('<path d="M2.4 3.9h6.4M2.4 8h4.4M2.4 12.1h2.6"/><path d="M12.1 3.4v9.2M12.1 12.6 10.4 11M12.1 12.6 13.8 11"/>'),
   bookmark:_I('<path d="M4.1 2.7h7.8v10.6L8 10.5l-3.9 2.8z"/>'),
+  print:_I('<path d="M4.6 6.1V2.7h6.8v3.4"/><rect x="2.4" y="6.1" width="11.2" height="4.8" rx="1.4"/><path d="M4.6 9.3h6.8v4H4.6z"/>'),
 };
 // the small × remove button used inside chips and rows
 function xBtn(cls,onClick){const b=el("button",(cls||"")+" ico xsm");b.innerHTML=ICONS.x;
@@ -4534,9 +4622,13 @@ function renderEntBudget(){
   if(b.epic)box.append(budgetPill("epic boon",b.epicPicked,b.epic,b.epicPicked<b.epic));
 }
 function budgetPill(label,have,cap,owed){
-  const p=el("span","bpill"+(owed?" owed":have>cap?" over":" done"));
+  // the same four states as slotCount: a cap of 0 is "none at this level", not "filled"
+  const st=have>cap?"over":!cap?"none":owed?"owed":"done";
+  const p=el("span","bpill "+st);
   p.append(el("span","bl",label));p.append(el("span","bv",`${have}/${cap}`));
-  p.title=owed?`You still owe ${cap-have} ${label} at this level`:have>cap?`One too many ${label}`:`${label} filled`;
+  p.title=st==="over"?`One too many ${label}`
+    :st==="none"?`Your level grants no ${label} yet`
+    :st==="owed"?`You still owe ${cap-have} ${label} at this level`:`${label} filled`;
   return p;
 }
 
@@ -5353,6 +5445,15 @@ function defenceHTML(sp){
   if(saves.length)return saves.map(ab=>`<span class="savechip ${ab}" title="${esc(ABIL[ab]||ab)} saving throw">${esc(ABIL_SHORT[ab]||ab)}</span>`).join(" ");
   if(sp.atk)return `<span class="savechip atk" title="Spell attack roll">Atk</span>`;
   return "—"; }
+// A source's own numbers, narrowed to what THIS spell actually rolls: the save DC only
+// when the spell forces a save, the attack bonus only when it needs an attack roll, both
+// only when it needs both. Without it a Staff of Frost quotes "DC 16 · +8" beside Ray of
+// Frost — a DC nothing in that spell ever calls for. With no spell record to check
+// against, both are stated: an unverifiable case must not read as "there is none" (D31).
+function ownNumbers(sp,dc,atk){
+  if(!sp)return {dc:dc||null,atk:atk||null};
+  return {dc:(sp.save&&sp.save.length)?(dc||null):null, atk:sp.atk?(atk||null):null};
+}
 function srcTidy(giver){ // "Land · Polar Land" → "Land (Polar)", "Magic Initiate · Wizard Spells" → "Magic Initiate (Wizard)"
   const p=String(giver).split(" · ");
   if(p.length<2)return giver;
@@ -5415,8 +5516,13 @@ function renderTable(){
   // grouping already carries a fact, so its column is suppressed on top of the hidden set
   const suppressed=new Set(g==="ability"?["ability"]:g==="source"?["ability","build"]:[]);
   const cols=visibleCols(suppressed);
-  const thead=el("tr");cols.forEach(k=>thead.append(el("th",k==="name"?"nm":null,TABLE_COLS[k].label)));tbl.append(thead);
-  attachTip(thead.firstChild,tipBlock("Preparation status","Hover a marker for what it means."));
+  // a real thead/tbody, not a bare header row: `display:table-header-group` is what
+  // repeats the column names on every printed page, and a three-page spell list
+  // without them is unreadable at the table.
+  const hrow=el("tr");cols.forEach(k=>hrow.append(el("th",k==="name"?"nm":null,TABLE_COLS[k].label)));
+  const thead=el("thead");thead.append(hrow);tbl.append(thead);
+  const tbody=el("tbody");tbl.append(tbody);
+  attachTip(hrow.firstChild,tipBlock("Preparation status","Hover a marker for what it means."));
   const span=cols.length;
 
   let lastOuter=null,lastLevel=null;
@@ -5427,17 +5533,17 @@ function renderTable(){
       else{td.append(el("span",null,outerLabel(row)));
         const abils=[...new Set(rows.filter(x=>outerKey(x)===ok).map(x=>x.ability).filter(Boolean))];
         if(abils.length){const w=el("span","hdr-abils");w.innerHTML=abils.map(abChip).join("");td.append(w);}}
-      gr.append(td);tbl.append(gr);}}
+      gr.append(td);tbody.append(gr);}}
     if(sp.level!==lastLevel){lastLevel=sp.level;
       const gr=el("tr","grouphdr lvl");const td=el("td");td.colSpan=span;
       td.append(el("span",null,sp.level===0?"Cantrips":ROMAN[sp.level]+" level"));
-      gr.append(td);tbl.append(gr);}
+      gr.append(td);tbody.append(gr);}
     // in the book but not prepared today: real, castable-if-you-prepare-it, but not live
     const tr=el("tr",!sel?"unsel":(row.inBook&&!row.prepared)?"unprep":"");
     cols.forEach(k=>{const td=cellFor(k,row);
       if(td.textContent==="—")td.classList.add("nil");   // an empty slot reads quieter than a value
       tr.append(td);});
-    tbl.append(tr);
+    tbody.append(tr);
   });
 }
 // column menu: a checkbox per column, drag a row to move it (D29). Fixed columns
@@ -5509,9 +5615,14 @@ function cellFor(k,row){
   if(k==="conc"){const td=el("td",sp.conc?"concmark":"");
     if(sp.conc)td.innerHTML=ICONS.check; else td.textContent="—"; return td;}
   if(k==="ability"){const td=el("td");
-    if(row.dc||row.atk){td.innerHTML=`<span class="ownnum">${esc([row.dc?"DC "+row.dc:"",row.atk?row.atk:""].filter(Boolean).join(" · "))}</span>`;
-      attachTip(td,tipBlock("The source's own numbers","This is cast by "+(row.src||"a source")+" using its own save DC / attack bonus, not your spellcasting."));
+    const own=ownNumbers(sp,row.dc,row.atk);
+    if(own.dc||own.atk){
+      td.innerHTML=`<span class="ownnum">${esc([own.dc?"DC "+own.dc:"",own.atk||""].filter(Boolean).join(" · "))}</span>`;
+      const what=own.dc&&own.atk?"save DC and attack bonus":own.dc?"save DC":"attack bonus";
+      attachTip(td,tipBlock("The source's own numbers",
+        "This is cast by "+(row.src||"a source")+" using its own "+what+", not your spellcasting."));
       return td;}
+    // a spell that rolls neither states the casting ability like any other row
     td.innerHTML=row.ability?abChip(row.ability):"—";return td;}
   if(k==="casts"){
     // innate recharge, with * when the spell is also castable via your own slots
@@ -5893,8 +6004,11 @@ function renderSlots(){
       n.innerHTML=c.choice?c.desc:(c.name+(lv!=null?` <span style="color:var(--muted)">(${ROMAN[lv]}${c.castLv?" fixed":""})</span>`:""));
       const lab=rechargeShort(c.recharge,c.level===0),atWill=lab==="at will";
       row.append(n);
-      if(c.dc||c.atk)row.append(Object.assign(el("span","ownnum"),
-        {textContent:[c.dc?"DC "+c.dc:"",c.atk?"atk "+c.atk:""].filter(Boolean).join(" · ")}));
+      // same narrowing as the table's Ability column — a CHOICE row names no single
+      // spell, so there it describes the grant and both numbers stand
+      const own=c.choice?{dc:c.dc||null,atk:c.atk||null}:ownNumbers(grantRec(c.name),c.dc,c.atk);
+      if(own.dc||own.atk)row.append(Object.assign(el("span","ownnum"),
+        {textContent:[own.dc?"DC "+own.dc:"",own.atk?"atk "+own.atk:""].filter(Boolean).join(" · ")}));
       row.append(el("span","rc"+(atWill?" will":""),lab));row.append(el("span","src",c.src));box.append(row);});
     cw.append(box);}
 }
@@ -6643,16 +6757,23 @@ function refreshAddFeat(){
   // Epic Boons unlock at character level 19 (the level-19 feat feature)
   const epic=$("#epicRow");if(epic)epic.classList.toggle("hidden",charLevel()<19);
 }
-// a slot's count, in line with its field. Three states, and none of them is an error:
-// `need` = still owed, `done` = filled, `over` = more taken than the level grants.
+// a slot's count, in line with its field. FOUR states, and none of them is an error:
+// `need` = still owed, `done` = filled, `over` = more taken than the level grants, and
+// `none` = your level grants no such slot at all yet (a level-3 character owes zero
+// general feats). `none` is dimmed and unavailable, never accented — a cap of 0 used to
+// fall through to `need`, painting an urgent 0/0 for a slot that isn't due yet and
+// promising "0 of 0 left to choose".
 function slotCount(node,have,cap){
   if(!node)return;
-  const st=have>cap?"over":(cap&&have>=cap?"done":"need");
+  const st=have>cap?"over":!cap?"none":have>=cap?"done":"need";
   node.className="cnt "+st;
   node.textContent=`${have}/${cap}`;
-  attachTip(node,tipBlock(st==="over"?"More than your level grants":st==="done"?"Slots filled":"Still to choose",
-    st==="over"?`You have taken ${have} where your level grants ${cap}. Nothing is removed — check with your DM.`
-      :st==="done"?`All ${cap} taken.`:`${cap-have} of ${cap} left to choose.`));}
+  const TIP={
+    over:["More than your level grants",`You have taken ${have} where your level grants ${cap}. Nothing is removed — check with your DM.`],
+    none:["None at this level","Your level grants none of these yet. You can still take one — it will read as more than your level grants."],
+    done:["Slots filled",`All ${cap} taken.`],
+    need:["Still to choose",`${cap-have} of ${cap} left to choose.`]};
+  attachTip(node,tipBlock(TIP[st][0],TIP[st][1]));}
 // feat budget: general feats from ASI levels (+Fighter/Rogue extras), 1 origin feat + 1 for Humans.
 // NOTE: data only carries spell-granting feats (extract.py filters the rest) — full feat lists need the mirror.
 const ASI_EXTRA={Fighter:[6,14],Rogue:[10]};
@@ -7050,6 +7171,45 @@ $("#bswBtn").onclick=e=>{e.stopPropagation();renderBswPop();toggleMenu("#bswPop"
 $("#tMenuBtn").onclick=e=>{e.stopPropagation();toggleMenu("#tMenuPop");};
 $("#pickLevelBtn").onclick=e=>{e.stopPropagation();toggleMenu("#pickLevelPop");};
 document.addEventListener("click",e=>{if(!e.target.closest(".menu"))closeMenu();});
+
+// ── print / save as PDF ────────────────────────────────────────────────────
+// Paper always gets the SPELL TABLE, whichever tab is on screen — that is the sheet you
+// bring to a session, and the Build tab is a set of controls, not a document. What the
+// build was is carried by the summary line instead, which is all a printed sheet needs
+// to say whose it is. The table is re-rendered first because `render()` only refreshes
+// it while its own tab is showing.
+function printHeadLine(){
+  renderTable();
+  const box=$("#printHead"); if(!box)return;
+  box.innerHTML="";
+  const meta=(activeBuild()||{}).meta||{};
+  const ttl=el("div","phttl",meta.character||"My Spellbook");
+  if(meta.name)ttl.append(el("span","phver",meta.name));
+  box.append(ttl);
+  const bits=[];
+  const lv=charLevel(); if(lv)bits.push("Level "+lv);
+  state.classes.forEach(r=>{const c=CLS_BY[r.clsKey];if(!c)return;
+    const sub=r.subKey&&SUB_BY[r.subKey];
+    bits.push(c.name+(sub?" ("+(sub.shortName||sub.name)+")":"")+" "+effLevel(r));});
+  const race=RACE_BY[state.speciesKey]; if(race)bits.push(race.name);
+  box.append(el("div","phsub",bits.join(" · ")));
+  // a preview is a VIEW of a lower level, not a build — on paper, unsaid, it would
+  // read as the character itself (D54)
+  if(PREVIEW.level!=null)
+    box.append(el("div","phnote","Previewed at level "+PREVIEW.level+" — not a saved version."));
+}
+addEventListener("beforeprint",printHeadLine);
+$("#printBtn").onclick=()=>{closeMenu();printHeadLine();print();};
+
+// ── offline: the published build installs as an app ────────────────────────
+// A service worker needs real files at a real origin. dist/ is opened over file:// (no
+// worker possible) and serve.py sends no-store on purpose, so registering in either
+// would only cache the thing being edited. Only the Pages build ships sw.js, and only
+// it sets __PUBLIC__. Registration failing is not an error worth surfacing: the app is
+// fully usable online, it just will not have installed itself.
+if(typeof window!=="undefined"&&window.__PUBLIC__&&"serviceWorker" in navigator
+   &&(location.protocol==="https:"||location.hostname==="localhost"||location.hostname==="127.0.0.1"))
+  addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 
 // ── test helper: random sample build (local only) ──────────────────────────
 function randomBuild(){

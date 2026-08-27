@@ -619,6 +619,43 @@ written up in full under Gotchas below — that is the copy to trust.
 - **D41** A crossed prerequisite is a one-click fix (species swaps; feats and options are added);
   unverifiable parts carry no "?". *Rejected:* auto-taking the prerequisite on select (silent
   state changes).
+- **D97 (2026-08-27)** A slot count has a **fourth** state, `none` — dimmed and dashed, for a
+  cap of **0**. Revises D44: a zero cap fell through to `need`, so a level-3 character's general
+  feats read as an urgent red `0/0` promising "0 of 0 left to choose". Nothing is owed, so
+  nothing is due. `budgetPill()` carries the same state (a cap of 0 used to read "filled").
+  *Rejected:* printing "—" instead of `0/0` (the column reads down; the ratio is true, only its
+  urgency was wrong); hiding the tile (its absence would read as a missing feature).
+- **D98 (2026-08-27)** Print is **always the spell table**, whichever tab is on screen, over a
+  brief build summary that identifies it — Francesco's call. The Build tab is a set of controls,
+  not a document; the sheet you carry to a session is the spell list. A `.printhead` filled on
+  `beforeprint` names the character, version, level, classes and species, and calls out a level
+  preview, since on paper an unmarked preview reads as the character itself. `beforeprint` also
+  re-runs `renderTable()`, because `render()` refreshes the table only while its own tab shows.
+  Chrome and controls go, the light palette is forced onto white, and `renderTable` gained a real
+  `thead`/`tbody` so column names repeat on every page. *Rejected:* printing whichever tab you
+  are on (the first cut — the Build tab printed as a form with controls flattened out of it, and
+  needed a page of CSS to look like a document); a purpose-built play sheet (a third rendering of
+  the same rows to keep in sync).
+- **D99 (2026-08-27)** The published build **installs and runs offline**; `dist/` and `src/`
+  never register a worker. A service worker needs real files at a real origin — dist/ opens over
+  `file://` and serve.py sends `no-store` on purpose, so registering there would only cache the
+  file being edited. build.py writes `manifest.webmanifest`, `sw.js` and the icon set into
+  `docs/` alone, and registration is guarded on `__PUBLIC__`. Caching is
+  **stale-while-revalidate** with a build-stamped cache name: an update is deliberately one
+  reload behind, because the alternative is a 1 MB blocking download every time the app opens.
+  *Rejected:* network-first (defeats the point on a phone at a table); cache-first with no
+  revalidation (a deploy would never reach anyone); an "update available" banner (new UI for a
+  gap that closes itself on the next load).
+- **D100 (2026-08-27)** A source's own numbers state only what the spell actually **rolls** —
+  `ownNumbers(sp,dc,atk)`: the save DC when the spell forces a save, the attack bonus when it
+  needs an attack roll, both only when it needs both. A Staff of Frost printed "DC 16 · +8" next
+  to Ray of Frost, quoting a DC nothing in that spell ever calls for. One helper, used by the
+  table's Ability column and by the per-spell rows in Slots & casts, so the two panels cannot
+  disagree; a **choice** row names no single spell, so there both numbers still stand. With no
+  spell record to check against, both are stated — an unverifiable case must not read as "there
+  is none" (D31). A spell that rolls neither falls through to the casting-ability chip like any
+  other row. *Rejected:* showing the numbers only in the tooltip (they are the reason that column
+  exists for an item); dropping the row's ability chip when a source has its own numbers.
 
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
@@ -989,4 +1026,3 @@ written up in full under Gotchas below — that is the copy to trust.
   → `ARCHIVE.md#v7-notes`. The load-bearing outcomes are the decisions above and the Gotchas
   below — this list used to restate them a third time.
 
-⟳ Rename previous session → "Importer rework and custom sources" · session: resolve by cwd + latest
