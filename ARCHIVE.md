@@ -227,6 +227,57 @@ disabled book enables that book, mirroring the picker rule.
 - ~~Picker design-system polish~~ — not taste: `.entrow .tk` never matched the chip rules, which
   were scoped to `.take .tk`. Fixed by unscoping `.tk`.
 
+### Closed in the importer / custom-source sessions (2026-08-27)
+
+- [x] ~~**Feat budget attribution when categories are crossed**~~ **CLOSED 2026-08-27 → D84** —
+  a feat is counted against the slot it was SPENT from (`state.featSlots`), not its category.
+- [x] ~~**Ability column** default~~ **CLOSED 2026-08-27** — Francesco confirmed it stays visible.
+  It remains hideable in the ⋯ column checklist like any other.
+- [x] ~~**Book in the spell-pick modal rows**~~ **CLOSED 2026-08-27 → D89** — removed there too,
+  so both spell lists behave the same and the printed book lives only in the spell modal.
+- [x] ~~**extract.py ↔ extract.js grant divergence**~~ **CLOSED 2026-08-27** — it was ONE cause,
+  not two: `feature: undefined` disappears through `JSON.stringify` where Python writes
+  `"feature": null`. extract.js now coerces it. The second claimed cause (TCE Artificer subclass
+  spells only JS sees) does not reproduce. The harness diffs grants record-by-record across all
+  five arrays **and** reports records only one side has: **0 and 0** on 929 shared records.
+- [x] ~~**`page` is not on every book chip**~~ **CLOSED 2026-08-27** — `ownerPage()` resolves a
+  choice group's owner back to its record (matching a subclass on `shortName` as well as `name`),
+  so the choices card and the prepare modal now carry the page. The **gap dialog was never a gap**:
+  its chip names a BOOK, not an element printed on a page, so there is nothing to show.
+- [x] ~~**Additive imports**~~ **CLOSED 2026-08-27 → D86** — an import merges by `name|source`,
+  and the "Your books" panel is where content is kept or removed. D58's caveat is gone.
+- [x] ~~**IndexedDB** for imported data~~ **CLOSED 2026-08-27 → D93** — the digest lives in
+  IndexedDB; localStorage keeps only builds, sources, custom spells and the column layout
+  (~16 KB measured). Closed T7 with it.
+- [x] ~~Importer UI polish — per-source keep/remove, monster-forge style ticking~~ **CLOSED
+  2026-08-27 → D86.** A "clear imported data" button is still absent: unticking every book in the
+  plan is the equivalent, and it refuses to leave you with nothing.
+- [x] ~~Wizard prepare-daily: separate **prepared subset** from the spellbook/known list~~
+  **CLOSED 2026-08-26 → D62** — `chosen[idx].prep` is the daily subset, drawn from the book.
+- [x] ~~**Custom sources UI redesign**~~ **CLOSED 2026-08-27 → D94** — direction A (progressive)
+  plus C's live summary sentence, modal only. The model (D55/D65) was never the problem and is
+  untouched.
+- [x] ~~**Free-cast modifications that are not grants**~~ **CLOSED 2026-08-27 → D85 widened** —
+  seven of the ten turned out to GRANT their spell, so D79 already covers them. The three that
+  don't (Archfey's *Steps of the Fey* and *Bewitching Magic*, Cleric's *Divine Intervention*) are
+  now `CAST_MODS` entries with an empty `drop` and their own `label` — a free cast is a change to
+  how you cast something you already have, which is exactly what D85 models.
+- [x] ~~**Cast mods D85 can't scope yet**~~ **CLOSED 2026-08-27** — the grammar gained `optTypes`
+  (a spell granted by one of YOUR optional features of that type) and `maxLevel`, so Four Elements'
+  *Disciple of the Elements* and the Cleric's level-capped *Divine Intervention* both fit.
+- [x] ~~**`scope.giver` is a substring match**~~ **MOSTLY CLOSED 2026-08-27** — a grant row now
+  carries `ownIdx`, the class row that produced it, so `scope.cls` matches the class EXACTLY on
+  both class-cast and granted rows. The giver-name match survives only as a last resort for a row
+  with neither, which is what let a Shadow Sorcerer's Darkness pick up the Shadow Monk's feature.
+  Every `spells`-scoped entry also gained an explicit `cls` guard.
+- [x] ~~**The merge base is the stored import, not the baked bundle**~~ **WON'T DO 2026-08-27** —
+  merging baked under imported would break D86's other half: unticking a book in the plan removes
+  its content, and the baked bundle would put it straight back. Fallback-when-nothing-imported is
+  the only shape where both contracts hold, and the panel says so. Recorded so it isn't re-proposed.
+- [x] ~~Custom-spell **manager**~~ **CLOSED 2026-08-27** — ⋯ → **My homebrew**: every custom spell
+  in one list, filterable, with edit and (armed) delete in line. It used to need a build that could
+  already cast the spell before you could reach its modal.
+
 <a id="v7-batches"></a>
 ## v7 note batches 1–7 (2026-08-26 → 2026-08-27)
 
@@ -470,3 +521,92 @@ deleted — the headline and the rejected options stayed in the live doc, this i
   on it, so adding an off-list spell meant hunting the eligible list. "Add an off-list spell"
   opens the spell-pick modal scoped to the lists the feature opened (the class's own list is
   filtered OUT), mirroring the wizard's "Copy a spell into your book".
+
+
+<a id="v7-tasks"></a>
+## v7 — saved builds, task bodies (archived 2026-08-27) {#v7-tasks}
+
+> Consumed 2026-08-27: all six tasks done. The non-goals stayed in `STATE.md`.
+
+One character at a time was the last hard limit in the app. T1–T3 removed it, T4 made builds
+reachable from the header and T5 got them off this machine as files. T7 told the truth about
+storage limits and then removed most of them (D93). **v7 is complete.**
+
+### Shape *(settled by D33–D37)*
+```
+spellForge.builds.v1  = { activeId, order:[id…], builds:{ id: {meta, state} } }
+meta = { name, character, named, created, updated, summary, sources:[…] }
+       // name      = the version's name ("Evocation", "L3")
+       // character = the GROUPING LABEL (D35) — versions of one character share it;
+       //             level-free, auto-follows the build until `named` is set by a rename
+       // summary   = "Wizard 8 · Evocation", derived
+       // sources   = the books this build was last seen under (D33)
+spellForge.sources.v1 = [ … ]     // the GLOBAL book list, hoisted OUT of `state` (D33)
+```
+`state` keeps its old shape inside each build **minus `enabledSources`**, so `save()`/`load()`
+became "save/load the active build" and nothing else downstream changed. Homebrew, imported data
+and the column layout stay global — they're content and preferences, not character sheets.
+Sources join them, but every build remembers what it expected.
+→ what T1 replaced: `ARCHIVE.md#pre-v7-storage`
+
+### Tasks
+- [x] **T1 · storage + migration** (`model`, ~M) — **DONE 2026-08-26.** New keys, `activeBuild()`,
+  `enabledSources` hoisted to `spellForge.sources.v1`, and a one-time migration lifting the
+  legacy `spellForge.v2` blob into build #1. `save()` is now auto-save of the active build (D34).
+  The legacy key is left untouched as a one-release rollback. *Verified:* migrated session →
+  "Wizard 8 / v1" with classes + picks intact and `meta.sources` = its 43 books; reload idempotent
+  (`BOOT_MODE` "loaded", one build); wiped session → exactly one empty build, sources all-on.
+- [x] **T2 · activation reconciliation** (`correctness`, ~S) — **DONE 2026-08-26.** `#srcAskModal`
+  asks, on activation, **only about books the build's picks actually depend on**
+  (`buildGaps().books`) — a book it merely had enabled changes what you can browse, not what it
+  holds, and listing all 42 of those was noise. Each book is named with its affected-pick count.
+  Declining activates the build whole and raises the gap banner (`#gapBar`). See **D42**.
+  *Verified:* a Wizard build carrying a TCE feat, activated under "2024 core only" → dialog names
+  TCE / 1 pick → **Keep my books** keeps the feat and its two pending choices plus the banner;
+  **Turn them on** enables TCE and clears it; disabling a book by hand keeps an `Aarakocra|DMG`
+  species (field reads "Aarakocra · DMG is off") and an `Artificer|TCE` row that still resolves.
+- [x] **T3 · manager UI** (`ui`, ~M) — **DONE 2026-08-26.** `#buildModal` from the ⋯ menu: one flat
+  list grouped by `character`, each row name + summary + last edited; switch, rename, duplicate,
+  delete (confirm), new. Names are **inline inputs** that look like text until touched — no edit
+  mode; renaming a character rewrites every version under it and sets `meta.named`. Duplicate
+  *is* "save as new version" (D34), one action. Active build = accent left-bar + tint + `current`
+  chip. *Verified:* switch loads the other build's state; rename at both levels; delete moves the
+  active to a neighbour; **deleting every build never leaves zero**; survives reload.
+- [x] **T4 · switcher** (`ui`, ~S) — **DONE 2026-08-26.** `#bswBtn` sits in the header next to
+  the title: `▤ <character> <version>`, with the version chip appearing only when that character
+  has more than one. Its popover lists every build grouped by character (current marked), plus
+  **New build** and **Manage builds…**. Switching goes through `switchBuild()`, so the T2
+  activation dialog and the gap banner still apply. On a phone it takes its own full-width line
+  under the top row, which stays intact (D47/D52). *Verified:* switch both ways reloads the other
+  build's classes/species; duplicate → the `v2` chip appears; rename in the manager updates the
+  header; no console errors.
+- [x] **T5 · export / import a build** (`data`, ~M) — **DONE 2026-08-26.** Every row in the
+  manager has **export** (downloads `<character>-<version>.spellbook.json`, a
+  `{kind,version,exported,meta,state}` envelope carrying `meta.sources` per D33). **Import…**
+  opens a panel in the manager taking a dropped file, a browse, or pasted JSON. Import always
+  **adds** — never overwrites — deduping the version name (`L9` → `L9 (2)`), and
+  `applyImportedState()` renumbers class row ids while remapping `chosen` keys and the `c<N>:`/
+  `s<N>:` choice-id prefixes, so picks and pending choices survive the renumber. Nothing from
+  the file is trusted: levels clamp, arrays coerce, `meta.sources` is a **record**, never an
+  instruction — a missing book is reported, never auto-enabled. *Verified:* round trip preserves
+  summary, picks and choices; malformed / foreign / newer-version files are each rejected with
+  their own message; a build naming an unloaded book says so on arrival.
+- [x] **T7 · storage-pressure reporting** (`data`, ~S) — **DONE 2026-08-27 (D93).** No count cap
+  (D37). The imported digest moved to **IndexedDB**, and `importSave()` returns a sentence rather
+  than a boolean: on a quota failure it names the entry count, the book count, the **three
+  largest books by entry count**, and the browser's real `navigator.storage.estimate()`
+  quota/usage. *Verified:* a 161 MB digest that localStorage rejects with `QuotaExceededError`
+  stored in IndexedDB in 65 ms (quota measured 2,500 MB); forcing both stores to fail produces
+  "…its database is unavailable — a private window blocks it — and the fallback store is full.
+  This holds 2291 entries across 64 books, the largest being Player's Handbook (2024) (600)…".
+  Nothing is lost on a failed save — `IMPORT_CACHE` is only replaced once a write resolves.
+- [x] ~~**T6 · budget/choice reset semantics**~~ **Closed by D37** — picks survive a relevel
+  untouched and the existing soft over-flag does the rest. No new machinery.
+
+All v7 tasks are done. What remains for the project is the custom-sources design session and
+the open backlog below.
+
+### Non-goals
+~~Level-up history/snapshots~~ — **superseded by D34/D35**: versions exist, but as *named copies*
+the app never orders or interprets. A true level-by-level timeline (ordering rules, fork-on-edit)
+stays out. Server sync or accounts. Sharing a build as a rendered page, or via a URL (D36).
