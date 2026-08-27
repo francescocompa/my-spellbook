@@ -3,10 +3,16 @@
 > Resume doc. One current-state block, edited in place.
 > History → git log. Consumed phases and decision rationale → `ARCHIVE.md`.
 
-## TL;DR (2026-08-27 · code at 0de78ed, **pushed** · v7: T1–T5 done, T7 left · **LIVE on GitHub Pages**)
-- **State:** working, committed, **pushed**. **v7 is T1–T5 done; only T7 remains.** Ten note
-  batches have landed on top of the tasks (**D43–D89**); per-batch narrative →
-  `ARCHIVE.md#v7-batches`. The last two shipped together in 0de78ed. **Batch 9** made feat
+## TL;DR (2026-08-27 · v7 COMPLETE — T1–T5 + T7 · **LIVE on GitHub Pages**)
+- **State:** working, committed, **pushed**. **v7 is COMPLETE — T1–T5 and T7 are all done.**
+  On top of the batches, one session reworked the importer end to end (**D90–D93**): the app icon
+  (D90); honest zip errors, unpack progress and the **clobbered spell-lookup fix** (D91 — every
+  zip import had been storing spells no class could cast); **folder scanning** indexed by book
+  (D92 — a homebrew repo is filed by category, so a *collection* brew hid its spells and D&D
+  Beyond Drops was unfindable); and the imported digest **moved to IndexedDB** (D93), which closed
+  T7. Ten note
+  batches landed before that (**D43–D89**); per-batch narrative →
+  `ARCHIVE.md#v7-batches`. **Batch 9** made feat
   categories **data-driven** (an unknown category — UA's Wild Talent — keeps its own name instead
   of being filed as "general", origin is a **subset** of general, and a feat is attributed to the
   slot it was SPENT from, D84), added **casting-rule modifications** end to end (D85), and made
@@ -18,11 +24,9 @@
   **byte-exact** — grants diff to 0 across all five arrays with 0 one-sided records
   (`node scratchpad/cparity.js`, 24/24).
 - **Next action:** **custom sources — a dedicated back-and-forth design session.** Francesco's
-  call from note batch 4, now deferred six times. The D55/D65 *model* is right; its UI is not.
-  **Done when:** the surface is interviewed end to end and the redesign is a decision entry with a
-  task line behind it. Then **v7 · T7 (storage-pressure reporting)** — no count cap (D37); catch
-  the quota failure on write and name the real cause. **Done when:** a failed save says what is
-  using the space, not "something went wrong". *(Last task in v7.)*
+  call from note batch 4, now deferred six times, and with T7 done it is the ONLY thing queued.
+  The D55/D65 *model* is right; its UI is not. **Done when:** the surface is interviewed end to
+  end and the redesign is a decision entry with a task line behind it.
 - **Manual for Francesco:** ⓪ **Re-import again after D91** — any zip import made before it stored
   spells with **no class access at all** (`spells/sources.json` clobbered the real lookup). If your
   imported spells match no class, that is why; re-importing fixes it. ① **Re-import your 5etools
@@ -65,8 +69,8 @@ https://claude.ai/code/artifact/47dbe945-a18a-4444-af21-c0143faa2eb0
 ## Now — v7: saved builds
 
 One character at a time was the last hard limit in the app. T1–T3 removed it, T4 made builds
-reachable from the header and T5 got them off this machine as files. What's left is telling
-the truth about storage limits (T7).
+reachable from the header and T5 got them off this machine as files. T7 told the truth about
+storage limits and then removed most of them (D93). **v7 is complete.**
 
 ### Shape *(settled by D33–D37)*
 ```
@@ -127,13 +131,20 @@ Sources join them, but every build remembers what it expected.
   instruction — a missing book is reported, never auto-enabled. *Verified:* round trip preserves
   summary, picks and choices; malformed / foreign / newer-version files are each rejected with
   their own message; a build naming an unloaded book says so on arrival.
-- [ ] **T7 · storage-pressure reporting** (`data`, ~S). No count cap (D37); instead catch the
-  quota failure on write and name the real cause. **Done when:** a failed save says what is
-  using the space, not "something went wrong".
+- [x] **T7 · storage-pressure reporting** (`data`, ~S) — **DONE 2026-08-27 (D93).** No count cap
+  (D37). The imported digest moved to **IndexedDB**, and `importSave()` returns a sentence rather
+  than a boolean: on a quota failure it names the entry count, the book count, the **three
+  largest books by entry count**, and the browser's real `navigator.storage.estimate()`
+  quota/usage. *Verified:* a 161 MB digest that localStorage rejects with `QuotaExceededError`
+  stored in IndexedDB in 65 ms (quota measured 2,500 MB); forcing both stores to fail produces
+  "…its database is unavailable — a private window blocks it — and the fallback store is full.
+  This holds 2291 entries across 64 books, the largest being Player's Handbook (2024) (600)…".
+  Nothing is lost on a failed save — `IMPORT_CACHE` is only replaced once a write resolves.
 - [x] ~~**T6 · budget/choice reset semantics**~~ **Closed by D37** — picks survive a relevel
   untouched and the existing soft over-flag does the rest. No new machinery.
 
-Nothing gates the remaining tasks.
+All v7 tasks are done. What remains for the project is the custom-sources design session and
+the open backlog below.
 
 ### Non-goals
 ~~Level-up history/snapshots~~ — **superseded by D34/D35**: versions exist, but as *named copies*
@@ -411,6 +422,25 @@ stays out. Server sync or accounts. Sharing a build as a rendered page, or via a
   card, the D76 weighting explanation on a popover on the meter that states it. *Rejected:* one
   rule for every note (Francesco: "depends on the instance"); tightening the prose in place with no
   popovers (the removal warning has to stay long, and had nowhere to go).
+- **D93 (2026-08-27) Imported content lives in IndexedDB; only the LOAD and the SAVE are async**
+  — the digest was the one thing in localStorage large enough to matter (a full 5etools export is
+  ~2.3 MB before a single brew), which made D92's folder scan a way to *choose* books the app
+  then couldn't *store*. It now sits in **IndexedDB** — one database `spellForge`, store `kv` for
+  content and `handles` for D92's directory handle (the old separate `spellForgeFolder` DB is
+  deleted once, quietly). **`assembleData()` stays synchronous**: boot fills `IMPORT_CACHE` first
+  and every existing caller — a custom-spell edit, an apply, a source change — is untouched. The
+  whole boot block moved inside an async IIFE so nothing decides anything early; in particular
+  `maybeOnboard()` must not fire the welcome importer over a library still loading, which is the
+  same failure the "an empty stored import must not beat the baked data" gotcha describes.
+  Migration reads the legacy key, writes it to IndexedDB, and **only then** removes it — a
+  half-done move that loses the import is far worse than one that briefly stores it twice.
+  A private window that refuses IndexedDB falls back to localStorage and says so. **This closes
+  T7 and the standing IndexedDB backlog item.** *Measured:* localStorage's ceiling is 5 MB by
+  convention but is **not** universal — this Chromium took 36 MB and threw at 161 MB — so the
+  failure copy quotes no fixed number, only the real `storage.estimate()` figures.
+  *Rejected:* moving builds/sources/table layout too (kilobytes, and sync access is worth
+  keeping — with the digest gone they have the whole quota to themselves); storing the digest as
+  a JSON string in IndexedDB (a structured value skips a multi-MB string held twice at save time).
 - **D92 (2026-08-27) A library is scanned BY BOOK, one file at a time — the folder is the unit,
   not the zip** — a homebrew repository is filed by **category** (`spell/`, `class/`,
   `collection/`…), so one brew's content scatters across folders and a *collection* brew keeps its
@@ -611,8 +641,9 @@ written up in full under Gotchas below — that is the copy to trust.
 - [ ] **Magic-item ingestion for custom sources** — prefill a D55 source from items.json's
   `attachedSpells` (rejected from v1; items carry no structured uses). Needs items in both
   extractors + SRD gate.
-- [ ] **IndexedDB** for imported data — localStorage may overflow on a full multi-book import
-  (the importer reports quota errors but can't store). Related to T7.
+- [x] ~~**IndexedDB** for imported data~~ **CLOSED 2026-08-27 → D93** — the digest lives in
+  IndexedDB; localStorage keeps only builds, sources, custom spells and the column layout
+  (~16 KB measured). Closed T7 with it.
 - [x] ~~Importer UI polish — per-source keep/remove, monster-forge style ticking~~ **CLOSED
   2026-08-27 → D86.** A "clear imported data" button is still absent: unticking every book in the
   plan is the equivalent, and it refuses to leave you with nothing.
@@ -662,6 +693,14 @@ written up in full under Gotchas below — that is the copy to trust.
 - **Content assembly:** `window.__DATA__` (baked) is optional now. `assembleData()` picks
   imported > baked > empty, merges custom homebrew, calls `buildIndexes()`. Indexes
   (CLS_BY, SPELL_BY, …) are `let`, rebuilt on every content change — never captured.
+- **The imported digest is in IndexedDB, and `assembleData()` is still SYNCHRONOUS (D93).** It
+  reads `IMPORT_CACHE`, which `importLoad()` fills once inside the async boot IIFE — that is the
+  whole reason every other caller stayed unchanged. **Nothing may read the digest before that
+  await resolves**: `maybeOnboard()` pops the welcome importer when the app has no content, so
+  running boot early shows onboarding over a library that is still loading. Writes go through
+  `importSave()`, which returns **null or a sentence** (never a boolean) and only replaces
+  `IMPORT_CACHE` once the write resolves, so a failed save can't lose what you already had.
+  One database `spellForge`, stores `kv` (content) and `handles` (D92's directory handle).
 - **extract.js ↔ extract.py** must stay in sync (same digest shape). `asArr`/coerced
   `parseGrants` handle 5etools bare-value-instead-of-list quirks.
 - **`foundry*.json` is the single most damaging file class in a 5etools zip, and it bit for
@@ -937,6 +976,9 @@ written up in full under Gotchas below — that is the copy to trust.
   shared source checklist, unified feat picker. → `ARCHIVE.md#v65`
 - v7 · T1–T5 — saved builds end to end: storage + migration, activation reconciliation, the
   manager, the header switcher, and export/import as files.
+- v7 · T7 — storage-pressure reporting, closed by moving the imported digest to IndexedDB (D93).
+- **Importer rework** (2026-08-27) — **D90–D93**: app icon; honest zip errors + unpack progress +
+  the clobbered spell-lookup fix (D91); folder scanning indexed by book (D92); IndexedDB (D93).
 - **v7 note batches 1–10** (2026-08-26 → 2026-08-27) — **D43–D89**. Ten batches of notes plus two
   bug hunts on top of the tasks. Per-batch narrative → `ARCHIVE.md#v7-batches`; the earlier notes
   → `ARCHIVE.md#v7-notes`. The load-bearing outcomes are the decisions above and the Gotchas

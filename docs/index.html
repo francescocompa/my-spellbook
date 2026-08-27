@@ -2489,6 +2489,110 @@ const LS_CUSTOM="spellForge.custom.v1", LS_IMPORT="spellForge.import.v1";
 const BAKED = (typeof window!=="undefined" && window.__DATA__) || null;
 const emptyDigest=()=>({meta:{},sources:{},spells:[],classes:[],subclasses:[],feats:[],races:[],optfeats:[],fullMc:FULL_MC,pact:PACT});
 function loadJSON(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null;}catch(e){return null;}}
+
+// ── imported content lives in IndexedDB (D93) ──────────────────────────────────
+// The imported digest dominates localStorage: a full 5etools export is ~2.3 MB before a single
+// brew, and the folder scan (D92) can pick far more than that — it would have been a way to
+// choose books the app then couldn't store. localStorage's ceiling is 5 MB by convention but
+// varies (Chromium measured here takes tens of MB before throwing), and either way it is the
+// wrong order of magnitude. IndexedDB is quota-managed against free disk — 2.5 GB measured on
+// this machine — keeps a structured value with no JSON round-trip (no multi-MB string held
+// twice at save time), and can REPORT what it is using, which is what T7 asks for.
+//
+// ONE database, two stores: `kv` for content, `handles` for the D92 directory handle (which is a
+// live object localStorage could never have held anyway).
+const IDB_NAME="spellForge", IDB_V=1, KV="kv", HANDLES="handles", IMPORT_KEY="import";
+let IMPORT_CACHE=null;      // the digest in memory; IndexedDB is only where it persists
+let IDB_OK=true;            // false after a real failure — private windows can refuse outright
+function idbOpen(){return new Promise((res,rej)=>{
+  let r; try{r=indexedDB.open(IDB_NAME,IDB_V);}catch(e){return rej(e);}
+  r.onupgradeneeded=()=>{const db=r.result;
+    if(!db.objectStoreNames.contains(KV))db.createObjectStore(KV);
+    if(!db.objectStoreNames.contains(HANDLES))db.createObjectStore(HANDLES);};
+  r.onerror=()=>rej(r.error); r.onblocked=()=>rej(new Error("database is busy in another tab"));
+  r.onsuccess=()=>res(r.result);});}
+function idbTx(store,mode,fn){return idbOpen().then(db=>new Promise((res,rej)=>{
+  const t=db.transaction(store,mode),q=fn(t.objectStore(store));
+  t.oncomplete=()=>res(q?q.result:undefined);
+  t.onerror=()=>rej(t.error); t.onabort=()=>rej(t.error||new Error("write aborted"));}));}
+const idbGet=(store,k)=>idbTx(store,"readonly",s=>s.get(k));
+const idbPut=(store,k,v)=>idbTx(store,"readwrite",s=>s.put(v,k));
+const idbDel=(store,k)=>idbTx(store,"readwrite",s=>s.delete(k));
+
+// How much room is there, and what is using it? A failed save that says "something went wrong"
+// is the thing T7 exists to remove.
+async function storageReport(){
+  const out={usage:null,quota:null};
+  try{ if(navigator.storage&&navigator.storage.estimate){
+    const e=await navigator.storage.estimate(); out.usage=e.usage; out.quota=e.quota;} }catch(_){}
+  return out;
+}
+const fmtBytes=b=>b==null?"?":b>=1048576?(b/1048576).toFixed(b>=10485760?0:1)+" MB":Math.max(1,Math.round(b/1024))+" KB";
+// what the digest itself is made of, biggest book first — the honest answer to "what is using
+// the space", which is not the same question as "how much is left"
+function digestWeight(d){
+  const per={};
+  DIGEST_ARRAYS.forEach(a=>(d&&d[a]||[]).forEach(e=>{const s=e.source||"?";per[s]=(per[s]||0)+1;}));
+  const rows=Object.entries(per).sort((a,b)=>b[1]-a[1]);
+  const name=c=>((d.sources||{})[c]||{}).name||c;
+  return {total:rows.reduce((n,r)=>n+r[1],0),
+    top:rows.slice(0,3).map(([c,n])=>`${name(c)} (${n})`),books:rows.length};
+}
+
+// Read the digest, migrating a legacy localStorage blob across on first run. The migration only
+// deletes the old key AFTER the IndexedDB write resolves — a half-done move that loses the
+// import is far worse than one that briefly stores it twice.
+async function importLoad(){
+  if(IDB_OK){
+    try{ const v=await idbGet(KV,IMPORT_KEY);
+      if(v){IMPORT_CACHE=v; try{localStorage.removeItem(LS_IMPORT);}catch(_){} return "idb";} }
+    catch(e){IDB_OK=false;}
+  }
+  const legacy=loadJSON(LS_IMPORT);
+  if(!legacy){IMPORT_CACHE=null;return IDB_OK?"empty":"no-idb";}
+  IMPORT_CACHE=legacy;
+  if(IDB_OK){
+    try{ await idbPut(KV,IMPORT_KEY,legacy); localStorage.removeItem(LS_IMPORT); return "migrated"; }
+    catch(e){IDB_OK=false;}
+  }
+  return "localstorage";
+}
+// Returns null on success, or a sentence naming the real cause.
+async function importSave(digest){
+  if(IDB_OK){
+    try{ await idbPut(KV,IMPORT_KEY,digest); IMPORT_CACHE=digest;
+         try{localStorage.removeItem(LS_IMPORT);}catch(_){}
+         return null; }
+    catch(e){
+      const st=await storageReport(), w=digestWeight(digest);
+      if(e&&(e.name==="QuotaExceededError"||/quota/i.test(e.message||"")))
+        return `Not enough room to store this. It holds ${w.total} entries across ${w.books} books`
+          +(w.top.length?` — the largest are ${w.top.join(", ")}`:"")
+          +(st.quota?`. This browser allows ${fmtBytes(st.quota)} for the whole site and ${fmtBytes(st.usage)} is already used`:"")
+          +". Untick some books and apply again.";
+      IDB_OK=false;   // not a quota problem — fall through and try localStorage
+    }
+  }
+  try{ localStorage.setItem(LS_IMPORT,JSON.stringify(digest)); IMPORT_CACHE=digest; return null; }
+  catch(e){
+    // Don't quote a ceiling — the localStorage limit is 5 MB by convention but browsers vary
+    // widely (this one takes tens of MB), and a wrong number is worse than no number.
+    const w=digestWeight(digest), st=await storageReport();
+    return `This browser can’t store the import: its database is unavailable — a private window `
+      +`blocks it — and the fallback store is full. This holds ${w.total} entries across `
+      +`${w.books} books`+(w.top.length?`, the largest being ${w.top.join(", ")}`:"")
+      +(st.quota?`; the site is allowed ${fmtBytes(st.quota)} in total`:"")
+      +". Untick some books and apply again.";
+  }
+}
+// The folder handle briefly lived in its own database before the stores were unified (D93).
+// Anyone who used the folder scan in that window has an orphan; drop it once, quietly.
+function dropLegacyFolderDb(){try{indexedDB.deleteDatabase("spellForgeFolder");}catch(_){}}
+async function importDrop(){
+  IMPORT_CACHE=null;
+  if(IDB_OK){try{await idbDel(KV,IMPORT_KEY);}catch(_){}}
+  try{localStorage.removeItem(LS_IMPORT);}catch(_){}
+}
 let DATA, IMPORTED=null, CUSTOM=null;
 // mutable indexes — rebuilt after every content change
 let CLS_BY={},SUB_BY={},SUBS_OF={},FEAT_BY={},RACE_BY={},OPT_BY={},SPELL_BY={},SPELL_BY_NAME={};
@@ -2537,7 +2641,10 @@ function buildIndexes(){
 }
 // assemble DATA from the three layers and rebuild indexes; call whenever content changes
 function assembleData(){
-  IMPORTED=loadJSON(LS_IMPORT); CUSTOM=loadJSON(LS_CUSTOM);
+  // IMPORT_CACHE is filled by importLoad() before boot (D93) — assembleData stays SYNCHRONOUS,
+  // which is what lets every existing caller (a custom-spell edit, an apply, a source change)
+  // keep working unchanged. Only the load and the save are async.
+  IMPORTED=IMPORT_CACHE; CUSTOM=loadJSON(LS_CUSTOM);
   // An import that stored but holds nothing (a bad zip, a half-written blob) used to WIN over
   // the baked data and leave the app empty — which pops the welcome importer over a build that
   // was working a moment ago. Content beats presence: an empty import falls back to baked.
@@ -4490,19 +4597,11 @@ let SCAN=null;                 // {books:{code:{…}}, files, bytes, skipped, ms
 let SCAN_PICK=new Set(), SCAN_Q="", SCAN_GROUP="none", FOLDER=null, SCAN_BUSY=false;
 const SCAN_GROUPS={none:"Every book",creator:"By creator",content:"By what it holds"};
 
-// A directory handle is a live object — localStorage can't hold one, IndexedDB can.
-function fsdb(){return new Promise((res,rej)=>{const r=indexedDB.open("spellForgeFolder",1);
-  r.onupgradeneeded=()=>{try{r.result.createObjectStore("h");}catch(_){}};
-  r.onerror=()=>rej(r.error); r.onsuccess=()=>res(r.result);});}
-async function folderRemember(h){try{const db=await fsdb();await new Promise((res,rej)=>{
-  const t=db.transaction("h","readwrite");t.objectStore("h").put(h,"dir");
-  t.oncomplete=res;t.onerror=()=>rej(t.error);});}catch(_){}}
-async function folderRecall(){try{const db=await fsdb();return await new Promise(res=>{
-  const t=db.transaction("h","readonly"),q=t.objectStore("h").get("dir");
-  q.onsuccess=()=>res(q.result||null);q.onerror=()=>res(null);});}catch(_){return null;}}
-async function folderForget(){try{const db=await fsdb();await new Promise(res=>{
-  const t=db.transaction("h","readwrite");t.objectStore("h").delete("dir");t.oncomplete=res;t.onerror=res;});}catch(_){}
-  FOLDER=null;}
+// A directory handle is a live object — localStorage can't hold one, IndexedDB can. It shares
+// the one database with the imported content (D93); `handles` is its own store.
+async function folderRemember(h){try{await idbPut(HANDLES,"dir",h);}catch(_){}}
+async function folderRecall(){try{return (await idbGet(HANDLES,"dir"))||null;}catch(_){return null;}}
+async function folderForget(){try{await idbDel(HANDLES,"dir");}catch(_){} FOLDER=null;}
 // Permission does NOT survive a reload: a remembered handle must be re-granted, and the grant
 // has to be asked for inside a user gesture. `ask` is false on the silent boot check.
 async function folderUsable(h,ask){
@@ -4698,12 +4797,16 @@ function buildImport(only){
   rep.innerHTML=`Read ${files.length} file${files.length===1?"":"s"} — ${importSummary(report)}.`
     +` <b>Nothing is stored yet:</b> choose the books below, then Apply.`;
 }
-function applyImport(){
+async function applyImport(){
   const rep=$("#importReport"); if(!PLAN)return;
   const out=filterDigest(PLAN.merged,PLAN.keep);
   if(!digestSize(out)){rep.textContent="That would leave no content at all — keep at least one book.";return;}
-  try{localStorage.setItem(LS_IMPORT,JSON.stringify(out));}
-  catch(e){rep.textContent="Too large to store in this browser. Untick some books and apply again.";return;}
+  const btn=$("#importApply"); if(btn)btn.disabled=true;
+  rep.textContent="Storing…";
+  const err=await importSave(out);
+  if(btn)btn.disabled=false;
+  // T7: name what is using the space, never "something went wrong"
+  if(err){rep.textContent=err;return;}
   // a book that is newly here is turned ON; one you removed leaves the selection with it
   const codes=new Set(Object.keys(out.sources));
   PLAN.fresh.forEach(c=>{if(codes.has(c))SRC.add(c);});
@@ -4735,7 +4838,7 @@ function openImport(welcome){closeMenu();const r=$("#importReport");
     else if(h){FOLDER=h;folderButtons();          // known but not yet granted — Rescan will ask
       const p=$("#folderProgress"); if(p&&!p.textContent)p.textContent="Folder remembered — press Rescan to re-open it.";}
   });}
-function clearImport(){try{localStorage.removeItem(LS_IMPORT);}catch(e){}assembleData();pruneState();refreshAll();render();}
+async function clearImport(){await importDrop();assembleData();pruneState();refreshAll();render();}
 // no-content build (public deploy): pop the import modal in welcome mode, once
 let onboardShown=false;
 function maybeOnboard(){
@@ -6529,18 +6632,28 @@ function pruneState(){
   if(state.speciesKey&&!RACE_BY[state.speciesKey]&&bookLoaded(state.speciesKey))state.speciesKey="";
 }
 // ── boot ─────────────────────────────────────────────────────────────────
-loadSources();
-const BOOT_MODE=loadBuilds();          // "loaded" | "migrated" | "fresh"
-applyState(activeBuild().state);
-// newly-available content sources default to on (homebrew, a fresh import)
-if(CUSTOM&&CUSTOM.spells&&CUSTOM.spells.length&&!SRC.has(HB_SRC)){SRC.add(HB_SRC);saveSources();}
-pruneState();
-$("#fReprint").value=state.filters.reprint;
-$("#fq").value=state.filters.q;
-loadTableOpts(); $("#tGroup").value=tableOpts.group; renderColMenu();
-maybeOnboard();
-fillIcons(); wireHelpNotes();
-refreshAll();render();
+// Reading the imported digest is ASYNC now (D93), so boot waits for it before deciding
+// anything. It matters that nothing below runs early: `maybeOnboard()` pops the welcome
+// importer when the app has no content, and firing that over a library still loading is the
+// same failure the "empty import must not beat baked data" gotcha describes.
+let BOOT_MODE="fresh";
+(async()=>{
+  try{ await importLoad(); }catch(_){}
+  dropLegacyFolderDb();
+  assembleData();                      // now with whatever IndexedDB held
+  loadSources();
+  BOOT_MODE=loadBuilds();              // "loaded" | "migrated" | "fresh"
+  applyState(activeBuild().state);
+  // newly-available content sources default to on (homebrew, a fresh import)
+  if(CUSTOM&&CUSTOM.spells&&CUSTOM.spells.length&&!SRC.has(HB_SRC)){SRC.add(HB_SRC);saveSources();}
+  pruneState();
+  $("#fReprint").value=state.filters.reprint;
+  $("#fq").value=state.filters.q;
+  loadTableOpts(); $("#tGroup").value=tableOpts.group; renderColMenu();
+  maybeOnboard();
+  fillIcons(); wireHelpNotes();
+  refreshAll();render();
+})();
 
 </script>
 </body>
