@@ -3,9 +3,8 @@
 > Resume doc. One current-state block, edited in place.
 > History → git log. Consumed phases and decision rationale → `ARCHIVE.md`.
 
-## TL;DR (2026-08-27 · code at 340f1ee + **uncommitted D109 work** · v7 COMPLETE · **LIVE on GitHub Pages**)
-- **State:** working, **partly uncommitted** — the form-grants change (D109) is in the tree and
-  built but not committed. This session shipped the **print / PDF surface end to end** and one
+## TL;DR (2026-08-27 · code at fc57c1c, **pushed** · v7 COMPLETE · **LIVE on GitHub Pages**)
+- **State:** working, committed, **pushed**, tree clean. This session shipped the **print / PDF surface end to end** and one
   real data bug. Print (**D97–D103, D106–D108**): a fourth `none` state for a zero-cap slot tile;
   the sheet is **always the spell table** under a build summary; a **tracker** of everything
   expendable as tick boxes (slots as a one-row table incl. Pact, uses capped at 6 then a written
@@ -20,8 +19,7 @@
   Pact of the Chain). The creature book filter was checking against a registry that has no bestiary
   books, which is why Find Familiar opened on **2 of 65** forms → Gotchas. Parity is exact and now
   covers the new `forms` field (`node scratchpad/cparity.js`, 0 fail).
-- **Next action:** commit and push the tree (`python3 build.py` → commit → push), then the standing
-  🔶 **decide the magic-item / reward import** — researched, parked on Francesco's call; findings
+- **Next action:** the standing 🔶 **decide the magic-item / reward import** — researched, parked on Francesco's call; findings
   and the one real trap are in the backlog below. **Done when:** rewards-first vs items-first vs
   neither is a decision entry with a task line behind it.
 - **Manual for Francesco:** ⓪ **Re-import your 5etools data** — this is now the standing chore and
