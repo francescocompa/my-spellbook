@@ -69,5 +69,25 @@ const gkey={classes:e=>e.name+"|"+e.source,
   if(jOnly.length)console.log("     js-only:",jOnly.slice(0,6).join(", "));
   if(pOnly.length)console.log("     py-only:",pOnly.slice(0,6).join(", "));
 });
+// ── spell ACCESS, record by record ─────────────────────────────────────────
+// This harness diffed grants but never who can CAST a spell, which is how a broken
+// importer lookup hid: spells/sources.json (lookup-shaped, ORIGINAL case) overwrote the
+// generated lookup (lowercase), so every zip import produced 936 spells no class could
+// reach while every grant still diffed clean. Access is the other half of the digest.
+{
+  const skey=s=>String(s.name).toLowerCase()+"|"+String(s.source).toLowerCase();
+  const acc=s=>JSON.stringify(["cls","sub","feat","race"].map(f=>(s[f]||[]).map(x=>x.map(String)).sort()));
+  const jm={},pm={};
+  (digest.spells||[]).forEach(s=>{jm[skey(s)]=acc(s);});
+  (py.spells||[]).forEach(s=>{pm[skey(s)]=acc(s);});
+  const shared=Object.keys(jm).filter(k=>k in pm);
+  const diff=shared.filter(k=>jm[k]!==pm[k]);
+  cmp(`spell access diff (of ${shared.length} shared)`,diff.length,0);
+  if(diff.length)diff.slice(0,3).forEach(k=>console.log("     e.g.",k,"\n       js:",jm[k].slice(0,150),"\n       py:",pm[k].slice(0,150)));
+  // the absolute guard: if the lookup is ever clobbered again this goes to ~0
+  const withCls=(digest.spells||[]).filter(s=>s.cls&&s.cls.length).length;
+  const pyCls=(py.spells||[]).filter(s=>s.cls&&s.cls.length).length;
+  cmp("spells with class access",withCls,pyCls);
+}
 console.log("report:",JSON.stringify(report).slice(0,160));
 process.exit(fail?1:0);

@@ -1888,12 +1888,33 @@ function renderImportStage(){const box=$("#importStaged");if(!box)return;box.inn
     box.append(lbl,chips,tog);
   }
   const bb=$("#importBuild");if(bb)bb.disabled=!IMPORT_STAGE.some(f=>!f.error);}
+// A whole-repository download is gigabytes; a complete 5etools `data` export zips to ~25 MB.
+// Reading one means holding the ENTIRE archive in a single ArrayBuffer, so the oversized case
+// fails inside the browser as a NotReadableError whose stock text blames "permission problems".
+// It is not permissions — it is size. Refuse it up front, by name and by measured size.
+const MAX_ZIP=512*1024*1024;
+function fsize(b){return b>=1073741824?(b/1073741824).toFixed(1)+" GB":Math.round(b/1048576)+" MB";}
+const ZIP_TOOBIG=" Unzip it yourself and stage just the .json files you want — imports <b>add</b> to what "
+  +"you already have, so a big collection can go in a few batches.";
 async function stageZip(file){const rep=$("#importReport");
-  try{rep.textContent="Reading "+file.name+"…";const buf=await file.arrayBuffer();
-    const entries=await window.SB_extract.unzipJsonFiles(buf);
+  if(file.size>MAX_ZIP){
+    rep.innerHTML="<b>"+esc(file.name)+" is "+fsize(file.size)+"</b> — too large for a browser tab to open. "
+      +"A complete 5etools <code>data</code> export is about 25 MB zipped."+ZIP_TOOBIG;
+    return;}
+  try{
+    rep.textContent="Reading "+file.name+" ("+fsize(file.size)+")…";
+    let buf;
+    try{buf=await file.arrayBuffer();}
+    catch(_){throw new Error("the browser couldn’t hold a "+fsize(file.size)+" file in memory."
+      +" (It reports this as a permission error; it isn’t one.)");}
+    // unzipJsonFiles has always taken a progress callback — nothing ever passed one, so a long
+    // unpack was indistinguishable from a hang.
+    const entries=await window.SB_extract.unzipJsonFiles(buf,(name,i,total)=>{
+      rep.textContent="Unpacking "+file.name+" — "+i+"/"+total+": "+name;});
     if(!entries.length){rep.textContent="No recognised 5etools files in "+file.name+".";return;}
     entries.forEach(e=>IMPORT_STAGE.push(e));rep.textContent="";renderImportStage();}
-  catch(e){rep.textContent="Couldn’t read "+file.name+": "+(e.message||e);}}
+  catch(e){rep.innerHTML="Couldn’t read <b>"+esc(file.name)+"</b>: "+esc(e.message||String(e))
+      +(file.size>64*1024*1024?ZIP_TOOBIG:"");}}
 function stageFiles(fileList){[...fileList].forEach(file=>{
     if(/\.zip$/i.test(file.name)){stageZip(file);return;}
     const rd=new FileReader();
@@ -1903,7 +1924,13 @@ function stageFiles(fileList){[...fileList].forEach(file=>{
     }catch(e){IMPORT_STAGE.push({name:file.name,error:true});}renderImportStage();};
     rd.onerror=()=>{IMPORT_STAGE.push({name:file.name,error:true});renderImportStage();};
     rd.readAsText(file);});}
-function importSummary(r){return `${r.spells} spells · ${r.classes} classes · ${r.subclasses} subclasses · ${r.feats} feats · ${r.species} species`+(r.lookup?"":" · ⚠ no spell-source lookup — spells won’t know their classes; add generated/gendata-spell-source-lookup.json");}
+function importSummary(r){return `${r.spells} spells · ${r.classes} classes · ${r.subclasses} subclasses · ${r.feats} feats · ${r.species} species`
+  // Warn on the real symptom — spells no class can reach — not on a missing file. A brew
+  // carries its own class access inline, so it needs no lookup and must not be told it does.
+  // …and only advise the lookup file when one wasn't supplied. With it present the
+  // remainder are spells nothing in the data can cast, which is not a mistake to correct.
+  +(r.noAccess?` · ⚠ ${r.noAccess} spell${r.noAccess===1?"":"s"} no class can reach`
+    +(r.lookup?"":" — add generated/gendata-spell-source-lookup.json"):"");}
 
 // ── additive imports and the book plan (D86) ───────────────────────────────
 // An import used to REPLACE everything stored, so adding one brew meant re-staging every

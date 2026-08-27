@@ -23,7 +23,10 @@
   task line behind it. Then **v7 · T7 (storage-pressure reporting)** — no count cap (D37); catch
   the quota failure on write and name the real cause. **Done when:** a failed save says what is
   using the space, not "something went wrong". *(Last task in v7.)*
-- **Manual for Francesco:** ① **Re-import your 5etools data on every browser** — an import made
+- **Manual for Francesco:** ⓪ **Re-import again after D91** — any zip import made before it stored
+  spells with **no class access at all** (`spells/sources.json` clobbered the real lookup). If your
+  imported spells match no class, that is why; re-importing fixes it. ① **Re-import your 5etools
+  data on every browser** — an import made
   before 0de78ed carries no `catName`, no `exclusiveCat` and no `castMods`, and one made before
   **b3a734c** also has Foundry stubs baked in (D82). None of it back-fills. Re-importing is cheap
   now: it **adds** rather than replacing, and the "Your books" panel is where you drop what you
@@ -408,6 +411,24 @@ stays out. Server sync or accounts. Sharing a build as a rendered page, or via a
   card, the D76 weighting explanation on a popover on the meter that states it. *Rejected:* one
   rule for every note (Francesco: "depends on the instance"); tightening the prose in place with no
   popovers (the removal warning has to stay long, and had nowhere to go).
+- **D91 (2026-08-27) A zip that can't work says why, and the lookup file is chosen by NAME**
+  — chasing "the homebrew zip won't import" turned up one UX failure and one silent data bug.
+  ① **The zip.** A GitHub "Download ZIP" of `TheGiddyLimit/homebrew` is **gigabytes** (the repo is
+  5.3 GB, mostly artwork); a complete 5etools `data` export zips to **24 MB**. `stageZip` echoed
+  the browser's raw `NotReadableError`, whose stock text blames *"permission problems"* — it is
+  size, not permissions. Now: a hard refuse above 512 MB naming the file's measured size, a
+  translated out-of-memory message, **ZIP64 detection** (past 4 GB or 65,535 entries the count and
+  directory offset are sentinels, so the old reader walked to garbage and called a valid archive
+  "not a .zip"), and the progress callback `unzipJsonFiles` had always accepted but **no caller
+  ever passed** — a 186-file unpack now reports every file instead of looking like a hang.
+  ② **The lookup.** TWO files in an export are lookup-SHAPED: `generated/gendata-spell-source-lookup.json`
+  (keys lowercased — what extract.py reads) and `spells/sources.json` (ORIGINAL case). Last one
+  won, and it was `sources.json`, whose keys missed the lowercase spell map entirely: **every zip
+  import produced 936 spells no class could cast.** The named file is authoritative now and keys
+  fold on use. ③ The import warning fired on "no lookup file staged" — false for homebrew, which
+  carries access inline (D58) — so it told every brew importer to add a file they don't need. It
+  counts **spells nothing can reach** instead. *Rejected:* raising the size cap instead of refusing
+  (no cap makes a 5 GB archive openable); merging both lookup files (duplicate access entries).
 - **D90 (2026-08-27) App icon / favicon — "Secret book" (Delapouite, game-icons.net, CC BY 3.0)
   on the parchment-on-accent tile** — Francesco's pick "**for now**" from an 8-candidate
   comparison rendered at 16/32/48 px in the app's palette (`scratchpad/icon-compare.html`).
@@ -638,6 +659,22 @@ written up in full under Gotchas below — that is the copy to trust.
   byte-identical.
 - **Spell-source lookup** (`generated/gendata-spell-source-lookup.json`) is what gives spells
   their `cls`/`sub`/`feat`/`race` access — without it imported spells match no class.
+  **And a second file in the export is lookup-SHAPED: `spells/sources.json` (D91).** Same
+  `SOURCE → Spell Name → {class…}` structure, but keyed in ORIGINAL case where the generated one
+  is lowercased and the spell map is keyed `name|source` lowercase. `looksLikeLookup()` matched
+  it by shape and, arriving later, it **overwrote the real lookup** — so every zip import shipped
+  936 spells no class could cast, while extract.py (which loads the generated file by explicit
+  path) stayed correct. A name match now LOCKS (`lookupNamed`) and keys fold through `spellKey()`
+  on use. **This hid for two sessions because `cparity.js` diffed grants but never ACCESS** —
+  exactly the "a parity harness must drive the REAL predicates" lesson, a second time. The harness
+  now diffs `cls`/`sub`/`feat`/`race` per spell and asserts the with-access COUNT against
+  extract.py; reintroduce the bug and it reports 921 diffs. If imported spells ever match no
+  class again, look here first.
+- **A big zip fails as a lie (D91).** `file.arrayBuffer()` on an oversized archive throws
+  `NotReadableError`, whose stock message blames *"permission problems"* — the cause is size.
+  `stageZip` refuses above `MAX_ZIP` (512 MB) by measured size, translates the OOM, and passes the
+  progress callback. Reference: a full 5etools `data` export ≈ **24 MB / 503 files**; the homebrew
+  repo as one zip is **gigabytes** and can never work — individual brews are ~60 KB.
 - **`innate` has two shapes.** `{"_": {"daily": {...}}}` (a cadence map) AND
   `{"_": ["mage armor|xphb"]}` (a bare list = at-will). The list form was skipped by an
   `isinstance(dict)` guard, silently dropping **42 grant blocks** (23 optional features,

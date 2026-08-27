@@ -526,7 +526,7 @@ const monKey=(name,src)=>String(name).trim()+"|"+String(src||"").trim().toUpperC
 function buildDigest(files){
   const books={};
   const spells={}; const classes=[]; const subclasses=[]; const feats=[]; const races=[]; const optfeats=[];
-  let lookup=null;
+  let lookup=null,lookupNamed=false;
   const report={spells:0,classes:0,subclasses:0,feats:0,species:0,books:0,lookup:false,files:0,errors:[]};
 
   // pass 1: books first (names/groups), stash the lookup, and index granting features
@@ -537,7 +537,13 @@ function buildDigest(files){
     // ({json: code, full: name}). Grouped under "brew" so the checklist shelves them.
     const metaSrc=j._meta&&Array.isArray(j._meta.sources)?j._meta.sources:[];
     metaSrc.forEach(m=>{if(m&&m.json&&!books[m.json])books[m.json]={name:m.full||m.abbreviation||m.json,group:"brew"};});
-    if(/spell-source-lookup/i.test(f.name)||(!j.spell&&!j.class&&!j.subclass&&!j.feat&&!j.race&&!j.optionalfeature&&!j.book&&looksLikeLookup(j))){lookup=j;report.lookup=true;}
+    // TWO files in a 5etools export are lookup-SHAPED: generated/gendata-spell-source-lookup.json
+    // (keys folded to lowercase — the one extract.py reads) and spells/sources.json (keys in
+    // ORIGINAL case). Whichever arrived last used to win, and when that was sources.json every
+    // key missed the lowercase spell map: a zip import produced 936 spells that NO CLASS COULD
+    // CAST, silently. The named file is authoritative and a shape match may never displace it.
+    if(/spell-source-lookup/i.test(f.name)){lookup=j;lookupNamed=true;report.lookup=true;}
+    else if(!lookupNamed&&!j.spell&&!j.class&&!j.subclass&&!j.feat&&!j.race&&!j.optionalfeature&&!j.book&&looksLikeLookup(j)){lookup=j;report.lookup=true;}
     (j.subclassFeature||[]).forEach(x=>{const k=x.className+"|"+x.subclassShortName+"|"+x.subclassSource;(subfeatIdx[k]=subfeatIdx[k]||[]).push(featRecord(x));});
     (j.classFeature||[]).forEach(x=>{const k=x.className+"|"+x.classSource;(clsfeatIdx[k]=clsfeatIdx[k]||[]).push(featRecord(x));});
   });
@@ -619,7 +625,9 @@ function buildDigest(files){
 
   // spell → class/subclass/feat/race access from the generated lookup
   if(lookup){Object.entries(lookup).forEach(([srcL,byname])=>{
-    Object.entries(byname).forEach(([nameL,acc])=>{const sp=spells[`${nameL}|${srcL}`];if(!sp||!acc||typeof acc!=="object")return;
+    // fold on use — the spell map is keyed lowercase, and a lookup-shaped file is not
+    // guaranteed to be (spells/sources.json is not)
+    Object.entries(byname).forEach(([nameL,acc])=>{const sp=spells[spellKey(nameL,srcL)];if(!sp||!acc||typeof acc!=="object")return;
       Object.entries(acc.class||{}).forEach(([csrc,cmap])=>{Object.keys(cmap||{}).forEach(cls=>sp.cls.push([cls,csrc]));});
       Object.entries(acc.subclass||{}).forEach(([ssrc,clsmap])=>{Object.entries(clsmap||{}).forEach(([cls,bysrc])=>{
         Object.entries(bysrc||{}).forEach(([scsrc,submap])=>{Object.entries(submap||{}).forEach(([sub,meta])=>{
@@ -630,6 +638,11 @@ function buildDigest(files){
 
   report.spells=Object.keys(spells).length;report.classes=classes.length;report.subclasses=subclasses.length;
   report.feats=feats.length;report.species=races.length;
+  // The lookup file is how CORE spells learn who can cast them; a brew carries that access
+  // INLINE instead (D58). Warning off `lookup` alone therefore told every homebrew importer
+  // to go add a file they don't need. Count the spells that actually ended up unreachable.
+  report.noAccess=Object.keys(spells).reduce((n,k)=>{const s=spells[k];
+    return n+((s.cls&&s.cls.length)||(s.sub&&s.sub.length)||(s.feat&&s.feat.length)||(s.race&&s.race.length)?0:1);},0);
 
   // source registry
   const cnt=(src,key,map)=>{(map[src]=map[src]||{spells:0,classes:0,subclasses:0,feats:0,species:0})[key]++;};
@@ -714,6 +727,18 @@ async function unzipJsonFiles(buf,onFile){
   let eocd=-1;for(let i=n-22;i>=0&&i>=n-22-0xffff;i--){if(dv.getUint32(i,true)===0x06054b50){eocd=i;break;}}
   if(eocd<0)throw new Error("That doesn’t look like a .zip file.");
   const count=dv.getUint16(eocd+10,true),cdOff=dv.getUint32(eocd+16,true);
+  // ZIP64. An archive past 4 GB or past 65,535 entries keeps its real count and
+  // directory offset in a separate record and leaves SENTINELS in these two fields.
+  // Walking to a sentinel offset lands in the middle of the file and the entry-signature
+  // check then reports "that doesn't look like a .zip file" — which is a lie. The archive
+  // is well-formed; this reader simply can't address it, and neither can a browser tab
+  // hold something that size. Say that instead.
+  if(count===0xffff||cdOff===0xffffffff)
+    throw new Error("this is a ZIP64 archive (over 4 GB, or more than 65,535 files). A complete 5etools "
+      +"data export is about 25 MB — if this is a whole-repository download, unzip it and stage just the "
+      +".json files you want.");
+  if(cdOff+4>n)throw new Error("this zip's directory points past the end of the file — it may be truncated "
+      +"or still downloading.");
   const entries=[];let p=cdOff;
   for(let i=0;i<count;i++){ if(dv.getUint32(p,true)!==0x02014b50)break;
     const method=dv.getUint16(p+10,true),compSize=dv.getUint32(p+20,true);
