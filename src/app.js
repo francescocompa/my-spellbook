@@ -522,8 +522,11 @@ function setPreview(l){
 // A named thing the character OWNS that grants spells — a magic item, a boon, a
 // blessing. Lives inside the build (it travels with export), and resolves through
 // the same grants machinery as a species or feat: no new downstream paths.
-const CSRC_UNITS=[["lr","per long rest"],["sr","per short rest"],["dawn","per dawn"],
-                  ["will","at will"]];
+// Two labels per unit: the SHORT one fits a fixed-width control on a crowded spell row
+// ("/LR"), the long one reads as prose in the summary sentence ("per long rest").
+const CSRC_UNITS=[["lr","per long rest","/LR"],["sr","per short rest","/SR"],
+                  ["dawn","per dawn","/dawn"],["will","at will","at will"]];
+const csrcUnitShort=u=>((CSRC_UNITS.find(x=>x[0]===u)||[])[2])||u;
 const CSRC_MODES=[["innate","cast without preparing"],["always","always prepared"],
                   ["list","added to my spell list"]];
 function csrcCadence(e){ if(e.unit==="will")return "at will";
@@ -544,8 +547,10 @@ function customSourceGrants(cs){
     if(cs.atk)extra.atk=cs.atk;
     if(e.level)extra.castLv=+e.level;
     extra.csrc=cs.name;
+    // a per-spell note rides the grant like a feature's own modification note (D79), so it
+    // reaches the spell modal and the table's source badge with no new path
     return {kind:cs.mode==="always"?"prepared":"innate",atLevel:0,
-            recharge:csrcRecharge(cs,e),
+            recharge:csrcRecharge(cs,e),note:e.note||null,
             spell:{name:sp.name,source:sp.source},feature:cs.name,extra};}).filter(Boolean);
   return {fixed,picks:[],expansions:[],optionGroups:[],
           ability:cs.ability?{fixed:cs.ability}:null};
@@ -1461,9 +1466,15 @@ function openCsrc(existing){
   const ab=$("#csrcAbility");ab.innerHTML="";ab.append(new Option("mine",""));
   Object.entries(ABIL).forEach(([v,t])=>ab.append(new Option(t,v)));
   ab.value=CSRC.ability||"";
-  buildToggleRowSingle($("#csrcMode"),CSRC_MODES,CSRC.mode,v=>{CSRC.mode=v;csrcSyncMode();});
-  buildToggleRowSingle($("#csrcUses"),[["pool","a shared pool of charges"],["per","per-spell uses"]],
-    CSRC.uses||"pool",v=>{CSRC.uses=v;csrcSyncMode();});
+  // selects, not chip rows (D94b) — two one-of questions side by side read as fields, and
+  // five chips wrapping across two lines was most of what made this section feel heavy
+  const md=$("#csrcMode");md.innerHTML="";
+  CSRC_MODES.forEach(([v,t])=>md.append(new Option(t,v)));
+  md.value=CSRC.mode; md.onchange=()=>{CSRC.mode=md.value;csrcSyncMode();};
+  const us=$("#csrcUses");us.innerHTML="";
+  // terse — the "Uses" label above already supplies the noun, and the long forms truncated
+  [["pool","a shared pool"],["per","per-spell"]].forEach(([v,t])=>us.append(new Option(t,v)));
+  us.value=CSRC.uses||"pool"; us.onchange=()=>{CSRC.uses=us.value;csrcSyncMode();};
   $("#csrcSearch").value=""; $("#csrcHits").innerHTML=""; $("#csrcErr").textContent="";
   csrcSyncMode();
   $("#csrcModal").classList.remove("hidden");
@@ -1531,7 +1542,15 @@ function csrcSummary(){
   else if(CSRC.mode==="list")how=`add ${list} to your spell list — you prepare them normally`;
   else if(CSRC.uses==="pool"){
     const n=CSRC.pool==null||CSRC.pool===""?null:CSRC.pool;
-    how=`cast ${list} without preparing, spending from `
+    // name what each spell COSTS while the list is short enough to read — the costs are the
+    // half of a pool source you actually tune, and the summary was silent on them
+    const costs=(CSRC.spells||[]).map((e,ix)=>{const sp=SPELL_BY[e.key];
+      const c=Math.max(1,e.cost||1);
+      return `${esc(sp?sp.name:e.key.split("|")[0])} (<b>${c}</b>${ix?"":` charge${c===1?"":"s"}`})`;});
+    const what=named.length<=3
+      ? costs.join(named.length===2?" or ":", ").replace(/, ([^,]*)$/," or $1")
+      : list;
+    how=`cast ${what} without preparing, spending from `
       +(n==null?`<b class="warnish">a pool with no charges set</b>`:`<b>${esc(String(n))} charge${+n===1?"":"s"}</b>`)
       +(CSRC.recharge?` (regains ${esc(CSRC.recharge)})`:"");}
   else {
@@ -1583,36 +1602,51 @@ function renderCsrcRows(){
       row.append(el("span","cslbl","costs"));row.append(c);}
     if(per){
       const n=el("input");n.type="number";n.min=1;n.max=99;n.value=e.count||1;n.className="csn2";
-      n.oninput=()=>{e.count=Math.max(1,+n.value||1);};
-      const u=el("select");CSRC_UNITS.forEach(([v,t])=>u.append(new Option(t,v)));u.value=e.unit||"lr";
-      u.onchange=()=>{e.unit=u.value;n.disabled=u.value==="will";};
-      n.disabled=(e.unit||"lr")==="will";
+      n.oninput=()=>{e.count=Math.max(1,+n.value||1);csrcSyncSummary();};
+      // fixed width, short labels — "per long rest" in a row control pushed the caret around
+      const u=el("select");u.className="csunit";
+      CSRC_UNITS.forEach(([v,,short])=>u.append(new Option(short,v)));u.value=e.unit||"lr";
+      // "at will" has no count to set: grey the number out rather than leave a live field
+      // whose value means nothing
+      const syncWill=()=>{const w=u.value==="will";n.disabled=w;n.classList.toggle("off",w);};
+      u.onchange=()=>{e.unit=u.value;syncWill();csrcSyncSummary();};
+      syncWill();
       row.append(n);row.append(u);}
-    // "casts fireball as a 5th-level spell" — blank means the spell's own level. Rare, so it
-    // lives behind the caret; a row that HAS one says so, or folding it would hide a setting.
+    // Every row can hold a note, so every row gets the caret — a fixed cast level is extra.
+    // A row with something set says so while folded, or the fold would hide it.
     const canLevel=sp&&sp.level>0;
-    if(canLevel){
-      const open=CSRC_ROW_OPEN.has(e.key);
-      if(e.level&&!open)row.append(el("span","cslvtag","at "+ROMAN[e.level]));
-      const car=el("button","pk-caret csrowcar");car.type="button";
-      car.setAttribute("aria-label","Per-spell options");
-      car.setAttribute("aria-expanded",String(open));
-      car.classList.toggle("up",open);
-      car.onclick=ev=>{ev.stopPropagation();
-        if(open)CSRC_ROW_OPEN.delete(e.key);else CSRC_ROW_OPEN.add(e.key);
-        renderCsrcRows();};
-      row.append(car);}
+    const open=CSRC_ROW_OPEN.has(e.key);
+    if(!open){
+      if(e.level)row.append(el("span","cslvtag","at "+ROMAN[e.level]));
+      if(e.note)row.append(icoEl("spark","csnotetag"));}
+    const car=el("button","csrowcar");car.type="button";
+    car.setAttribute("aria-label","Per-spell options");
+    car.setAttribute("aria-expanded",String(open));
+    car.classList.toggle("up",open);
+    car.onclick=ev=>{ev.stopPropagation();
+      if(open)CSRC_ROW_OPEN.delete(e.key);else CSRC_ROW_OPEN.add(e.key);
+      renderCsrcRows();};
+    row.append(car);
     row.append(xBtn(null,()=>{CSRC.spells.splice(i,1);CSRC_ROW_OPEN.delete(e.key);
       renderCsrcRows();csrcSyncSummary();}));
     wrap.append(row);
-    if(canLevel&&CSRC_ROW_OPEN.has(e.key)){
+    if(open){
       const sub=el("div","csrowsub");
-      sub.append(el("span","cslbl","Cast at"));
-      const lv=el("select");lv.className="cslv";lv.append(new Option("as written",""));
-      for(let L=sp.level;L<=9;L++)lv.append(new Option(ROMAN[L]+" level",String(L)));
-      lv.value=e.level?String(e.level):"";
-      lv.onchange=()=>{e.level=lv.value?+lv.value:null;};
-      sub.append(lv);
+      // No separate "Cast at" label — it wrapped, and a select that names its own options
+      // ("as written", "cast at 5th") doesn't need one. Fixed width so the note gets the rest.
+      if(canLevel){
+        const lv=el("select");lv.className="cslv";lv.append(new Option("as written",""));
+        for(let L=sp.level;L<=9;L++)lv.append(new Option("cast at "+ROMAN[L],String(L)));
+        lv.value=e.level?String(e.level):"";
+        lv.onchange=()=>{e.level=lv.value?+lv.value:null;csrcSyncSummary();};
+        sub.append(lv);}
+      // A note rides the grant (D79's shape), so it lands in the spell modal and on the
+      // table's source badge exactly like a feature's own modification note.
+      const nt=el("input");nt.type="text";nt.className="csnote";
+      nt.placeholder="note — e.g. deals cold damage instead";
+      nt.value=e.note||""; nt.spellcheck=false;
+      nt.oninput=()=>{e.note=nt.value.trim()||null;};
+      sub.append(nt);
       wrap.append(sub);}
     box.append(wrap);});
 }

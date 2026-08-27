@@ -1134,7 +1134,18 @@ label.fld .fldt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-wi
 .csrowwrap{border-bottom:1px dashed var(--line)}
 .csrowwrap:last-child{border-bottom:none}
 .csrowwrap .csrow{border-bottom:none}
-.csrowsub{display:flex;align-items:center;gap:7px;padding:0 0 8px 2px}
+/* the expanded row: a self-naming level select at a FIXED width, then the note takes the
+   rest. The old version carried a "Cast at" label that wrapped and a select that ate the row. */
+.csrowsub{display:flex;align-items:center;gap:7px;padding:0 0 9px 2px;flex-wrap:wrap}
+.csrowsub .cslv{flex:0 0 auto;width:118px;max-width:118px}
+.csrowsub .csnote{flex:1 1 170px;min-width:0;font-size:12px}
+.csrowsub .csnote::placeholder{font-style:italic}
+/* a per-spell control must not resize with its own value — a fixed width keeps the caret and
+   the × in the same place down the whole list */
+.csrow .csunit{flex:0 0 auto;width:78px;max-width:78px;text-align:left}
+.csrow .csn2.off{opacity:.4}
+.csnotetag{color:var(--accent);flex:0 0 auto;display:inline-flex}
+.csnotetag svg{width:12px;height:12px}
 /* a fixed cast level is folded away, so an unopened row that HAS one must still say so */
 .cslvtag{flex:0 0 auto;font-size:10.5px;color:var(--accent);background:var(--accent-soft);
   border-radius:5px;padding:1px 6px}

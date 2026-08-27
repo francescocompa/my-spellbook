@@ -432,16 +432,14 @@
       <button class="btn tiny" id="csrcRuleEdit" aria-expanded="false" aria-controls="csrcRules">Change</button>
     </div>
     <div class="disc hidden" id="csrcRules">
-      <label class="fld">How its spells work</label>
-      <div class="cbrow" id="csrcMode"></div>
-      <div id="csrcUsesBlock">
-        <label class="fld" style="margin-top:10px">Uses</label>
-        <div class="cbrow" id="csrcUses"></div>
-        <div class="poolrow hidden" id="csrcPoolRow">
-          <input type="number" id="csrcPool" min="0" max="99" placeholder="10">
-          <span class="poollbl">charges · regains</span>
-          <input type="text" id="csrcRecharge" placeholder="1d6+4 at dawn" autocomplete="off" spellcheck="false">
-        </div>
+      <div class="csnums">
+        <label class="csnum wide"><span>Casting</span><select id="csrcMode"></select></label>
+        <label class="csnum wide" id="csrcUsesBlock"><span>Uses</span><select id="csrcUses"></select></label>
+      </div>
+      <div class="poolrow hidden" id="csrcPoolRow">
+        <input type="number" id="csrcPool" min="0" max="99" placeholder="10">
+        <span class="poollbl">charges · regains</span>
+        <input type="text" id="csrcRecharge" placeholder="1d6+4 at dawn" autocomplete="off" spellcheck="false">
       </div>
     </div>
 
@@ -454,7 +452,7 @@
 
     <div class="disc" id="csrcNumsWrap">
       <button class="discbtn" id="csrcNumsBtn" aria-expanded="false" aria-controls="csrcNums">
-        <span class="fld" style="margin:0">Its own numbers</span>
+        <span class="fld" style="margin:0">Spellcasting stat</span>
         <span class="fldnote" id="csrcNumsSub"></span>
         <span class="disccaret" aria-hidden="true"></span>
       </button>

@@ -445,6 +445,17 @@ stays out. Server sync or accounts. Sharing a build as a rendered page, or via a
   *Rejected:* B, the whole form as an editable sentence (most distinctive, hardest to keep tidy as
   the model grows); C's two-pane layout and its always-visible toggles (that density is what made
   this a mess); reworking the card's chips or the casting surfaces (not what was complained about).
+  → **refined 2026-08-27 on Francesco's review:** the mode/uses **chips became two labelled
+  `<select>`s** side by side ("Casting" / "Uses") — five wrapping chips were most of the weight —
+  and the section lost its "How its spells work" heading to them. **"Its own numbers" → "Spellcasting
+  stat".** A spell row's unit control is **fixed-width with short labels** (`/LR`, `/SR`, `/dawn`,
+  `at will`) so the caret and × hold their column, and its count **greys out at will**, which has
+  no count to set. The expanded row **dropped the "Cast at" label** (it wrapped) for a select that
+  names its own options, at a fixed width, leaving the rest to a new **per-spell NOTE** — it rides
+  the grant as `note`, so D79's path renders it in the spell modal and on the table's source badge
+  with no new machinery ("Fireball · deals cold damage instead"). A folded row with a note shows a
+  spark, as one with a fixed level shows `at 5th`. The summary now **names the uses**: per-spell
+  cadences ("Bless 2× per long rest, Light at will") and pool costs ("Fireball (3)").
 - **D93 (2026-08-27) Imported content lives in IndexedDB; only the LOAD and the SAVE are async**
   — the digest was the one thing in localStorage large enough to matter (a full 5etools export is
   ~2.3 MB before a single brew), which made D92's folder scan a way to *choose* books the app
