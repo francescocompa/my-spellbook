@@ -3,7 +3,7 @@
 > Resume doc. One current-state block, edited in place.
 > History → git log. Consumed phases and decision rationale → `ARCHIVE.md`.
 
-## TL;DR (2026-08-27 · code at HEAD, **pushed** · v7 COMPLETE · **LIVE on GitHub Pages**)
+## TL;DR (2026-08-27 · code at ecd05be, **pushed** · v7 COMPLETE · **LIVE on GitHub Pages**)
 - **State:** working, committed, **pushed**, tree clean. **v7 is COMPLETE (T1–T5 + T7)** and the
   backlog's last standing item shipped. One session took the importer and the custom-source
   surface end to end, **D90–D95**: the app icon (D90); honest zip errors, unpack progress and the
@@ -14,7 +14,7 @@
   (D93), closing T7; the **custom-source editor redesigned** progressive with a live summary
   (D94); its two **model gaps closed** — payment is per spell, and uses can be once-ever
   (D95); and a source may now grant a **choice** from filtered lists, not only a named spell
-  (D96 — Silverquill Primer). Ten note batches (**D43–D89**) landed before that → `ARCHIVE.md#v7-batches`. Extractor
+  (D96 — Silverquill Primer), each carrying **when it may be re-chosen** as a clock of its own. Ten note batches (**D43–D89**) landed before that → `ARCHIVE.md#v7-batches`. Extractor
   parity is byte-exact and now covers spell ACCESS as well as grants
   (`node scratchpad/cparity.js`, 26 ok / 0 fail).
 - **Next action:** 🔶 **decide the magic-item / reward import** — researched end to end this
