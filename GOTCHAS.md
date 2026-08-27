@@ -314,5 +314,20 @@
   bestiary source (MM, XMM, IDRotF…) never reaches the source registry — it has no spells or
   classes to count — so keying `filterDigest`'s monster pass on `keep` dropped 63 of 65 creatures
   and emptied Find Familiar's carousel. `out.spells[].creatures` is the only correct gate.
+- **The Library's "available" books live only in `SCAN` until Apply (D112).** A dimmed row is a
+  book the scanned folder offers; ticking it puts its code into `PLAN.keep` while
+  `PLAN.merged.sources` still lacks it — `applyImport` materializes those by staging their files
+  (plus the bookless aux files) and re-parsing, THEN restores the keep-set, because
+  `planFromStage` re-defaults it. Anything comparing `PLAN.keep` against `merged.sources` must
+  expect codes the merge hasn't seen yet.
+- **A dropped folder's handles must be collected synchronously in the drop handler.**
+  `DataTransferItem.getAsFileSystemHandle()` calls are made for every item BEFORE the first
+  `await` — the DataTransfer goes stale at the first microtask, and a late call returns null.
+  The webkitGetAsEntry fallback has the same rule for `getAsFileSystemHandle`-less browsers.
+- **`buildImport(only, auto)` — the auto path must not scold and must not reset your unticks.**
+  Parse-on-arrival (D112) re-runs `buildImport` after every staged batch; `planFromStage`
+  defaults the keep-set to everything merged, so the auto path re-applies the previous unticks
+  (except for freshly staged books). An empty stage in auto mode clears the incoming layer
+  silently — the "stage a file first" message is for the manual path only.
 - **History purge:** old data-bearing commits are unreachable on origin but GitHub may still serve
   them by exact SHA until it gc's. `backup/pre-purge-20260826` (local) has the original.

@@ -2352,7 +2352,7 @@ function renderImportStage(){const box=$("#importStaged");if(!box)return;box.inn
     IMPORT_STAGE.forEach((f,i)=>{const chip=el("span","stagechip"+(f.error?" bad":""));
       chip.append(el("span","stnm",f.name));
       chip.append(el("span","k",f.error?"invalid":countFile(f.json)));
-      const x=xBtn(null,()=>{IMPORT_STAGE.splice(i,1);renderImportStage();});chip.append(x);
+      const x=xBtn(null,()=>{IMPORT_STAGE.splice(i,1);renderImportStage();scheduleBuild();});chip.append(x);
       chips.append(chip);});
     const tog=el("button","acc-toggle st-toggle");tog.type="button";tog.textContent="⌄";
     tog.title=STAGE_EXP?"Show as one row":"Show every staged file";
@@ -2360,7 +2360,13 @@ function renderImportStage(){const box=$("#importStaged");if(!box)return;box.inn
     tog.onclick=()=>{STAGE_EXP=!STAGE_EXP;renderImportStage();};
     box.append(lbl,chips,tog);
   }
-  const bb=$("#importBuild");if(bb)bb.disabled=!IMPORT_STAGE.some(f=>!f.error);}
+  const cb=$("#importClear");if(cb)cb.classList.toggle("hidden",!n);}
+// D112: files parse on arrival. Staging is bursty (a zip unpacks 180 files, FileReaders land
+// out of order), so the parse runs once the burst settles rather than per file.
+let BUILD_TIMER=null;
+function scheduleBuild(){clearTimeout(BUILD_TIMER);
+  BUILD_TIMER=setTimeout(()=>{BUILD_TIMER=null;buildImport(null,true);},300);}
+function cancelBuild(){clearTimeout(BUILD_TIMER);BUILD_TIMER=null;}
 // A whole-repository download is gigabytes; a complete 5etools `data` export zips to ~25 MB.
 // Reading one means holding the ENTIRE archive in a single ArrayBuffer, so the oversized case
 // fails inside the browser as a NotReadableError whose stock text blames "permission problems".
@@ -2385,7 +2391,7 @@ async function stageZip(file){const rep=$("#importReport");
     const entries=await window.SB_extract.unzipJsonFiles(buf,(name,i,total)=>{
       rep.textContent="Unpacking "+file.name+" — "+i+"/"+total+": "+name;});
     if(!entries.length){rep.textContent="No recognised 5etools files in "+file.name+".";return;}
-    entries.forEach(e=>IMPORT_STAGE.push(e));rep.textContent="";renderImportStage();}
+    entries.forEach(e=>IMPORT_STAGE.push(e));rep.textContent="";renderImportStage();scheduleBuild();}
   catch(e){rep.innerHTML="Couldn’t read <b>"+esc(file.name)+"</b>: "+esc(e.message||String(e))
       +(file.size>64*1024*1024?ZIP_TOOBIG:"");}}
 function stageFiles(fileList){[...fileList].forEach(file=>{
@@ -2394,8 +2400,8 @@ function stageFiles(fileList){[...fileList].forEach(file=>{
     rd.onload=()=>{try{const j=JSON.parse(rd.result);
       // a bestiary file is mostly monsters this app never uses — slim it before staging
       IMPORT_STAGE.push({name:file.name,json:(window.SB_extract&&window.SB_extract.slimJson)?window.SB_extract.slimJson(j):j});
-    }catch(e){IMPORT_STAGE.push({name:file.name,error:true});}renderImportStage();};
-    rd.onerror=()=>{IMPORT_STAGE.push({name:file.name,error:true});renderImportStage();};
+    }catch(e){IMPORT_STAGE.push({name:file.name,error:true});}renderImportStage();scheduleBuild();};
+    rd.onerror=()=>{IMPORT_STAGE.push({name:file.name,error:true});renderImportStage();scheduleBuild();};
     rd.readAsText(file);});}
 function importSummary(r){return `${r.spells} spells · ${r.classes} classes · ${r.subclasses} subclasses · ${r.feats} feats · ${r.species} species`
   // Warn on the real symptom — spells no class can reach — not on a missing file. A brew
@@ -2485,7 +2491,19 @@ function planFromStage(incoming,report,only){
     : new Set(Object.keys(merged.sources||{}));
   PLAN={stored,incoming:incoming||emptyDigest(),merged,report,fresh,keep};
 }
+// D112: ONE map behind the list — every book you have or staged (from PLAN) plus every book
+// the scanned folder offers that you don't (state "available", rendered dim and unticked).
+function libAvail(code){return !(PLAN&&(PLAN.merged.sources||{})[code])&&SCAN&&SCAN.books[code];}
+function libMap(){
+  const map={};
+  Object.entries((PLAN&&PLAN.merged.sources)||{}).forEach(([c,s])=>{
+    map[c]={name:s.name||c,group:s.group||"other",counts:s.counts||{}};});
+  scanBooks().forEach(b=>{if(!map[b.code])
+    map[b.code]={name:b.name,group:b.group||"other",counts:b.counts,avail:true};});
+  return map;
+}
 function planCounts(code){
+  if(libAvail(code))return scanTotal(SCAN.books[code])+" · in folder";
   const c=(PLAN.merged.sources[code]||{}).counts||{};
   const n=(c.spells||0)+(c.classes||0)+(c.subclasses||0)+(c.feats||0)+(c.species||0);
   return (PLAN.fresh.has(code)?"new · ":"")+n;   // entities, not just spells
@@ -2493,20 +2511,22 @@ function planCounts(code){
 let PLAN_Q="";
 // which books the filter is showing — All / None act on THESE, so a search plus one click is
 // how you keep or drop a whole family of books
-function planShown(){
-  const all=Object.keys(PLAN.merged.sources||{});
+function planShown(map){
+  const all=Object.keys(map);
   const q=PLAN_Q.trim().toLowerCase(); if(!q)return all;
   return all.filter(c=>c.toLowerCase().includes(q)
-    ||String((PLAN.merged.sources[c]||{}).name||"").toLowerCase().includes(q));
+    ||String(map[c].name||"").toLowerCase().includes(q));
 }
 function renderImportPlan(){
   const box=$("#importPlan"); if(!box)return;
-  if(!PLAN||!Object.keys(PLAN.merged.sources||{}).length){box.classList.add("hidden");return;}
+  if(!PLAN)planFromStage(null,null);
+  const map=libMap();
+  if(!Object.keys(map).length){box.classList.add("hidden");renderImportPlanFoot();return;}
   box.classList.remove("hidden");
-  const shown=planShown();
+  const shown=planShown(map);
   const list=$("#importPlanList");
   if(shown.length)renderSourceChecklist(list,PLAN.keep,renderImportPlanFoot,new Set(shown),
-                                        planCounts,PLAN.merged.sources);
+                                        planCounts,map,{rowClass:c=>libAvail(c)?"avail":null});
   else {list.innerHTML="";list.append(el("div","empty","No book matches that."));}
   const q=$("#importPlanQuick"); q.innerHTML="";
   const f=el("input","planq"); f.type="search"; f.value=PLAN_Q;
@@ -2548,9 +2568,8 @@ function renderImportPlanFoot(){
 // it walks every .json ONCE, keeps only a book index (name, creator, counts, which files), and
 // throws each parsed file away. Peak memory is the largest single file, not the library.
 // Nothing is stored until books are ticked and imported.
-let SCAN=null;                 // {books:{code:{…}}, files, bytes, skipped, ms}
-let SCAN_PICK=new Set(), SCAN_Q="", SCAN_GROUP="none", FOLDER=null, SCAN_BUSY=false;
-const SCAN_GROUPS={none:"Every book",creator:"By creator",content:"By what it holds"};
+let SCAN=null;                 // {books:{code:{…}}, entries, files, bytes, skipped, ms}
+let FOLDER=null, SCAN_BUSY=false;
 
 // A directory handle is a live object — localStorage can't hold one, IndexedDB can. It shares
 // the one database with the imported content (D93); `handles` is its own store.
@@ -2637,127 +2656,62 @@ async function scanEntries(entries,label){
     if(!window.SB_extract){prog.textContent="Importer failed to load.";return;}
     if(!entries.length){prog.textContent="No .json files in that folder.";return;}
     SCAN=await runScan(entries);
-    SCAN.entries=entries;   // kept so importing re-reads only the ticked books' files
-    SCAN_PICK=new Set(); SCAN_Q="";
+    SCAN.entries=entries;   // kept so Apply re-reads only the ticked books' files
     const n=Object.keys(SCAN.books).length, withC=scanBooks().length;
     prog.innerHTML=`Scanned <b>${esc(label||"folder")}</b> — ${SCAN.read} file${SCAN.read===1?"":"s"}, `
       +`${Math.round(SCAN.bytes/1048576)} MB, <b>${withC}</b> book${withC===1?"":"s"} with content`
       +(n>withC?` (${n-withC} more declare nothing this app uses)`:"")
-      +`. Nothing is stored yet.`;
-    renderScan();
+      +`. Tick what you want below, then Apply.`;
+    renderImportPlan();
   }catch(e){prog.textContent="Couldn’t scan that folder: "+(e.message||e);}
   finally{SCAN_BUSY=false;}
 }
 // a book with no spells/classes/feats/species/optional features is noise in a 1,000-row list
 function scanBooks(){return SCAN?Object.values(SCAN.books).filter(b=>scanTotal(b)>0):[];}
-function scanShown(){
-  const q=SCAN_Q.trim().toLowerCase();
-  let list=scanBooks();
-  if(q)list=list.filter(b=>b.name.toLowerCase().includes(q)||b.code.toLowerCase().includes(q)
-    ||(b.creator||"").toLowerCase().includes(q));
-  return list;
-}
-function scanGroupOf(b){
-  if(SCAN_GROUP==="creator")return b.creator||"Unattributed";
-  if(SCAN_GROUP==="content"){const c=b.counts;
-    if(c.spells)return "Spells";
-    if(c.classes||c.subclasses)return "Classes & subclasses";
-    if(c.species)return "Species";
-    if(c.feats)return "Feats";
-    return "Optional features";}
-  return "all";
-}
-function scanCountLabel(b){
-  const c=b.counts,bits=[];
-  if(c.spells)bits.push(c.spells+"sp"); if(c.classes)bits.push(c.classes+"cl");
-  if(c.subclasses)bits.push(c.subclasses+"sub"); if(c.feats)bits.push(c.feats+"ft");
-  if(c.species)bits.push(c.species+"sp."); if(c.optfeats)bits.push(c.optfeats+"opt");
-  return bits.join(" ")||"—";
-}
-function renderScan(){
-  const box=$("#folderBooks"); if(!box)return;
-  if(!SCAN){box.classList.add("hidden");return;}
-  box.classList.remove("hidden");
-  const shown=scanShown();
-  // synthesize the srcMap the shared checklist eats, with `group` set by the chosen mode
-  const map={}; const names={all:"Every book"};
-  shown.slice().sort((a,b)=>a.name.localeCompare(b.name)).forEach(b=>{
-    const g=scanGroupOf(b); names[g]=g==="all"?`Every book (${shown.length})`:g;
-    map[b.code]={name:b.name,group:g,counts:b.counts};});
-  const list=$("#folderList");
-  if(shown.length)renderSourceChecklist(list,SCAN_PICK,renderScanFoot,null,
-      code=>scanCountLabel(SCAN.books[code]),map,
-      {groupName:names,
-       groupSort:(a,b)=>a==="all"?-1:b==="all"?1:a.localeCompare(b),
-       sortRows:(a,b)=>a[1].name.localeCompare(b[1].name)});
-  else {list.innerHTML="";list.append(el("div","empty","No book matches that."));}
-  const q=$("#folderQuick"); q.innerHTML="";
-  const f=el("input","planq"); f.type="search"; f.value=SCAN_Q;
-  f.placeholder="search "+scanBooks().length+" books…"; f.spellcheck=false;
-  f.oninput=e=>{SCAN_Q=e.target.value;renderScan();
-    const n=$("#folderQuick .planq"); if(n){n.focus();n.setSelectionRange(n.value.length,n.value.length);}};
-  q.append(f);
-  const quick=(label,fn,on)=>{const b=el("button","btn"+(on?" on":""),label);
-    b.onclick=()=>{fn();renderScan();};q.append(b);};
-  quick(SCAN_Q?"Tick shown":"Tick all",()=>shown.forEach(b=>SCAN_PICK.add(b.code)));
-  Object.keys(SCAN_GROUPS).forEach(g=>quick(SCAN_GROUPS[g],()=>{SCAN_GROUP=g;},SCAN_GROUP===g));
-  renderScanFoot();
-}
-function renderScanFoot(){
-  const sub=$("#folderPickSub"); if(!sub||!SCAN)return;
-  const picked=[...SCAN_PICK].filter(c=>SCAN.books[c]);
-  const ents=picked.reduce((n,c)=>n+scanTotal(SCAN.books[c]),0);
-  const files=new Set(); picked.forEach(c=>SCAN.books[c].files.forEach(p=>files.add(p)));
-  sub.textContent=picked.length
-    ? `${picked.length} book${picked.length===1?"":"s"} ticked · ${ents} entries from ${files.size} file${files.size===1?"":"s"}`
-    : "Tick the books you want, then import.";
-  const btn=$("#folderImport"); if(btn)btn.disabled=!picked.length;
-}
-// Re-read ONLY the files backing the ticked books, then hand them to the normal staging flow so
-// D86's "Your books" panel and its Apply still decide what is stored.
-async function importScanned(){
-  if(!SCAN||SCAN_BUSY)return;
-  const picked=[...SCAN_PICK].filter(c=>SCAN.books[c]);
-  if(!picked.length)return;
-  const want=new Set(); picked.forEach(c=>SCAN.books[c].files.forEach(p=>want.add(p)));
+// Re-read the files backing `codes` and stage them, exactly as a zip stages. A ticked book's
+// files are not the whole import: three file classes register under NO book — the spell-source
+// lookup (class access, D91), books.json (titles/groups) and bestiary files (stat blocks live
+// with the SPELL that references them, D86) — and the zip path ships them all. Stage every
+// scanned file no book claims, alongside the picks.
+async function stageScanBooks(codes){
+  const want=new Set(); codes.forEach(c=>{const b=SCAN.books[c];if(b)b.files.forEach(p=>want.add(p));});
+  if(!want.size)return 0;
   const prog=$("#folderProgress");
-  SCAN_BUSY=true;
-  try{
-    // A ticked book's files are not the whole import. Three file classes register under NO
-    // book — the spell-source lookup (class access, D91), books.json (titles/groups) and
-    // bestiary files (stat blocks live with the SPELL that references them, D86) — and the
-    // zip path ships them all. Stage every scanned file no book claims, alongside the picks.
-    const claimed=new Set();
-    Object.values(SCAN.books).forEach(b=>b.files.forEach(p=>claimed.add(p)));
-    const wanted=window.SB_extract.zipWanted;
-    const entries=(SCAN.entries||[]).filter(e=>want.has(e.path)||(wanted(e.path)&&!claimed.has(e.path)));
-    if(!entries.length){prog.textContent="Those files are no longer reachable — rescan the folder.";return;}
-    // same contract as the unzip path: feature files first, so the form refs a feature adds
-    // to a familiar spell are registered before slimJson decides which monsters survive
-    entries.sort((a,b)=>window.SB_extract.readOrder(a.path)-window.SB_extract.readOrder(b.path));
-    window.SB_extract.resetFormRefs();
-    let i=0;
-    for(const e of entries){
-      i++;
-      try{const f=await e.getFile();
-        const j=window.SB_extract.dropFoundryStubs(JSON.parse(await f.text()));
-        // same gate as the unzip path: parse, keep only what the digest can use, slim
-        if(j&&window.SB_extract.usefulJson(j))
-          IMPORT_STAGE.push({name:e.path.split("/").pop(),json:window.SB_extract.slimJson(j)});
-      }catch(_){}
-      if(i%5===0||i===entries.length){
-        prog.textContent=`Reading ${i}/${entries.length} file${entries.length===1?"":"s"}…`;
-        await new Promise(r=>setTimeout(r,0));}
-    }
-    prog.textContent="";
-    renderImportStage();
-    buildImport(picked);      // the ticked books define the keep-list
-  }finally{SCAN_BUSY=false;}
+  const claimed=new Set();
+  Object.values(SCAN.books).forEach(b=>b.files.forEach(p=>claimed.add(p)));
+  const wanted=window.SB_extract.zipWanted;
+  const entries=(SCAN.entries||[]).filter(e=>want.has(e.path)||(wanted(e.path)&&!claimed.has(e.path)));
+  if(!entries.length){prog.textContent="Those files are no longer reachable — rescan the folder.";return 0;}
+  // same contract as the unzip path: feature files first, so the form refs a feature adds
+  // to a familiar spell are registered before slimJson decides which monsters survive
+  entries.sort((a,b)=>window.SB_extract.readOrder(a.path)-window.SB_extract.readOrder(b.path));
+  window.SB_extract.resetFormRefs();
+  let i=0,staged=0;
+  for(const e of entries){
+    i++;
+    try{const f=await e.getFile();
+      const j=window.SB_extract.dropFoundryStubs(JSON.parse(await f.text()));
+      // same gate as the unzip path: parse, keep only what the digest can use, slim
+      if(j&&window.SB_extract.usefulJson(j)){
+        IMPORT_STAGE.push({name:e.path.split("/").pop(),json:window.SB_extract.slimJson(j)});staged++;}
+    }catch(_){}
+    if(i%5===0||i===entries.length){
+      prog.textContent=`Reading ${i}/${entries.length} file${entries.length===1?"":"s"}…`;
+      await new Promise(r=>setTimeout(r,0));}
+  }
+  prog.textContent="";
+  renderImportStage();
+  return staged;
 }
-function buildImport(only){
+// `auto` marks the parse-on-arrival path (D112): an empty stage quietly clears the incoming
+// layer instead of scolding, and an untick you already made survives the re-parse.
+function buildImport(only,auto){
   const files=IMPORT_STAGE.filter(f=>!f.error).map(f=>({name:f.name,json:f.json}));
   const rep=$("#importReport");
-  if(!files.length){rep.textContent="Stage at least one valid file first.";return;}
+  const prevKeep=(auto&&PLAN)?new Set(PLAN.keep):null;
+  if(!files.length){
+    if(auto){planFromStage(null,null);renderImportPlan();rep.textContent="";return;}
+    rep.textContent="Stage at least one valid file first.";return;}
   if(!window.SB_extract){rep.textContent="Importer failed to load.";return;}
   rep.textContent="Reading…";
   const res=window.SB_extract.buildDigest(files);const digest=res.digest,report=res.report;
@@ -2765,13 +2719,37 @@ function buildImport(only){
   // (D&D Beyond's Expanded Racial Feats is exactly that). Any entity the app models counts.
   if(!digestSize(digest)){rep.textContent="No spells, classes, feats or species found in these files.";return;}
   planFromStage(digest,report,only); renderImportPlan();
+  if(prevKeep){ // a book you unticked stays unticked when another batch lands
+    Object.keys(PLAN.merged.sources||{}).forEach(c=>{
+      if(!prevKeep.has(c)&&!PLAN.fresh.has(c))PLAN.keep.delete(c);});
+    renderImportPlan();}
   rep.innerHTML=`Read ${files.length} file${files.length===1?"":"s"} — ${importSummary(report)}.`
-    +` <b>Nothing is stored yet:</b> choose the books below, then Apply.`;
+    +` <b>Nothing is stored yet:</b> tick the books below, then Apply.`;
 }
+// D112: one Apply reconciles everything — a ticked "available" book is read from the scanned
+// folder first, then the whole keep-set is stored in one write.
 async function applyImport(){
   const rep=$("#importReport"); if(!PLAN)return;
+  cancelBuild();
+  const keepBefore=new Set(PLAN.keep);
+  const need=[...keepBefore].filter(c=>!(PLAN.merged.sources||{})[c]&&SCAN&&SCAN.books[c]);
+  if(need.length){
+    if(SCAN_BUSY)return;
+    SCAN_BUSY=true;
+    try{await stageScanBooks(need);}finally{SCAN_BUSY=false;}
+    buildImport(null,true);
+    if(!PLAN)return;
+    // the re-parse defaults the keep-set; what you had ticked (and unticked) is the truth
+    PLAN.keep=new Set([...keepBefore].filter(c=>(PLAN.merged.sources||{})[c]));
+  }
+  await applyPlan(rep);
+}
+async function applyPlan(rep,refreshed){
   const out=filterDigest(PLAN.merged,PLAN.keep);
   if(!digestSize(out)){rep.textContent="That would leave no content at all — keep at least one book.";return;}
+  // D111: stamp what made this data, so Refresh can say whether the new parser ran
+  out.meta=Object.assign({},out.meta,{importedAt:new Date().toISOString(),
+    parser:window.__VERSION__||"dev"});
   const btn=$("#importApply"); if(btn)btn.disabled=true;
   rep.textContent="Storing…";
   const err=await importSave(out);
@@ -2785,30 +2763,79 @@ async function applyImport(){
   SRC.add(HB_SRC); saveSources();
   assembleData();pruneState();
   IMPORT_STAGE=[];renderImportStage();
-  // those books are in your data now — leaving them ticked in the scan reads as pending work
-  SCAN_PICK=new Set(); renderScan();
   planFromStage(null,PLAN.report); renderImportPlan();
-  refreshAll();render();
+  refreshAll();render();renderLibFoot();
+  $("#libTabSrc").classList.toggle("hidden",!hasContent());   // onboarding hid it; content is here now
   const nb=Object.keys(out.sources).length;
-  rep.innerHTML=`<b style="color:var(--good)">Applied.</b> ${nb} book${nb===1?"":"s"} · `
+  const head=refreshed?`Re-imported ${nb} book${nb===1?"":"s"} with parser v${window.__VERSION__||"dev"}.`
+    :`<b style="color:var(--good)">Applied.</b> ${nb} book${nb===1?"":"s"} ·`;
+  rep.innerHTML=(refreshed?`<b style="color:var(--good)">${head}</b> `:head+" ")
     +`${out.spells.length} spells · ${out.classes.length} classes · ${out.subclasses.length} subclasses · `
-    +`${out.feats.length} feats · ${out.races.length} species. Close to see it.`;
+    +`${out.feats.length} feats · ${out.races.length} species.`+(refreshed?"":" Close to see it.");
 }
-function openImport(welcome){closeMenu();const r=$("#importReport");
-  if(r)r.textContent=IMPORTED?"Staging more files ADDS to what you have — only identical entries are replaced.":"";
+// D111: one click, then report. Re-reads the remembered folder with the CURRENT parser and
+// re-imports exactly the books already stored — no book-picking step, nothing new added.
+async function refreshImported(){
+  closeMenu(); openImport(false,"man");
+  const rep=$("#importReport");
+  const stored=Object.keys((IMPORTED&&IMPORTED.sources)||{});
+  if(!stored.length){rep.textContent="Nothing imported yet — Refresh re-reads books you already imported.";return;}
+  if(SCAN_BUSY)return;
+  if(FOLDER&&await folderUsable(FOLDER,true)){
+    try{await scanEntries(await folderEntries(FOLDER),FOLDER.name||"folder");}
+    catch(e){rep.textContent="Couldn’t read the remembered folder: "+(e.message||e);return;}
+  }
+  if(!SCAN){rep.innerHTML="Refresh needs your 5etools files — <b>choose the folder</b> above (it will be remembered), or drop the .zip and Apply.";return;}
+  const kept=stored.filter(c=>SCAN.books[c]);
+  if(!kept.length){rep.textContent="The scanned folder holds none of your imported books.";return;}
+  IMPORT_STAGE=[]; cancelBuild();
+  SCAN_BUSY=true;
+  try{await stageScanBooks(kept);}finally{SCAN_BUSY=false;}
+  buildImport(null,true);
+  if(!PLAN)return;
+  PLAN.keep=new Set(stored.filter(c=>(PLAN.merged.sources||{})[c]));
+  await applyPlan(rep,true);
+}
+let LIB_TAB="src";
+function setLibTab(t){LIB_TAB=t;
+  $("#libTabSrc").classList.toggle("on",t==="src");
+  $("#libTabMan").classList.toggle("on",t==="man");
+  $("#libSrcPane").classList.toggle("hidden",t!=="src");
+  $("#libManPane").classList.toggle("hidden",t!=="man");
+  if(t==="src")renderLibSources(); else renderLibFoot();
+}
+function openImport(welcome,tab){closeMenu();const r=$("#importReport");
+  if(r)r.textContent=IMPORTED?"Adding files ADDS to what you have — only identical entries are replaced.":"";
   const w=$("#importWelcome");if(w)w.classList.toggle("hidden",!welcome);
-  const t=$("#importTitle");if(t)t.textContent=welcome?"Load your spell data":"Import 5etools data";
+  // no content yet → the Sources tab has nothing to toggle; open straight into Manage
+  const bare=!hasContent();
+  $("#libTabSrc").classList.toggle("hidden",bare);
+  setLibTab(bare?"man":(tab||(welcome?"man":"src")));
   planFromStage(null,null); renderImportPlan();
-  renderImportStage();$("#importModal").classList.remove("hidden");
+  renderImportStage(); renderLibFoot();
+  $("#importModal").classList.remove("hidden");
   // A remembered folder is recalled SILENTLY — `false` means never prompt for permission here,
   // because a permission request outside a user gesture is refused anyway. The Rescan button
   // asks for real when it is clicked.
-  renderScan(); folderButtons();
+  folderButtons();
   if(FSA()&&!FOLDER)folderRecall().then(async h=>{
     if(h&&await folderUsable(h,false)){FOLDER=h;folderButtons();}
     else if(h){FOLDER=h;folderButtons();          // known but not yet granted — Rescan will ask
-      const p=$("#folderProgress"); if(p&&!p.textContent)p.textContent="Folder remembered — press Rescan to re-open it.";}
+      const p=$("#folderProgress"); if(p&&!p.textContent)p.textContent="Folder remembered — press “Rescan folder” to re-open it.";}
   });}
+// the Manage footer: storage total (D112) and the last-import stamp (D111)
+function renderLibFoot(){
+  const st=$("#libStore"); if(!st)return;
+  const meta=(IMPORTED&&IMPORTED.meta)||{};
+  const stamp=$("#importRefresh");
+  if(stamp){const when=meta.importedAt?new Date(meta.importedAt).toLocaleDateString():null;
+    stamp.title=when?`Last import ${when} · parser v${meta.parser||"?"}`:"Nothing imported yet";}
+  st.textContent="";
+  if(navigator.storage&&navigator.storage.estimate)
+    navigator.storage.estimate().then(e=>{ if(!e||!e.usage)return;
+      const mb=e.usage/1048576;
+      st.textContent=`imported data ≈ ${mb<1?"<1":Math.round(mb)} MB in this browser`;}).catch(()=>{});
+}
 async function clearImport(){await importDrop();assembleData();pruneState();refreshAll();render();}
 // no-content build (public deploy): pop the import modal in welcome mode, once
 let onboardShown=false;
@@ -4525,7 +4552,8 @@ function renderSourceChecklist(wrap,sel,onChange,codes,countOf,srcMap,opts){
     gd.append(list);wrap.append(gd);});
   return all.length;
 }
-// the quick buttons that sit above a checklist ("all" / "none" / "2024 core only")
+// the quick actions behind a checklist's Actions menu ("2024 core only" died with D113 —
+// the 2024 core group header's own all-tick covers it)
 function srcQuick(sel,onChange,codes){
   const has=c=>!codes||codes.has(c);
   const pool=Object.keys(DATA.sources).filter(has);
@@ -4533,9 +4561,17 @@ function srcQuick(sel,onChange,codes){
           none:()=>{pool.forEach(c=>sel.delete(c));onChange();},
           core:()=>{pool.forEach(c=>sel.delete(c));CORE_2024.filter(has).forEach(c=>sel.add(c));onChange();}};
 }
-function renderSrcModal(){
-  const n=renderSourceChecklist($("#srcList"),SRC,afterSourceChange);
-  $("#srcSub").textContent=`${SRC.size} of ${n} enabled`;
+// D113: the Library's Sources tab — the old Sources modal with a search field
+let SRC_Q="";
+function renderLibSources(){
+  const total=Object.keys(DATA.sources).length;
+  const q=SRC_Q.trim().toLowerCase();
+  const codes=q?new Set(Object.keys(DATA.sources).filter(c=>c.toLowerCase().includes(q)
+    ||String((DATA.sources[c]||{}).name||"").toLowerCase().includes(q))):null;
+  const list=$("#srcList");
+  const n=renderSourceChecklist(list,SRC,afterSourceChange,codes);
+  if(!n){list.innerHTML="";list.append(el("div","empty","No book matches that."));}
+  $("#srcSub").textContent=`${SRC.size} of ${total} enabled`;
 }
 function afterSourceChange(){
   // T2: turning a book OFF no longer strips what it gave you. Picks are kept and flagged by
@@ -4544,7 +4580,7 @@ function afterSourceChange(){
   // a newly enabled book must not stay invisible behind a stale filter override
   if(state.filters.books)SRC.forEach(c=>state.filters.books.add(c));
   saveSources(); save();               // sources are global; the build records what it saw
-  refreshAll();renderSrcModal();render();
+  refreshAll();renderLibSources();render();
 }
 function refreshAll(){CASTMODS=activeCastMods();refreshAddClass();refreshSpecies();refreshAddFeat();renderClassRows();renderFeatChips();renderOptFeats();renderCustomSources();}
 
@@ -4611,22 +4647,72 @@ $("#customModal").onclick=e=>{if(e.target.id==="customModal")$("#customModal").c
 $("#customPrev").onclick=()=>{if(CSTEP>0){CSTEP--;renderCustomStep();}};
 $("#customNext").onclick=()=>{if(CSTEP<CSTEP_NAMES.length-1){CSTEP++;renderCustomStep();}};
 $("#customDone").onclick=compileCustom;
-$("#importBtn").onclick=openImport;
+$("#libBtn").onclick=()=>openImport(false);
+$("#refreshBtn").onclick=refreshImported;
+$("#importRefresh").onclick=refreshImported;
+$("#libTabSrc").onclick=()=>setLibTab("src");
+$("#libTabMan").onclick=()=>setLibTab("man");
+$("#libSrcSearch").oninput=e=>{SRC_Q=e.target.value;renderLibSources();};
+$("#srcActBtn").onclick=e=>{e.stopPropagation();toggleMenu("#srcActPop");};
+{const q=()=>srcQuick(SRC,afterSourceChange);
+ $("#srcAll").onclick=()=>{closeMenu();q().all();};
+ $("#srcNone").onclick=()=>{closeMenu();q().none();};}
+$("#pasteTog").onclick=()=>{const b=$("#pasteBox"),open=b.classList.toggle("hidden");
+  $("#pasteTog").setAttribute("aria-expanded",String(!open));
+  if(!open)$("#importPaste").focus();};
 $("#importClose").onclick=()=>$("#importModal").classList.add("hidden");
 $("#importModal").onclick=e=>{if(e.target.id==="importModal")$("#importModal").classList.add("hidden");};
 $("#importPick").onclick=e=>{e.stopPropagation();$("#importFiles").click();};
-$("#importDrop").onclick=()=>$("#importFiles").click();
 $("#importFiles").onchange=e=>{stageFiles(e.target.files);e.target.value="";};
+// D112: ONE drop zone. A .zip or JSON files stage; a dragged FOLDER scans — in Chrome it
+// yields the same rememberable handle the picker gives (so Refresh works from a drop), and
+// elsewhere webkitGetAsEntry walks it for this session.
 {const drop=$("#importDrop");
  drop.ondragover=e=>{e.preventDefault();drop.classList.add("drag");};
  drop.ondragleave=()=>drop.classList.remove("drag");
- drop.ondrop=e=>{e.preventDefault();drop.classList.remove("drag");stageFiles(e.dataTransfer.files);};}
+ drop.ondrop=e=>{e.preventDefault();drop.classList.remove("drag");
+   const items=[...((e.dataTransfer&&e.dataTransfer.items)||[])].filter(i=>i.kind==="file");
+   if(items.length&&items[0].getAsFileSystemHandle){
+     // handles must be requested synchronously, before the DataTransfer goes stale
+     const hps=items.map(i=>i.getAsFileSystemHandle());
+     (async()=>{
+       const hs=(await Promise.all(hps)).filter(Boolean);
+       const files=await Promise.all(hs.filter(h=>h.kind==="file").map(h=>h.getFile()));
+       if(files.length)stageFiles(files);
+       for(const d of hs.filter(h=>h.kind==="directory"))await scanHandle(d,true);
+     })().catch(err=>{$("#importReport").textContent="Couldn’t read that drop: "+(err.message||err);});
+     return;}
+   if(items.length&&items[0].webkitGetAsEntry){
+     const entries=items.map(i=>i.webkitGetAsEntry()).filter(Boolean);
+     const dirs=entries.filter(en=>en&&en.isDirectory);
+     if(dirs.length){
+       (async()=>{
+         const out=[];
+         for(const d of dirs)await entryWalk(d,"",out);
+         await scanEntries(out,dirs[0].name||"folder");
+       })().catch(err=>{$("#importReport").textContent="Couldn’t read that folder: "+(err.message||err);});
+       const loose=[...e.dataTransfer.files].filter((_,i)=>entries[i]&&!entries[i].isDirectory);
+       if(loose.length)stageFiles(loose);
+       return;}}
+   stageFiles(e.dataTransfer.files);};}
+// the webkitGetAsEntry walker: same {path,getFile} shape as folderEntries, same skips
+async function entryWalk(entry,base,out){
+  if(!entry||entry.name==="_img"||entry.name.charAt(0)===".")return;
+  if(entry.isFile){
+    if(/\.json$/i.test(entry.name))
+      out.push({path:base+entry.name,getFile:()=>new Promise((res,rej)=>entry.file(res,rej))});
+    return;}
+  if(entry.isDirectory){
+    const readAll=dir=>new Promise(res=>{const r=dir.createReader();const acc=[];
+      const step=()=>r.readEntries(es=>{if(!es.length)return res(acc);acc.push(...es);step();});step();});
+    const kids=await readAll(entry);
+    for(const k of kids)await entryWalk(k,base+entry.name+"/",out);}
+}
 $("#importPasteAdd").onclick=()=>{const t=$("#importPaste").value.trim();if(!t)return;
-  try{IMPORT_STAGE.push({name:"pasted "+(IMPORT_STAGE.length+1),json:JSON.parse(t)});$("#importPaste").value="";$("#importReport").textContent="";renderImportStage();}
+  try{IMPORT_STAGE.push({name:"pasted "+(IMPORT_STAGE.length+1),json:JSON.parse(t)});$("#importPaste").value="";$("#importReport").textContent="";renderImportStage();scheduleBuild();}
   catch(e){$("#importReport").textContent="Pasted text isn’t valid JSON.";}};
-$("#importClear").onclick=()=>{IMPORT_STAGE=[];renderImportStage();
+$("#importClear").onclick=()=>{IMPORT_STAGE=[];cancelBuild();renderImportStage();
   planFromStage(null,null);renderImportPlan();$("#importReport").textContent="";};
-$("#importBuild").onclick=()=>buildImport();   // no `only` — staging IS the choice of what to add
 $("#importApply").onclick=applyImport;
 
 // ── folder scan wiring (D92) ───────────────────────────────────────────────────
@@ -4668,12 +4754,11 @@ $("#folderRescan").onclick=async()=>{
   catch(e){prog.textContent="Couldn’t read that folder: "+(e.message||e);
     await folderForget(); folderButtons();}
 };
-$("#folderForget").onclick=async()=>{await folderForget();SCAN=null;SCAN_PICK=new Set();
-  $("#folderProgress").textContent="";renderScan();folderButtons();};
+$("#folderForget").onclick=async()=>{await folderForget();SCAN=null;
+  $("#folderProgress").textContent="";renderImportPlan();folderButtons();};
 $("#folderInput").onchange=e=>{const l=e.target.files;
   if(l&&l.length)scanEntries(inputEntries(l),l[0].webkitRelativePath?l[0].webkitRelativePath.split("/")[0]:"folder");
   e.target.value="";};
-$("#folderImport").onclick=importScanned;
 $("#srcAskKeep").onclick=()=>{$("#srcAskModal").classList.add("hidden");const f=SRCASK&&SRCASK.after;SRCASK=null;if(f)f(false);};
 $("#srcAskSwitch").onclick=()=>{$("#srcAskModal").classList.add("hidden");const f=SRCASK&&SRCASK.after;SRCASK=null;if(f)f(true);};
 $("#buildsBtn").onclick=openBuilds;
@@ -4756,11 +4841,6 @@ $("#nbCreate").onclick=()=>{
 };
 $("#nbVer").onkeydown=e=>{if(e.key==="Enter")$("#nbCreate").click();};
 $("#nbChar").onkeydown=e=>{if(e.key==="Enter")$("#nbVer").focus();};
-$("#sourcesBtn").onclick=()=>{closeMenu();renderSrcModal();$("#srcModal").classList.remove("hidden");};
-$("#srcClose").onclick=()=>$("#srcModal").classList.add("hidden");
-$("#srcModal").onclick=e=>{if(e.target.id==="srcModal")$("#srcModal").classList.add("hidden");};
-{const q=()=>srcQuick(SRC,afterSourceChange);
- $("#srcAll").onclick=()=>q().all(); $("#srcNone").onclick=()=>q().none(); $("#src2024").onclick=()=>q().core();}
 armConfirm($("#resetBtn"),null,()=>{
   state.classes=[];state.feats=[];state.optFeats=[];state.speciesKey="";state.chosen={};state.choices={};state.nextRowId=1;
   state.filters=FILTER_DEFAULT();

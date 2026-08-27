@@ -351,6 +351,15 @@
 .helpbody code{font-size:11px}
 
 /* D86 — the import plan: one list of every book that will be in your data */
+/* D110: the Library's tab bar — Sources | Manage */
+.libtabs{display:flex;gap:2px;padding:0 18px;border-bottom:1px solid var(--line)}
+.libtabs button{background:none;border:none;padding:8px 12px;font:inherit;font-size:13.5px;
+  color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+.libtabs button:hover{color:var(--ink)}
+.libtabs button.on{color:var(--accent);border-bottom-color:var(--accent)}
+/* D112: a book the scanned folder offers but you haven't imported */
+.importplan label.avail{opacity:.55}
+.importplan label.avail:hover{opacity:.85}
 .importplan{margin-top:14px;padding:12px;border:1px solid var(--line-strong);border-radius:10px;
   background:var(--panel-2)}
 .importplan .iph{display:flex;align-items:center;gap:9px;margin-bottom:6px}

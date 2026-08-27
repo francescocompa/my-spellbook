@@ -13,7 +13,10 @@ was rewritten, so every SHA in `STATE.md`, `ARCHIVE.md` and the memories stays v
 
 | Version | Commit | What shipped |
 |---|---|---|
-| **1.0** | — | The app reports its own version. `VERSION` + `bump.py` + a footer tag; the numbering starts here. |
+| **1.3** | — | **The Library** (D110–D113): import + Sources merged into one two-tab modal; universal drop zone (zip / files / dragged folder); one three-state book list with one Apply; parse on arrival; Refresh imported data (one click, summary + parser stamp); edition-first source groups with search. |
+| **1.2** | d9a233f | Stat-block tag strip on every free-text field (the Imp's `{@variantrule}`); folder scan backfills book names from books.json; folder import carries the lookup, books.json and bestiary files, in readOrder. |
+| **1.1** | e9d4886 | `/clean`: the doc set split (STATE → CLAUDE/PLAN/DECISIONS/GOTCHAS/CHANGELOG/ARCHIVE). |
+| **1.0** | 7523c81 | The app reports its own version. `VERSION` + `bump.py` + a footer tag; the numbering starts here. |
 
 ## 0.x — before the numbering (tagged retroactively)
 
