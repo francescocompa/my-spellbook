@@ -104,11 +104,17 @@ self.addEventListener("fetch", e => {
 
 def read(*p): return open(os.path.join(ROOT, *p), encoding="utf-8").read()
 
+# The live version, shown in the app's footer. One file is the source of truth: bump.py
+# writes it, build.py injects it, app.js renders it. MAJOR.MINOR, minor per commit — the
+# major only ever moves on Francesco's say-so.
+VERSION = read("VERSION").strip()
+
 data_json = read("data", "data.json")
 assert "</script" not in data_json.lower(), "data contains </script"
 
 # 1. dev global for src/index.html
 with open(os.path.join(ROOT, "data", "data.js"), "w", encoding="utf-8") as f:
+    f.write("window.__VERSION__=" + json.dumps(VERSION) + ";\n")
     f.write("window.__DATA__=" + data_json + ";\n")
 
 # 2. self-contained dist/index.html
@@ -125,7 +131,8 @@ html = html.replace('<script src="app.js"></script>',
 
 # 2a. dist/index.html — self-contained, WITH baked data (personal offline build)
 dist = html.replace('<script src="../data/data.js"></script>',
-                    "<script>window.__DATA__=" + data_json + ";</script>")
+                    "<script>window.__VERSION__=" + json.dumps(VERSION)
+                    + ";window.__DATA__=" + data_json + ";</script>")
 # no manifest and no worker: dist/ is opened by double-click over file://, where a
 # service worker cannot register and an install prompt has no origin to attach to
 dist = dist.replace("<!--PWA-->", "")
@@ -137,7 +144,7 @@ copy_icon("dist")
 # 2b. docs/index.html — public GitHub Pages build. Ships the SRD 5.2 subset
 # (CC-BY-4.0, safe to distribute); importing a 5etools export adds the rest.
 srd_file = os.path.join(ROOT, "data", "data-srd.json")
-srd_js = "window.__PUBLIC__=1;"
+srd_js = "window.__PUBLIC__=1;window.__VERSION__=" + json.dumps(VERSION) + ";"
 if os.path.exists(srd_file):
     srd_js += "window.__DATA__=" + read("data", "data-srd.json") + ";"
 shell = html.replace('<script src="../data/data.js"></script>', "<script>" + srd_js + "</script>")
@@ -158,5 +165,5 @@ with open(os.path.join(ROOT, "docs", "manifest.webmanifest"), "w", encoding="utf
 with open(os.path.join(ROOT, "docs", "sw.js"), "w", encoding="utf-8") as f:
     f.write(SW % stamp)
 
-print(f"data.js {len(data_json)//1024} KB · dist {len(dist)//1024} KB (with data) · "
+print(f"v{VERSION} · data.js {len(data_json)//1024} KB · dist {len(dist)//1024} KB (with data) · "
       f"docs {len(shell)//1024} KB (SRD subset) · sw cache spellbook-{stamp}")

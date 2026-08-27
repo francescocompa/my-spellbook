@@ -5071,6 +5071,11 @@ function randomBuild(){
   save();refreshAll();render();
 }
 // the 🎲 random-build helper is a local testing tool — hide it on the public build
+// which build you are looking at. build.py injects `__VERSION__` from the VERSION file
+// into every deliverable, so the footer of a page always names the code that made it —
+// including on a printed sheet, which is where "is this current?" actually gets asked.
+{const v=$("#appVer");
+ if(v)v.textContent=window.__VERSION__?"v"+window.__VERSION__:"";}
 if(typeof window!=="undefined"&&window.__PUBLIC__){const tb=$("#testBtn");if(tb)tb.remove();}
 else $("#testBtn").onclick=randomBuild;
 

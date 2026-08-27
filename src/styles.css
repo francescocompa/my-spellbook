@@ -75,6 +75,11 @@
   .wrap{max-width:1320px;margin:0 auto;padding:18px 20px 80px}
   footer.credit{margin-top:26px;padding-top:14px;border-top:1px solid var(--line);font-size:11px;line-height:1.6;color:var(--muted)}
   footer.credit b{color:var(--muted);font-weight:600}
+  /* the live version, first thing in the footer — a monospaced tag, not prose */
+  footer.credit .appver{display:inline-block;margin-right:9px;padding:1px 7px;border-radius:6px;
+    background:var(--panel-2);border:1px solid var(--line);font-family:var(--mono,ui-monospace,monospace);
+    font-size:10.5px;font-weight:600;color:var(--muted);letter-spacing:.02em}
+  footer.credit .appver:empty{display:none}
   footer.credit a{color:var(--accent);text-decoration:none}footer.credit a:hover{text-decoration:underline}
   /* controls are icon-height now, so the row centres — baseline only made sense for text */
   header.top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:4px 0 14px;border-bottom:1px solid var(--line);margin-bottom:18px}
