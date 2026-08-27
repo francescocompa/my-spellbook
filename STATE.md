@@ -408,6 +408,17 @@ stays out. Server sync or accounts. Sharing a build as a rendered page, or via a
   card, the D76 weighting explanation on a popover on the meter that states it. *Rejected:* one
   rule for every note (Francesco: "depends on the instance"); tightening the prose in place with no
   popovers (the removal warning has to stay long, and had nowhere to go).
+- **D90 (2026-08-27) App icon / favicon — "Secret book" (Delapouite, game-icons.net, CC BY 3.0)
+  on the parchment-on-accent tile** — Francesco's pick "**for now**" from an 8-candidate
+  comparison rendered at 16/32/48 px in the app's palette (`scratchpad/icon-compare.html`).
+  Delivered as a **data-URI SVG favicon inline in `src/index.html`** (rounded #8a3324 tile,
+  #f4f1ea glyph — survives all three builds with no build.py change, keeps dist self-contained)
+  plus `docs/apple-touch-icon.png` (180 px, full-bleed — iOS masks its own corners; build.py never
+  wipes docs/, so the static file survives rebuilds). CC BY credit added to the footer beside the
+  SRD line; glyph source kept at `scratchpad/favicon.svg`. *Rejected:* spell-book (recommended —
+  literal name match, but Francesco's call), enlightenment (crispest at 16 px), book-aura;
+  gold-on-ink and ink-on-parchment treatments. **Provisional** — "for now" means revisiting is
+  fair game, but re-proposing the three rejected icons unprompted is not.
 - **D89 (2026-08-27) D39 reaches the spell-PICK modal too** — the printed book left the eligible
   list in D39 but stayed on the rows of the wizard's "copy into your book" and the Magical Secrets
   picker, so two spell lists behaved differently for no reason a reader could infer. It is gone
@@ -857,5 +868,3 @@ written up in full under Gotchas below — that is the copy to trust.
   bug hunts on top of the tasks. Per-batch narrative → `ARCHIVE.md#v7-batches`; the earlier notes
   → `ARCHIVE.md#v7-notes`. The load-bearing outcomes are the decisions above and the Gotchas
   below — this list used to restate them a third time.
-
-⟳ Rename previous session → "Feat slots, casting mods, additive imports" · session: resolve by cwd + latest
