@@ -260,3 +260,213 @@ only the narrative of what each batch contained.
   missing Mystic Arcanum and Contact Patron's free cast); the Magical Secrets picker (D80); the
   carousel's book panel and bottom controls (D81); a two-pass audit of every XPHB class and
   subclass for missing spell sources.
+- **Batch 8 (a bug hunt, not notes)** — the importer had been silently corrupting **every** zip
+  import: per-directory `foundry.json` files slipped past `zipWanted()` and their stubs overwrote
+  real records (D82). Then the stat block head rebuilt as sibling buttons after the nested-
+  `<button>` hoist, the carousel's shared book checklist / pinned controls / `-alt` group names
+  (D83), and an empty stored import that could blank the app.
+- **Batch 10 (6 notes, 2026-08-27)** — a polish-and-backlog pass. The switcher's characters became
+  cards with a pinned footer (D87, mocked up against a rail variant and chosen side by side);
+  reference prose moved behind a `?` disclosure while live state stayed visible (D88); the staged
+  files collapsed to one scrolling row with the Access section's expander; casting mods reached
+  the spell table as a chip row plus a marker on the Source cell; the double divider above a
+  dimmed picker section is gone; the book chip left the spell-pick modal (D89). Eight backlog
+  items closed, among them the standing extractor-parity ⚑ (one `undefined`/`null` slip — grants
+  are byte-exact on 929 shared records), the `page`-less book chips, `scope.giver`'s substring
+  fragility, and a homebrew manager under ⋯ → **My homebrew**.
+- **Batch 9 (4 notes, 2026-08-27)** — the build switcher's version and character names became
+  fields you type in, and its per-row ⋯ menu stopped being clipped by the popover it lives in;
+  **imports became additive** with one "Your books" keep-list that also removes what you no
+  longer want (D86); **feat categories became data-driven**, with origin a subset of general and
+  budget attributed to the slot spent (D84); and **casting-rule modifications** — features that
+  strip V/S/M from spells you already have — reached both extractors and the app (D85).
+
+<a id="v7-decisions"></a>
+## v7 decision bodies — D43–D80, the ones that no longer bind {#v7-decisions}
+
+Moved out of `STATE.md` on 2026-08-27 by `/clean`. These are **settled and shipped**: their
+result is simply how the app looks and behaves now, and the rules any of them still impose live
+in STATE's Gotchas or in the one-line entry left behind under "Settled". Nothing here was
+deleted — the headline and the rejected options stayed in the live doc, this is the reasoning.
+
+- **D43 (2026-08-26) Every giver in "Choices to make" is a group** — a giver with one choice
+  used to be a bare row and one with several a bordered box, so the same thing had two
+  treatments. Now every giver is a `.choicegroup`; the granting *feature* is named once above
+  the run of rows it owns (it used to repeat twice then vanish); and each row is one line —
+  what it asks for on the left, its control on the right. *Rejected:* a flat list with a quiet
+  giver label (Francesco's call — the box carries the grouping more clearly); an accordion per
+  giver (a pending choice can hide behind a fold).
+- **D44 (2026-08-26) A slot's count is a tile in line with its field, not a chip on the label**
+  — origin / general / epic each carry their own `n/cap` tile at the field's own height, in
+  three states: `need` (accent), `done` (green), `over` (red). The single `origin 0/1 · general
+  1/4 · epic 0/1` chip on the FEATS label is gone. Optional-feature slots use the same tile, so
+  the Character card has one language for "how many of these do I still owe".
+- **D45 (2026-08-26) A taken feat is neutral; red means exactly one thing** — the base `.chip`
+  was accent (a red-brown), so every general feat read as a warning. Chips are now neutral,
+  `origin` stays gold and `epic` indigo as category tints, and `.chip.unmet` — a prerequisite
+  that isn't met — is the only red chip in the card.
+- **D46 (2026-08-26) The species picker groups lineages under their species** — both extractors
+  emit `base` + `lineage` on every species record, and the picker renders one `.entgroup` per
+  base with its lineages as sub-rows (the same shape D43 gave the choices card). A species with
+  no lineages stays a flat row.
+- **D47 (2026-08-26) The top row and the table header stay ONE row on a phone** — the header
+  wrapped and the title truncated. The tab switch drops to short labels (`Build` / `Table`)
+  before the title is allowed to shrink, and the title never ellipsizes. In the spell table the
+  same rule holds by turning **Prepare daily** into its ☾ icon below 620px; the total-spells
+  chip is kept (it is information, the label is not). *Rejected:* collapsing the switch to
+  icons (ambiguous — the app's glyph vocabulary is already spent on the ⋯ menu).
+- **D48 (2026-08-26) Mobile navigation = a docked jump bar, not a second level of tabs** — five
+  stacked cards made reaching your classes from the spell list a very long scroll. A fixed
+  bottom bar gives one tap per section and tracks the one you're in. The page stays **one
+  continuous scroll** on purpose: the prepared budget and the spell list are read together.
+  *Rejected:* Build splitting into mobile sub-tabs (loses the budget while picking spells, and
+  stacks two tab rows); collapsible cards with sticky headers (reaching a section still means
+  scrolling past the folded ones). A smooth scroll is attempted and **falls back to an instant
+  jump** — some embedded webviews accept `behavior:"smooth"` and never move.
+- **D49 (2026-08-26) A cantrip's modal says it once** — the subtitle reads "`<School>` cantrip"
+  (was "Cantrip `<School>`") and the Level and School rows leave the grid, where they only
+  repeated the line above them. Levelled spells keep both rows.
+- **D50 (2026-08-26) Summon stat blocks live in the spell modal, collapsed** — 24 spells print a
+  creature beside them. They are matched by the bestiary's own **`summonedBySpell`** field, not
+  by parsing `{@creature}` refs out of spell text, so there are no cross-source false positives.
+  The section is collapsed by default (it is reference material, not part of reading the spell).
+  The importer keeps only these monsters from a bestiary file — a full one is megabytes.
+  **SRD gate:** a non-SRD stat block is stripped from an SRD spell in the public build.
+- **D51 (2026-08-26) A book chip carries a popover, not a native `title`** — full book name,
+  the page the inspected element is printed on, and the code. Both extractors now emit `page`
+  on spells, classes, subclasses, feats, species and optional features. Works on touch (the
+  shared `attachTip` treats a tap as hover).
+- **D52 (2026-08-26) The build switcher lives in the header, beside the title** — `▤ <character>
+  <version>`, with a popover grouped by character plus New build / Manage builds…. It is a quiet
+  label you can act on, not a control competing with the Build/Table switch, and it goes through
+  `switchBuild()` so T2's activation dialog still fires. *Rejected:* putting it in the ⋯ menu (T4
+  asks for it to be **visible**, and a menu isn't); a full-width build bar on every screen (chrome
+  on every view for what is usually a single-build session); replacing the app title on mobile
+  (D47 had just been spent making the title fit) — on a phone it takes its own line instead.
+- **D54 (2026-08-26) Level preview: plan at full level, look at any level below it** — the level
+  chip on the Character card becomes a scrubber (`preview − L5 + ×`). View-only: `PREVIEW` is
+  never saved, releasing it changes nothing; picks above the previewed level get the existing
+  soft over-flags (D37), grants not yet unlocked vanish, slots/budgets/eligibility all follow.
+  Multiclass works through the **level plan** (`state.levelOrder`, saved): which class each
+  character level is taken in, edited in a per-level modal whose edits normalize against the
+  build's real class totals — an overfill snaps back, so no invalid state exists. *Rejected:*
+  versions-as-levels with a "duplicate at level N" helper (real copies drift when the plan
+  changes); a true level timeline (the standing non-goal).
+- **D59 (2026-08-26) The level-order panel is a single column of draggable level cards** — one
+  card per character level in acquisition order, dragged by a handle, each naming its class and
+  what that level gives. Single column at every width: the list is a **sequence**, and columns
+  break the reading of it. *Rejected:* a per-level `<select>` grid (compact, but you cannot see
+  the shape of the progression); a multi-column card grid (Francesco's call).
+- **D60 (2026-08-26) A level gate is a lock icon + the level, never prose** — "— unlocks at 3 —"
+  was truncated inside the subclass `<select>` at desktop width. The `<select>` says
+  "— locked —" and the LABEL carries a `.lockchip` (lock + `L3`) with the explanation in its
+  popover. **Reuse `lockChip()` for anything gated on a level.** A label carrying a chip
+  ellipsizes its own text rather than wrapping, so rows never lose alignment.
+- **D61 (2026-08-26) The Build/Table switch is a fixed size** — selecting a tab bolds it, which
+  changed its width and made the whole switch resize. Each label now reserves the width of its
+  own bold rendering (`::after` with `attr(data-t)`), so selection changes weight and nothing else.
+- **D62 (2026-08-26) A wizard's spellbook and its prepared list are different sets** — "Prepare
+  daily" was editing the spellbook, because both lived in `chosen[idx].spells`. The book stays
+  there; the daily subset is `chosen[idx].prep`, capped by `known.prepares` (the class's own
+  `preparedSpellsProgression`, already in the data). The prepare step for a book caster lists
+  **the book**, not the class list. The cart gains a Prepared meter and the table distinguishes
+  ● prepared today from 📖 in the book but not prepared. Dropping a spell from the book
+  unprepares it. Closes the D8 caveat.
+- **D63 (2026-08-26) Level cards name real features, not derived counts** — both extractors emit
+  `features:[{level,name}]` for classes and subclasses (the feature index already existed for
+  grant correlation). "Arcane Recovery · Ritual Adept" says more than "+1 prepared". ASI/Epic
+  Boon and the `<Class> Subclass` placeholders are filtered; spellcasting milestones (a new
+  spell level, a new slot) are kept as a separate accent line. Sorting is case-insensitive in
+  **both** extractors so parity stays byte-exact.
+- **D66 (2026-08-26) An action button whose label is a verb is an icon** — extends D57 from
+  chrome to actions. `order…` / `save as version` on the level preview (which also drops the word
+  "preview" — the chip's context is the level), `export` / `duplicate` / `delete` in the build
+  manager (three word-buttons ran into the `current` chip on a phone), `select` in the species /
+  feat / spell pickers, and `clear` in an eligible-spells group header. One class, `.ico-only`, and
+  the meaning moves to the popover or `title`. A destructive icon still ARMS to the word
+  "confirm?" (D53) — the icon must be appended **before** `armConfirm`, which snapshots
+  `innerHTML` to restore. *Rejected:* keeping text on the destructive ones (the row's width was
+  the problem, and `delete` was the widest); icon + text (the same width back).
+- **D67 (2026-08-26) In "Choices to make" the category is a subtitle; the book chip is the only
+  tag** — two tags side by side on the group head read as equals when one names the *printing* and
+  the other names *what kind of thing this is*. The category drops to a quiet line under the name.
+  A **feat also names its own type** there — "origin feat", "general feat", "epic boon", "fighting
+  style" — because "feat" alone doesn't say which of your slots it came out of. Revises D30's "a
+  category tag on every row/group". *Rejected:* dropping the category (it is how you tell a
+  subclass choice from a species one at a glance).
+- **D68 (2026-08-26) Slots and max spell level are two clocks, and a level card shows both** —
+  the cards derived both from the class's own slot table, so in a caster-caster multiclass the
+  slot gain landed on the wrong level. **Max spell level** follows that class's OWN level;
+  **slots** follow the COMBINED caster level. A Bard 7 / Wizard 2 gets 5th-level slots at
+  character level 9 while the Bard's own max spell level is 4th — the card now says both, the slot
+  line in accent and the max line quiet. `planSlots()` reads the whole plan up to each card;
+  `levelGains()` is features-only. The panel's bottom note is gone (the modal's own subtitle
+  already said it). *Rejected:* one merged line (it is exactly the conflation that caused the bug).
+- **D69 (2026-08-26) Species collapse on base + lineage, not on name** — reverses the recorded
+  "different names, deliberately not normalized". A lineage can be RENAMED between editions
+  ("Elf (High)" → "Elf — High Elf"), so a name match missed it and the picker listed Drow and High
+  Elf twice. `raceDedupeId()` keys on `base|lineage` with the base word stripped back off the
+  lineage, and the existing Editions filter hides the older printing — `reprint→all` still reveals
+  it. Verified nothing over-collapses: the SCAG/MTF/ERLW variants and the Kaladesh/Zendikar
+  settings all survive. *Rejected:* nesting both printings under one row (one more level of
+  nesting for a duplicate nobody wants to see); a canonical key from both extractors (structurally
+  cleaner, but it is an extract.py + extract.js change plus a data rebuild for a display problem).
+- **D70 (2026-08-27) A ratio widget may never state an impossible ratio** — the per-level tiles
+  printed `4/0`: being over the PREPARED TOTAL drives the per-level room negative at every level
+  at once, and the old `Math.max(0, held+room)` clamp turned that into a denominator BELOW the
+  numerator. The denominator now floors at what is actually held; the `.over` state and the meter
+  above say what is wrong, and the tooltip names the real cause ("you are over your prepared
+  total, so there is no room at any level until you drop some"). The tile design itself is right
+  (Francesco's call) — this was a clamp bug, not a modelling one. *Rejected:* dropping the
+  denominator for daily preparers (I proposed it; the per-level ceiling is real information when
+  you are inside your budget).
+- **D71 (2026-08-27) A level card's two clocks are tinted tiles on the right edge** — supersedes
+  D68's prose lines. Both tiles are present on every card so either progression reads straight
+  down the column; each keeps its own hue at all times (**spell = accent, slot = gold** — the tint
+  IS the label, never grey), and the level that RAISED one takes the full colour and a border. The
+  `+N slots` count is gone: the number of slots is on the Slots card, and what a level card is for
+  is *when a threshold moved*. A **feat / epic boon** is budget you owe, not a feature, so it
+  leaves the prose run for its own gold chip beside the class name. The drag handle centres on the
+  card, not on its first line. *Rejected:* a tile only on the level that changes (ragged right
+  edge, and you have to scan upward to answer "what is my max spell level at L7").
+- **D72 (2026-08-27) A picked spell row gets a rail, never a fill** — the old
+  `background + border-radius` on `.sp:hover` and `.sp.chosen` cut through the 1px divider and
+  read as broken stripes. Both fills are gone. Picked rows carry a 2px green rail that **insets
+  vertically and rounds its ends**, so a run of picked rows reads as one rail per row rather than
+  one long bar, and the left padding that holds it is reserved on EVERY row so nothing shifts when
+  you take a spell. The take chip stops being a solid green pill — **green lives on the icon
+  only**, the chip just gains ink-weight text, so it still reads as a button. *Rejected:* a 6%
+  square-cornered tint; the spell name going green (competes with the ritual badge and the name's
+  own click affordance); no signal at all beyond the chip (Francesco picked the rail).
+- **D73 (2026-08-27) Prepare-daily is tabbed by SET, and its chrome hides when it has nothing to
+  do** — the tabs are one per re-preparing caster **plus a "Granted" tab** for grant picks you
+  chose rather than were given (High Elf's Wizard cantrip and its kin, which the 2024 lineages
+  re-choose on a long rest). The tab row hides with one tab, the level filter hides when only one
+  level is present, the toolbar never wraps (the search field is what gives way), and the
+  prepared count moves out of the toolbar to the **centre of the footer** — it answers "am I
+  done", which is a footer question, not a filter. **Caveat:** the data carries no swappable flag,
+  so the tab lists every `kind:"known"` pick; a one-time choice like Aberrant Dragonmark's appears
+  there too. Detecting the real long-rest swap is a backlog item.
+- **D74 (2026-08-27) The spell modal never says the same thing twice, and its stat block follows
+  monster-forge** — Level and School leave the grid for **every** spell, not just cantrips (D49
+  widened): the subtitle already reads "5th-level Conjuration". The stat block's header inverts —
+  the **creature names the section** in the display face, with "stat block" as the small uppercase
+  label after it. The ability block becomes the monster-forge **table**: two ability columns, each
+  score / Mod / Save, proficient saves bold (no summon carries one, so a save is its modifier).
+  Access chips all look the same — the category is named by the row they sit on when expanded, so
+  tinting them by kind in the merged row only added noise.
+- **D75 (2026-08-27) A version forked from the preview keeps its lineage in its name** —
+  `<version> · LV<level>` ("L9 · LV5"), so you can see what it came from and at what level.
+  *Rejected:* the bare level (two forks from different versions at the same level collide);
+  the character name (it already sits above the version in the manager).
+- **D77 (2026-08-27) A grouping header carries no accent** — the source group ran accent text on
+  an accent-soft band while the ability names carry the six ability hues, so two colour systems
+  fought inside one table. The outer group keeps a neutral `--panel-2` fill with ink text and its
+  **casting-stat chip** (never a book chip — the stat is what you group on); the level sub-header
+  drops to a quiet muted sans label. The ability names are now the table's only hue. *Rejected:*
+  no fill with a rule above (lighter but the groups read loose in a long table); a small-caps
+  label over a hairline (quieter still, same problem).
+- **D80 (2026-08-27) Magical Secrets gets its own picker** — the off-list meter had no way to act
+  on it, so adding an off-list spell meant hunting the eligible list. "Add an off-list spell"
+  opens the spell-pick modal scoped to the lists the feature opened (the class's own list is
+  filtered OUT), mirroring the wizard's "Copy a spell into your book".
