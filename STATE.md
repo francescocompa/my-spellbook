@@ -3,31 +3,24 @@
 > Resume doc. One current-state block, edited in place.
 > History → git log. Consumed phases and decision rationale → `ARCHIVE.md`.
 
-## TL;DR (2026-08-27 · v7 COMPLETE — T1–T5 + T7 · **LIVE on GitHub Pages**)
-- **State:** working, committed, **pushed**. **v7 is COMPLETE — T1–T5 and T7 are all done.**
-  On top of the batches, one session reworked the importer end to end (**D90–D93**): the app icon
-  (D90); honest zip errors, unpack progress and the **clobbered spell-lookup fix** (D91 — every
-  zip import had been storing spells no class could cast); **folder scanning** indexed by book
-  (D92 — a homebrew repo is filed by category, so a *collection* brew hid its spells and D&D
-  Beyond Drops was unfindable); and the imported digest **moved to IndexedDB** (D93), which closed
-  T7. Ten note
-  batches landed before that (**D43–D89**); per-batch narrative →
-  `ARCHIVE.md#v7-batches`. **Batch 9** made feat
-  categories **data-driven** (an unknown category — UA's Wild Talent — keeps its own name instead
-  of being filed as "general", origin is a **subset** of general, and a feat is attributed to the
-  slot it was SPENT from, D84), added **casting-rule modifications** end to end (D85), and made
-  imports **additive** behind one "Your books" keep-list (D86). **Batch 10** was polish and
-  backlog: switcher characters as **cards with a pinned footer** (D87), reference prose behind a
-  **`?` disclosure** while live state stays put (D88), staged files on one scrolling row, casting
-  mods surfaced in the spell table, the double divider above a dimmed list gone, the book chip out
-  of the spell-**pick** modal (D89), and **eight backlog items closed**. Extractor parity is
-  **byte-exact** — grants diff to 0 across all five arrays with 0 one-sided records
-  (`node scratchpad/cparity.js`, 24/24).
-- **Next action:** **nothing is queued.** v7 is complete and the custom-sources redesign (D94) —
-  the last standing item — shipped. What is left is the open backlog below, none of it urgent:
-  the biggest are ability-score tracking (which would close the "prerequisites we can't check"
-  flag), magic-item ingestion to prefill a custom source, and detecting a real long-rest spell
-  swap. Pick one, or bring something new.
+## TL;DR (2026-08-27 · code at 0503869, **pushed** · v7 COMPLETE · **LIVE on GitHub Pages**)
+- **State:** working, committed, **pushed**, tree clean. **v7 is COMPLETE (T1–T5 + T7)** and the
+  backlog's last standing item shipped. One session took the importer and the custom-source
+  surface end to end, **D90–D95**: the app icon (D90); honest zip errors, unpack progress and the
+  **clobbered spell-lookup fix** (D91 — *every zip import had been storing spells no class could
+  cast*, and `cparity.js` never noticed because it diffed grants but not access); **folder
+  scanning indexed by book** (D92 — a homebrew repo is filed by category, so a *collection* brew
+  hid its spells and D&D Beyond Drops was unfindable); the imported digest **moved to IndexedDB**
+  (D93), closing T7; the **custom-source editor redesigned** progressive with a live summary
+  (D94); and its two **model gaps closed** — payment is per spell, and uses can be once-ever
+  (D95). Ten note batches (**D43–D89**) landed before that → `ARCHIVE.md#v7-batches`. Extractor
+  parity is byte-exact and now covers spell ACCESS as well as grants
+  (`node scratchpad/cparity.js`, 26 ok / 0 fail).
+- **Next action:** 🔶 **decide the magic-item / reward import** — researched end to end this
+  session and parked on Francesco's call; the findings, the numbers and the one real trap are in
+  the backlog item below. **Done when:** rewards-first vs items-first vs neither is a decision
+  entry with a task line behind it. Everything else in the backlog is open but unurgent — the
+  biggest is ability-score tracking, which would close the "prerequisites we can't check" flag.
 - **Manual for Francesco:** ⓪ **Re-import again after D91** — any zip import made before it stored
   spells with **no class access at all** (`spells/sources.json` clobbered the real lookup). If your
   imported spells match no class, that is why; re-importing fixes it. ① **Re-import your 5etools
@@ -696,9 +689,29 @@ written up in full under Gotchas below — that is the copy to trust.
   its chip names a BOOK, not an element printed on a page, so there is nothing to show.
 - [x] ~~**Additive imports**~~ **CLOSED 2026-08-27 → D86** — an import merges by `name|source`,
   and the "Your books" panel is where content is kept or removed. D58's caveat is gone.
-- [ ] **Magic-item ingestion for custom sources** — prefill a D55 source from items.json's
-  `attachedSpells` (rejected from v1; items carry no structured uses). Needs items in both
-  extractors + SRD gate.
+- [ ] **Magic-item / reward ingestion** — 🔶 **RESEARCHED 2026-08-27, awaiting Francesco's call.**
+  The old note said "items carry no structured uses"; that is **wrong** and the audit corrected it.
+  What the 5etools corpus actually holds:
+  - **Items.** `charges` (282), `recharge` (286, closed enum), `rechargeAmount` (254) and
+    `attachedSpells.charges` (a real cost→spells map, 138 items) map **straight** onto the D55/D95
+    model. Staff of Fire's record is literally `pool:10 · "1d6+4 at dawn" · costs 1/3/4`.
+  - **The hole:** save DC, attack bonus and casting ability are **prose only** — of 402 items with
+    attached spells, **zero** carry a structured DC or attack and only **9** name an ability. Those
+    three fields would always arrive blank and be typed by hand.
+  - **The trap:** *Luck Blade is not a record in `items.json`.* It is a magicvariant template
+    (`requires:{sword:true}`) cross-multiplied against base items. 11 spell-granting templates
+    expand to **115** items, plus 53 `_copy` records (41 with no content of their own). A naive
+    flat read returns 402 and silently drops the rest — porting `_createSpecificVariants` is
+    ~150 lines **into both extractors**.
+  - **Size:** ~120 KB slimmed, ~780 KB with prose — and the prose is the only place the DC lives.
+  - **SRD:** only ~80 of 542 spell-granting items are `srd52`, so the public build gets almost none.
+  - **The cheaper half — `rewards.json`:** 277 charms / blessings / boons / piety traits, **88 with
+    `additionalSpells`** — the *same* schema the extractors already parse for classes, species and
+    feats. No new parsing, no variant cross-product, no prose regex; its `innate`/`known`/`prepared`
+    map onto the app's three modes directly. **Caveat: zero SRD flags**, so it is import-only content.
+  - **Suggested order** (not decided): rewards first as a small self-contained addition, then items
+    as *"prefill a custom source from an item"* rather than a first-class entity, since the DC needs
+    hand-entry regardless. ⚑ (owner: Francesco, 2026-08-27)
 - [x] ~~**IndexedDB** for imported data~~ **CLOSED 2026-08-27 → D93** — the digest lives in
   IndexedDB; localStorage keeps only builds, sources, custom spells and the column layout
   (~16 KB measured). Closed T7 with it.
@@ -1051,7 +1064,12 @@ written up in full under Gotchas below — that is the copy to trust.
 - v7 · T7 — storage-pressure reporting, closed by moving the imported digest to IndexedDB (D93).
 - **Importer rework** (2026-08-27) — **D90–D93**: app icon; honest zip errors + unpack progress +
   the clobbered spell-lookup fix (D91); folder scanning indexed by book (D92); IndexedDB (D93).
+- **Custom sources** (2026-08-27) — **D94–D95**: the editor redesigned progressive with a live
+  summary and per-spell notes, then its two model gaps closed (payment per spell; a `total` unit
+  for uses that never reset). The D55/D65 model was never the problem; D95 widened it.
 - **v7 note batches 1–10** (2026-08-26 → 2026-08-27) — **D43–D89**. Ten batches of notes plus two
   bug hunts on top of the tasks. Per-batch narrative → `ARCHIVE.md#v7-batches`; the earlier notes
   → `ARCHIVE.md#v7-notes`. The load-bearing outcomes are the decisions above and the Gotchas
   below — this list used to restate them a third time.
+
+⟳ Rename previous session → "Importer rework and custom sources" · session: resolve by cwd + latest
