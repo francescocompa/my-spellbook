@@ -26,6 +26,7 @@
         <button id="buildsBtn"><span class="mi ico" data-ico="stack"></span>Builds…</button>
         <div class="sep"></div>
         <button id="customBtn"><span class="mi ico" data-ico="pencil"></span>Custom spell…</button>
+        <button id="hbBtn"><span class="mi ico" data-ico="stack"></span>My homebrew…</button>
         <button id="importBtn"><span class="mi ico" data-ico="download"></span>Import 5etools…</button>
         <button id="sourcesBtn"><span class="mi ico" data-ico="gear"></span>Sources…</button>
         <button id="themeBtn"><span class="mi ico" data-ico="theme"></span>Toggle theme</button>
@@ -191,7 +192,7 @@
       <div class="menu pickermenu">
         <button class="btn iconbtn ico" id="entMenuBtn" data-ico="dots" title="Filters" aria-label="Filters"><span class="badge" id="entFiltN"></span></button>
         <div class="menupop hidden" id="entMenuPop">
-          <div class="mopt colhead" id="entCatHead">Feat kind</div>
+          <div class="mopt colhead" id="entCatHead">Feat category</div>
           <div class="cbrow" id="entCats"></div>
           <div class="sep"></div>
           <label class="mopt"><span>Only ones that grant spells</span><input type="checkbox" id="entGrants"></label>
@@ -228,20 +229,24 @@
 </div></div>
 
 <div class="modal hidden" id="importModal"><div class="box">
-  <div class="mh"><h2 id="importTitle">Import 5etools data</h2><button class="x ico" id="importClose" data-ico="x" aria-label="Close"></button></div>
+  <div class="mh"><h2 id="importTitle">Import 5etools data</h2><button class="helpbtn" data-help="importHelp" aria-expanded="false" aria-label="About importing"></button><button class="x ico" id="importClose" data-ico="x" aria-label="Close"></button></div>
   <div class="mb">
     <p class="importwelcome hidden" id="importWelcome">This planner ships without spell data. Load a 5etools <code>data</code> export to fill it with spells, classes, subclasses, feats and species. Everything is parsed and stored in your browser — nothing is uploaded.</p>
-    <p class="note" style="margin-top:0">Drop the whole 5etools <code>data</code> folder as a <b>.zip</b> (fastest), or individual JSON files. For per-file loads, include <code>generated/gendata-spell-source-lookup.json</code> so spells know which classes can cast them.
-    <br><b>Homebrew &amp; Unearthed Arcana work too:</b> download any brew as JSON from the
-    <a href="https://github.com/TheGiddyLimit/homebrew" target="_blank" rel="noopener">5etools homebrew repository</a>
-    (D&amp;D Beyond drops live there) or UA from the
-    <a href="https://github.com/TheGiddyLimit/unearthed-arcana" target="_blank" rel="noopener">prerelease repository</a>,
-    and stage it here alongside your other files — its books appear under “Homebrew &amp; UA” in Sources.
-    Building replaces everything imported, so stage core data and brews together.</p>
+    <div class="helpbody hidden" id="importHelp">
+      <p>The <b>.zip</b> is the fastest path and needs nothing else. Loading individual JSON files works too: <code>spells-*.json</code>, <code>class-*.json</code>, <code>feats.json</code>, <code>races.json</code>, <code>books.json</code>, and <b>include <code>generated/gendata-spell-source-lookup.json</code></b> or the spells won't know which classes can cast them.</p>
+      <p><b>Homebrew &amp; Unearthed Arcana work too.</b> Download any brew as JSON from the
+      <a href="https://github.com/TheGiddyLimit/homebrew" target="_blank" rel="noopener">5etools homebrew repository</a>
+      (D&amp;D Beyond drops live there), or UA from the
+      <a href="https://github.com/TheGiddyLimit/unearthed-arcana" target="_blank" rel="noopener">prerelease repository</a>.
+      Stage it alongside your other files — its books appear under “Homebrew &amp; UA” in Sources.</p>
+      <p>Everything is parsed and stored in this browser. Nothing is uploaded.</p>
+    </div>
+    <p class="note" style="margin-top:0">Drop the 5etools <code>data</code> folder as a <b>.zip</b>, or JSON files.
+      Reading files <b>adds</b> to what you already have — only an entry with the same name and book is replaced.</p>
     <div class="importdrop" id="importDrop">
       <input type="file" id="importFiles" accept=".json,.zip,application/json,application/zip" multiple hidden>
       <span class="mi ico icobig" data-ico="download"></span>
-      <div><b>Drop a 5etools .zip or JSON files here</b><br><span style="color:var(--muted)">or <u id="importPick">browse…</u> · the full data.zip, or spells-*.json / class-*.json / feats.json / races.json / books.json + the lookup</span></div>
+      <div><b>Drop a 5etools .zip or JSON files here</b><br><span style="color:var(--muted)">or <u id="importPick">browse…</u></span></div>
     </div>
     <p class="fld" style="margin:12px 0 4px">Or paste one file's JSON</p>
     <textarea id="importPaste" placeholder="paste 5etools JSON here…" style="width:100%;min-height:70px;font-family:var(--sans);font-size:12px;padding:8px;border-radius:8px;border:1px solid var(--line-strong);background:var(--bg);color:var(--ink)"></textarea>
@@ -251,8 +256,41 @@
       <button class="btn" id="importPasteAdd">Add pasted JSON</button>
       <span class="prepnav-sp"></span>
       <button class="btn" id="importClear">Clear staged</button>
-      <button class="btn on" id="importBuild">Build &amp; load</button>
+      <button class="btn on" id="importBuild">Read staged files</button>
     </div>
+    <!-- D86: ONE list decides what is in your data. Every book you already have plus every
+         book the staged files hold; a tick means "keep it". Nothing is written until Apply. -->
+    <div id="importPlan" class="importplan hidden">
+      <div class="iph"><b>Your books</b><span class="sub" id="importPlanSub"></span>
+        <button class="helpbtn" data-help="planHelp" aria-expanded="false" aria-label="About this list"></button></div>
+      <div class="helpbody hidden" id="planHelp">
+        <p>A tick means <b>this book is in my data</b>. Unticking one you already have <b>removes its
+        content</b> from this browser — the only way to get the space back. Nothing is written until
+        you press Apply, and Apply says how many books it would remove before you do.</p>
+        <p>Your builds are never touched. A pick whose book is gone is flagged in the banner at the
+        top of the app, not deleted — re-import that book and it resolves again.</p>
+      </div>
+      <p class="note hidden" id="importPlanNote" style="margin:0 0 8px;color:var(--gold)">Nothing
+        imported yet — applying puts the app's built-in books behind whatever you tick here.</p>
+      <div class="quick" id="importPlanQuick"></div>
+      <div id="importPlanList" class="importplanlist"></div>
+      <div class="prepnav" style="border:none;padding:10px 0 0">
+        <span class="prepnav-sp"></span>
+        <button class="btn on" id="importApply">Apply</button>
+      </div>
+    </div>
+  </div>
+</div></div>
+
+<!-- every homebrew spell in one place: editing one used to mean finding it in the table -->
+<div class="modal hidden" id="hbModal"><div class="box">
+  <div class="mh"><h2>My homebrew</h2><span class="sub" id="hbSub" style="color:var(--muted);font-size:12px"></span><button class="x ico" id="hbClose" data-ico="x" aria-label="Close"></button></div>
+  <div class="mb">
+    <div class="prepnav" style="border:none;padding:0 0 10px">
+      <input type="search" id="hbSearch" placeholder="filter by name…" style="flex:1">
+      <button class="btn on" id="hbNew">New spell</button>
+    </div>
+    <div id="hbList"></div>
   </div>
 </div></div>
 

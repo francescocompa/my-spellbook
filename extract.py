@@ -607,10 +607,16 @@ def _choose_kv(s):
 # against the number you can prepare" are what "Always prepared" already means in this UI,
 # so matching them produced 470 notes of pure boilerplate. Only a change to HOW you cast
 # earns a note.
+# Deliberately NARROW: the first cut matched "you always have these prepared" and produced
+# 470 notes of boilerplate. The component clauses (D85) are the second admitted family —
+# a feature that strips V/S/M off a spell it GRANTS says so only in prose.
 MOD_RE = re.compile(
     r"without expending|no spell slot|automatically succeed|"
     r"can'?t do so|can'?t (?:cast|use) it (?:this way|in this way)|"
-    r"once you cast|twice without|as part of the same",
+    r"once you cast|twice without|as part of the same|"
+    r"requires? no (?:verbal|somatic|material)|"
+    r"without (?:providing |using |needing )?(?:any |a )?(?:verbal|somatic|material)|"
+    r"without (?:spell )?components|don'?t need to provide",
     re.I)
 _SENT_RE = re.compile(r"(?<=[.!?])\s+")
 def _mod_note(txt):
@@ -853,8 +859,114 @@ def merge_prose_grants(rec, kind, ident):
         g.setdefault(k, [])
         g[k] = list(g[k]) + [dict(x) for x in v]
 
-for _c in classes: merge_prose_grants(_c, "class", _c["name"])
-for _s in subclasses: merge_prose_grants(_s, "subclass", _s.get("shortName") or _s["name"])
+# ---- casting-rule modifications (D85) -------------------------------------
+# A feature may change HOW you cast spells you ALREADY have — strip a component from a
+# whole school, from a class's list, from four named spells. 5etools carries none of that
+# structurally, and MOD_RE only ever reaches spells a feature GRANTS. Hand-authored, like
+# PROSE_GRANTS, and **keep identical to extract.js's CAST_MODS.**
+#   scope  = {cls, schools, spells, giver, maxLevel, optTypes} — all optional, ANDed.
+#            `giver` matches the label of whatever granted the spell; `optTypes` matches a
+#            spell granted by one of your optional features of that type (Elemental Disciplines).
+#   label  = what the chip says. Default is "<feature> — no V / S / M"; a mod with an empty
+#            `drop` (a free cast rather than a component change) must supply its own.
+#   drop   = which of v/s/m the feature removes.
+#   when   = None means it always applies (the app strikes the component through); a string
+#            is a condition the app cannot verify, so it annotates instead of striking.
+CAST_MODS = {
+    ("class", "Psion", "XUA2025Psion"): [
+        {"feature": "Psionic Spellcasting", "level": 1, "cls": None, "label": None,
+         "scope": {"cls": "Psion"}, "drop": "vm", "exceptCostly": True, "when": None,
+         "note": "When you cast a Psion spell, that spell doesn't require a Verbal or Material "
+                 "component, even if the spell includes \"V\" or \"M\" in its Components entry, except "
+                 "Material components that are consumed by the spell or have a cost specified."},
+    ],
+    ("class", "Druid", "PHB"): [
+        {"feature": "Archdruid", "level": 20, "cls": None, "label": None,
+         "scope": {"cls": "Druid"}, "drop": "vsm", "exceptCostly": True, "when": None,
+         "note": "You can ignore the verbal and somatic components of your druid spells, as well as "
+                 "any material components that lack a cost and aren't consumed by a spell."},
+    ],
+    ("class", "Cleric", "XPHB"): [
+        {"feature": "Divine Intervention", "level": 10, "cls": None, "label": "Divine Intervention \u2014 free, no Material",
+         "scope": {"cls": "Cleric", "maxLevel": 5}, "drop": "m", "exceptCostly": False, "when": "when you cast it with Divine Intervention",
+         "note": "You cast the spell without expending a spell slot or needing Material components. "
+                 "Once you use this feature, you can't do so again until you finish a Long Rest."},
+    ],
+    ("subclass", "Great Old One", "XPHB"): [
+        {"feature": "Psychic Spells", "level": 3, "cls": "Warlock", "label": None,
+         "scope": {"cls": "Warlock", "schools": ["Enchantment", "Illusion"]}, "drop": "vs", "exceptCostly": False, "when": None,
+         "note": "When you cast a Warlock spell that is an Enchantment or Illusion, you can do so "
+                 "without Verbal or Somatic components."},
+    ],
+    ("subclass", "Illusionist", "XPHB"): [
+        {"feature": "Improved Illusions", "level": 3, "cls": "Wizard", "label": None,
+         "scope": {"schools": ["Illusion"]}, "drop": "v", "exceptCostly": False, "when": None,
+         "note": "You can cast Illusion spells without providing Verbal components."},
+    ],
+    ("subclass", "Undead", "RHW"): [
+        {"feature": "Superior Dread", "level": 14, "cls": "Warlock", "label": None,
+         "scope": {"cls": "Warlock", "schools": ["Conjuration", "Necromancy"]}, "drop": "vsm", "exceptCostly": True, "when": "while you are using your Form of Dread",
+         "note": "Whenever you cast a Warlock spell from the Conjuration or Necromancy school, you "
+                 "cast it without any Verbal, Somatic, or Material components, except Material "
+                 "components that are costly or consumed by the spell."},
+    ],
+    ("subclass", "Aberrant", "XPHB"): [
+        {"feature": "Psionic Sorcery", "level": 6, "cls": "Sorcerer", "label": None,
+         "scope": {"giver": "Psionic Spells"}, "drop": "vsm", "exceptCostly": True, "when": "when you cast it by spending Sorcery Points instead of a slot",
+         "note": "If you cast the spell using Sorcery Points, it requires no Verbal or Somatic "
+                 "components, and it requires no Material components unless they are consumed by the "
+                 "spell or have a cost specified in it."},
+    ],
+    ("subclass", "Aberrant Mind", "TCE"): [
+        {"feature": "Psionic Sorcery", "level": 6, "cls": "Sorcerer", "label": None,
+         "scope": {"giver": "Psionic Spells"}, "drop": "vsm", "exceptCostly": True, "when": "when you cast it by spending sorcery points instead of a slot",
+         "note": "If you cast the spell using sorcery points, it requires no verbal or somatic "
+                 "components, and it requires no material components, unless they are consumed by the "
+                 "spell."},
+    ],
+    ("subclass", "Shadow", "PHB"): [
+        {"feature": "Shadow Arts", "level": 3, "cls": "Monk", "label": None,
+         "scope": {"cls": "Monk", "spells": ["Darkness", "Darkvision", "Pass Without Trace", "Silence"]}, "drop": "m", "exceptCostly": False, "when": "when you cast it by spending 2 ki points",
+         "note": "You can spend 2 ki points to cast darkness, darkvision, pass without trace, or "
+                 "silence, without providing material components."},
+    ],
+    ("subclass", "Shadow", "XPHB"): [
+        {"feature": "Shadow Arts: Darkness", "level": 3, "cls": "Monk", "label": None,
+         "scope": {"cls": "Monk", "spells": ["Darkness"]}, "drop": "vsm", "exceptCostly": False, "when": "when you cast it by expending 1 Focus Point",
+         "note": "You can expend 1 Focus Point to cast the Darkness spell without spell components."},
+    ],
+    ("subclass", "Four Elements", "PHB"): [
+        {"feature": "Disciple of the Elements", "level": 3, "cls": "Monk", "label": None,
+         "scope": {"optTypes": ["ED"]}, "drop": "m", "exceptCostly": False, "when": None,
+         "note": "To cast one of your elemental discipline spells you use its casting time and other "
+                 "rules, but you don't need to provide material components for it."},
+    ],
+    ("subclass", "Archfey", "XPHB"): [
+        {"feature": "Steps of the Fey", "level": 3, "cls": "Warlock", "label": "Steps of the Fey \u2014 Misty Step free",
+         "scope": {"cls": "Warlock", "spells": ["Misty Step"]}, "drop": "", "exceptCostly": False, "when": "a number of times equal to your Charisma modifier per Long Rest",
+         "note": "You can cast Misty Step without expending a spell slot a number of times equal to "
+                 "your Charisma modifier (minimum of once), and you regain all expended uses when you "
+                 "finish a Long Rest. You may also gain one of two extra benefits with each casting."},
+        {"feature": "Bewitching Magic", "level": 14, "cls": "Warlock", "label": "Bewitching Magic \u2014 Misty Step free",
+         "scope": {"cls": "Warlock", "spells": ["Misty Step"]}, "drop": "", "exceptCostly": False, "when": "as part of casting an Enchantment or Illusion spell with a slot",
+         "note": "When you cast an Enchantment or Illusion spell using an action and a spell slot, you "
+                 "can cast Misty Step as part of the same action and without expending a spell slot."},
+    ],
+}
+
+def attach_cast_mods(rec, kind, ident):
+    mods = CAST_MODS.get((kind, ident, rec.get("source", "")))
+    if not mods: return
+    # `cls` guards a shortName two classes could share ("Shadow" is a Monk here)
+    out = [dict(m) for m in mods if not m.get("cls") or m["cls"] == rec.get("className")]
+    for m in out: m.pop("cls", None)
+    if out: rec["castMods"] = out
+
+for _c in classes:
+    merge_prose_grants(_c, "class", _c["name"]); attach_cast_mods(_c, "class", _c["name"])
+for _s in subclasses:
+    _id = _s.get("shortName") or _s["name"]
+    merge_prose_grants(_s, "subclass", _id); attach_cast_mods(_s, "subclass", _id)
 
 # Prerequisites, for feats AND optional features. Each entry in `prerequisite` is an
 # alternative (OR), so we emit one record per alternative: a display string plus the
@@ -862,7 +974,29 @@ for _s in subclasses: merge_prose_grants(_s, "subclass", _s.get("shortName") or 
 # condition we don't model (ability scores, proficiencies, backgrounds, campaigns) —
 # those can never be proved unmet, only "can't tell".
 _SOFT_KEYS = {"ability", "proficiency", "background", "campaign", "other", "otherSummary",
-              "item", "feature", "exclusiveFeatCategory", "featCategory"}
+              "item", "feature", "featCategory"}
+
+# 5etools' own category codes. Anything NOT here is a category a book invented — UA's
+# "Wild Talent", a brew's own — and it is carried through under its own name rather than
+# being folded into "general", which is what silently misfiled Wild Talents.
+FEAT_CAT_FULL = {"O": "Origin", "G": "General", "D": "Dragonmark", "DG": "Dark Gift",
+                 "EB": "Epic Boon", "FS": "Fighting Style",
+                 "FS:P": "Fighting Style (Paladin)", "FS:R": "Fighting Style (Ranger)",
+                 "FS:B": "Fighting Style (Bard)", "FS:M": "Fighting Style (Monk)"}
+
+def feat_cat_name(cat, declared=None):
+    """Display name for a feat category: the known code, then a file's own
+    `_meta.featCategories`, then the raw value (UA writes the full name straight in)."""
+    if not cat: return FEAT_CAT_FULL["G"]
+    return FEAT_CAT_FULL.get(cat) or (declared or {}).get(cat) or cat
+
+# "Can't Have Another Wild Talent Feat" — the exclusivity a category carries in prose,
+# which 5etools models as `exclusiveFeatCategory` only sometimes.
+_EXCL_RE = re.compile(r"(?:no other|can'?t have another)\s+(.+?)(?:\s+feat)?$", re.I)
+
+def _is_self_exclusive(text, own_name):
+    m = _EXCL_RE.match((text or "").strip().rstrip("."))
+    return bool(m and own_name and m.group(1).strip().lower() == own_name.strip().lower())
 
 def _plain(x):
     """A prerequisite reference -> its bare display name."""
@@ -871,12 +1005,13 @@ def _plain(x):
                           or x.get("name") or "")
     return rich_strip(str(x).split("|")[0])
 
-def _prereq_blocks(o):
+def _prereq_blocks(o, own_cat=None, declared=None):
     out = []
+    own_name = feat_cat_name(own_cat, declared) if own_cat else None
     for p in (o.get("prerequisite") or []):
         b = {"text": "", "level": None, "cls": None, "feats": [], "optfeats": [],
              "races": [], "spells": [], "spellcasting": False, "pact": None,
-             "checks": [], "soft": False}
+             "checks": [], "soft": False, "exclusiveCat": []}
         bits = []
         lv = p.get("level")
         if isinstance(lv, dict):
@@ -907,23 +1042,37 @@ def _prereq_blocks(o):
         for fe in (p.get("feature") or []): soft.append(_plain(fe))
         for it in (p.get("item") or []): soft.append(rich_strip(it))
         for cp in (p.get("campaign") or []): soft.append(f"{cp} campaign")
-        for fc in (p.get("exclusiveFeatCategory") or []): soft.append(f"no other {fc}-category feat")
+        # "only one feat of this category" IS checkable — the build's own feats say so.
+        # It used to land in `checks`, where D31 can only ever call it "maybe".
+        excl_bits = []
+        for fc in (p.get("exclusiveFeatCategory") or []):
+            b["exclusiveCat"].append(fc)
+            excl_bits.append(f"no other {feat_cat_name(fc, declared)} feat")
         if p.get("other"): soft.append(rich_strip(p["other"]))
         osum = p.get("otherSummary")
-        if isinstance(osum, dict): soft.append(rich_strip(osum.get("entrySummary") or osum.get("entry") or ""))
+        osum_excl = False
+        if isinstance(osum, dict):
+            t = rich_strip(osum.get("entrySummary") or osum.get("entry") or "")
+            # a category whose exclusivity is stated only in prose (UA's Wild Talents)
+            if own_cat and _is_self_exclusive(t, own_name):
+                if own_cat not in b["exclusiveCat"]: b["exclusiveCat"].append(own_cat)
+                excl_bits.append(t); osum_excl = True
+            elif t: soft.append(t)
         b["checks"] = [x for x in soft if x]
-        bits += b["checks"]
-        b["soft"] = any(k in _SOFT_KEYS for k in p)
+        bits += b["checks"] + excl_bits
+        b["soft"] = any(k in _SOFT_KEYS and not (k == "otherSummary" and osum_excl) for k in p)
         b["text"] = ", ".join(x for x in bits if x)
         if b["text"]: out.append(b)
     return out
 
-def _prereq_text(o):
-    return " or ".join(b["text"] for b in _prereq_blocks(o)) or None
+def _prereq_text(o, own_cat=None, declared=None):
+    return " or ".join(b["text"] for b in _prereq_blocks(o, own_cat, declared)) or None
 
 feats = []
 EMPTY_GRANTS = {"fixed": [], "picks": [], "expansions": [], "optionGroups": [], "ability": None}
-for ft in load(os.path.join(MIRROR, "feats.json")).get("feat", []):
+_featdata = load(os.path.join(MIRROR, "feats.json"))
+_featcats = (_featdata.get("_meta") or {}).get("featCategories") or {}
+for ft in _featdata.get("feat", []):
     cat = ft.get("category", "G")
     fs_class = {"FS:R": "Ranger", "FS:P": "Paladin", "FS": "Fighter"}.get(cat)
     has_spells = "additionalSpells" in ft
@@ -931,10 +1080,12 @@ for ft in load(os.path.join(MIRROR, "feats.json")).get("feat", []):
                   "book": bname(ft.get("source", "")), "reprinted": reprinted(ft),
                   "page": ft.get("page"),
                   "category": cat, "fsClass": fs_class,   # fighting-style feats attach to a class
+                  "catName": feat_cat_name(cat, _featcats),  # what the picker calls this category
                   "srd": bool(ft.get("srd52")),
                   "hasSpells": has_spells,               # non-spell feats are build-choice-only
                   "optFeatures": opt_progression(ft),    # Eldritch Adept, Metamagic Adept… (D28)
-                  "prereq": _prereq_text(ft), "prereqs": _prereq_blocks(ft),
+                  "prereq": _prereq_text(ft, cat, _featcats),
+                  "prereqs": _prereq_blocks(ft, cat, _featcats),
                   "grants": parse_grants(ft.get("additionalSpells")) if has_spells else dict(EMPTY_GRANTS)})
 
 # ---- optional features (invocations, metamagic, pact boons, maneuvers…) ----

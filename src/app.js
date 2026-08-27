@@ -27,6 +27,7 @@ const ICONS={
   plus:_I('<path d="M8 3v10M3 8h10"/>'),
   x:_I('<path d="M4 4l8 8M12 4l-8 8"/>'),
   check:_I('<path d="M3 8.6 6.4 12 13 4.6"/>'),
+  help:_I('<circle cx="8" cy="8" r="6.4"/><path d="M6.1 6.2a1.95 1.95 0 1 1 2.6 1.85c-.45.17-.7.55-.7 1.02v.4"/><circle cx="8" cy="11.6" r=".55" fill="currentColor" stroke="none"/>'),
   warn:_I('<path d="M8 2.4 14.6 13.4H1.4z"/><path d="M8 6.6v3"/><circle cx="8" cy="11.4" r=".2"/>'),
   spark:_I('<path d="M8 1.6 9.7 6.3 14.4 8 9.7 9.7 8 14.4 6.3 9.7 1.6 8 6.3 6.3z"/>',1),
   dot:_I('<circle cx="8" cy="8" r="3.4"/>',1),
@@ -155,7 +156,7 @@ const LS="spellForge.v2";                      // legacy single-build blob (kept
 // build can never carry them by accident. Each build only records the list it was seen under.
 let SRC=new Set(Object.keys(DATA.sources));    // all on by default
 const state={
-  classes:[], speciesKey:"", feats:[], optFeats:[],
+  classes:[], speciesKey:"", feats:[], optFeats:[], featSlots:{},
   filters:{q:"",levels:new Set(),school:"",cls:"",time:new Set(),comp:new Set(),tags:new Set(),save:"",dmg:"",books:null,reprint:"dedupe",chosen:false},
   chosen:{},   // rowId -> {cantrips:[], spells:[]}
   choices:{},  // choiceId -> option name | [spellKey,…]
@@ -180,11 +181,12 @@ let bidSeq=0;
 const newBuildId=()=>"b"+Date.now().toString(36)+(bidSeq++).toString(36);
 const activeBuild=()=>BUILDS.builds[BUILDS.activeId];
 
-const blankBuildState=()=>({classes:[],speciesKey:"",feats:[],optFeats:[],levelOrder:[],customSources:[],
-  chosen:{},choices:{},nextRowId:1,filters:null});
+const blankBuildState=()=>({classes:[],speciesKey:"",feats:[],optFeats:[],featSlots:{},levelOrder:[],
+  customSources:[],chosen:{},choices:{},nextRowId:1,filters:null});
 // the live `state` <-> the plain object stored in a build
 function serializeState(){ const f=state.filters; return {
   classes:state.classes, speciesKey:state.speciesKey, feats:state.feats, optFeats:state.optFeats,
+  featSlots:state.featSlots||{},          // which slot each feat was spent from (D84)
   nextRowId:state.nextRowId, chosen:state.chosen, choices:state.choices,
   levelOrder:state.levelOrder||[], customSources:state.customSources||[],
   filters:{...f,levels:[...f.levels],time:[...f.time],comp:[...f.comp],tags:[...f.tags],
@@ -192,8 +194,8 @@ function serializeState(){ const f=state.filters; return {
 };}
 function applyState(s){ s=s||blankBuildState();
   Object.assign(state,{classes:s.classes||[],speciesKey:s.speciesKey||"",feats:s.feats||[],
-    optFeats:s.optFeats||[],chosen:s.chosen||{},choices:s.choices||{},nextRowId:s.nextRowId||1,
-    levelOrder:s.levelOrder||[],customSources:s.customSources||[]});
+    optFeats:s.optFeats||[],featSlots:s.featSlots||{},chosen:s.chosen||{},choices:s.choices||{},
+    nextRowId:s.nextRowId||1,levelOrder:s.levelOrder||[],customSources:s.customSources||[]});
   state.filters=s.filters
     ? Object.assign(FILTER_DEFAULT(),s.filters,{levels:new Set(s.filters.levels||[]),
         time:new Set(s.filters.time||[]),comp:new Set(s.filters.comp||[]),tags:new Set(s.filters.tags||[]),
@@ -344,6 +346,17 @@ function resolveAbility(grants,tok,sharedStat,out){
 // unchanged through nested option groups so the choices panel can group by it (D30).
 const OWNER_KIND={c:"class",s:"subclass",f:"feat",o:"optional feature",r:"species",x:"custom source"};
 const ownerOf=(tok,name,src)=>({id:tok.split(":")[0],name,src,kind:OWNER_KIND[tok[0]]||""});
+// Where a giver is PRINTED, for its book chip's popover (D51). A choice group knows only
+// the owner's name, book and kind, so the record has to be found again — a subclass is
+// named by its shortName in that label, which is why both are matched.
+const OWNER_POOL={"class":()=>DATA.classes,"subclass":()=>DATA.subclasses,"feat":()=>DATA.feats,
+  "optional feature":()=>DATA.optfeats,"species":()=>DATA.races};
+function ownerPage(o){
+  if(!o||!o.src)return null;
+  const pool=(OWNER_POOL[o.kind]||(()=>[]))(), n=lc(o.name||"");
+  const hit=(pool||[]).find(e=>e.source===o.src&&(lc(e.name)===n||lc(e.shortName||"")===n));
+  return (hit&&hit.page)||null;
+}
 function resolveGrants(grants,level,tok,giver,out,sharedStat,giverSrc,owner){
   if(!grants)return;
   owner=owner||ownerOf(tok,giver,giverSrc);
@@ -642,7 +655,7 @@ function removeChosen(idx,spellKey){ const ch=state.chosen[idx];if(!ch)return;
 
 // ── render ───────────────────────────────────────────────────────────────
 let R=null, curTab="build";
-function render(){ maybeOnboard(); renderGapBar(); R=compute(); renderChoices(); renderSlots(); renderCart(); renderSpells(); renderFeatBudget(); renderJumpBar(); renderBuildSwitch();
+function render(){ maybeOnboard(); renderGapBar(); CASTMODS=activeCastMods(); R=compute(); renderChoices(); renderSlots(); renderCart(); renderSpells(); renderFeatBudget(); renderJumpBar(); renderBuildSwitch();
   if(curTab==="table")renderTable(); save(); }
 
 // ── choices panel ──────────────────────────────────────────────────────────
@@ -655,7 +668,11 @@ function ownerCat(o){
   const f=FEAT_BY[key(o.name,o.src)];
   if(!f)return "feat";
   if(isFeatFS(f))return "fighting style";
-  return FEAT_TYPE[featCat(f)]||"feat";
+  // a book's own category names itself better than the slot it happens to fill: "wild
+  // talent" says more than "origin feat", which is the whole point of D67's type line
+  const cat=featCatId(f);
+  if(cat==="O"||cat==="EB"||GENERAL_CATS.has(cat))return FEAT_TYPE[featSlot(f)]||"feat";
+  return lc(featCatLabel(f));
 }
 function renderChoices(){
   const card=$("#choicesCard"), body=$("#choicesBody"); body.innerHTML="";
@@ -674,7 +691,7 @@ function renderChoices(){
     const box=el("div","choicegroup");
     const h=el("div","cghead");
     h.append(el("b",null,g.owner.name));
-    if(g.owner.src)h.append(bookChip(g.owner.src));
+    if(g.owner.src)h.append(bookChip(g.owner.src,ownerPage(g.owner)));
     h.append(el("span","cgn",g.items.length===1?"1 choice":`${g.items.length} choices`));
     const cat=ownerCat(g.owner);
     if(cat)h.append(el("div","cgcat",cat));   // inside the head, so it sits above its rule
@@ -764,7 +781,9 @@ function renderPickList(){
   items.slice(0,300).forEach(sp=>{const k=key(sp.name,sp.source);const on=cur.has(k);
     const d=el("div","sp"+(on?" chosen":""));
     const nm=el("div","nm",sp.name); attachSpell(nm,sp); d.append(nm);
-    const meta=el("div","meta");[ROMAN[sp.level],sp.school,sp.time,sp.range,sp.source!==CORE?sp.book:""].filter(Boolean).forEach(x=>meta.append(el("span",null,x)));d.append(meta);
+    // D39 reaches here too now: the printed book lives in the spell modal's title line, so
+    // both spell lists behave the same and neither carries it on the row
+    const meta=el("div","meta");[ROMAN[sp.level],sp.school,sp.time,sp.range].filter(Boolean).forEach(x=>meta.append(el("span",null,x)));d.append(meta);
     const take=el("div","take");const b=el("button","tk ico-only"+(on?" on":""));
     b.append(icoEl(on?"check":"plus"));
     const tlbl=on?(isClass?"Prepared — click to unprepare":"Picked — click to remove")
@@ -801,20 +820,22 @@ function entItems(srcSet){
   if(ENT.kind==="opt"){const want=new Set(ENT.slot.types);
     return DATA.optfeats.filter(o=>vis(o)&&o.types.some(t=>want.has(t)));}
   if(ENT.kind==="species")return DATA.races.filter(vis);
-  return DATA.feats.filter(f=>vis(f)&&!isFeatFS(f)&&ENT.cats.has(featCat(f)));
+  return DATA.feats.filter(f=>vis(f)&&!isFeatFS(f)&&ENT.cats.has(featCatId(f)));
 }
 function openEntityPicker(kind,category){
   // the optional-feature slot is passed in place of a feat category
   const slot=kind==="opt"?category:null;
   // `books` is a LOCAL override seeded from the global selection (D27) — editing it here
   // never writes back to the global source list, and it resets every time the picker opens.
-  // one shared picker for all three feat slots: `cats` is PRESET to the slot's kind but the
-  // player can widen it (a general slot may take an origin feat). Budget attribution still
-  // follows the feat's own category, so widening can show origin 2/1 — deliberate, soft-flagged.
-  const preset=new Set(kind==="species"||kind==="opt"?[]
-    :[category==="origin"?"origin":category==="epic"?"epic":"general"]);
+  // one shared picker for all three feat slots. `cats` holds CATEGORY ids and is preset to
+  // every category the slot may legally draw on — for a general slot that includes the
+  // origin-slot ones, because origin is a subset of general (D84). Narrowing is the
+  // player's, and attribution follows the SLOT they opened, not the feat's category.
+  const slots=SLOTS_FOR[kind==="feat"?(category||"general"):""]||[];
+  const catList=kind==="feat"?featCatsFor(slots):[];
+  const preset=new Set(catList.map(c=>c[0]));
   ENT={kind,category,slot,q:"",books:new Set(SRC),grantsOnly:false,hideNo:false,
-       cats:new Set(preset),presetCats:preset};
+       cats:new Set(preset),presetCats:preset,catList};
   $("#entTitle").textContent = kind==="opt"?`Choose ${slot.name.replace(/s$/,"").toLowerCase()}`
     : kind==="species"?"Choose a species / lineage"
     : category==="origin"?"Choose an origin feat" : category==="epic"?"Choose an epic boon" : "Choose a general feat";
@@ -837,7 +858,7 @@ function renderEntityList(){
   // feat kind: epic boon is always offered, just not preselected below level 19 (D31)
   $("#entCatHead").classList.toggle("hidden",ENT.kind!=="feat");
   $("#entCats").classList.toggle("hidden",ENT.kind!=="feat");
-  if(ENT.kind==="feat")buildToggleRow($("#entCats"),FEAT_CATS,ENT.cats,false,()=>renderEntityList());
+  if(ENT.kind==="feat")buildToggleRow($("#entCats"),ENT.catList||[],ENT.cats,false,()=>renderEntityList());
   renderEntBooks();
   renderEntBudget();
   const q=ENT.q.toLowerCase();
@@ -862,14 +883,20 @@ function renderEntityList(){
   const shown=items.slice(0,400);
   const entRow=(it,label)=>{const k=key(it.name,it.source);
     const pr=prereqState(it);
-    if(pr.state==="no"&&!sepDone){sepDone=true;list.append(el("div","entsep"));}
+    if(pr.state==="no"&&!sepDone){sepDone=true;
+      // the row above still carries its own divider — two rules with a gap between them
+      // read as a mistake. The separator IS the divider here.
+      let prev=list.lastElementChild;
+      if(prev&&prev.classList.contains("entgroup"))prev=prev.lastElementChild;
+      if(prev&&prev.classList.contains("entrow"))prev.classList.add("nodiv");
+      list.append(el("div","entsep"));}
     const on = ENT.kind==="species"?curSel===k:ENT.kind==="opt"?state.optFeats.includes(k):state.feats.includes(k);
     const row=el("div","entrow"+(on?" on":"")+(pr.state==="no"?" blocked":""));
     const main=el("div","entmain");
     const nm=el("div","entname");nm.append(document.createTextNode(label||it.name));
     if(it.source!==CORE)nm.append(bookChip(it.source,it.page));
-    if(ENT.kind==="feat"){const c=featCat(it);
-      if(!ENT.presetCats.has(c))nm.append(Object.assign(el("span","entcat"),{textContent:c}));}
+    if(ENT.kind==="feat"&&(ENT.catList||[]).length>1)
+      nm.append(Object.assign(el("span","entcat"),{textContent:featCatLabel(it)}));
     if(grantsAny(it.grants))nm.append(icoEl("spark","fmark"));
     if(pr.state==="no")nm.append(icoEl("warn","entwarn"));
     main.append(nm);
@@ -880,6 +907,7 @@ function renderEntityList(){
       rq.append(el("span","rql","Requires"));
       pr.parts.forEach(pt=>{
         const chip=el("span","rqp "+(pt.s==="ok"?"met":pt.s==="no"?"unmet":"unk"));
+        if(pt.why)chip.title=pt.why;      // e.g. which feat is already occupying the category
         if(pt.s==="ok")chip.append(icoEl("check"));
         if(pt.s==="no")chip.append(icoEl("x"));
         chip.append(document.createTextNode(pt.t));
@@ -903,7 +931,8 @@ function renderEntityList(){
       if(!on&&!srcOn(it.source)){SRC.add(it.source);saveSources();ENT.note=`Enabled ${bookName(it.source)} in your sources`;}
       if(ENT.kind==="species"){state.speciesKey=on?"":k;}
       else if(ENT.kind==="opt"){ if(on)state.optFeats=state.optFeats.filter(x=>x!==k); else state.optFeats.push(k); }
-      else{ if(on)state.feats=state.feats.filter(x=>x!==k); else state.feats.push(k); }
+      else{ if(on){state.feats=state.feats.filter(x=>x!==k);setFeatSlot(k,null);}
+            else{state.feats.push(k);setFeatSlot(k,ENT.category||featSlot(it));} }
       save();refreshAll();render();renderEntityList(); };
     row.append(btn); return row;};
   if(ENT.kind!=="species"){shown.forEach(it=>list.append(entRow(it)));return;}
@@ -1120,24 +1149,63 @@ function renderBuildSwitch(){
   const n=BUILDS.order.length;
   $("#bswBtn").title=`${describeBuild(b.state)} · ${n} build${n===1?"":"s"} saved`;
 }
+// A build's meta changed (a rename). The header label and, if it is open, the manager
+// both read that meta — but re-rendering the POPOVER from a field's own blur handler
+// would destroy the node the next click is travelling to, so that is opt-in.
+function afterBuildMeta(repop){
+  persistBuilds(); renderBuildSwitch();
+  if($("#buildModal")&&!$("#buildModal").classList.contains("hidden"))renderBuildList();
+  if(repop&&$("#bswPop")&&!$("#bswPop").classList.contains("hidden"))renderBswPop();
+}
+// The row menu lives inside a popover that scrolls and therefore CLIPS (`overflow:auto`).
+// `position:fixed` takes it out of that clip — its containing block is the viewport — so
+// it is placed from the button's own rect and closed if the list scrolls under it.
+function placeBswMenu(menu,btn){
+  menu.classList.remove("hidden");
+  menu.style.left=menu.style.top="0px";                 // measure unconstrained
+  const m=menu.getBoundingClientRect(), b=btn.getBoundingClientRect(), pad=6;
+  let top=b.bottom+4;
+  if(top+m.height>innerHeight-pad)top=Math.max(pad,b.top-4-m.height);
+  let left=b.right-m.width;
+  left=Math.max(pad,Math.min(left,innerWidth-pad-m.width));
+  menu.style.left=left+"px"; menu.style.top=top+"px";
+}
+function closeBswMenus(){document.querySelectorAll(".bswmenu").forEach(m=>m.classList.add("hidden"));}
 function renderBswPop(){
   const pop=$("#bswPop"); pop.innerHTML="";
+  // the list scrolls; the two actions below it are pinned, so "New build" is reachable
+  // whether you have two builds or twenty
+  const wrap=el("div","bswlist"); pop.append(wrap);
   const chars=[]; BUILDS.order.forEach(id=>{const b=BUILDS.builds[id];
     if(b&&!chars.includes(b.meta.character))chars.push(b.meta.character);});
   chars.forEach(char=>{
-    pop.append(el("div","bswgrp",char));
+    // a character is a GROUP, not a divider: its name heads the block its versions sit in,
+    // and the name is editable here exactly as in the manager — renaming it rewrites every
+    // version under it (D35) and stops the auto-follow
+    const grp=el("div","bsggroup"); wrap.append(grp);
+    const gh=el("div","bswgrp");
+    gh.append(nameInput("bswgrpn",char,v=>{
+      buildsOf(char).forEach(b=>{b.meta.character=v;b.meta.named=true;});
+      afterBuildMeta(true);}));
+    const nver=buildsOf(char).length;
+    gh.append(el("span","bsgn",nver===1?"1 version":nver+" versions"));
+    grp.append(gh);
+    const rows=el("div","bsgrows"); grp.append(rows);
     buildsOf(char).forEach(b=>{
       const on=b.id===BUILDS.activeId;
-      // a row is no longer ONE button: it carries its own actions, and a button cannot
-      // nest a button. The switch action is the main child; the ⋯ menu is its sibling.
+      // a row is no longer ONE button: it carries its own actions and its own name FIELD,
+      // and a button may nest neither. The switch action is a focusable div instead.
       const r=el("div","bswrow"+(on?" on":""));
-      const main=el("button","bswmain");
+      const main=el("div","bswmain");
+      main.tabIndex=0; main.setAttribute("role","button");
       const t=el("div","bswrowt");
-      t.append(el("span","bswn",b.meta.name));
+      t.append(nameInput("bswn",b.meta.name,v=>{b.meta.name=v;afterBuildMeta(false);}));
       if(on)t.append(el("span","bswcur","current"));
       main.append(t);
       main.append(el("div","bsws",describeBuild(b.state)+" · "+agoText(b.meta.updated)));
-      main.onclick=()=>{closeMenu(); if(!on)switchBuild(b.id);};
+      const go=()=>{closeMenu(); if(!on)switchBuild(b.id);};
+      main.onclick=go;
+      main.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();go();}};
       r.append(main);
       const dots=el("button","bswdots ico");dots.append(icoEl("dots"));
       dots.setAttribute("aria-label","Actions for this version");
@@ -1152,21 +1220,18 @@ function renderBswPop(){
       del.classList.add("danger"); armConfirm(del,null,()=>{deleteBuild(b.id);closeMenu();});
       menu.append(del);
       dots.onclick=e=>{e.stopPropagation();
-        pop.querySelectorAll(".bswmenu").forEach(m=>{if(m!==menu)m.classList.add("hidden");});
-        menu.classList.toggle("hidden");
-        // the popover scrolls and clips — a menu on one of the last rows opens upward
-        if(!menu.classList.contains("hidden")){menu.classList.remove("up");
-          const mb=menu.getBoundingClientRect(), pb=pop.getBoundingClientRect();
-          if(mb.bottom>pb.bottom-4)menu.classList.add("up");}};
+        const wasOpen=!menu.classList.contains("hidden");
+        closeBswMenus();
+        if(!wasOpen)placeBswMenu(menu,dots);};
       r.append(dots,menu);
-      pop.append(r);});});
-  pop.append(el("div","sep"));
+      rows.append(r);});});
+  const foot=el("div","bswfoot"); pop.append(foot);
   // creating a character is the one ACTION here, not another place to navigate to
   const nb=el("button","bswact primary");nb.append(icoEl("plus","mi"));nb.append(document.createTextNode("New build"));
   nb.onclick=()=>openNewBuild();
   const man=el("button","bswact");man.append(icoEl("stack","mi"));man.append(document.createTextNode("Manage builds…"));
   man.onclick=()=>{closeMenu();openBuilds();};
-  pop.append(nb,man);
+  foot.append(nb,man);
 }
 
 // ── export / import a build (v7 · T5) ──────────────────────────────────────
@@ -1232,6 +1297,12 @@ function applyImportedState(st){
   out.speciesKey=String(st.speciesKey||"");
   out.feats=(Array.isArray(st.feats)?st.feats:[]).map(String);
   out.optFeats=(Array.isArray(st.optFeats)?st.optFeats:[]).map(String);
+  // which slot each feat was spent from (D84) — keyed by name|source, so no renumbering.
+  // Nothing from the file is trusted: only a known slot, only for a feat that is here.
+  out.featSlots={};
+  const held=new Set(out.feats);
+  Object.entries((st.featSlots&&typeof st.featSlots==="object")?st.featSlots:{}).forEach(([k,v])=>{
+    if(held.has(String(k))&&SLOTS_FOR[String(v)])out.featSlots[String(k)]=String(v);});
   out.levelOrder=(Array.isArray(st.levelOrder)?st.levelOrder:[]).map(x=>idMap.get(x)).filter(Boolean);
   out.customSources=Array.isArray(st.customSources)?JSON.parse(JSON.stringify(st.customSources)):[];
   out.chosen={};
@@ -1467,7 +1538,7 @@ function prqTake(o,kind){
   const k=key(o.name,o.source);
   if(kind==="species")state.speciesKey=k;
   else if(kind==="opt"){if(!state.optFeats.includes(k))state.optFeats.push(k);}
-  else if(!state.feats.includes(k))state.feats.push(k);
+  else if(!state.feats.includes(k)){state.feats.push(k);setFeatSlot(k,featSlot(o));}
   save();refreshAll();render();
   PRQPOP.classList.add("hidden");
   if(ENT)renderEntityList();
@@ -1588,7 +1659,7 @@ function renderGrantedList(){
     const box=el("div","prepgrp");
     const h=el("div","cghead");
     h.append(el("b",null,c.giver||"Granted"));
-    if(c.giverSrc)h.append(bookChip(c.giverSrc));
+    if(c.giverSrc)h.append(bookChip(c.giverSrc,ownerPage(c.owner)));
     h.append(el("span","cgn",`${cur.length}/${c.count}`));
     h.append(Object.assign(el("div","cgcat"),{textContent:fmtDesc(c.desc)||"choose a spell"}));
     box.append(h);
@@ -1754,16 +1825,68 @@ function deleteCustom(sp){if(!CUSTOM)return;
   const k=key(sp.name,sp.source);Object.values(state.chosen).forEach(c=>["cantrips","spells"].forEach(a=>{if(c[a])c[a]=c[a].filter(x=>x!==k);}));
   assembleData();refreshAll();render();}
 
+// ── homebrew manager ───────────────────────────────────────────────────────
+// Custom spells were only reachable by finding them in the spell table and opening the
+// modal — which needs a build that can already cast them. This lists every one.
+function renderHbList(){
+  const box=$("#hbList"); if(!box)return; box.innerHTML="";
+  const all=((CUSTOM&&CUSTOM.spells)||[]).slice()
+    .sort((a,b)=>a.level-b.level||a.name.localeCompare(b.name));
+  const q=($("#hbSearch").value||"").toLowerCase();
+  const rows=all.filter(sp=>!q||sp.name.toLowerCase().includes(q));
+  $("#hbSub").textContent=all.length
+    ? `${all.length} spell${all.length===1?"":"s"}`+(q&&rows.length!==all.length?` · ${rows.length} shown`:"")
+    : "";
+  if(!all.length){box.append(el("div","empty","No homebrew spells yet — “New spell” writes one."));return;}
+  if(!rows.length){box.append(el("div","empty","Nothing matches that."));return;}
+  rows.forEach(sp=>{
+    const r=el("div","hbrow");
+    const main=el("div","hbmain");
+    const nm=el("div","hbnm",sp.name); attachSpell(nm,sp); main.append(nm);
+    main.append(Object.assign(el("div","hbsub"),
+      {textContent:metaLine(sp)+((sp.cls||[]).length?" · "+sp.cls.map(c=>c[0]).join(", "):" · no class list")}));
+    r.append(main);
+    const acts=el("div","hbacts");
+    const ed=el("button","tk ico-only"); ed.append(icoEl("pencil"));
+    ed.setAttribute("aria-label","Edit"); ed.onclick=()=>{$("#hbModal").classList.add("hidden");
+      openCustom(customFromSpell(sp),true);};
+    attachTip(ed,tipBlock("Edit","Opens it in the custom-spell editor."));
+    // the icon goes in BEFORE armConfirm, which snapshots innerHTML to restore (D66)
+    const del=el("button","tk del ico-only"); del.append(icoEl("trash"));
+    del.setAttribute("aria-label","Delete"); del.title="Delete this spell";
+    armConfirm(del,null,()=>{deleteCustom(sp);renderHbList();});
+    acts.append(ed,del); r.append(acts); box.append(r);});
+}
+function openHb(){closeMenu();$("#hbSearch").value="";
+  $("#hbModal").classList.remove("hidden");renderHbList();}
+
 // ── 5etools importer: parse raw files in-browser via SB_extract ─────────────
 let IMPORT_STAGE=[];
 function looksLookupFile(j){const ks=Object.keys(j||{});if(!ks.length)return false;const v=j[ks[0]];if(!v||typeof v!=="object")return false;const vv=v[Object.keys(v)[0]];return !!(vv&&typeof vv==="object"&&(vv.class||vv.subclass||vv.feat||vv.race));}
 function countFile(j){const parts=[];[["spell","sp"],["class","cls"],["subclass","sub"],["feat","ft"],["race","spc"],["optionalfeature","opt"],["book","bk"]].forEach(([k,l])=>{if(Array.isArray(j[k])&&j[k].length)parts.push(j[k].length+" "+l);});
   if(!parts.length&&looksLookupFile(j))parts.push("lookup");return parts.join(" · ")||"?";}
+let STAGE_EXP=false;
 function renderImportStage(){const box=$("#importStaged");if(!box)return;box.innerHTML="";
-  IMPORT_STAGE.forEach((f,i)=>{const chip=el("span","stagechip"+(f.error?" bad":""));
-    chip.append(el("span",null,f.name));
-    chip.append(el("span","k",f.error?"invalid":countFile(f.json)));
-    const x=xBtn(null,()=>{IMPORT_STAGE.splice(i,1);renderImportStage();});chip.append(x);box.append(chip);});
+  const n=IMPORT_STAGE.length;
+  box.classList.toggle("hidden",!n);
+  if(n){
+    // a full data folder stages ~180 files; wrapped, that pushed everything below it off
+    // the screen. One row that scrolls, expanded on demand — the Access section's pattern.
+    box.dataset.exp=STAGE_EXP?"1":"0";
+    const bad=IMPORT_STAGE.filter(f=>f.error).length;
+    const lbl=el("span","stlabel",`${n} file${n===1?"":"s"}`+(bad?` · ${bad} invalid`:""));
+    const chips=el("div","stchips");
+    IMPORT_STAGE.forEach((f,i)=>{const chip=el("span","stagechip"+(f.error?" bad":""));
+      chip.append(el("span","stnm",f.name));
+      chip.append(el("span","k",f.error?"invalid":countFile(f.json)));
+      const x=xBtn(null,()=>{IMPORT_STAGE.splice(i,1);renderImportStage();});chip.append(x);
+      chips.append(chip);});
+    const tog=el("button","acc-toggle st-toggle");tog.type="button";tog.textContent="⌄";
+    tog.title=STAGE_EXP?"Show as one row":"Show every staged file";
+    tog.setAttribute("aria-label",tog.title);
+    tog.onclick=()=>{STAGE_EXP=!STAGE_EXP;renderImportStage();};
+    box.append(lbl,chips,tog);
+  }
   const bb=$("#importBuild");if(bb)bb.disabled=!IMPORT_STAGE.some(f=>!f.error);}
 async function stageZip(file){const rep=$("#importReport");
   try{rep.textContent="Reading "+file.name+"…";const buf=await file.arrayBuffer();
@@ -1781,22 +1904,175 @@ function stageFiles(fileList){[...fileList].forEach(file=>{
     rd.onerror=()=>{IMPORT_STAGE.push({name:file.name,error:true});renderImportStage();};
     rd.readAsText(file);});}
 function importSummary(r){return `${r.spells} spells · ${r.classes} classes · ${r.subclasses} subclasses · ${r.feats} feats · ${r.species} species`+(r.lookup?"":" · ⚠ no spell-source lookup — spells won’t know their classes; add generated/gendata-spell-source-lookup.json");}
-function openImport(welcome){closeMenu();const r=$("#importReport");if(r)r.textContent=IMPORTED?"Imported data is active. Building again replaces it.":"";
-  const w=$("#importWelcome");if(w)w.classList.toggle("hidden",!welcome);
-  const t=$("#importTitle");if(t)t.textContent=welcome?"Load your spell data":"Import 5etools data";
-  renderImportStage();$("#importModal").classList.remove("hidden");}
+
+// ── additive imports and the book plan (D86) ───────────────────────────────
+// An import used to REPLACE everything stored, so adding one brew meant re-staging every
+// core file with it. It now MERGES: entities are keyed by name|source and a staged file
+// wins only over its own exact record. What ends up stored is decided by ONE list — every
+// book you already have plus every book the staged files hold — where a tick means "this
+// is in my data". Unticking a book you have removes its content, which is the only way to
+// get storage back. Nothing is written until Apply.
+const DIGEST_ARRAYS=["spells","classes","subclasses","feats","races","optfeats"];
+const ENT_KEY={
+  spells:e=>lc(e.name)+"|"+lc(e.source),
+  classes:e=>lc(e.name)+"|"+lc(e.source),
+  subclasses:e=>lc(e.className||"")+"|"+lc(e.shortName||e.name||"")+"|"+lc(e.source),
+  feats:e=>lc(e.name)+"|"+lc(e.source),
+  races:e=>lc(e.name)+"|"+lc(e.source),
+  optfeats:e=>lc(e.name)+"|"+lc(e.source),
+};
+// A file that merely REFERENCES a book it doesn't declare emits the bare code as that
+// book's name and "other" as its group. Letting that win turns "Test Book A" back into
+// "TSTA" on the next import, so a real title never loses to a placeholder.
+function mergeSources(base,add){
+  const out={}; Object.keys(base||{}).forEach(c=>{out[c]=base[c];});
+  Object.entries(add||{}).forEach(([c,v])=>{const was=out[c];
+    const m=Object.assign({},was,v);
+    if(was&&was.name&&was.name!==c&&(!v.name||v.name===c))m.name=was.name;
+    if(was&&was.group&&was.group!=="other"&&(!v.group||v.group==="other"))m.group=was.group;
+    out[c]=m;});
+  return out;
+}
+function mergeDigests(base,add){
+  base=base||emptyDigest(); add=add||emptyDigest();
+  const out={meta:Object.assign({},base.meta,add.meta,{imported:true}),
+    sources:mergeSources(base.sources,add.sources),
+    monsters:Object.assign({},base.monsters||{},add.monsters||{}),
+    fullMc:add.fullMc||base.fullMc||FULL_MC, pact:add.pact||base.pact||PACT};
+  DIGEST_ARRAYS.forEach(a=>{const kf=ENT_KEY[a],at={},order=[];
+    (base[a]||[]).forEach(e=>{const k=kf(e);if(!(k in at))order.push(k);at[k]=e;});
+    (add[a]||[]).forEach(e=>{const k=kf(e);if(!(k in at))order.push(k);at[k]=e;});
+    out[a]=order.map(k=>at[k]);});
+  return out;
+}
+// keep only the books in `keep`, then RE-COUNT — a source registry that still claims the
+// spells you just removed is worse than no registry
+function filterDigest(d,keep){
+  const out={meta:d.meta,sources:{},monsters:{},fullMc:d.fullMc,pact:d.pact};
+  DIGEST_ARRAYS.forEach(a=>{out[a]=(d[a]||[]).filter(e=>keep.has(e.source));});
+  // A stat block is NOT filtered by its own book: a bestiary source never reaches the
+  // registry (it has no spells or classes to count), so keying on it would drop every
+  // creature set. What keeps a monster is a surviving spell REFERENCING it — which also
+  // collects the ones whose spell you just removed. D81 still holds: the carousel filters
+  // a set for display, it never prunes one.
+  const wanted=new Set();
+  out.spells.forEach(sp=>(sp.creatures||[]).forEach(k=>wanted.add(k)));
+  Object.keys(d.monsters||{}).forEach(k=>{if(wanted.has(k))out.monsters[k]=d.monsters[k];});
+  const counter={};
+  const cnt=(src,f)=>{(counter[src]=counter[src]||{spells:0,classes:0,subclasses:0,feats:0,species:0})[f]++;};
+  out.spells.forEach(e=>cnt(e.source,"spells")); out.classes.forEach(e=>cnt(e.source,"classes"));
+  out.subclasses.forEach(e=>cnt(e.source,"subclasses")); out.feats.forEach(e=>cnt(e.source,"feats"));
+  out.races.forEach(e=>cnt(e.source,"species"));
+  Object.keys(counter).forEach(src=>{const was=(d.sources||{})[src]||{};
+    out.sources[src]={name:was.name||src,group:was.group||"other",counts:counter[src]};});
+  return out;
+}
+const digestSize=d=>DIGEST_ARRAYS.reduce((n,a)=>n+((d[a]||[]).length),0);
+
+let PLAN=null;   // {stored, incoming, merged, keep:Set, fresh:Set, report}
+function planFromStage(incoming,report){
+  PLAN_Q="";
+  const stored=IMPORTED||emptyDigest();
+  const merged=mergeDigests(stored,incoming||emptyDigest());
+  const had=new Set(Object.keys(stored.sources||{}));
+  const fresh=new Set(Object.keys((incoming&&incoming.sources)||{}).filter(c=>!had.has(c)));
+  PLAN={stored,incoming:incoming||emptyDigest(),merged,report,fresh,
+        keep:new Set(Object.keys(merged.sources||{}))};
+}
+function planCounts(code){
+  const c=(PLAN.merged.sources[code]||{}).counts||{};
+  const n=(c.spells||0)+(c.classes||0)+(c.subclasses||0)+(c.feats||0)+(c.species||0);
+  return (PLAN.fresh.has(code)?"new · ":"")+n;   // entities, not just spells
+}
+let PLAN_Q="";
+// which books the filter is showing — All / None act on THESE, so a search plus one click is
+// how you keep or drop a whole family of books
+function planShown(){
+  const all=Object.keys(PLAN.merged.sources||{});
+  const q=PLAN_Q.trim().toLowerCase(); if(!q)return all;
+  return all.filter(c=>c.toLowerCase().includes(q)
+    ||String((PLAN.merged.sources[c]||{}).name||"").toLowerCase().includes(q));
+}
+function renderImportPlan(){
+  const box=$("#importPlan"); if(!box)return;
+  if(!PLAN||!Object.keys(PLAN.merged.sources||{}).length){box.classList.add("hidden");return;}
+  box.classList.remove("hidden");
+  const shown=planShown();
+  const list=$("#importPlanList");
+  if(shown.length)renderSourceChecklist(list,PLAN.keep,renderImportPlanFoot,new Set(shown),
+                                        planCounts,PLAN.merged.sources);
+  else {list.innerHTML="";list.append(el("div","empty","No book matches that."));}
+  const q=$("#importPlanQuick"); q.innerHTML="";
+  const f=el("input","planq"); f.type="search"; f.value=PLAN_Q;
+  f.placeholder="filter books…"; f.spellcheck=false;
+  f.oninput=e=>{PLAN_Q=e.target.value;renderImportPlan();
+    const n=$("#importPlanQuick .planq"); if(n){n.focus();n.setSelectionRange(n.value.length,n.value.length);}};
+  q.append(f);
+  const quick=(label,fn)=>{const b=el("button","btn",label);
+    b.onclick=()=>{fn();renderImportPlan();};q.append(b);};
+  quick(PLAN_Q?"All shown":"All",()=>shown.forEach(c=>PLAN.keep.add(c)));
+  quick(PLAN_Q?"None shown":"None",()=>shown.forEach(c=>PLAN.keep.delete(c)));
+  if(PLAN.fresh.size)quick("Only these files",()=>{PLAN.keep.clear();
+    Object.keys(PLAN.incoming.sources||{}).forEach(c=>PLAN.keep.add(c));});
+  renderImportPlanFoot();
+}
+function renderImportPlanFoot(){
+  if(!PLAN)return;
+  // the built-in bundle is not a layer you merge into — it is what shows when nothing is
+  // imported. Say so, rather than letting a one-brew import look like it ate everything.
+  const note=$("#importPlanNote");
+  if(note){const bare=!IMPORTED&&BAKED&&(BAKED.spells||[]).length;
+    note.classList.toggle("hidden",!bare);}
+  const had=new Set(Object.keys(PLAN.stored.sources||{}));
+  const added=[...PLAN.keep].filter(c=>!had.has(c)).length;
+  const dropped=[...had].filter(c=>!PLAN.keep.has(c)).length;
+  const bits=[`${PLAN.keep.size} book${PLAN.keep.size===1?"":"s"} kept`];
+  if(added)bits.push(`+${added} new`);
+  if(dropped)bits.push(`−${dropped} removed`);
+  $("#importPlanSub").textContent=bits.join(" · ");
+  const btn=$("#importApply");
+  if(btn){btn.disabled=!PLAN.keep.size;
+    btn.textContent=dropped?`Apply (${dropped} book${dropped===1?"":"s"} removed)`:"Apply";
+    btn.classList.toggle("danger",!!dropped);}
+}
 function buildImport(){
   const files=IMPORT_STAGE.filter(f=>!f.error).map(f=>({name:f.name,json:f.json}));
   const rep=$("#importReport");
   if(!files.length){rep.textContent="Stage at least one valid file first.";return;}
   if(!window.SB_extract){rep.textContent="Importer failed to load.";return;}
+  rep.textContent="Reading…";
   const res=window.SB_extract.buildDigest(files);const digest=res.digest,report=res.report;
   if(!digest.spells.length&&!digest.classes.length){rep.textContent="No spells or classes found in these files.";return;}
-  try{localStorage.setItem(LS_IMPORT,JSON.stringify(digest));}catch(e){rep.textContent="Too large to store in this browser. Import fewer books at once.";return;}
-  SRC=new Set(Object.keys(digest.sources));SRC.add(HB_SRC);saveSources();
+  planFromStage(digest,report); renderImportPlan();
+  rep.innerHTML=`Read ${files.length} file${files.length===1?"":"s"} — ${importSummary(report)}.`
+    +` <b>Nothing is stored yet:</b> choose the books below, then Apply.`;
+}
+function applyImport(){
+  const rep=$("#importReport"); if(!PLAN)return;
+  const out=filterDigest(PLAN.merged,PLAN.keep);
+  if(!digestSize(out)){rep.textContent="That would leave no content at all — keep at least one book.";return;}
+  try{localStorage.setItem(LS_IMPORT,JSON.stringify(out));}
+  catch(e){rep.textContent="Too large to store in this browser. Untick some books and apply again.";return;}
+  // a book that is newly here is turned ON; one you removed leaves the selection with it
+  const codes=new Set(Object.keys(out.sources));
+  PLAN.fresh.forEach(c=>{if(codes.has(c))SRC.add(c);});
+  [...SRC].forEach(c=>{if(c!==HB_SRC&&!codes.has(c)&&!(BAKED&&BAKED.sources&&BAKED.sources[c]))SRC.delete(c);});
+  SRC.add(HB_SRC); saveSources();
   assembleData();pruneState();
-  IMPORT_STAGE=[];renderImportStage();refreshAll();render();
-  rep.innerHTML=`<b style="color:var(--good)">Loaded.</b> ${importSummary(report)}. Close to see it.`;}
+  IMPORT_STAGE=[];renderImportStage();
+  planFromStage(null,PLAN.report); renderImportPlan();
+  refreshAll();render();
+  const nb=Object.keys(out.sources).length;
+  rep.innerHTML=`<b style="color:var(--good)">Applied.</b> ${nb} book${nb===1?"":"s"} · `
+    +`${out.spells.length} spells · ${out.classes.length} classes · ${out.subclasses.length} subclasses · `
+    +`${out.feats.length} feats · ${out.races.length} species. Close to see it.`;
+}
+function openImport(welcome){closeMenu();const r=$("#importReport");
+  if(r)r.textContent=IMPORTED?"Staging more files ADDS to what you have — only identical entries are replaced.":"";
+  const w=$("#importWelcome");if(w)w.classList.toggle("hidden",!welcome);
+  const t=$("#importTitle");if(t)t.textContent=welcome?"Load your spell data":"Import 5etools data";
+  planFromStage(null,null); renderImportPlan();
+  renderImportStage();$("#importModal").classList.remove("hidden");}
 function clearImport(){try{localStorage.removeItem(LS_IMPORT);}catch(e){}assembleData();pruneState();refreshAll();render();}
 // no-content build (public deploy): pop the import modal in welcome mode, once
 let onboardShown=false;
@@ -1879,7 +2155,25 @@ function srcTidy(giver){ // "Land · Polar Land" → "Land (Polar)", "Magic Init
   return `${p[0]} (${opt})`;
 }
 function classLabel(r){return r.name+(r.viaSub?" ("+r.viaSub.shortName+")":"");}
+// The Table tab never shows the class rows, so a build that strips components had no way
+// to say so there. Same chips, one place up (D85).
+function renderTableCastMods(){
+  const card=$("#spellTable")&&$("#spellTable").closest(".card"); if(!card)return;
+  let box=card.querySelector(".tblcastmods");
+  if(!CASTMODS.length){ if(box)box.remove(); return; }
+  if(!box){box=el("div","tblcastmods");
+    const body=card.querySelector(".body"); body.insertBefore(box,body.firstChild);}
+  box.innerHTML="";
+  box.append(el("span","tcmlbl","Your casting"));
+  CASTMODS.forEach(m=>{
+    const chip=el("span","cmchip"+(m.when?" iffy":""));
+    chip.append(icoEl("spark","mi"));
+    chip.append(document.createTextNode(castModLabel(m)));
+    attachTip(chip,castModTip(m,String(m.drop||"").split("")));
+    box.append(chip);});
+}
 function renderTable(){
+  renderTableCastMods();
   const rows=[]; const seenSrc=new Set();
   const push=o=>{const kk=key(o.sp.name,o.sp.source)+"|"+o.src; if(seenSrc.has(kk))return; seenSrc.add(kk); rows.push(o);};
   R.casters.forEach(r=>{const cart=R.cart[r.idx];
@@ -1893,7 +2187,8 @@ function renderTable(){
   });
   // always-prepared (free) grants
   [...R.pool.values()].filter(e=>e.grants.length).forEach(e=>{const g=e.grants[0];
-    push({sp:e.sp,src:srcTidy(g.src),type:"free",ability:g.ability,recharge:null,sel:true,note:g.note});});
+    push({sp:e.sp,src:srcTidy(g.src),type:"free",ability:g.ability,recharge:null,sel:true,
+      note:g.note,ownIdx:g.srcIdx});});
   // innate / free casts
   R.freeCasts.forEach(fc=>{if(fc.choice)return;const sp=grantRec(fc.name);if(sp)
     push({sp,src:srcTidy(fc.src),type:fc.swappable?"swap":"cast",ability:fc.ability,
@@ -2003,7 +2298,7 @@ function cellFor(k,row){
   if(k==="school")return shortCell(shortSchool(sp.school),sp.school,"School");
   if(k==="time")return shortCell(shortTime(sp.time),sp.time,"Casting time");
   if(k==="range")return shortCell(shortRange(sp.range),sp.range,"Range");
-  if(k==="comp")return compCell(sp);
+  if(k==="comp")return compCell(sp,row);
   if(k==="dur")return shortCell(shortDuration(sp.durTxt),
     (sp.conc?"Concentration, up to ":"")+sp.durTxt,"Duration");
   if(k==="conc"){const td=el("td",sp.conc?"concmark":"");
@@ -2024,7 +2319,15 @@ function cellFor(k,row){
   if(k==="build"){const td=el("td");
     const b=el("span","srcbadge"+(type==="free"?" free":type==="cast"?" cast":""),src);
     if(row.note){b.classList.add("hasnote");attachTip(b,tipBlock(src,row.note));}
-    td.append(b);return td;}
+    td.append(b);
+    // a casting-rule change belongs on the source that caused it — the struck letter in
+    // Comp. says WHAT changed, this says which feature did it (D85)
+    const eff=compEffect(sp,modsForSpell(sp,row));
+    if(eff.why.length){const m=el("span","cmmark"+(eff.gone.size?"":" iffy"));
+      m.append(icoEl("spark"));
+      attachTip(m,eff.why.map(x=>castModTip(x,String(x.drop||"").split(""))).join("<hr>"));
+      td.append(m);}
+    return td;}
   if(k==="book"){const td=el("td");td.append(bookChip(sp.source,sp.page));return td;}
   return el("td",null,"—");
 }
@@ -2043,17 +2346,122 @@ function matText(c){
   t=t.replace(/[\s,]+$/,"");
   return t||(c.mat||"a material component");
 }
-function compCell(sp){
+// ── casting-rule modifications (D85) ───────────────────────────────────────
+// A class or subclass may change HOW you cast spells you ALREADY have — strip a component
+// from a whole school, from a class's list, from four named spells. The extractors carry
+// that as `castMods` on the class/subclass record (5etools has no field for it); here we
+// resolve which are live at the build's level and which of them reach a given spell.
+// `when` is the honest half: a condition the app cannot verify ("by spending Sorcery
+// Points") never strikes a component out — it marks it, and says why.
+let CASTMODS=[];
+// the names of the optional features you have taken of a given type — a cast mod scoped to
+// "your Elemental Disciplines" has to know which ones you actually picked
+function optNamesOfType(types){
+  const want=new Set(types||[]);
+  return state.optFeats.map(k=>OPT_BY[k]).filter(o=>o&&(o.types||[]).some(t=>want.has(t)))
+    .map(o=>o.name);
+}
+function activeCastMods(){
+  const out=[];
+  state.classes.forEach(row=>{
+    const lv=effLevel(row); if(!lv)return;
+    const cls=CLS_BY[row.clsKey];
+    const push=(ent,kind)=>{ if(!ent||!ent.castMods)return;
+      ent.castMods.forEach(m=>{ if(lv<(m.level||1))return;
+        out.push(Object.assign({},m,{
+          giver:kind==="subclass"?(ent.shortName||ent.name):ent.name,
+          kind, clsName:(cls&&cls.name)||"", rowId:row.id}));});};
+    push(cls,"class"); push(row.subKey&&SUB_BY[row.subKey],"subclass");
+  });
+  return out;
+}
+// which live mods reach this spell. `row` is a spell-table row when there is one — it
+// says WHICH class is casting, which no property of the spell can.
+function modsForSpell(sp,row){
+  if(!CASTMODS.length||!sp)return [];
+  const label=row&&row.src?String(row.src):"";
+  return CASTMODS.filter(m=>{const sc=m.scope||{};
+    // "a Warlock spell" means one you cast THROUGH that class. A row labelled with the
+    // class is one; so is a row whose giver is the very feature's own class or subclass —
+    // a spell your Undead patron hands you is still a Warlock spell. Anything else is left
+    // alone: under-marking is the safe error here, over-marking would strike a component
+    // you actually need.
+    if(sc.cls){
+      let ok=false;
+      // a class-cast row knows its own class outright — no string matching needed
+      if(row&&row.idx!=null&&R&&R.casters){const rec=R.casters.find(r=>r.idx===row.idx);
+        ok=!!rec&&rec.name===sc.cls;}
+      // a GRANT row carries the class row it came from, so it matches exactly. The giver's
+      // NAME is only a last resort, and only when nothing better is on the row — matching it
+      // loosely is how a Shadow Sorcerer's Darkness could pick up the Shadow Monk's feature.
+      else if(row&&row.ownIdx!=null&&R&&R.casters){const rec=R.casters.find(r=>r.idx===row.ownIdx);
+        ok=!!rec&&rec.name===sc.cls;}
+      else if(label)ok=label.indexOf(sc.cls)>=0||label.indexOf(m.giver)>=0;
+      else ok=(sp.cls||[]).some(c=>c[0]===sc.cls);   // no row at all (the spell modal)
+      if(!ok)return false;}
+    if(sc.schools&&sc.schools.indexOf(sp.school)<0)return false;
+    if(sc.spells&&!sc.spells.some(n=>lc(n)===lc(sp.name)))return false;
+    if(sc.maxLevel!=null&&sp.level>sc.maxLevel)return false;
+    // the label of whatever granted it — a subclass's own spell list
+    if(sc.giver&&label.indexOf(sc.giver)<0)return false;
+    // granted by one of YOUR optional features of that type (Elemental Disciplines)
+    if(sc.optTypes&&!optNamesOfType(sc.optTypes).some(n=>label.indexOf(n)>=0))return false;
+    return true;});
+}
+// what those mods do to THIS spell's components: `gone` is struck through, `iffy` is
+// merely marked. A component the spell doesn't have, or a Material the feature exempts
+// because it costs money or is consumed, is not touched at all.
+function compEffect(sp,mods){
+  const c=sp.comp||{}, gone=new Set(), iffy=new Set(), why=[];
+  (mods||[]).forEach(m=>{ let hit=!String(m.drop||"").length;   // no `drop` = a free cast
+    String(m.drop||"").split("").forEach(L=>{
+      if(!c[L])return;
+      if(L==="m"&&m.exceptCostly&&(c.cost||c.consume))return;
+      hit=true; (m.when?iffy:gone).add(L);});
+    if(hit)why.push(m);});
+  gone.forEach(L=>iffy.delete(L));        // an unconditional drop outranks a conditional one
+  return {gone,iffy,why};
+}
+const CMOD_LETTER={v:"Verbal",s:"Somatic",m:"Material"};
+const castModLabel=m=>m.label||`${m.feature} — no ${String(m.drop||"").split("").map(L=>CMOD_LETTER[L]).join(" / ")}`;
+function castModTip(m,letters){
+  const eff=letters.filter(Boolean).length?[["Removes",esc(letters.map(L=>CMOD_LETTER[L]).join(", "))]]:[];
+  return tipRows(m.giver+" · "+m.feature, eff
+    .concat(m.when?[["Only",esc(m.when)]]:[])
+    .concat(m.exceptCostly?[["Except",'a Material component with a cost, or one the spell consumes']]:[]))
+    +`<p style="margin-top:6px">${ccText(m.note)}</p>`;
+}
+// one sentence per class row, under it, so adding a class TELLS you it changed your casting
+function castModLine(rowId){
+  const mine=CASTMODS.filter(m=>m.rowId===rowId);
+  if(!mine.length)return null;
+  const box=el("div","castmods");
+  mine.forEach(m=>{
+    const chip=el("span","cmchip"+(m.when?" iffy":""));
+    chip.append(icoEl("spark","mi"));
+    chip.append(document.createTextNode(castModLabel(m)));
+    attachTip(chip,castModTip(m,String(m.drop||"").split("")));
+    box.append(chip);});
+  return box;
+}
+function compCell(sp,row){
   const c=sp.comp||{};const td=el("td","cmp");
-  [["v","V"],["s","S"]].forEach(([k,t])=>{td.append(el("span","l"+(c[k]?" on":""),t));td.append(document.createTextNode(" "));});
-  const m=el("span","l"+(c.m?" on":"")+(c.m?(c.consume?" eat":c.cost?" costly":""):""),"M");
+  const eff=compEffect(sp,modsForSpell(sp,row));
+  // a component your build removes is struck through, not deleted: the spell still prints it
+  const modClass=L=>eff.gone.has(L)?" gone":eff.iffy.has(L)?" iffy":"";
+  const modTip=(node,L)=>{const m=eff.why.find(x=>String(x.drop||"").indexOf(L)>=0);
+    if(m&&(eff.gone.has(L)||eff.iffy.has(L)))attachTip(node,castModTip(m,[L]));};
+  [["v","V"],["s","S"]].forEach(([k,t])=>{const n=el("span","l"+(c[k]?" on":"")+(c[k]?modClass(k):""),t);
+    if(c[k])modTip(n,k); td.append(n);td.append(document.createTextNode(" "));});
+  const m=el("span","l"+(c.m?" on":"")+(c.m?(c.consume?" eat":c.cost?" costly":"")+modClass("m"):""),"M");
   if(c.m){
     // three fields, in the order you scan them: what it costs, whether it survives, what it is
     const rows=[];
     if(c.cost||c.consume)rows.push(["Cost",(c.cost?esc(gpOf(c.cost)):"—")
       +(c.consume?` <span class="tchip eat">consumed</span>`:"")]);
     rows.push(["Material",esc(matText(c))]);
-    attachTip(m,tipRows("Material component",rows));
+    const cm=eff.why.find(x=>String(x.drop||"").indexOf("m")>=0&&(eff.gone.has("m")||eff.iffy.has("m")));
+    if(cm)attachTip(m,castModTip(cm,["m"])); else attachTip(m,tipRows("Material component",rows));
   }
   td.append(m);return td;
 }
@@ -2325,14 +2733,20 @@ function renderCart(){
     } else {
       b.append(meter(kn?"Known":"Prepared",c.spells.length,kn?kn.total:r.prepared));
     }
-    if(c.ms){b.append(meter("Off-list",c.ms.offCount,c.ms.cap));
+    if(c.ms){const msMeter=meter("Off-list",c.ms.offCount,c.ms.cap); b.append(msMeter);
       const msb=el("button","btn lbl-ico");msb.append(icoEl("plus"),document.createTextNode("Add an off-list spell"));
       msb.style.cssText="margin-top:8px;font-size:12px";
       msb.title="Magical Secrets: pick from the lists this feature opens up, at any level you can cast.";
       msb.onclick=()=>openOffListPick(r.idx);b.append(msb);
+      // the live half stays on the card; WHY the tiles narrowed is reference, and rides a
+      // popover on the meter that states it (D88)
       const sn=el("div","note");sn.style.margin="2px 0 0";
-      sn.innerHTML=`Magical Secrets: up to <b style="color:var(--ink)">${c.ms.cap}</b> of your prepared spells may come from other lists (from L${c.ms.onset} on: new picks + retrains).`
-        +(c.ms.weighs?` An off-list spell can only have been taken from L${c.ms.onset} on, so the low-level ones you hold have already spent <b style="color:var(--accent)">${c.ms.weighs}</b> of the picks that would otherwise reach your top spell levels — the tiles above are narrowed to match.`:"");b.append(sn);}
+      sn.innerHTML=`Up to <b style="color:var(--ink)">${c.ms.cap}</b> of your prepared spells may come from other lists, from L${c.ms.onset} on.`
+        +(c.ms.weighs?` <b style="color:var(--accent)">${c.ms.weighs}</b> of your top-level picks are already spent on the low-level ones you hold.`:"");
+      b.append(sn);
+      if(c.ms.weighs){
+        attachTip(msMeter,tipRows("Magical Secrets",[["Cap",String(c.ms.cap)],["From",`level ${c.ms.onset}`]])
+          +`<p style="margin-top:6px">An off-list spell can only have been taken from L${c.ms.onset} on, so every one you hold BELOW that has already spent an acquisition event that would otherwise have reached your top spell levels. The per-level tiles above are narrowed to match.</p>`);}}
     // Per-level tiles. Denominator = how many you can hold at that level right now:
     // (picked here) + (room still addable). Daily preparers have a flat cap (free spread).
     // Known/level-swap and wizard books have a progressive cap[L] = max at level ≥ L
@@ -2503,7 +2917,7 @@ function mkEmpty(){const e=el("div","empty");
 const SPTIP=el("div","sptip");document.body.appendChild(SPTIP);
 const SPMODAL=el("div","spmodal hidden");document.body.appendChild(SPMODAL);
 SPMODAL.onclick=e=>{if(e.target===SPMODAL||e.target.classList.contains("x"))SPMODAL.classList.add("hidden");};
-document.addEventListener("keydown",e=>{if(e.key==="Escape"){SPMODAL.classList.add("hidden");hideTip();}});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){SPMODAL.classList.add("hidden");hideTip();closeBswMenus();}});
 document.addEventListener("click",()=>hideTip(),true);   // a tap elsewhere dismisses a tapped tip
 function esc(s){return (s||"").replace(/[&<>]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[m]));}
 // ── spell text highlighting (monster-forge cc-* convention, read-only) ──────
@@ -2536,6 +2950,15 @@ const upcasts=sp=>sp.level>0&&(sp.higher||[]).length>0;
 // sentinel for the class/list filter's "ignore eligibility" option
 const ALL_SPELLS="__all";
 function compText(sp){const c=sp.comp||{};const p=[];if(c.v)p.push("V");if(c.s)p.push("S");if(c.m)p.push("M"+(c.mat?` (${c.mat})`:""));return p.join(", ")||"—";}
+// the same line, with the components your build removes struck through
+function compModalHTML(sp,eff){
+  const c=sp.comp||{}, out=[];
+  const mark=(L,txt)=>{const k=eff&&eff.gone.has(L)?"cgone":eff&&eff.iffy.has(L)?"ciffy":"";
+    return k?`<span class="${k}">${txt}</span>`:txt;};
+  if(c.v)out.push(mark("v","V"));
+  if(c.s)out.push(mark("s","S"));
+  if(c.m)out.push(mark("m","M"+(c.mat?` (${esc(c.mat)})`:"")));
+  return out.join(", ")||"—";}
 function metaLine(sp){const r=sp.ritual?" (ritual)":"";
   return sp.level===0?`${sp.school} cantrip${r}`:`${ROMAN[sp.level]}-level ${sp.school}${r}`;}
 // ONE source-book chip for the whole app (D39). Its popover names the book in full and
@@ -2698,7 +3121,10 @@ function modalHTML(sp){
   // the subtitle already reads "3rd-level Evocation" / "Evocation cantrip", so Level and
   // School as their own rows were the top of the grid saying nothing twice (D49, widened
   // from cantrips to every spell)
-  const grid=[["Casting time",sp.time],["Range",sp.range],["Components",compText(sp)],
+  // the Components row marks what your own build removes (D85) — struck through when the
+  // feature always applies, merely marked when it depends on something we can't check
+  const eff=compEffect(sp,modsForSpell(sp,null));
+  const grid=[["Casting time",sp.time],["Range",sp.range],["Components",compModalHTML(sp,eff)],
               ["Duration",(sp.conc?"Concentration, up to ":"")+sp.durTxt]];
   const bk=sp.source!==CORE?` <span class="bchip" data-book="${esc(sp.source)}"${sp.page?` data-page="${esc(String(sp.page))}"`:""}>${esc(sp.source)}</span>`:"";
   return `<div class="box"><button class="x ico" type="button" title="Close" aria-label="Close">${ICONS.x}</button>`
@@ -2708,6 +3134,9 @@ function modalHTML(sp){
     +(sp.desc||[]).map(descP).join("")
     +((sp.higher||[]).length?`<div class="hl">${sp.higher.map(descP).join("")}</div>`:"")
     +grantNotes(sp).map(n=>`<div class="gnote"><b>${esc(n.src)}</b><p>${ccText(n.note)}</p></div>`).join("")
+    +eff.why.map(m=>`<div class="gnote cmod"><b>${esc(m.giver+" · "+m.feature)}</b>`
+      +(m.when?`<span class="cmwhen">${esc(m.when)}</span>`:"")
+      +`<p>${ccText(m.note)}</p></div>`).join("")
     +statblockHTML(sp)+accessHTML(sp)+`</div></div>`;}
 function openSpellModal(sp){hideTip();SPMODAL.innerHTML=modalHTML(sp);
   const at=SPMODAL.querySelector(".acc-toggle");
@@ -2841,6 +3270,7 @@ function classOptions(keep){
     .sort((a,b)=>a.name.localeCompare(b.name)||a.source.localeCompare(b.source))
     .map(c=>({v:key(c.name,c.source),t:c.name+(c.source!==CORE?` (${c.source})`:"")+(c.caster?"":" ·")}));}
 function renderClassRows(){
+  CASTMODS=activeCastMods();          // a class row names what it changed about your casting
   const wrap=$("#classRows");wrap.innerHTML="";
   state.classes.forEach((row,idx)=>{const c=CLS_BY[row.clsKey]||{name:"?"};
     const div=el("div","classrow");
@@ -2872,6 +3302,7 @@ function renderClassRows(){
     const rm=xBtn("rm",()=>{delete state.chosen[row.id];state.classes.splice(idx,1);renderClassRows();render();});
     rm.title="Remove class";div.append(rm);
     if(needsSub)div.append(el("div","subalert","subclass — pick one"));
+    const cm=castModLine(row.id); if(cm)div.append(cm);
     wrap.append(div);
   });
 }
@@ -2886,12 +3317,45 @@ function refreshSpecies(){const r=state.speciesKey?RACE_BY[state.speciesKey]:nul
     const btn=$("#speciesBtn");if(btn)btn.classList.toggle("gapped",!!(r&&!visible(r)));
     if(r&&!visible(r))lbl.textContent=r.name+" · "+r.source+" is off";}
   if(!ENT)return; if($("#entityModal")&&!$("#entityModal").classList.contains("hidden")&&ENT.kind==="species")renderEntityList();}
-// origin feats = from a background (Origin, Dragonmarks, Dark Gifts); general = ASI feats.
-const ORIGIN_CATS=new Set(["O","D","DG"]);
-const isOriginFeat=f=>ORIGIN_CATS.has(f.category);
+// ── feat categories and the slots they fill (D84) ─────────────────────────
+// A feat's CATEGORY is a book's own label; the SLOT is what it can be spent from. Only
+// 5etools' own codes are known — anything else is a category a book invented (UA's
+// "Wild Talent", a brew's own) and folding it into "general" is what misfiled Wild
+// Talents into the ASI picker. Unknown categories are origin-slot, which is where the
+// books that invent them put them, and **origin is a SUBSET of general**: everything you
+// may take at level 1 from a background is also legal where a class grants you a feat.
+const FEAT_CAT_NAME={O:"Origin",G:"General",D:"Dragonmark",DG:"Dark Gift",EB:"Epic Boon",
+  FS:"Fighting Style","FS:P":"Fighting Style (Paladin)","FS:R":"Fighting Style (Ranger)",
+  "FS:B":"Fighting Style (Bard)","FS:M":"Fighting Style (Monk)"};
+const GENERAL_CATS=new Set(["G",""]);
 const isFeatFS=f=>(f.category||"").startsWith("FS");
 const isEpicBoon=f=>f.category==="EB";   // gated: only via the level-19 Epic Boon feature
-const featCat=f=>isEpicBoon(f)?"epic":isOriginFeat(f)?"origin":"general";
+const featSlot=f=>isEpicBoon(f)?"epic":isFeatFS(f)?"fs"
+  :GENERAL_CATS.has(f.category||"")?"general":"origin";
+const isOriginFeat=f=>featSlot(f)==="origin";
+const featCatId=f=>String((f&&f.category)||"G");
+// `catName` comes from the digest (a brew's `_meta.featCategories`); an import made before
+// D84 has none, so the known table and then the raw code stand in
+const featCatLabel=f=>(f&&f.catName)||FEAT_CAT_NAME[featCatId(f)]||featCatId(f);
+// which slots a picker opened for `category` may draw on — origin ⊆ general
+const SLOTS_FOR={origin:["origin"],epic:["epic"],general:["general","origin"]};
+// the category toggles a picker offers: every category present in those slots, with the
+// picker's own kind first so the row reads as "this slot, plus what may substitute for it"
+function featCatsFor(slots){
+  const seen=new Map();
+  (DATA.feats||[]).forEach(f=>{ if(slots.indexOf(featSlot(f))<0)return;
+    const id=featCatId(f); if(!seen.has(id))seen.set(id,featCatLabel(f));});
+  const rank=id=>id==="G"||id==="EB"?0:id==="O"?1:2;
+  return [...seen.entries()].sort((a,b)=>rank(a[0])-rank(b[0])||a[1].localeCompare(b[1]));
+}
+// the slot a feat was actually SPENT from. Attribution follows the slot, not the category:
+// with origin ⊆ general, an origin feat taken at an ASI must not read `origin 2/1`.
+const featSlotOf=fk=>{const f=FEAT_BY[fk];if(!f)return null;
+  const rec=(state.featSlots||{})[fk];
+  // only trust a recorded slot the feat could actually occupy
+  return (rec&&SLOTS_FOR[rec]&&SLOTS_FOR[rec].indexOf(featSlot(f))>=0)?rec:featSlot(f);};
+function setFeatSlot(fk,slot){ if(!state.featSlots)state.featSlots={};
+  if(slot)state.featSlots[fk]=slot; else delete state.featSlots[fk];}
 // ── prerequisites (D31) ────────────────────────────────────────────────────
 // 5etools stores `prerequisite` as a list of ALTERNATIVES, so one satisfied block is
 // enough. We can check level, other feats, optional features, species, spellcasting and
@@ -2914,7 +3378,7 @@ const pickedSpellNames=()=>{const out=new Set();
 // met, "?" not checkable. Level, feats, optional features, species, spellcasting and pact
 // are all verifiable, so they get a real pass/fail; `checks` (ability scores,
 // proficiencies, backgrounds, campaigns) can only ever be "?" — never a hard no (D31).
-function prereqParts(b){
+function prereqParts(b,ent){
   const out=[];
   if(b.level!=null){const lv=b.cls?classLevelOf(b.cls):charLevel();
     out.push({t:(b.cls?b.cls+" ":"")+"level "+b.level,s:lv>=b.level?"ok":"no"});}
@@ -2937,12 +3401,23 @@ function prereqParts(b){
     const known=b.spells.filter(n=>SPELL_BY_NAME[lc(n)]),have=pickedSpellNames();
     out.push({t:b.spells.join(" or "),
       s:known.length<b.spells.length?"?":(known.some(n=>have.has(lc(n)))?"ok":"no")});}
+  // "no other Dragonmark feat", "No other Wild Talent" (D84). The extractors used to file
+  // this under `checks`, where D31 can only ever say "maybe" — but the build's own feats
+  // answer it exactly. Self-exclusion doesn't count: holding it is not holding ANOTHER.
+  (b.exclusiveCat||[]).forEach(catId=>{
+    const label=(DATA.feats||[]).reduce((a,f)=>a||(featCatId(f)===catId?featCatLabel(f):null),null)
+      ||FEAT_CAT_NAME[catId]||catId;
+    const selfKey=ent?key(ent.name,ent.source):null;
+    const clash=state.feats.filter(fk=>fk!==selfKey&&FEAT_BY[fk]&&featCatId(FEAT_BY[fk])===catId)
+      .map(fk=>FEAT_BY[fk].name);
+    out.push({t:"no other "+label+" feat",s:clash.length?"no":"ok",
+      why:clash.length?("you already have "+clash.join(", ")):""});});
   (b.checks||[]).forEach(t=>out.push({t,s:"?"}));
   // a `soft` block whose unmodelled part produced no display text (e.g. featCategory)
-  if(!(b.checks||[]).length&&b.soft)out.push({t:"other requirements",s:"?"});
+  if(!(b.checks||[]).length&&!(b.exclusiveCat||[]).length&&b.soft)out.push({t:"other requirements",s:"?"});
   return out;
 }
-function prereqBlockState(b){const ps=prereqParts(b);
+function prereqBlockState(b,ent){const ps=prereqParts(b,ent);
   if(ps.some(p=>p.s==="no"))return "no";
   return ps.some(p=>p.s==="?")?"maybe":"ok";}
 // "ok" | "maybe" | "no", the full text, and the per-part verdicts of the best alternative
@@ -2951,13 +3426,12 @@ function prereqState(ent){
   const bs=(ent&&ent.prereqs)||[];
   if(!bs.length)return {state:"ok",why:"",parts:[]};
   let best=bs[0],bestS="no",bestR=-1;
-  for(const b of bs){const r=prereqBlockState(b);
+  for(const b of bs){const r=prereqBlockState(b,ent);
     if(_PRANK[r]>bestR){best=b;bestS=r;bestR=_PRANK[r];}
     if(r==="ok")break;}
   return {state:bestS,why:bs.map(b=>b.text).join(" or "),
-          parts:bestS==="ok"?[]:prereqParts(best)};
+          parts:bestS==="ok"?[]:prereqParts(best,ent)};
 }
-const FEAT_CATS=[["origin","Origin"],["general","General"],["epic","Epic boon"]];
 const charLevel=()=>PREVIEW.level!=null?PREVIEW.level
   :state.classes.reduce((a,r)=>a+(r.level||0),0);
 function refreshAddFeat(){
@@ -2985,9 +3459,10 @@ function featBudget(){
   const race=RACE_BY[state.speciesKey];const isHuman=/human/i.test((race&&race.name)||"");
   const origin=(state.classes.length?1:0)+(isHuman?1:0);
   const epic=charLevel()>=19?1:0;   // one Epic Boon at level 19
-  const originPicked=state.feats.filter(fk=>{const f=FEAT_BY[fk];return f&&isOriginFeat(f);}).length;
-  const epicPicked=state.feats.filter(fk=>{const f=FEAT_BY[fk];return f&&isEpicBoon(f);}).length;
-  const generalPicked=state.feats.filter(fk=>{const f=FEAT_BY[fk];return f&&!isOriginFeat(f)&&!isEpicBoon(f)&&!isFeatFS(f);}).length;
+  // attribution follows the slot the feat was SPENT from (D84), not its category: origin
+  // is a subset of general, so an origin feat taken at an ASI is a general feat spent.
+  const inSlot=want=>state.feats.filter(fk=>featSlotOf(fk)===want).length;
+  const originPicked=inSlot("origin"), epicPicked=inSlot("epic"), generalPicked=inSlot("general");
   return {general,origin,epic,originPicked,generalPicked,epicPicked,isHuman};
 }
 function renderFeatBudget(){const b=featBudget();
@@ -3050,12 +3525,32 @@ function renderOptFeats(){
 }
 function renderFeatChips(){const box=$("#featChips");box.innerHTML="";state.feats.forEach((fk,i)=>{const f=FEAT_BY[fk];if(!f)return;
   const pr=prereqState(f);
-  const c=el("span","chip"+(isEpicBoon(f)?" epic":isOriginFeat(f)?" origin":"")+(grantsAny(f.grants)?" hasspell":"")
+  const sl=featSlotOf(fk);
+  const c=el("span","chip"+(sl==="epic"?" epic":sl==="origin"?" origin":"")+(grantsAny(f.grants)?" hasspell":"")
     +(pr.state==="no"?" unmet":""));
   if(pr.state==="no"){const w=icoEl("warn","warn");attachTip(w,tipBlock("Prerequisite not met",`${f.name} needs ${pr.why}. Kept in the build — nothing is removed.`));c.append(w);}
   if(grantsAny(f.grants))c.append(icoEl("spark","fmark"));
-  c.append(el("span",null,f.name));const b=xBtn(null,()=>{state.feats.splice(i,1);renderFeatChips();render();});c.append(b);box.append(c);});
+  c.append(el("span",null,f.name));
+  const b=xBtn(null,()=>{state.feats.splice(i,1);setFeatSlot(fk,null);renderFeatChips();render();});
+  c.append(b);box.append(c);});
   renderFeatBudget();}
+
+// ── "?" notes (D88) ────────────────────────────────────────────────────────
+// A block of reference prose sitting permanently above the controls costs the same space
+// on the hundredth visit as the first. It moves behind a `?` in line with its header —
+// a DISCLOSURE, not a hover popover, because these notes carry links and code the reader
+// has to be able to reach. Markup lives in index.html so the prose stays greppable.
+function wireHelpNotes(){
+  document.querySelectorAll("[data-help]").forEach(btn=>{
+    if(btn.dataset.wired)return; btn.dataset.wired="1";
+    btn.append(icoEl("help"));
+    const body=document.getElementById(btn.dataset.help);
+    const set=on=>{ if(body)body.classList.toggle("hidden",!on);
+      btn.classList.toggle("on",on); btn.setAttribute("aria-expanded",String(on));};
+    set(false);
+    btn.onclick=e=>{e.stopPropagation();set(body&&body.classList.contains("hidden"));};
+  });
+}
 
 // ── sources modal ────────────────────────────────────────────────────────
 const GROUP_ORDER=["core","supplement","supplement-alt","setting","setting-alt","brew","other"];
@@ -3066,9 +3561,9 @@ const GROUP_NAME={core:"Core",supplement:"Supplements","supplement-alt":"Supplem
 // One component for every place books are chosen: the global ⚙ Sources modal and each
 // picker's local override. `sel` is a Set the caller owns; `onChange` runs after any
 // mutation. `codes` limits the list to the sources actually present in that picker.
-function renderSourceChecklist(wrap,sel,onChange,codes,countOf){
+function renderSourceChecklist(wrap,sel,onChange,codes,countOf,srcMap){
   wrap.innerHTML="";
-  const all=Object.entries(DATA.sources).filter(([code])=>!codes||codes.has(code));
+  const all=Object.entries(srcMap||DATA.sources).filter(([code])=>!codes||codes.has(code));
   const byGroup={};all.forEach(([code,s])=>{(byGroup[s.group||"other"]=byGroup[s.group||"other"]||[]).push([code,s]);});
   const groups=Object.keys(byGroup).sort((a,b)=>{const ia=GROUP_ORDER.indexOf(a),ib=GROUP_ORDER.indexOf(b);return (ia<0?9:ia)-(ib<0?9:ib);});
   groups.forEach(g=>{const gd=el("div","srcgroup");
@@ -3079,7 +3574,7 @@ function renderSourceChecklist(wrap,sel,onChange,codes,countOf){
     allCb.onchange=()=>{gcodes.forEach(c=>allCb.checked?sel.add(c):sel.delete(c));onChange();};
     allLab.append(el("span",null,allOn?"all":someOn?"some":"none"));allLab.append(allCb);h4.append(allLab);gd.append(h4);
     const list=el("div","srclist");
-    byGroup[g].sort((a,b)=>(b[1].counts.spells)-(a[1].counts.spells)).forEach(([code,s])=>{
+    byGroup[g].sort((a,b)=>(((b[1].counts||{}).spells)||0)-(((a[1].counts||{}).spells)||0)).forEach(([code,s])=>{
       const lab=el("label");const cb=el("input");cb.type="checkbox";cb.checked=sel.has(code);
       cb.onchange=()=>{cb.checked?sel.add(code):sel.delete(code);onChange();};
       lab.append(cb);lab.append(el("span",null,s.name));
@@ -3108,7 +3603,7 @@ function afterSourceChange(){
   saveSources(); save();               // sources are global; the build records what it saw
   refreshAll();renderSrcModal();render();
 }
-function refreshAll(){refreshAddClass();refreshSpecies();refreshAddFeat();renderClassRows();renderFeatChips();renderOptFeats();renderCustomSources();}
+function refreshAll(){CASTMODS=activeCastMods();refreshAddClass();refreshSpecies();refreshAddFeat();renderClassRows();renderFeatChips();renderOptFeats();renderCustomSources();}
 
 // ── events ───────────────────────────────────────────────────────────────
 $("#addClass").onchange=e=>{const clsKey=e.target.value;
@@ -3163,6 +3658,11 @@ $("#pickClose").onclick=()=>$("#pickModal").classList.add("hidden");
 $("#pickModal").onclick=e=>{if(e.target.id==="pickModal")$("#pickModal").classList.add("hidden");};
 $("#pickSearch").oninput=renderPickList;
 $("#customBtn").onclick=()=>{closeMenu();openCustom();};
+$("#hbBtn").onclick=openHb;
+$("#hbClose").onclick=()=>$("#hbModal").classList.add("hidden");
+$("#hbModal").onclick=e=>{if(e.target.id==="hbModal")$("#hbModal").classList.add("hidden");};
+$("#hbSearch").oninput=renderHbList;
+$("#hbNew").onclick=()=>{$("#hbModal").classList.add("hidden");openCustom();};
 $("#customClose").onclick=()=>$("#customModal").classList.add("hidden");
 $("#customModal").onclick=e=>{if(e.target.id==="customModal")$("#customModal").classList.add("hidden");};
 $("#customPrev").onclick=()=>{if(CSTEP>0){CSTEP--;renderCustomStep();}};
@@ -3181,8 +3681,10 @@ $("#importFiles").onchange=e=>{stageFiles(e.target.files);e.target.value="";};
 $("#importPasteAdd").onclick=()=>{const t=$("#importPaste").value.trim();if(!t)return;
   try{IMPORT_STAGE.push({name:"pasted "+(IMPORT_STAGE.length+1),json:JSON.parse(t)});$("#importPaste").value="";$("#importReport").textContent="";renderImportStage();}
   catch(e){$("#importReport").textContent="Pasted text isn’t valid JSON.";}};
-$("#importClear").onclick=()=>{IMPORT_STAGE=[];renderImportStage();$("#importReport").textContent="";};
+$("#importClear").onclick=()=>{IMPORT_STAGE=[];renderImportStage();
+  planFromStage(null,null);renderImportPlan();$("#importReport").textContent="";};
 $("#importBuild").onclick=buildImport;
+$("#importApply").onclick=applyImport;
 $("#srcAskKeep").onclick=()=>{$("#srcAskModal").classList.add("hidden");const f=SRCASK&&SRCASK.after;SRCASK=null;if(f)f(false);};
 $("#srcAskSwitch").onclick=()=>{$("#srcAskModal").classList.add("hidden");const f=SRCASK&&SRCASK.after;SRCASK=null;if(f)f(true);};
 $("#buildsBtn").onclick=openBuilds;
@@ -3255,9 +3757,13 @@ armConfirm($("#resetBtn"),null,()=>{
   refreshAll();render();});
 $("#themeBtn").onclick=()=>{const r=document.documentElement,cur=r.getAttribute("data-theme");r.setAttribute("data-theme",cur==="dark"?"light":cur==="light"?"dark":(matchMedia("(prefers-color-scheme:dark)").matches?"light":"dark"));closeMenu();};
 // overflow settings menu
-function closeMenu(except){document.querySelectorAll(".menupop").forEach(p=>{if(p!==except)p.classList.add("hidden");});}
+function closeMenu(except){document.querySelectorAll(".menupop").forEach(p=>{if(p!==except)p.classList.add("hidden");});
+  closeBswMenus();}   // the row menus are fixed-position, so they outlive their popover unless told
 function toggleMenu(pop){const el2=$(pop);const open=el2.classList.contains("hidden");closeMenu(open?el2:null);el2.classList.toggle("hidden");}
 $("#menuBtn").onclick=e=>{e.stopPropagation();toggleMenu("#menuPop");};
+// a fixed-position row menu does not travel with the list under it — close it instead
+$("#bswPop").addEventListener("scroll",closeBswMenus,true);   // capture: the scroller is .bswlist
+$("#bswPop").addEventListener("click",e=>{if(!e.target.closest(".bswmenu")&&!e.target.closest(".bswdots"))closeBswMenus();});
 $("#bswBtn").onclick=e=>{e.stopPropagation();renderBswPop();toggleMenu("#bswPop");
   $("#bswBtn").setAttribute("aria-expanded",String(!$("#bswPop").classList.contains("hidden")));};
 $("#tMenuBtn").onclick=e=>{e.stopPropagation();toggleMenu("#tMenuPop");};
@@ -3319,5 +3825,5 @@ $("#fReprint").value=state.filters.reprint;
 $("#fq").value=state.filters.q;
 loadTableOpts(); $("#tGroup").value=tableOpts.group; renderColMenu();
 maybeOnboard();
-fillIcons();
+fillIcons(); wireHelpNotes();
 refreshAll();render();

@@ -101,7 +101,10 @@ function chooseKv(s){ if(s&&typeof s==="object")s=s.choose!=null?s.choose:"";
 // structurally, so the sentences that say it become a note on the grant. Deliberately
 // NARROW: "you always have these prepared" is what "Always prepared" already means here.
 // **Keep identical to extract.py's MOD_RE.**
-const MOD_RE=/without expending|no spell slot|automatically succeed|can'?t do so|can'?t (?:cast|use) it (?:this way|in this way)|once you cast|twice without|as part of the same/i;
+// Deliberately NARROW: the first cut matched "you always have these prepared" and produced
+// 470 notes of boilerplate. The component clauses (D85) are the second admitted family —
+// a feature that strips V/S/M off a spell it GRANTS says so only in prose.
+const MOD_RE=/without expending|no spell slot|automatically succeed|can'?t do so|can'?t (?:cast|use) it (?:this way|in this way)|once you cast|twice without|as part of the same|requires? no (?:verbal|somatic|material)|without (?:providing |using |needing )?(?:any |a )?(?:verbal|somatic|material)|without (?:spell )?components|don'?t need to provide/i;
 function modNote(txt){
   const keep=String(txt||"").split(/(?<=[.!?])\s+/).map(x=>x.trim()).filter(x=>x&&MOD_RE.test(x));
   return keep.length?richStrip(keep.join(" ")):null;}
@@ -127,6 +130,9 @@ function addSpellEntry(bucket,kind,at,recharge,s,feature,feats){
   const ref=spellRef(s); let note=null;
   if(feats!=null){const fr=resolveFeatureRec(feats,at,s);
     if(fr){ if(feature==null)feature=fr.name; note=fr.note; }}
+  // `undefined` DISAPPEARS through JSON.stringify while Python writes `"feature": null`,
+  // which is the whole of the 150-record "divergence" the parity harness used to report.
+  if(feature===undefined)feature=null;
   if(ref.choice){const fc=chooseFilter(s);
     const e={kind,atLevel:at,recharge,count:fc[1],filter:fc[0],desc:ref.desc,feature};
     if(note)e.note=note; bucket.picks.push(e);}
@@ -162,6 +168,106 @@ function mergeProseGrants(rec,kind,ident){
   const extra=PROSE_GRANTS[kind+"|"+ident+"|"+(rec.source||"")]; if(!extra)return;
   if(!rec.grants)rec.grants={fixed:[],picks:[],expansions:[],optionGroups:[],ability:null};
   Object.keys(extra).forEach(k=>{rec.grants[k]=(rec.grants[k]||[]).concat(extra[k].map(x=>Object.assign({},x)));});}
+// ---- casting-rule modifications (D85) --------------------------------------
+// A feature may change HOW you cast spells you ALREADY have — strip a component from a
+// whole school, from a class's list, from four named spells. 5etools carries none of that
+// structurally, and MOD_RE only ever reaches spells a feature GRANTS. Hand-authored, like
+// PROSE_GRANTS, and **keep identical to extract.py's CAST_MODS.**
+//   scope = {cls, schools, spells, giver, maxLevel, optTypes} — all optional, ANDed.
+//           `giver` matches the label of whatever granted the spell; `optTypes` matches a spell
+//           granted by one of your optional features of that type (Elemental Disciplines).
+//   label = what the chip says. Default is "<feature> — no V / S / M"; a mod with an empty
+//           `drop` (a free cast rather than a component change) must supply its own.
+//   drop  = which of v/s/m the feature removes.
+//   when  = null means it always applies (the app strikes the component through); a string
+//           is a condition the app cannot verify, so it annotates instead of striking.
+const CAST_MODS={
+  "class|Psion|XUA2025Psion":[
+    {feature:"Psionic Spellcasting",level:1,cls:null,label:null,
+     scope:{cls: "Psion"},drop:"vm",exceptCostly:true,when:null,
+     note:"When you cast a Psion spell, that spell doesn't require a Verbal or Material "
+          +"component, even if the spell includes \"V\" or \"M\" in its Components entry, except "
+          +"Material components that are consumed by the spell or have a cost specified."},
+  ],
+  "class|Druid|PHB":[
+    {feature:"Archdruid",level:20,cls:null,label:null,
+     scope:{cls: "Druid"},drop:"vsm",exceptCostly:true,when:null,
+     note:"You can ignore the verbal and somatic components of your druid spells, as well as "
+          +"any material components that lack a cost and aren't consumed by a spell."},
+  ],
+  "class|Cleric|XPHB":[
+    {feature:"Divine Intervention",level:10,cls:null,label:"Divine Intervention \u2014 free, no Material",
+     scope:{cls: "Cleric", maxLevel: 5},drop:"m",exceptCostly:false,when:"when you cast it with Divine Intervention",
+     note:"You cast the spell without expending a spell slot or needing Material components. "
+          +"Once you use this feature, you can't do so again until you finish a Long Rest."},
+  ],
+  "subclass|Great Old One|XPHB":[
+    {feature:"Psychic Spells",level:3,cls:"Warlock",label:null,
+     scope:{cls: "Warlock", schools: ["Enchantment", "Illusion"]},drop:"vs",exceptCostly:false,when:null,
+     note:"When you cast a Warlock spell that is an Enchantment or Illusion, you can do so "
+          +"without Verbal or Somatic components."},
+  ],
+  "subclass|Illusionist|XPHB":[
+    {feature:"Improved Illusions",level:3,cls:"Wizard",label:null,
+     scope:{schools: ["Illusion"]},drop:"v",exceptCostly:false,when:null,
+     note:"You can cast Illusion spells without providing Verbal components."},
+  ],
+  "subclass|Undead|RHW":[
+    {feature:"Superior Dread",level:14,cls:"Warlock",label:null,
+     scope:{cls: "Warlock", schools: ["Conjuration", "Necromancy"]},drop:"vsm",exceptCostly:true,when:"while you are using your Form of Dread",
+     note:"Whenever you cast a Warlock spell from the Conjuration or Necromancy school, you "
+          +"cast it without any Verbal, Somatic, or Material components, except Material "
+          +"components that are costly or consumed by the spell."},
+  ],
+  "subclass|Aberrant|XPHB":[
+    {feature:"Psionic Sorcery",level:6,cls:"Sorcerer",label:null,
+     scope:{giver: "Psionic Spells"},drop:"vsm",exceptCostly:true,when:"when you cast it by spending Sorcery Points instead of a slot",
+     note:"If you cast the spell using Sorcery Points, it requires no Verbal or Somatic "
+          +"components, and it requires no Material components unless they are consumed by the "
+          +"spell or have a cost specified in it."},
+  ],
+  "subclass|Aberrant Mind|TCE":[
+    {feature:"Psionic Sorcery",level:6,cls:"Sorcerer",label:null,
+     scope:{giver: "Psionic Spells"},drop:"vsm",exceptCostly:true,when:"when you cast it by spending sorcery points instead of a slot",
+     note:"If you cast the spell using sorcery points, it requires no verbal or somatic "
+          +"components, and it requires no material components, unless they are consumed by the "
+          +"spell."},
+  ],
+  "subclass|Shadow|PHB":[
+    {feature:"Shadow Arts",level:3,cls:"Monk",label:null,
+     scope:{cls: "Monk", spells: ["Darkness", "Darkvision", "Pass Without Trace", "Silence"]},drop:"m",exceptCostly:false,when:"when you cast it by spending 2 ki points",
+     note:"You can spend 2 ki points to cast darkness, darkvision, pass without trace, or "
+          +"silence, without providing material components."},
+  ],
+  "subclass|Shadow|XPHB":[
+    {feature:"Shadow Arts: Darkness",level:3,cls:"Monk",label:null,
+     scope:{cls: "Monk", spells: ["Darkness"]},drop:"vsm",exceptCostly:false,when:"when you cast it by expending 1 Focus Point",
+     note:"You can expend 1 Focus Point to cast the Darkness spell without spell components."},
+  ],
+  "subclass|Four Elements|PHB":[
+    {feature:"Disciple of the Elements",level:3,cls:"Monk",label:null,
+     scope:{optTypes: ["ED"]},drop:"m",exceptCostly:false,when:null,
+     note:"To cast one of your elemental discipline spells you use its casting time and other "
+          +"rules, but you don't need to provide material components for it."},
+  ],
+  "subclass|Archfey|XPHB":[
+    {feature:"Steps of the Fey",level:3,cls:"Warlock",label:"Steps of the Fey \u2014 Misty Step free",
+     scope:{cls: "Warlock", spells: ["Misty Step"]},drop:"",exceptCostly:false,when:"a number of times equal to your Charisma modifier per Long Rest",
+     note:"You can cast Misty Step without expending a spell slot a number of times equal to "
+          +"your Charisma modifier (minimum of once), and you regain all expended uses when you "
+          +"finish a Long Rest. You may also gain one of two extra benefits with each casting."},
+    {feature:"Bewitching Magic",level:14,cls:"Warlock",label:"Bewitching Magic \u2014 Misty Step free",
+     scope:{cls: "Warlock", spells: ["Misty Step"]},drop:"",exceptCostly:false,when:"as part of casting an Enchantment or Illusion spell with a slot",
+     note:"When you cast an Enchantment or Illusion spell using an action and a spell slot, you "
+          +"can cast Misty Step as part of the same action and without expending a spell slot."},
+  ],
+};
+function attachCastMods(rec,kind,ident){
+  const mods=CAST_MODS[kind+"|"+ident+"|"+(rec.source||"")]; if(!mods)return;
+  // `cls` guards a shortName two classes could share ("Shadow" is a Monk here)
+  const out=mods.filter(m=>!m.cls||m.cls===rec.className)
+    .map(m=>{const o=Object.assign({},m);delete o.cls;return o;});
+  if(out.length)rec.castMods=out;}
 const CADENCE_KEYS=new Set(Object.keys(RECHARGE));   // will/daily/rest/resource -> a cadence map, not a spell list
 function emitCadence(b,at,cadmap,feature,feats){
   // Route a {cadence: payload} innate-cast map into innate grants. Shared by the
@@ -191,12 +297,29 @@ const EXCLUDE_CLASS=n=>/ Sidekick$/.test(n||"");
 // parts the app can check. `soft` marks an alternative that also carries something we
 // don't model (ability scores, proficiencies, backgrounds, campaigns).
 const SOFT_KEYS=new Set(["ability","proficiency","background","campaign","other","otherSummary",
-  "item","feature","exclusiveFeatCategory","featCategory"]);
+  "item","feature","featCategory"]);
+// 5etools' own category codes. Anything NOT here is a category a book invented — UA's
+// "Wild Talent", a brew's own — and it is carried through under its own name rather than
+// being folded into "general", which is what silently misfiled Wild Talents.
+const FEAT_CAT_FULL={O:"Origin",G:"General",D:"Dragonmark",DG:"Dark Gift",EB:"Epic Boon",
+  FS:"Fighting Style","FS:P":"Fighting Style (Paladin)","FS:R":"Fighting Style (Ranger)",
+  "FS:B":"Fighting Style (Bard)","FS:M":"Fighting Style (Monk)"};
+// the known code, then a file's own `_meta.featCategories`, then the raw value
+// (UA writes the full name straight into `category`)
+function featCatName(cat,declared){ if(!cat)return FEAT_CAT_FULL.G;
+  return FEAT_CAT_FULL[cat]||(declared||{})[cat]||cat; }
+// "Can't Have Another Wild Talent Feat" — the exclusivity a category carries in prose,
+// which 5etools models as `exclusiveFeatCategory` only sometimes.
+const EXCL_RE=/^(?:no other|can'?t have another)\s+(.+?)(?:\s+feat)?$/i;
+function isSelfExclusive(text,ownName){
+  const m=EXCL_RE.exec(String(text||"").trim().replace(/\.$/,""));
+  return !!(m&&ownName&&m[1].trim().toLowerCase()===String(ownName).trim().toLowerCase()); }
 const plainRef=x=>typeof x==="object"&&x?richStrip(x.displayEntry||x.entrySummary||x.entry||x.name||"")
   :richStrip(String(x).split("|")[0]);
-function prereqBlocks(o){const out=[];
+function prereqBlocks(o,ownCat,declared){const out=[];
+  const ownName=ownCat?featCatName(ownCat,declared):null;
   (o.prerequisite||[]).forEach(p=>{
-    const b={text:"",level:null,cls:null,feats:[],optfeats:[],races:[],spells:[],spellcasting:false,pact:null,checks:[],soft:false};
+    const b={text:"",level:null,cls:null,feats:[],optfeats:[],races:[],spells:[],spellcasting:false,pact:null,checks:[],soft:false,exclusiveCat:[]};
     const bits=[];const lv=p.level;
     if(lv&&typeof lv==="object"){b.cls=(lv.class||{}).name;b.level=lv.level;
       bits.push(b.cls?`${b.cls} level ${b.level}`:`level ${b.level}`);}
@@ -216,16 +339,26 @@ function prereqBlocks(o){const out=[];
     (p.feature||[]).forEach(x=>soft.push(plainRef(x)));
     (p.item||[]).forEach(x=>soft.push(richStrip(x)));
     (p.campaign||[]).forEach(x=>soft.push(x+" campaign"));
-    (p.exclusiveFeatCategory||[]).forEach(x=>soft.push(`no other ${x}-category feat`));
+    // "only one feat of this category" IS checkable — the build's own feats say so.
+    // It used to land in `checks`, where D31 can only ever call it "maybe".
+    const exclBits=[];
+    (p.exclusiveFeatCategory||[]).forEach(x=>{b.exclusiveCat.push(x);
+      exclBits.push(`no other ${featCatName(x,declared)} feat`);});
     if(p.other)soft.push(richStrip(p.other));
-    const os=p.otherSummary; if(os&&typeof os==="object")soft.push(richStrip(os.entrySummary||os.entry||""));
+    const os=p.otherSummary; let osExcl=false;
+    if(os&&typeof os==="object"){const t=richStrip(os.entrySummary||os.entry||"");
+      // a category whose exclusivity is stated only in prose (UA's Wild Talents)
+      if(ownCat&&isSelfExclusive(t,ownName)){
+        if(b.exclusiveCat.indexOf(ownCat)<0)b.exclusiveCat.push(ownCat);
+        exclBits.push(t); osExcl=true;}
+      else if(t)soft.push(t);}
     b.checks=soft.filter(Boolean);
-    bits.push(...b.checks);
-    b.soft=Object.keys(p).some(k=>SOFT_KEYS.has(k));
+    bits.push(...b.checks,...exclBits);
+    b.soft=Object.keys(p).some(k=>SOFT_KEYS.has(k)&&!(k==="otherSummary"&&osExcl));
     b.text=bits.filter(Boolean).join(", ");
     if(b.text)out.push(b);});
   return out;}
-const prereqText=o=>prereqBlocks(o).map(b=>b.text).join(" or ")||null;
+const prereqText=(o,ownCat,declared)=>prereqBlocks(o,ownCat,declared).map(b=>b.text).join(" or ")||null;
 function optProgression(c){const out=[];
   (c.optionalfeatureProgression||[]).forEach(p=>{const prog=p.progression;const counts=new Array(20).fill(0);
     if(Array.isArray(prog)){for(let i=0;i<20;i++)counts[i]=+(prog[i]||0);}
@@ -257,7 +390,7 @@ function parseBlock(block,feats){const ft=block.name;
   Object.entries(block.expanded||{}).forEach(([lvl,arr])=>{const at=SLOT_LEVEL_KEY[String(lvl)]!=null?SLOT_LEVEL_KEY[String(lvl)]:numOf(lvl);
     if(isCadence(arr)){emitCadence(b,at,arr,ft,feats);return;}
     asArr(ungroup(arr)).forEach(s=>{ if(isCadence(s))emitCadence(b,at,s,ft,feats);
-      else if(s&&typeof s==="object"&&"all"in s){const fc=chooseFilter({choose:s.all});b.expansions.push({atLevel:at,filter:fc[0],feature:ft||resolveFeature(feats,at,{choose:s.all})});}
+      else if(s&&typeof s==="object"&&"all"in s){const fc=chooseFilter({choose:s.all});b.expansions.push({atLevel:at,filter:fc[0],feature:ft||resolveFeature(feats,at,{choose:s.all})||null});}
       else addSpellEntry(b,"prepared",at,"expanded list",s,ft,feats);});});
   Object.entries(block.known||{}).forEach(([lvl,arr])=>{const at=numOf(lvl);
     if(isCadence(arr)){emitCadence(b,at,arr,ft,feats);return;}
@@ -438,7 +571,7 @@ function buildDigest(files){
         const okey=c.name+"|"+(c.source||"");
         if(ORDER_CANTRIP[okey])rec.bonusChoices.push(ORDER_CANTRIP[okey]);
         if(FS_CLASS_LEVEL[c.name]&&c.source==="XPHB")rec.grantsFightingStyle=FS_CLASS_LEVEL[c.name];
-        mergeProseGrants(rec,"class",rec.name); classes.push(rec);});
+        mergeProseGrants(rec,"class",rec.name); attachCastMods(rec,"class",rec.name); classes.push(rec);});
       (j.subclass||[]).forEach(sc=>{if(EXCLUDE_CLASS(sc.className||""))return;
         const rec={name:sc.name||"",shortName:sc.shortName||sc.name||"",source:sc.source||"",
         group:bgroup(sc.source||""),book:bname(sc.source||""),reprinted:reprinted(sc),page:sc.page,
@@ -450,11 +583,14 @@ function buildDigest(files){
         if(sc.casterProgression){rec.caster=sc.casterProgression;rec.ability=sc.spellcastingAbility;
           rec.cantrips=sc.cantripProgression;rec.prepared=sc.preparedSpellsProgression||sc.spellsKnownProgression;
           rec.static=(sc.preparedSpellsChange==="level");rec.spellList=["Wizard","XPHB"];}
-        mergeProseGrants(rec,"subclass",sc.shortName||sc.name||""); subclasses.push(rec);});
+        const _sid=sc.shortName||sc.name||"";
+        mergeProseGrants(rec,"subclass",_sid); attachCastMods(rec,"subclass",_sid); subclasses.push(rec);});
+      const featCats=(j._meta&&j._meta.featCategories)||null;   // a brew may name its own
       (j.feat||[]).forEach(ft=>{const cat=ft.category||"G";const hasSpells="additionalSpells"in ft;
         feats.push({name:ft.name,source:ft.source||"",group:bgroup(ft.source||""),book:bname(ft.source||""),reprinted:reprinted(ft),page:ft.page,
           category:cat,fsClass:({"FS:R":"Ranger","FS:P":"Paladin","FS":"Fighter"})[cat]||null,hasSpells,
-          optFeatures:optProgression(ft),prereq:prereqText(ft),prereqs:prereqBlocks(ft),
+          catName:featCatName(cat,featCats),      // what the picker calls this category
+          optFeatures:optProgression(ft),prereq:prereqText(ft,cat,featCats),prereqs:prereqBlocks(ft,cat,featCats),
           grants:hasSpells?parseGrants(ft.additionalSpells):{fixed:[],picks:[],expansions:[],optionGroups:[],ability:null}});});
       (j.optionalfeature||[]).forEach(o=>{const hasSpells="additionalSpells"in o;
         optfeats.push({name:o.name,source:o.source||"",group:bgroup(o.source||""),book:bname(o.source||""),

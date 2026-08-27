@@ -108,6 +108,19 @@
   .classrow{display:grid;grid-template-columns:1fr 1fr 80px auto;gap:7px;align-items:end;padding:9px 9px 0;border:1px solid var(--line);border-radius:10px;background:var(--panel-2);margin-bottom:8px}
   .classrow>*{margin-bottom:9px}
   .classrow .subalert{grid-column:2/-1;margin:-5px 0 9px 2px}
+  /* D85 — adding a class should TELL you it rewrote your casting, not wait to be found
+     in the spell table. One chip per live modification, under the row that carries it. */
+  .classrow .castmods{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:5px;margin:-4px 0 9px 2px}
+  .cmchip{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;
+    color:var(--good);background:var(--good-soft);border-radius:9px;padding:2px 8px;cursor:help;
+    max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cmchip.iffy{color:var(--muted);background:var(--panel-2);
+    border:1px dashed var(--line-strong);padding:1px 7px}
+  .cmchip .mi svg{width:11px;height:11px}
+  /* the Table tab never shows the class rows, so it carries its own line of the same chips */
+  .tblcastmods{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 10px}
+  .tblcastmods .tcmlbl{font-size:10px;text-transform:uppercase;letter-spacing:.05em;
+    color:var(--muted);font-weight:700}
   .classrow .rm{border:none;background:none;color:var(--muted);cursor:pointer;font-size:16px;padding:2px 3px;align-self:start;margin-top:1px}
   .classrow .rm:hover{color:var(--accent)}
   .subalert{font-size:9.5px;color:var(--bad);font-weight:700;margin:3px 0 0 2px;text-transform:uppercase;letter-spacing:.04em;line-height:1}
@@ -305,26 +318,88 @@
 .bswitch .pk-caret::before{content:"";position:absolute;left:50%;top:50%;width:5px;height:5px;
   border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);
   transform:translate(-50%,-50%) translateY(-1.8px) rotate(45deg)}
-.bswpop{left:0;right:auto;min-width:min(300px,86vw);max-height:min(60vh,420px);overflow:auto;padding:6px}
-.bswgrp{font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);
-  font-weight:700;padding:7px 9px 3px}
+/* the homebrew manager: one row per custom spell, edit + delete in line */
+.hbrow{display:flex;align-items:center;gap:10px;padding:8px 6px;border-bottom:1px solid var(--line)}
+.hbrow:last-child{border-bottom:none}
+.hbrow:hover{background:var(--panel-2);border-radius:6px}
+.hbmain{flex:1;min-width:0}
+.hbnm{font-size:13px;font-weight:600;color:var(--ink);cursor:pointer}
+.hbnm:hover{color:var(--accent)}
+.hbsub{font-size:11px;color:var(--muted);margin-top:1px}
+.hbacts{flex:0 0 auto;display:flex;gap:5px}
+
+/* D88 — a "?" in line with a header, disclosing its note below. A DISCLOSURE rather than a
+   hover popover: these notes carry links and code the reader has to be able to reach. */
+.helpbtn{flex:0 0 auto;width:20px;height:20px;display:inline-flex;align-items:center;
+  justify-content:center;border:1px solid var(--line-strong);background:none;border-radius:50%;
+  color:var(--muted);cursor:pointer;padding:0;transition:color .12s,border-color .12s,background .12s}
+.helpbtn svg{width:12px;height:12px}
+.helpbtn:hover{color:var(--accent);border-color:var(--accent)}
+.helpbtn.on{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}
+.modal .mh .helpbtn{margin-left:0}
+.modal .mh .x{margin-left:auto}
+.helpbody{margin:0 0 10px;padding:10px 12px;border-left:2px solid var(--line-strong);
+  background:var(--panel-2);border-radius:0 8px 8px 0;font-size:11.5px;color:var(--muted);line-height:1.55}
+.helpbody.hidden{display:none}
+.helpbody p{margin:0} .helpbody p+p{margin-top:7px}
+.helpbody b{color:var(--ink);font-weight:600}
+.helpbody code{font-size:11px}
+
+/* D86 — the import plan: one list of every book that will be in your data */
+.importplan{margin-top:14px;padding:12px;border:1px solid var(--line-strong);border-radius:10px;
+  background:var(--panel-2)}
+.importplan .iph{display:flex;align-items:center;gap:9px;margin-bottom:6px}
+.importplan .iph b{font-family:var(--font);font-size:15px}
+.importplan .iph .sub{font-size:11.5px;color:var(--muted)}
+.importplan .quick{margin-bottom:8px;align-items:center}
+.importplan .planq{flex:1 1 150px;min-width:120px;width:auto;font-size:12.5px;padding:5px 8px}
+.importplanlist{max-height:min(46vh,360px);overflow:auto;padding-right:4px}
+.importplan .btn.danger{color:var(--bad);border-color:var(--bad)}
+/* The list scrolls; the actions under it are PINNED, so "New build" is reachable whether
+   you have two builds or twenty. */
+.bswpop{left:0;right:auto;min-width:min(320px,86vw);max-height:min(64vh,460px);
+  overflow:hidden;padding:0;display:flex;flex-direction:column}
+.bswlist{flex:1 1 auto;min-height:0;overflow-y:auto;padding:6px}
+.bswfoot{flex:0 0 auto;border-top:1px solid var(--line);background:var(--panel);
+  padding:5px;display:flex;flex-direction:column;gap:2px;border-radius:0 0 10px 10px}
+
+/* ── grouping by character (D87) ──────────────────────────────────────────
+   A character is a CARD its versions live inside, not an uppercase divider above them:
+   the name reads at reading size in ink with its version count, and the active build's
+   tint stops at the card's edge instead of bleeding to the popover's. Costs height, which
+   the pinned footer above pays for. */
+.bsggroup{border:1px solid var(--line-strong);border-radius:9px;background:var(--panel-2);
+  overflow:hidden}
+.bsggroup+.bsggroup{margin-top:8px}
+.bswgrp{display:flex;align-items:baseline;gap:8px;padding:5px 9px;background:var(--bg);
+  border-bottom:1px solid var(--line-strong)}
+.bswgrpn{font-size:12.5px;font-weight:600;color:var(--ink);text-transform:none;letter-spacing:0}
+.bsgn{flex:0 0 auto;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;
+  color:var(--muted);font-weight:700}
+.bsgrows{padding:3px}
 .bswpop .bswrow{position:relative;display:flex;align-items:center;gap:4px;
   width:100%;border-radius:8px}
-.bswpop button.bswmain{flex:1;min-width:0;display:block;width:auto;padding:6px 9px;text-align:left}
+.bswpop .bswmain{flex:1;min-width:0;display:block;width:auto;padding:6px 9px;text-align:left;cursor:pointer}
+.bswpop .bswmain:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;border-radius:7px}
 .bswdots{flex:0 0 auto;width:26px;height:26px;margin-right:4px;border:none;background:none;
   color:var(--muted);cursor:pointer;border-radius:6px;display:flex;align-items:center;justify-content:center}
 .bswdots:hover{color:var(--ink);background:var(--panel-2)}
 .bswdots svg{width:14px;height:14px}
-.bswmenu{position:absolute;right:6px;top:calc(100% - 4px);z-index:5;min-width:150px;padding:4px;
+.bswmenu{position:fixed;left:0;top:0;z-index:90;min-width:150px;padding:4px;
   background:var(--panel);border:1px solid var(--line-strong);border-radius:9px;box-shadow:var(--shadow)}
 .bswmi{display:flex;align-items:center;gap:9px;width:100%;padding:6px 9px;border:none;
   background:none;color:var(--muted);font:inherit;font-size:12.5px;cursor:pointer;border-radius:6px;text-align:left}
 .bswmi:hover{color:var(--ink);background:var(--panel-2)}
 .bswmi.danger:hover{color:var(--bad)}
 .bswmi.armed{background:var(--bad-soft);color:var(--bad)}
-.bswmenu.up{top:auto;bottom:calc(100% - 4px)}
 .bswrowt{display:flex;align-items:center;gap:7px}
-.bswrow .bswn{font-size:12.5px;font-weight:600}
+/* the name is a FIELD that looks like a label until touched — same pattern as the manager */
+.bswrow .bswn,.bswgrpn{font:inherit;background:none;color:inherit;border:1px solid transparent;
+  border-radius:6px;padding:1px 5px;margin-left:-5px;width:auto;min-width:0}
+.bswrow .bswn{font-size:12.5px;font-weight:600;flex:0 1 auto;max-width:150px}
+.bswgrpn{flex:1;max-width:100%}
+.bswrow .bswn:hover,.bswgrpn:hover{border-color:var(--line-strong)}
+.bswrow .bswn:focus,.bswgrpn:focus{outline:none;border-color:var(--accent);background:var(--bg)}
 .bswrow .bswcur{font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;
   color:var(--accent);background:var(--accent-soft);border-radius:8px;padding:1px 6px}
 .bswrow .bsws{font-size:11px;color:var(--muted);margin-top:1px}
@@ -379,6 +454,14 @@
 .spmodal .gnote b{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.05em;
   color:var(--gold);margin-bottom:3px}
 .spmodal .gnote p{margin:0;font-size:12.5px;line-height:1.5}
+/* D85 — a casting-rule change is a different kind of fact from a grant note: it is about
+   a spell you ALREADY have, so it takes the "good" hue the struck component uses. */
+.spmodal .gnote.cmod{border-left-color:var(--good);background:var(--good-soft)}
+.spmodal .gnote.cmod b{color:var(--good)}
+.spmodal .gnote.cmod .cmwhen{display:block;font-size:11px;color:var(--muted);margin:-2px 0 4px}
+.spmodal .cgone{color:var(--muted);text-decoration:line-through;
+  text-decoration-color:var(--good);text-decoration-thickness:1.5px}
+.spmodal .ciffy{color:var(--good);text-decoration:underline dotted currentColor;text-underline-offset:2px}
 .srcbadge.hasnote{cursor:help;text-decoration:underline dotted currentColor;text-underline-offset:2px}
 .spmodal .access{margin-top:12px;padding-top:10px;border-top:1px dashed var(--line)}
 /* a SECTION heading (Access, Stat block) is a level above the labels inside it:
@@ -556,6 +639,18 @@ table.spelltable td.cmp .l.costly{color:var(--gold);cursor:help}
 table.spelltable td.cmp .l.eat{color:var(--accent);cursor:help}
 table.spelltable td.cmp .l.on{cursor:help}
 table.spelltable td.cmp .l:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+/* D85 — a component your build removes. The spell still PRINTS it, so it is struck
+   through rather than dropped: what changed is you, not the spell. `iffy` is the honest
+   half — a condition the app can't verify, so the letter is marked, never struck. */
+table.spelltable td.cmp .l.gone{color:var(--muted);text-decoration:line-through;
+  text-decoration-color:var(--good);text-decoration-thickness:1.5px;cursor:help}
+table.spelltable td.cmp .l.iffy{color:var(--good);cursor:help;
+  text-decoration:underline dotted currentColor;text-underline-offset:2px}
+/* on the Source cell: which FEATURE changed this row's casting. `.iffy` = the mod is
+   conditional, so it only ever marks. */
+.cmmark{margin-left:5px;display:inline-flex;vertical-align:-2px;color:var(--good);cursor:help}
+.cmmark svg{width:11px;height:11px}
+.cmmark.iffy{color:var(--muted)}
 .card h2 .menu{margin-left:0}
 /* right-align the control in each "choice to make" row */
 .choicerow>select,.choicerow>.picks{margin-left:auto;flex:0 0 auto}
@@ -885,8 +980,27 @@ table.spelltable .pickcell{cursor:help}
 .importdrop b{font-size:13px}
 .importdrop #importPick{cursor:pointer;color:var(--accent)}
 .importwelcome{font-size:13px;line-height:1.55;color:var(--ink);background:var(--accent-soft);border-radius:10px;padding:11px 13px;margin:0 0 12px}
-.importstaged{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
-.stagechip{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;padding:3px 6px 3px 10px;border-radius:14px;background:var(--panel-2);border:1px solid var(--line-strong)}
+/* One row that scrolls, not a growing block — a full data folder stages ~180 files.
+   Same expander as the spell modal's Access section. */
+.importstaged{display:flex;align-items:center;gap:9px;margin-top:10px;min-height:26px}
+.importstaged.hidden{display:none}
+.importstaged .stlabel{flex:0 0 auto;font-size:10px;text-transform:uppercase;letter-spacing:.05em;
+  color:var(--muted);font-weight:700}
+.importstaged .stchips{flex:1;min-width:0;display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto;
+  scrollbar-width:none;-ms-overflow-style:none;padding:1px 0}
+.importstaged .stchips::-webkit-scrollbar{display:none;width:0;height:0}
+.importstaged[data-exp="1"]{align-items:flex-start}
+.importstaged[data-exp="1"] .stchips{flex-wrap:wrap;overflow:visible;max-height:34vh;overflow-y:auto}
+.importstaged .st-toggle{flex:0 0 auto;margin-left:0;position:relative;width:22px;height:22px;
+  border:none;background:none;color:var(--muted);cursor:pointer;font-size:0;padding:0;
+  transition:transform .15s,color .15s}
+.importstaged .st-toggle::before{content:"";position:absolute;left:50%;top:50%;width:7px;height:7px;
+  border-right:1.6px solid currentColor;border-bottom:1.6px solid currentColor;
+  transform:translate(-50%,-50%) translateY(-2.5px) rotate(45deg)}
+.importstaged .st-toggle:hover{color:var(--accent)}
+.importstaged[data-exp="1"] .st-toggle{transform:rotate(180deg)}
+.stagechip{flex:0 0 auto;max-width:230px;display:inline-flex;align-items:center;gap:6px;font-size:11.5px;padding:3px 6px 3px 10px;border-radius:14px;background:var(--panel-2);border:1px solid var(--line-strong)}
+.stagechip .stnm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .stagechip.bad{border-color:var(--bad);color:var(--bad)}
 .stagechip .k{color:var(--good);font-variant-numeric:tabular-nums}
 .stagechip button{border:none;background:none;cursor:pointer;color:var(--muted);font-size:12px;padding:0;line-height:1}
@@ -1019,7 +1133,7 @@ label.fld .fldt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-wi
     .buildswitch{order:9;flex:1 0 100%;margin-top:2px}
     .bswitch{max-width:none;width:100%}
     .bswitch .bswchar{flex:1;text-align:left}
-    .bswpop{left:0;right:0;min-width:0}
+    .bswpop{left:0;right:0;min-width:0;max-height:min(70vh,520px)}
     header.top h1{font-size:17px;white-space:nowrap;flex:0 0 auto}
     header.top .spacer{flex:1 1 0;min-width:0}
     /* the switch drops to its short labels before the title is allowed to shrink */
