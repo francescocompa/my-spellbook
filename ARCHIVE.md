@@ -337,7 +337,7 @@ only the narrative of what each batch contained.
 
 Moved out of `STATE.md` on 2026-08-27 by `/clean`. These are **settled and shipped**: their
 result is simply how the app looks and behaves now, and the rules any of them still impose live
-in STATE's Gotchas or in the one-line entry left behind under "Settled". Nothing here was
+in `GOTCHAS.md` or in the one-line entry left behind under "Settled" in `DECISIONS.md`. Nothing here was
 deleted — the headline and the rejected options stayed in the live doc, this is the reasoning.
 
 - **D43 (2026-08-26) Every giver in "Choices to make" is a group** — a giver with one choice
@@ -603,8 +603,7 @@ Sources join them, but every build remembers what it expected.
 - [x] ~~**T6 · budget/choice reset semantics**~~ **Closed by D37** — picks survive a relevel
   untouched and the existing soft over-flag does the rest. No new machinery.
 
-All v7 tasks are done. What remains for the project is the custom-sources design session and
-the open backlog below.
+All v7 tasks are done. What remains for the project is the open queue in `PLAN.md`.
 
 ### Non-goals
 ~~Level-up history/snapshots~~ — **superseded by D34/D35**: versions exist, but as *named copies*

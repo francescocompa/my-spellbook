@@ -1,0 +1,108 @@
+# CLAUDE.md — My Spellbook
+
+An offline, single-page D&D 2024 spell planner. It works out **which spells a character can
+take, at which level at most, and from which source** — across multiclassing, subclass grants,
+feats, species, items and their choices. Vanilla JS, no framework, no build step for the app
+itself beyond inlining.
+
+Live at <https://francescocompa.github.io/my-spellbook/>. Personal tool; Francesco is the only
+user and the only decision-maker.
+
+---
+
+## Read this first
+
+`STATE.md` is the resume block and it names the rest. One owner per fact — if two files say the
+same thing, one of them is wrong:
+
+| File | Owns |
+|---|---|
+| `CLAUDE.md` (this) | What the project is, conventions, build/run, the verify gate, versioning |
+| `STATE.md` | Where things stand right now, and what is blocked on Francesco |
+| `PLAN.md` | The queue — what is next, what is gated |
+| `DECISIONS.md` | Every decision D7–D109 and the options rejected with them |
+| `GOTCHAS.md` | Traps that have already cost a session. **Read before touching the extractors, the importer, grants resolution or any DOM handler.** |
+| `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
+| `ARCHIVE.md` | Bodies of consumed phases and old rationale — stubs in the live docs point here |
+
+`DECISIONS.md` entries marked **→ Gotcha** have their real, enforced-in-code copy in
+`GOTCHAS.md`. Trust that one.
+
+---
+
+## Shape
+
+- `src/{index.html,styles.css,app.js,extract.js}` — the app. `app.js` is one large file on
+  purpose; it is read top-to-bottom and sectioned by `// ── heading ──` comments.
+- `extract.py` — turns a 5etools mirror into `data/data.json` + `data/data-srd.json`.
+- `src/extract.js` — the **in-browser port** of `extract.py` (the importer). The two must stay
+  in step; `node scratchpad/cparity.js` proves it.
+- `build.py` — inlines everything into two deliverables:
+  - `dist/index.html` — self-contained, bundles the full data, opens by double-click. Local only.
+  - `docs/index.html` — the public Pages build. SRD 5.2 inlined; more is imported at runtime.
+- `data/`, `dist/`, `data-srd.json` are gitignored — 5etools content stays local. Only the SRD
+  subset is committed, inside `docs/`.
+
+Content at runtime = baked/SRD bundle ⊕ imported 5etools (IndexedDB) ⊕ custom homebrew
+(localStorage).
+
+## Build / run
+
+- Dev: `python3 serve.py 8000` → `http://localhost:8000/src/index.html` (launch.json
+  `spellbook`). Use `serve.py`, **not** `python3 -m http.server`: the latter evaluates
+  `os.getcwd()` at argparse time, which the preview sandbox blocks (startup crash);
+  `serve.py` binds an absolute root as a library and sidesteps it. Under the restricted
+  preview sandbox `preview_start` still can't spawn it — start it via Bash, then open the
+  browser at the URL. `serve.py` sends `Cache-Control: no-store`, so a plain reload always
+  picks up edits.
+- Data refresh: `python3 extract.py` (mirror default `~/Documents/D&D/5etool_mirror/…/data`),
+  then `python3 build.py`.
+- Deploy: commit + push `main`; Pages builds `main:/docs` (which has `.nojekyll`).
+
+## Verify gate — run before declaring anything done
+
+```bash
+python3 -c "import ast;ast.parse(open('extract.py').read());ast.parse(open('build.py').read())"
+node -e "const fs=require('fs');['src/app.js','src/extract.js','docs/sw.js'].forEach(f=>new Function(fs.readFileSync(f,'utf8')))"
+python3 -c "import json;json.load(open('data/data.json'));json.load(open('docs/manifest.webmanifest'))"
+node scratchpad/cparity.js        # extractor parity — MUST be 0 fail after any extractor edit
+```
+
+`cparity.js` drives the **real** predicates (`zipWanted`, `dropFoundryStubs`, `readOrder`,
+`carriedMonster`). A harness that rolls its own copy is how the `foundry.json` corruption hid
+for two sessions — never re-implement one there.
+
+## Versioning
+
+`VERSION` is the single source of truth. `build.py` reads it and injects `__VERSION__` into
+`data.js`, `dist/` and `docs/`; `app.js` renders it as a tag at the head of the footer, so any
+page — including a printed sheet — names the code that made it.
+
+- **Every commit bumps it**: `python3 bump.py` (1.4 → 1.5), which also rebuilds. A version
+  nothing was built with lies in the footer.
+- **MAJOR.MINOR, minor is a plain counter** — 1.9 is followed by 1.10, not 2.0.
+- **The major only moves when Francesco says so.** Ask; never take `--major` on your own.
+- Commit messages lead with the version: `v1.5 — what changed`.
+- The pre-1.0 line (v4 → v7) is tagged in place, not rewritten. `CHANGELOG.md` maps it.
+
+## How to work here
+
+- **Verify in the browser, don't ask Francesco to check.** Start `serve.py` via Bash, drive the
+  page, screenshot the result. Print output is checked by lifting the `@media print` rules into
+  a screen stylesheet — the browser pane has no print preview.
+- **Never mutate Francesco's saved builds to test something.** Derived state (`R`, `PREVIEW`) is
+  rebuilt on the next render and is safe to poke; `state.*` is his data. If a test must write,
+  capture the value first and restore it, then verify the restore.
+- **Log decisions as they are made** (`/decision` → `DECISIONS.md`), with the rejected options
+  and why. A rejected option that isn't written down gets re-proposed in three sessions.
+- **Both extractors or neither.** A hand-authored table, a predicate, a parse — if it lives in
+  `extract.py` it lives in `src/extract.js` too, identically, and `cparity.js` proves it.
+- **Don't extend**: `ARCHIVE.md` (append-only, stubs point at it) and the `data/` outputs
+  (generated). Don't edit `docs/` or `dist/` by hand — they are build products.
+
+## What this is not
+
+Non-goals, still standing: no level-by-level timeline (versions are named copies the app never
+orders); no server sync or accounts; no sharing a build as a page or URL (D36); no full bestiary
+(D78 carries a bounded creature set). Ability scores and proficiency are **not modelled** —
+anything needing them is left blank for a human rather than guessed.

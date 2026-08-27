@@ -96,14 +96,14 @@ Built to match the `monster-forge` / `character-forge` house style: vanilla JS,
 5etools as the data source, no build framework.
 
 ## Known gaps / next
-`STATE.md` is the live plan — this list is only the long-standing ones.
+`PLAN.md` is the live queue — this list is only the long-standing ones.
 - **After updating the app, re-import your 5etools data.** Creature sets and grant notes are
   produced by the extractors, so an import made before them carries neither, and per-spell
   data cannot be back-filled. The baked stat blocks survive an old import; the rest doesn't.
 - A handful of 2024 features grant spells in **prose only** (Mystic Arcanum, the Wizard school
   Savants, Knowledge Domain's Mind Magic, the Cleric capstone). 5etools models none of them, so
   they are hand-authored in `PROSE_GRANTS` in both extractors — re-run the audit sweeps in
-  `STATE.md` after a 5etools update to catch new ones.
+  `GOTCHAS.md` after a 5etools update to catch new ones.
 - Features that let you cast for free a spell you **already know** (Paladin's Smite, Ranger's
   Favored Enemy, and ~10 more) carry no note yet — notes only reach spells a feature *grants*.
 - Polymorph / Shapechange / True Polymorph name open-ended creature sets (any beast up to a CR),
