@@ -39,10 +39,15 @@ picks instead of best-case.
   entry is refused (that's the swap surface's job). Remaining: the swap-recording surface, and
   any removal-semantics refinement beyond remove-everywhere.* **Done when:** a pick added at L7 shows at L12 and not at
   L6; a recorded swap shows −X at its level and +Y after; verified in-browser.
-- [ ] **E4 — consistency sweep + badge** (`sonnet@high`, M) — per-slice legality (counts vs class
-  tables, spell level at acquisition, boons on 19+ slots, choice availability); one build-health
-  badge naming the offending levels; per-level flags in place. Soft (D31). **Done when:** an
-  over-budget-at-L5 fixture flags on the badge while viewing L12.
+- [x] **E4 — consistency sweep + badge** (**shipped v1.2.6**, done-when verified in-browser: a
+  Bard 12 holding a 4th-level spell in a slot that arrives at L5 shows "⚠ L5" on the badge at
+  top level, and the bar names it when standing at 5; 19 checks incl. D114's [4,6,8,14,18]) —
+  per-slice legality (counts vs class tables, spell level at acquisition, boons on 19+ slots,
+  choice availability); one build-health badge naming the offending levels; per-level flags in
+  place. Soft (D31). *Shipped checks: spell level at acquisition (swap-aware), picks past the
+  schedule (wizard copies exempt, preparers not swept), feat slots incl. origin and epic-without-
+  a-19+-slot, optional features past their progression, subclass due and unset. `choices` are
+  already `atLevel`-gated at resolution, so they need no separate check.*
 - [ ] **E5 — the timeline popover** (`fable@high` — core-surface design, L) — chip "L7 / 20 + ⚠";
   popover per the D115(j) mockup: zone tinting, draggable rows (retires the old level-order
   panel; single-column rule transfers), draggable pick chips, swap pills, current-level pin,

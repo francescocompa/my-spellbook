@@ -616,15 +616,22 @@ function rowSched(row){
   let spells=null;
   if(c.spellbook){const a=[];let t=0;for(let k=0;k<20;k++){t+=c.spellbook[k]||0;a.push(t);}spells=a;}
   else if(stat)spells=prepArr||null;
-  return {cant:cantArr||null,spells};
+  return {cant:cantArr||null,spells,caster,book:!!c.spellbook};
 }
-// the character level at which position i of a scheduled array is acquired; an
-// off-schedule position (wizard copies, over-budget picks) arrives at the row's top,
-// same as reverse-mode leftovers will (D118(g)) — nothing is hidden below its slice
+// the CLASS-level index (0-based) at which position i of a scheduled array arrives.
+// -1 means the schedule never admits it: a wizard copy, or a pick past the budget.
+function acqIdx(sched,i,lvls){
+  if(!sched)return -1;
+  for(let l=0;l<lvls.length;l++)if((sched[l]||0)>i)return l;
+  return -1;
+}
+// the character level at which position i is acquired; an off-schedule position
+// (wizard copies, over-budget picks) arrives at the row's top, same as reverse-mode
+// leftovers will (D118(g)) — nothing is hidden below its slice
 function acqAt(sched,i,lvls){
-  if(!sched)return topCharLevel();
-  for(let l=0;l<lvls.length;l++)if((sched[l]||0)>i)return lvls[l];
-  return lvls[lvls.length-1]||topCharLevel();
+  const l=acqIdx(sched,i,lvls);
+  if(l>=0)return lvls[l];
+  return sched?(lvls[lvls.length-1]||topCharLevel()):topCharLevel();
 }
 // swap events above L are un-applied newest-first on a DISPLAY COPY, so chains resolve:
 // X→Y at 5 and Y→Z at 9 shows X at L4, Y at L7, Z from L9 on (E1 shape, D115(g))
@@ -664,38 +671,111 @@ function sliceInsertAt(row,arr,L){
 // feats: origin slots are character level 1; general/epic spends fill the build's slot
 // levels in array order, earliest available slot first (best case, D18); anything past
 // the budget arrives at top — E4 flags it, nothing hides it (D31)
+// fk -> {lv, cat, over}. `over` means no slot in the build could pay for it — it still
+// arrives (at top) and is flagged, never dropped (D31 · the flag-don't-prune rule).
 function featAcqLevels(){
   const slots=featSlotLevels(true), used=new Array(slots.length).fill(false);
   const top=topCharLevel(), out=new Map();
+  const originCap=(state.classes.length?1:0)
+    +(/human/i.test((RACE_BY[state.speciesKey]||{}).name||"")?1:0);
+  let origin=0;
   state.feats.forEach(fk=>{
     const cat=featSlotOf(fk)||"origin";
-    if(cat==="origin"){out.set(fk,1);return;}
+    if(cat==="origin"){out.set(fk,{lv:1,cat,over:++origin>originCap});return;}
     const min=cat==="epic"?19:1;
     let lv=null;
     for(let i=0;i<slots.length;i++)if(!used[i]&&slots[i]>=min){used[i]=true;lv=slots[i];break;}
-    out.set(fk,lv==null?top:lv);
+    out.set(fk,{lv:lv==null?top:lv,cat,over:lv==null});
   });
   return out;
 }
 function featsAt(){ if(PREVIEW.level==null)return state.feats;
-  const acq=featAcqLevels(); return state.feats.filter(fk=>(acq.get(fk)||1)<=PREVIEW.level); }
+  const acq=featAcqLevels();
+  return state.feats.filter(fk=>((acq.get(fk)||{}).lv||1)<=PREVIEW.level); }
 // optional features ride their progression's own counts (D28): position within the
 // progression → first class level with room, through the plan like every other schedule
 function optAcqLevels(){
   const clm=charLevelMap(), top=topCharLevel(), out=new Map(), progs=[];
   state.classes.forEach(row=>[CLS_BY[row.clsKey],row.subKey?SUB_BY[row.subKey]:null].forEach(src=>{
     if(src&&src.optFeatures)src.optFeatures.forEach(p=>
-      progs.push({types:new Set(p.types),counts:p.counts||[],lvls:clm.get(row.id)||[],n:0}));}));
+      progs.push({name:p.name,types:new Set(p.types),counts:p.counts||[],lvls:clm.get(row.id)||[],n:0}));}));
   state.optFeats.forEach(ok=>{const o=OPT_BY[ok];
     const p=o&&progs.find(x=>(o.types||[]).some(t=>x.types.has(t)));
-    if(!p){out.set(ok,top);return;}
+    if(!p){out.set(ok,{lv:top,over:true,slot:null});return;}
     const i=p.n++; let lv=null;
     for(let l=0;l<p.lvls.length;l++)if((p.counts[l]||0)>i){lv=p.lvls[l];break;}
-    out.set(ok,lv==null?top:lv);});
+    out.set(ok,{lv:lv==null?top:lv,over:lv==null,slot:p.name});});
   return out;
 }
 function optFeatsAt(){ if(PREVIEW.level==null)return state.optFeats;
-  const acq=optAcqLevels(); return state.optFeats.filter(ok=>(acq.get(ok)||1)<=PREVIEW.level); }
+  const acq=optAcqLevels();
+  return state.optFeats.filter(ok=>((acq.get(ok)||{}).lv||1)<=PREVIEW.level); }
+
+// ── consistency sweep (E4 · D115(f)) ───────────────────────────────────────
+// Every level slice is checked, ALWAYS build-wide: standing at 12 must still tell you
+// that level 5 doesn't add up, which is the whole point of the badge. So nothing here
+// reads PREVIEW. Soft throughout (D31) — findings are named and located, never fixed,
+// never blocking, and nothing is ever removed from the build.
+function buildHealth(){
+  const out=[], top=topCharLevel(), clm=charLevelMap();
+  const add=(level,kind,text)=>out.push({level:Math.max(1,Math.min(20,level||top)),kind,text});
+  const spName=k=>{const sp=SPELL_BY[k];return sp?sp.name:String(k).split("|")[0];};
+  // a swapped-IN pick was acquired at the swap, not at its position's schedule slot (D115(g))
+  const swIn=new Map();
+  Object.entries(state.swaps||{}).forEach(([k,v])=>{
+    const m=swIn.get(v.row)||new Map(); m.set(v.in,+k); swIn.set(v.row,m);});
+
+  state.classes.forEach(row=>{
+    const c=CLS_BY[row.clsKey]; if(!c)return;
+    const lvls=clm.get(row.id)||[], rowTop=lvls[lvls.length-1]||top;
+    // a subclass that is due and not chosen is a real hole, and it has a level
+    const subL=c.subclassLevel||3;
+    if(!row.subKey&&(row.level||0)>=subL&&lvls[subL-1])
+      add(lvls[subL-1],"subclass",`${c.name} chooses a subclass at class level ${subL}, and none is set.`);
+    const sched=rowSched(row); if(!sched)return;      // non-caster: nothing sticky to check
+    const ch=state.chosen[row.id]||{}, sw=swIn.get(row.id)||new Map();
+    // cantrips are never "copied" — past the schedule is past the budget
+    (ch.cantrips||[]).forEach((k,i)=>{ if(acqIdx(sched.cant,i,lvls)>=0)return;
+      add(rowTop,"over",`${spName(k)} is one cantrip more than ${c.name} ${row.level} grants.`);});
+    // a preparer's list is chosen fresh each day (D18/D115(c)) — not sticky, not swept here
+    if(!sched.spells)return;
+    (ch.spells||[]).forEach((k,i)=>{
+      const sp=SPELL_BY[k]; if(!sp)return;
+      const l=acqIdx(sched.spells,i,lvls);
+      if(l<0){
+        // the wizard's own legal move: copying into the spellbook beyond the free
+        // allowance. Not an error, and never was (the level-budget gotcha).
+        if(!sched.book)
+          add(rowTop,"over",`${sp.name} is one spell more than ${c.name} ${row.level} learns.`);
+        return;}
+      // where it really arrived, and the class level it arrived at
+      const at=sw.has(k)?sw.get(k):lvls[l];
+      const cl=sw.has(k)?lvls.filter(x=>x<=at).length:l+1;
+      const canCast=maxLvlAt(sched.caster,Math.max(1,cl));
+      if(sp.level>canCast)
+        add(at,"spelllevel",`${sp.name} is level ${sp.level}, but ${c.name} ${cl}`
+          +` — which is where it arrives — casts at most level ${canCast||1}.`);
+    });
+  });
+
+  const fa=featAcqLevels();
+  state.feats.forEach(fk=>{const f=FEAT_BY[fk], a=fa.get(fk); if(!f||!a||!a.over)return;
+    add(a.lv,"feat", a.cat==="epic"
+      ? `${f.name} is an epic boon, and no feat slot in this build arrives at character level 19 or later.`
+      : a.cat==="origin"
+        ? `${f.name} is an origin feat, and this build has no origin slot left for it.`
+        : `${f.name} has no feat slot in this build to be taken with.`);});
+  const oa=optAcqLevels();
+  state.optFeats.forEach(ok=>{const o=OPT_BY[ok], a=oa.get(ok); if(!o||!a||!a.over)return;
+    add(a.lv,"opt", a.slot
+      ? `${o.name} is one ${lc(a.slot)} more than this build grants.`
+      : `${o.name} has no feature in this build that grants it.`);});
+
+  out.sort((a,b)=>a.level-b.level);
+  const levels=[...new Set(out.map(f=>f.level))];
+  const byLevel=new Map(); levels.forEach(l=>byLevel.set(l,out.filter(f=>f.level===l)));
+  return {findings:out,levels,byLevel};
+}
 
 // ── custom spell sources (D55) ─────────────────────────────────────────────
 // A named thing the character OWNS that grants spells — a magic item, a boon, a
@@ -3629,6 +3709,41 @@ function renderLevelChip(){
     tipBlock("Save this level as a version","Makes a real build at L"+PREVIEW.level+" that you can pick spells in freely, alongside the full-level one. Your picks come with it; anything over that level's budget is flagged, never dropped.")));
   chip.append(xBtn("pvx",()=>setPreview(null)));
 }
+// The build-health surfaces (E4 · D115(f)). Two altitudes, one sweep: the BADGE always
+// names the offending levels — that is what makes a problem at 5 visible from 12 — and
+// the BAR names what is wrong at the level you are actually standing at. Both are
+// advisory (D31): they say so, they jump you there, they never change anything.
+function renderHealth(){
+  const chip=$("#healthChip"), bar=$("#healthBar");
+  const h=buildHealth();
+  if(chip){
+    detachTip(chip); chip.innerHTML=""; chip.onclick=null;
+    if(!h.levels.length)chip.classList.add("hidden");
+    else{
+      chip.classList.remove("hidden");
+      chip.append(icoEl("warn"));
+      const shown=h.levels.slice(0,3).map(l=>"L"+l).join(" · ");
+      chip.append(el("span",null,shown+(h.levels.length>3?` +${h.levels.length-3}`:"")));
+      // set the click BEFORE attachTip, or the tip becomes the whole click
+      chip.onclick=e=>{e.stopPropagation();hideTip();setPreview(h.levels[0]);};
+      attachTip(chip,tipBlock(
+        h.findings.length===1?"1 thing doesn’t add up":`${h.findings.length} things don’t add up`,
+        h.findings.slice(0,8).map(f=>`L${f.level}: ${f.text}`).join(" ")
+          +(h.findings.length>8?` (+${h.findings.length-8} more)`:"")
+          +" Nothing is removed — click to look at the first one."));
+    }
+  }
+  if(!bar)return;
+  const here=PREVIEW.level!=null?(h.byLevel.get(PREVIEW.level)||[]):[];
+  if(!here.length){bar.classList.add("hidden");bar.innerHTML="";return;}
+  bar.innerHTML=""; bar.classList.remove("hidden");
+  const txt=el("div","healthtxt");
+  txt.append(el("b",null,`Level ${PREVIEW.level}: ${here.length} thing${here.length===1?"":"s"} `
+    +`${here.length===1?"doesn’t":"don’t"} add up here`));
+  here.slice(0,4).forEach(f=>txt.append(el("div",null,f.text)));
+  if(here.length>4)txt.append(el("div",null,`+${here.length-4} more at this level`));
+  bar.append(txt);
+}
 // What a class level actually gives, NAMED: real class and subclass features (D63).
 // Not derived counts: "Arcane Recovery" says more than "+1 prepared". Spellcasting is
 // deliberately NOT here — see levelCasting.
@@ -3747,7 +3862,7 @@ function renderLvlOrder(){
 function openLvlOrder(){ renderLvlOrder(); $("#lvlOrderModal").classList.remove("hidden"); }
 // ── slots, cart and spell list render ──────────────────────────────────────
 function renderSlots(){
-  renderLevelChip();
+  renderLevelChip(); renderHealth();
   const g=$("#statGrid");g.innerHTML="";
   const maxAny=Math.max(0,...R.casters.map(r=>r.maxLvl));
   const tPrep=R.casters.reduce((a,r)=>a+r.prepared,0);

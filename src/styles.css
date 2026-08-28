@@ -759,6 +759,21 @@ table.spelltable td.cmp .l.iffy{color:var(--good);cursor:help;
 .gaptxt{flex:1;min-width:0;font-size:11.5px;color:var(--muted);line-height:1.35;cursor:help}
 .gaptxt b{display:block;color:var(--gold);font-size:12px;font-weight:600}
 .gapbar .btn{flex:0 0 auto}
+/* build health (E4 · D115(f)): the badge names the levels whose slice doesn't add up —
+   it is what makes a problem at level 5 visible while you stand at 12 — and the bar
+   names what is wrong at the level you are standing at. Advisory, like everything (D31). */
+.hbadge{display:inline-flex;align-items:center;gap:5px;margin-left:8px;padding:2px 9px;
+  border-radius:20px;font-family:var(--sans);font-size:11px;font-weight:600;cursor:pointer;
+  border:1px solid var(--bad);background:var(--bad-soft);color:var(--bad)}
+.hbadge.hidden{display:none}
+.hbadge .ico svg{width:11px;height:11px}
+.hbadge:hover{background:color-mix(in srgb,var(--bad) 16%,var(--bg))}
+.healthbar{display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;padding:9px 12px;
+  border-radius:10px;border:1px solid var(--bad);
+  background:color-mix(in srgb,var(--bad) 9%,var(--bg))}
+.healthbar.hidden{display:none}
+.healthtxt{flex:1;min-width:0;font-size:11.5px;color:var(--muted);line-height:1.45}
+.healthtxt b{display:block;color:var(--bad);font-size:12px;font-weight:600;margin-bottom:2px}
 /* the field holding such a pick says so rather than quietly resetting */
 .picksel.gapped,select.gapped{border-color:var(--gold);color:var(--gold)}
 .modal .box.narrow{max-width:440px}

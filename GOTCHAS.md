@@ -366,5 +366,17 @@
   copies first (`.map()`, `[...]`), and a new one must too. `state.swaps` is keyed by character
   level (one event max, D115(g)) and a row's swap events are dropped with the row
   (`dropRowSwaps`), exactly like its `chosen` lists.
+- **The consistency sweep must NEVER read `PREVIEW` (E4 · D115(f)).** `buildHealth()` walks the
+  raw pick arrays and the full level plan, not the sliced view — a problem at level 5 has to be
+  visible while you stand at 12, which is the badge's entire reason to exist. Anything that
+  "optimizes" it to reuse `sliceChosen()`/`featsAt()` silently turns the badge into a report on
+  the current view and the done-when stops holding. The BAR is the level-local half (it reads
+  `PREVIEW.level` deliberately); the BADGE is build-wide. Both are advisory (D31): they name and
+  locate, they never remove or block.
+- **A preparer's spell list is not swept, and must not be.** `rowSched().spells` is null for a
+  daily preparer (Cleric, Druid, Paladin…), and the sweep returns before the spell loop — a
+  prepared list is re-chosen every long rest (D18/D115(c)), so "acquired at level N" is
+  meaningless for it. Deleting that guard flags every prepared spell as over-budget. Wizard
+  copies beyond the free allowance are legal the same way and are exempted by `sched.book`.
 - **History purge:** old data-bearing commits are unreachable on origin but GitHub may still serve
   them by exact SHA until it gc's. `backup/pre-purge-20260826` (local) has the original.
