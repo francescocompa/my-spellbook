@@ -841,6 +841,66 @@ written up in full in `GOTCHAS.md` — that is the copy to trust.
   the audit batch ships as 1.2.2. Release tags resume from v1.2.2 (Francesco's call,
   reversing the CHANGELOG-only recommendation). Enforced by: `bump.py`; `CHANGELOG.md` is
   the map's single owner. Affects: CLAUDE.md Versioning, CHANGELOG.md, bump.py, VERSION.
+- **D118 (2026-08-28) DECIDED — THE GUIDED BUILDER: a separate coach-driven flow over the D115
+  substrate, forward and reverse.** Mechanism: design session, AskUserQuestion × 6 rounds + 1
+  mockup round (2026-08-28). Trigger — Francesco's /resume note, raw: *"alongside the option to
+  troubleshoot a build at each level, I want to be able to build a character with a series of
+  steps that populate the page, perhaps with a series of chained modals, that guides me through
+  a level by level character creation and works both from level 1 to X with an empty build or
+  from level X to 1 reverse engineering a ready build for lower levels."* The model:
+  - **(a) Identity: a separate guided flow** writing the same order/slice substrate the D115(j)
+    popover reads — two jobs, two surfaces; D115 stands whole. *Rejected:* a guided mode of the
+    timeline popover (reference density can't host step content); wizard-as-primary-surface
+    (fights the app's free-form browsing language, D57/D66).
+  - **(b) Step mechanics: hybrid coach + page.** The coach states the task; multi-pick decisions
+    hand off to the real page pre-filtered to what is legal at that acquisition point. *Rejected:*
+    self-contained modal steps (clones the pickers into a modal — duplicate surface, duplicate
+    bugs); coach-only (tiny structural choices get heavier than needed).
+  - **(c) Granularity: one step per DECISION** — Francesco's call against the per-level
+    recommendation. Consequence, accepted into the design: ~60–80 steps for a level-20 build, so
+    level milestones are the chain's visible skeleton (steps grouped under level headers) and
+    navigation is jump-anywhere, never a forced march. *Rejected:* one step per character level;
+    tier grouping (dissolves "what do I get at level 7").
+  - **(d) L1 scope: everything the app models** — class, species, origin feat slot. Nothing new
+    is modelled: no ability scores, no backgrounds-as-entities (standing non-goal; prerequisites
+    stay advisory). *Rejected:* class-only (breaks the promise at step one); full character
+    creator (a different app).
+  - **(e) Skip policy: everything skippable, soft flags.** The wizard never blocks; open slots
+    land in the E4 sweep and badge; class-per-level pre-answers "continue current class".
+    *Rejected:* required structural picks; must-complete-per-level (fights D31 throughout).
+  - **(f) Direction: BOTH walks, chosen per run.** One engine — "fill slice k's slots from a
+    pool" — iterated ascending or descending; the direction is an iteration order, not a second
+    engine. Forward-from-empty defaults ascending; reverse mode restricts the candidate pool to
+    the build's own picks and asks which walk. *Rejected:* place-only 1→X (recommended, declined);
+    peel-only X→1.
+  - **(g) Leftovers settle at top, soft-flagged.** Picks never placed (or unfittable) land in the
+    top slice and take E4 flags; the wizard never blocks, never deletes (flag-don't-prune).
+    *Rejected:* fix proposals inside the wizard (a second legality engine that must agree with
+    E4); a holding pen (a pick outside every slice belongs to no level — violates D115(h)).
+  - **(h) Order trust: E1's migrated array order is truth, silently.** No "unconfirmed" state
+    bit. *Rejected:* a quiet unconfirmed hint on the chip (recommended, declined); blocking level
+    views until confirmed.
+  - **(i) Entry points: all three.** Start-guided beside start-empty on new builds; guided
+    level-up from the current level; reconstruct (reverse) on a ready build. Invocation on an
+    existing build: **popover footer ("guide me from here") as primary + a ⋯ menu alias.**
+    *Rejected:* shipping a subset; footer-only; menu-only.
+  - **(j) Lifecycle: stateless — the build IS the state.** Exiting keeps everything placed;
+    re-entry computes the first open slot and resumes. *Rejected:* a stored wizard session
+    (persisted shape for a distinction the soft flags cover).
+  - **(k) Surface: side coach rail, no modals anywhere.** Desktop: a rail with the whole chain
+    visible, grouped under level headers, jump-anywhere, Skip/Back/Next, page candidates
+    highlighted "legal now"; phone widths: collapses to a bottom sheet showing the current
+    level's group. Structural choices (class, subclass, feat-or-ASI, swap y/n) are answered
+    INLINE in the rail. Mockup round: *chose the rail over the docked bar and the bar+overlay
+    hybrid, then dropped the structural-choice modal too* — the "chained modals" phrasing in the
+    trigger is recorded as the trigger, not the mechanism. *Rejected:* docked coach bar (hides
+    the remaining decisions at per-decision granularity); chained structural modals.
+  - **Plan: new phase F, strictly after the E8 gate** — F1 step derivation · F2 coach rail ·
+    F3 entry points + reverse · F4 fresh-eyes gate; E1–E8 unchanged (F3 adds the one footer
+    action). *Rejected:* extending phase E to E9–E11 (E8 would review half a phase); starting F
+    after E4 interleaved with E5–E7 (wizard built on unreviewed substrate).
+  Supersedes: nothing — D115 stands whole. Enforced by: PLAN.md phase F task lines; once built,
+  F4 is the guard. Affects: PLAN.md (phase F), STATE.md next-action framing, src/app.js when built.
 
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for

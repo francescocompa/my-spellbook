@@ -10,7 +10,10 @@
 ## Phase E — a build at every level (D115, decided 2026-08-28)
 
 Level is a parameter, versions are alternatives — the full model is **D115(a–j)**; cite it,
-don't restate it. Order: E1 → E2 → {E3, E4} → E5 → {E6, E7} → E8. Optional follow-up once E2
+don't restate it. Order: E1 → E2 → {E3, E4} → E5 → {E6, E7} → E8.
+
+The guided-builder requirement raised 2026-08-28 was designed the same day → **D118**, and is
+**phase F below** — strictly after the E8 gate; E1–E8 are unchanged by it. Optional follow-up once E2
 exists (not scoped): D76's Magical Secrets narrowing could report the EXACT window for ordered
 picks instead of best-case.
 
@@ -48,6 +51,29 @@ picks instead of best-case.
   not.
 - [ ] **E8 — 🔍 fresh-eyes gate** (`fable@high`, separate session per model-policy) — review the
   shipped phase against D115(a–j) before it is declared done.
+
+## Phase F — the guided builder (D118, decided 2026-08-28; starts after the E8 gate)
+
+A separate coach-driven flow over the D115 substrate, forward and reverse — the full model is
+**D118(a–k)**; cite it, don't restate it. Order: F1 → F2 → F3 → F4.
+
+- [ ] **F1 — step-list derivation** (`sonnet@high`, M) — from the E2 schedules + build state,
+  derive the per-decision step list grouped by character level, statuses (done / open / skipped)
+  computed statelessly (D118(j)); direction is an iteration order over the same slices, ascending
+  or descending (D118(f)); candidate pools: full catalog (forward) vs the build's own picks
+  (reverse). **Done when:** the five D114 fixture builds yield correct step lists in both
+  directions, and re-entry lands on the first open slot.
+- [ ] **F2 — the coach rail** (`fable@high` — core surface, L) — side rail per the D118(k)
+  mockup: level-grouped chain, jump-anywhere, structural choices inline (no modals), page
+  pre-filtered with "legal now" highlighting, Skip/Back/Next, progress; bottom sheet at phone
+  widths. **Done when:** every rail interaction verified in-browser at desktop and phone widths.
+- [ ] **F3 — entry points + reverse wiring** (`sonnet@medium`, S) — "Start guided" beside
+  start-empty; "Guide me from here" in the E5 popover footer + ⋯ menu alias; reverse on a ready
+  build asks the walk direction; leftovers settle at top, soft-flagged (D118(g)). **Done when:**
+  all three entries reach the rail, and a ready L12 fixture reverse-engineers to a legal order
+  with its leftovers flagged.
+- [ ] **F4 — 🔍 fresh-eyes gate** (`fable@high`, separate session per model-policy) — review the
+  shipped phase against D118(a–k) before it is declared done.
 
 ## Queue
 - [ ] **Magic-item / reward ingestion** — 🔶 **RESEARCHED 2026-08-27, awaiting Francesco's call.**

@@ -291,8 +291,15 @@ const newBuildId=()=>"b"+Date.now().toString(36)+(bidSeq++).toString(36);
 const activeBuild=()=>BUILDS.builds[BUILDS.activeId];
 
 const blankBuildState=()=>({classes:[],speciesKey:"",feats:[],optFeats:[],featSlots:{},levelOrder:[],
-  customSources:[],chosen:{},choices:{},sbFav:{},nextRowId:1,filters:null});
-// the live `state` <-> the plain object stored in a build
+  customSources:[],chosen:{},choices:{},sbFav:{},nextRowId:1,filters:null,
+  currentLevel:null,swaps:{}});
+// the live `state` <-> the plain object stored in a build.
+// The ARRAYS ARE THE ACQUISITION ORDER (E1 · D115(b,h)): `feats`, `optFeats` and each
+// row's `chosen[id].cantrips`/`.spells` list picks in the order they were acquired.
+// Per-level truth is a slice of that order — nothing may sort a stored pick array
+// (render-side sorts must copy first), and export/import must carry it verbatim.
+// New fields stay at the END of this literal: `save()` diffs stringified forms, and the
+// loadBuilds() migration appends in the same order so an untouched build still compares equal.
 function serializeState(){ const f=state.filters; return {
   classes:state.classes, speciesKey:state.speciesKey, feats:state.feats, optFeats:state.optFeats,
   featSlots:state.featSlots||{},          // which slot each feat was spent from (D84)
@@ -301,16 +308,23 @@ function serializeState(){ const f=state.filters; return {
   sbFav:state.sbFav||{},                  // which summon forms this character actually uses
   filters:{...f,levels:[...f.levels],time:[...f.time],comp:[...f.comp],tags:[...f.tags],
            books:f.books?[...f.books]:null},
+  currentLevel:state.currentLevel==null?null:state.currentLevel,  // null = at top (D115(e))
+  swaps:state.swaps||{},                  // charLevel -> one swap event (D115(g))
 };}
 function applyState(s){ s=s||blankBuildState();
   Object.assign(state,{classes:s.classes||[],speciesKey:s.speciesKey||"",feats:s.feats||[],
     optFeats:s.optFeats||[],featSlots:s.featSlots||{},chosen:s.chosen||{},choices:s.choices||{},
     nextRowId:s.nextRowId||1,levelOrder:s.levelOrder||[],customSources:s.customSources||[],
-    sbFav:s.sbFav||{}});
+    sbFav:s.sbFav||{},
+    currentLevel:typeof s.currentLevel==="number"?s.currentLevel:null,
+    swaps:(s.swaps&&typeof s.swaps==="object")?s.swaps:{}});
+  // arr() guards a filters blob that stored a Set as "{}" (a pre-E1 importer fallback did) —
+  // boot must heal such a build, not throw at `new Set({})` and die half-rendered
+  const arr=x=>Array.isArray(x)?x:[];
   state.filters=s.filters
-    ? Object.assign(FILTER_DEFAULT(),s.filters,{levels:new Set(s.filters.levels||[]),
-        time:new Set(s.filters.time||[]),comp:new Set(s.filters.comp||[]),tags:new Set(s.filters.tags||[]),
-        books:s.filters.books?new Set(s.filters.books):null})
+    ? Object.assign(FILTER_DEFAULT(),s.filters,{levels:new Set(arr(s.filters.levels)),
+        time:new Set(arr(s.filters.time)),comp:new Set(arr(s.filters.comp)),tags:new Set(arr(s.filters.tags)),
+        books:Array.isArray(s.filters.books)?new Set(s.filters.books):null})
     : FILTER_DEFAULT();
   // every class row needs a stable id (cart/choices are keyed by it, never by array index)
   state.classes.forEach(r=>{if(r.id==null)r.id=state.nextRowId++;});
@@ -389,6 +403,14 @@ function loadBuilds(){
     BUILDS.order=(BUILDS.order||[]).filter(id=>BUILDS.builds[id]);
     Object.keys(BUILDS.builds).forEach(id=>{if(!BUILDS.order.includes(id))BUILDS.order.push(id);});
     if(!BUILDS.builds[BUILDS.activeId])BUILDS.activeId=BUILDS.order[0];
+    // E1 migration: pre-D115 builds gain the level pointer and the swap map with neutral
+    // defaults (order = array order, current level = top). Appended in serializeState's own
+    // key order and WITHOUT touching meta.updated — this is not an edit (D116(d)).
+    let migrated=false;
+    Object.values(BUILDS.builds).forEach(b=>{const st=b&&b.state; if(!st)return;
+      if(st.currentLevel===undefined){st.currentLevel=null;migrated=true;}
+      if(st.swaps===undefined){st.swaps={};migrated=true;}});
+    if(migrated)persistBuilds();
     return "loaded";
   }
   const legacy=loadJSON(LS);
@@ -544,6 +566,32 @@ function setPreview(l){
   PREVIEW.level=(l==null||l>=total)?null:Math.max(1,l);
   document.body.classList.toggle("previewing",PREVIEW.level!=null);
   refreshAll();render();
+}
+
+// ── current level & swap events (E1 · D115(e,g)) ───────────────────────────
+// The SAVED counterpart of the preview: `state.currentLevel` is where the character
+// actually stands, null = at top level. E5 wires the surface; these are the only writers.
+function setCurrentLevel(l){
+  const total=state.classes.reduce((a,r)=>a+(r.level||0),0);
+  state.currentLevel=(l==null||l>=total)?null:Math.max(1,Math.round(l));
+  save();
+}
+// A level-up may carry ONE swap (−out +in) where RAW grants one (D115(g)); the map is
+// keyed by character level, so one-per-level holds by construction. Whether a swap is
+// GRANTED at a level is the E4 sweep's business — this only keeps the shape sound.
+function recordSwap(lvl,ev){
+  lvl=Math.round(+lvl);
+  if(!(lvl>=1&&lvl<=20)||!ev||!state.classes.some(r=>r.id===ev.row))return false;
+  if(!ev.out||!ev.in||ev.out===ev.in)return false;
+  state.swaps[lvl]={row:ev.row,kind:ev.kind==="cantrip"?"cantrip":"spell",
+                    out:String(ev.out),in:String(ev.in)};
+  save(); return true;
+}
+function clearSwap(lvl){ lvl=Math.round(+lvl);
+  if(state.swaps&&state.swaps[lvl]!==undefined){delete state.swaps[lvl];save();} }
+// a class row's swap events die with the row, exactly like its `chosen` lists do
+function dropRowSwaps(id){
+  Object.keys(state.swaps||{}).forEach(k=>{if(state.swaps[k].row===id)delete state.swaps[k];});
 }
 
 // ── custom spell sources (D55) ─────────────────────────────────────────────
@@ -1264,6 +1312,10 @@ function savePreviewAsVersion(){
   const st=JSON.parse(JSON.stringify(src.state));
   st.classes=(st.classes||[]).map(r=>({...r,level:eff.get(r.id)||0})).filter(r=>r.level>0);
   st.levelOrder=(st.levelOrder||[]).filter(id=>st.classes.some(r=>r.id===id));
+  // the fork's history ends at its own top: swap events above the slice go, and a
+  // pointer at or past it means "at top" (E1 · D115(e,g))
+  st.swaps=Object.fromEntries(Object.entries(st.swaps||{}).filter(([k])=>+k<=lv));
+  if(st.currentLevel!=null&&st.currentLevel>=lv)st.currentLevel=null;
   // keep the lineage readable: you can tell what it was forked from, and at what level
   const used=new Set(buildsOf(src.meta.character).map(b=>b.meta.name));
   const base=((src.meta.name||"").trim()?src.meta.name.trim()+" · ":"")+"LV"+lv;
@@ -1500,6 +1552,8 @@ function renderBswPop(){
 // say which books it expects. A FILE, never a URL (D36). Import always ADDS — it can
 // never overwrite a build you already have.
 const BUILD_FILE_KIND="my-spellbook/build";
+// E1's fields (currentLevel, swaps) are ADDITIVE: an older reader ignores them and loses
+// nothing it understands, so the version gate stays at 1. Bump only for a reshaping change.
 const BUILD_FILE_VERSION=1;
 function buildExportObj(b){
   return {kind:BUILD_FILE_KIND,version:BUILD_FILE_VERSION,exported:Date.now(),
@@ -1579,7 +1633,23 @@ function applyImportedState(st){
     // choice ids embed the class row id ("c3:pk0") — remap so picks survive the renumber
     const nk=String(k).replace(/^([cs])(\d+)/,(m,p,n)=>idMap.has(+n)?p+idMap.get(+n):m);
     out.choices[nk]=Array.isArray(v)?v.map(String):v;});
-  out.filters=st.filters||FILTER_DEFAULT();
+  // null, never FILTER_DEFAULT(): the default holds live Sets, which JSON.stringify to "{}"
+  // and threw on the next boot's `new Set({})` — applyState builds the default from null
+  out.filters=st.filters||null;
+  // the level pointer (E1 · D115(e)): an integer below the build's top level, else null = top
+  const top=out.classes.reduce((a,r)=>a+r.level,0);
+  const cl=Math.round(+st.currentLevel);
+  out.currentLevel=(cl>=1&&cl<top)?cl:null;
+  // swap events (E1 · D115(g)): one per character level, row remapped like every other ref;
+  // anything malformed is dropped, never guessed at
+  out.swaps={};
+  Object.entries((st.swaps&&typeof st.swaps==="object")?st.swaps:{}).forEach(([k,v])=>{
+    const lvl=Math.round(+k);
+    if(!(lvl>=1&&lvl<=20)||!v||typeof v!=="object")return;
+    const row=idMap.get(+v.row); if(!row)return;
+    const minus=String(v.out||""), plus=String(v.in||"");
+    if(!minus||!plus)return;
+    out.swaps[lvl]={row,kind:v.kind==="cantrip"?"cantrip":"spell",out:minus,in:plus};});
   return out;
 }
 
@@ -4282,7 +4352,7 @@ function renderClassRows(){
     const cl=el("div");cl.append(el("label","fld","Class"));
     const cs=el("select");classOptions(row.clsKey).forEach(o=>cs.append(new Option(o.t,o.v)));cs.value=row.clsKey;
     if(c.source&&!visible(c))cs.classList.add("gapped");
-    cs.onchange=()=>{if(cs.value===row.clsKey)return;row.clsKey=cs.value;row.subKey=null;delete state.chosen[row.id];save();renderClassRows();render();};
+    cs.onchange=()=>{if(cs.value===row.clsKey)return;row.clsKey=cs.value;row.subKey=null;delete state.chosen[row.id];dropRowSwaps(row.id);save();renderClassRows();render();};
     cl.append(cs);div.append(cl);
     const subLvl=c.subclassLevel||3, locked=row.level<subLvl;
     const needsSub=!locked && !row.subKey && (SUBS_OF[key(c.name,c.source)]||[]).some(visible);
@@ -4303,7 +4373,7 @@ function renderClassRows(){
     const setLvl=v=>{row.level=Math.max(1,Math.min(20,v||1));li.value=row.level;save();renderClassRows();render();};
     dec.onclick=()=>setLvl(row.level-1);inc.onclick=()=>setLvl(row.level+1);li.onchange=()=>setLvl(+li.value);
     st.append(dec,li,inc);lv.append(st);div.append(lv);
-    const rm=xBtn("rm",()=>{delete state.chosen[row.id];state.classes.splice(idx,1);renderClassRows();render();});
+    const rm=xBtn("rm",()=>{delete state.chosen[row.id];dropRowSwaps(row.id);state.classes.splice(idx,1);renderClassRows();render();});
     rm.title="Remove class";div.append(rm);
     if(needsSub)div.append(el("div","subalert","subclass — pick one"));
     const cm=castModLine(row.id); if(cm)div.append(cm);

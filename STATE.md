@@ -33,7 +33,9 @@
   (epic boons, D114), v1.3 ≙ v1.1.0 (the Library, D110–D113) — map in `CHANGELOG.md`.
 - **Next action:** **E1** (phase E — a build at every level). The D115 design session ran
   2026-08-28 and is **DECIDED**: level is a parameter, versions are alternatives — the model is
-  D115(a–j) in `DECISIONS.md`, the task lines are E1–E8 in `PLAN.md`. The 🔶 **magic-item /
+  D115(a–j) in `DECISIONS.md`, the task lines are E1–E8 in `PLAN.md`. **D118 (same day) added
+  the guided builder** — a coach-driven forward/reverse flow over the same substrate — as
+  **phase F (F1–F4)**, strictly after the E8 gate; E1–E8 unchanged. The 🔶 **magic-item /
   reward import** decision is no longer gated and awaits Francesco's call.
 - **Manual for Francesco:** ⓪ **Refresh your imported data in each browser** — ⋯ → **Refresh
   imported data** (choose the folder once if asked). The v1.2.2 parser fixes live in your
@@ -79,5 +81,3 @@ Split out of this file on 2026-08-27 so the resume read is short. Nothing was dr
 - → moved: the Backlog — `PLAN.md`
 - → moved: Build / run — `CLAUDE.md`
 - → moved: the Shipped list — `CHANGELOG.md`
-
-⟳ Rename previous session → "Two-lane audit and the every-level design session" · session: resolve by cwd + latest

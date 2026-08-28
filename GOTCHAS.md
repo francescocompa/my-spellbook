@@ -352,5 +352,19 @@
   defaults the keep-set to everything merged, so the auto path re-applies the previous unticks
   (except for freshly staged books). An empty stage in auto mode clears the incoming layer
   silently — the "stage a file first" message is for the manual path only.
+- **Never persist `FILTER_DEFAULT()` (or any live-Set object) into a stored blob.** Its Sets
+  JSON.stringify to `{}`, and the next boot's `new Set({})` threw "object is not iterable" and
+  killed the boot IIFE half-rendered. The importer stored it as the fallback for a file with no
+  filters (`applyImportedState`), so any imported build could plant the mine and it went off on
+  the NEXT reload — far from the cause. Fixed both ends (E1 session): the importer stores `null`
+  (applyState's own healthy path) and `applyState` guards every Set construction with
+  `Array.isArray`, so a malformed stored blob heals on load instead of bricking. Stored filter
+  state is arrays-or-null, always; only the live `state.filters` holds Sets.
+- **The pick arrays ARE the acquisition order (E1 · D115(b,h)).** `state.feats`, `state.optFeats`
+  and each `state.chosen[rowId].cantrips`/`.spells` list picks in acquisition order; per-level
+  truth is a slice of it. Nothing may sort a stored pick array in place — every render-side sort
+  copies first (`.map()`, `[...]`), and a new one must too. `state.swaps` is keyed by character
+  level (one event max, D115(g)) and a row's swap events are dropped with the row
+  (`dropRowSwaps`), exactly like its `chosen` lists.
 - **History purge:** old data-bearing commits are unreachable on origin but GitHub may still serve
   them by exact SHA until it gc's. `backup/pre-purge-20260826` (local) has the original.
