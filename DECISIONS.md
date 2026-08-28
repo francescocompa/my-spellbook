@@ -902,6 +902,26 @@ written up in full in `GOTCHAS.md` — that is the copy to trust.
   Supersedes: nothing — D115 stands whole. Enforced by: PLAN.md phase F task lines; once built,
   F4 is the guard. Affects: PLAN.md (phase F), STATE.md next-action framing, src/app.js when built.
 
+- **D119 (2026-08-28) Timeline refinements, direct instruction while E6/E7 shipped.** Raw note:
+  *"in the timeline which inherited the level order system, only display two tiles (highest
+  spell/slots) if they diverge, otherwise only show one. Also make sure this feature supports and
+  makes it easy to swap lower level spells for higher ones, marking the state clearly."*
+  - **(a) The two casting tiles merge into one ("cast") when max spell level and top slot
+    agree** at a row — they split back into spell + slot exactly where multiclassing (or Pact
+    Magic) pulls the clocks apart. *Rejected:* always-two (repetitive at nearly every
+    single-class level); always-one (hides the two-clocks distinction D68 exists to keep).
+  - **(b) The swap flow is click-to-arm on a timeline chip, take-to-record.** Clicking an
+    eligible chip arms "− this pick at L{view}" (violet chip + a swapbar naming the level and
+    the loss, with *Choose replacement…* opening the class picker capped at that level's max);
+    the next take for that row and kind records the swap — the outgoing pick's POSITION keeps
+    its acquisition history, the event carries the trade (E1 shape). Eligibility is
+    RAW-shaped and explained on every chip's tip: known-caster picks only (a wizard's book
+    only grows), at a later level-up of that class, one swap per level, chains blocked until
+    the standing pill is cleared. States marked: armed chip, ⇄ on picks later traded away,
+    the pill at the swap level. This closed E3. *Rejected:* a chip context menu (one action
+    doesn't need one); swap-on-remove prompts in the cart (heavier, off the level surface).
+  Enforced by: src/app.js (renderTimeline chips, SWAPARM, toggle intercept). Affects: PLAN E3/E5.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

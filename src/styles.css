@@ -1083,6 +1083,8 @@ table.spelltable .pickcell{cursor:help}
 .tlhead{display:flex;align-items:center;gap:8px;padding:10px 12px 8px;border-bottom:1px solid var(--line)}
 .tlhead b{font-family:var(--font);font-size:15px;font-weight:600}
 .tlhead .tlsub{flex:1;min-width:0;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tlorder{padding:7px 12px 0;font-size:11px;line-height:1.45;color:var(--gold)}
+.tlorder.hidden{display:none}
 .tlfoot{display:flex;gap:8px;padding:9px 12px;border-top:1px solid var(--line)}
 .tlfoot .btn{flex:1;font-size:12px}
 .tllist{flex:1;padding:8px 10px;max-height:none}
@@ -1110,6 +1112,18 @@ table.spelltable .pickcell{cursor:help}
 .tlswap{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;line-height:1;
   padding:3px 7px;border:1px solid var(--free);border-radius:20px;background:var(--free-soft);color:var(--free)}
 .tlswap .out{text-decoration:line-through;opacity:.75}
+/* a pick later traded away carries the mark; an ARMED one glows until its replacement lands */
+.tlchip.traded{border-color:var(--free)}
+.tlchip .sw{color:var(--free);margin-left:3px;font-size:10px}
+.tlchip.canswap{cursor:pointer}
+.tlchip.swaparmed{border-color:var(--free);background:var(--free-soft);color:var(--free)}
+.swapbar{display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;padding:9px 12px;
+  border-radius:10px;border:1px solid var(--free);
+  background:color-mix(in srgb,var(--free) 9%,var(--bg))}
+.swapbar.hidden{display:none}
+.swaptxt{flex:1;min-width:0;font-size:11.5px;color:var(--muted);line-height:1.45}
+.swaptxt b{display:block;color:var(--free);font-size:12px;font-weight:600;margin-bottom:2px}
+.swapbar .btn{flex:0 0 auto;font-size:12px}
 @media (max-width:640px){
   .tlpop{left:2.5vw !important;right:2.5vw !important;width:auto !important;
     top:auto !important;bottom:2vh;max-height:82vh}
@@ -1145,6 +1159,8 @@ table.spelltable .pickcell{cursor:help}
 .lt-slot small{color:color-mix(in srgb,var(--gold) 38%,var(--muted))}
 .lt-spell.up{border-color:var(--accent)} .lt-spell.up b{color:var(--accent)}
 .lt-slot.up{border-color:var(--gold)}    .lt-slot.up b{color:var(--gold)}
+.lt-cast small{color:color-mix(in srgb,var(--accent) 38%,var(--muted))}
+.lt-cast.up{border-color:var(--accent)}  .lt-cast.up b{color:var(--accent)}
 
 /* ── build export / import (T5) ───────────────────────────────────────────── */
 /* the base .importdrop is a centred row for the big data drop zone — this one is a

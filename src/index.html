@@ -53,6 +53,8 @@
       <div class="gapbar hidden" id="gapBar"></div>
       <!-- E4: what doesn't add up at the level you are standing at (the badge carries the rest) -->
       <div class="healthbar hidden" id="healthBar"></div>
+      <!-- E3 · D115(g): an armed level-up swap, waiting for its replacement pick -->
+      <div class="swapbar hidden" id="swapBar"></div>
 
       <!-- CHARACTER -->
       <div class="card" id="secChar">
@@ -531,6 +533,8 @@
     <b>Timeline</b><span class="tlsub" id="tlSub"></span>
     <button class="x ico" id="tlClose" data-ico="x" aria-label="Close"></button>
   </div>
+  <!-- E7: the quiet "order matters" word, only on builds where it does -->
+  <div class="tlorder hidden" id="tlOrder"></div>
   <div id="tlList" class="lolist tllist"></div>
   <div class="tlfoot">
     <button class="btn" id="tlFork"></button>

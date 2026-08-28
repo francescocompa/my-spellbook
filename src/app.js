@@ -334,6 +334,7 @@ function applyState(s){ s=s||blankBuildState();
   PREVIEW.level=(typeof state.currentLevel==="number"&&state.currentLevel>=1&&state.currentLevel<tot)
     ?state.currentLevel:null;
   document.body.classList.toggle("previewing",PREVIEW.level!=null);
+  SWAPARM=null;   // an armed swap belongs to the build it was armed in
 }
 // derived labels — a build never stores what can be computed from its own picks
 // "Glory Paladin 5 / Abjurer Wizard 3" — each class carries ITS OWN subclass, so the
@@ -716,6 +717,25 @@ function optAcqLevels(){
 function optFeatsAt(){ if(PREVIEW.level==null)return state.optFeats;
   const acq=optAcqLevels();
   return state.optFeats.filter(ok=>((acq.get(ok)||{}).lv||1)<=PREVIEW.level); }
+
+// ── "order matters" (E7 · D115) ────────────────────────────────────────────
+// A quiet word, not a warning: the level ORDER is load-bearing in this build — reasons,
+// or null. Single-class builds have exactly one order, so they never hear it.
+function orderMatters(){
+  if(state.classes.length<2)return null;
+  const total=topCharLevel(), reasons=[];
+  // a feat slot whose character level can land either side of 19 depending on the
+  // order — an Epic Boon rides on which side (D114)
+  let straddle=false;
+  state.classes.forEach(r=>{const c=CLS_BY[r.clsKey]; if(!c)return;
+    ASI_LEVELS.concat(ASI_EXTRA[c.name]||[]).concat([19])
+      .filter(cl=>cl<=(r.level||0))
+      .forEach(cl=>{ if(cl<19 && total-((r.level||0)-cl)>=19)straddle=true; });});
+  if(straddle)reasons.push("a feat slot can land either side of level 19, and an Epic Boon rides on which");
+  if(state.classes.some(r=>rowSched(r)))
+    reasons.push("when each class's levels land decides when its picks arrive and what they could be");
+  return reasons.length?reasons:null;
+}
 
 // ── consistency sweep (E4 · D115(f)) ───────────────────────────────────────
 // Every level slice is checked, ALWAYS build-wide: standing at 12 must still tell you
@@ -1132,6 +1152,18 @@ function toggle(idx,spellKey,cantrip,which){
   const arr=which||(cantrip?"cantrips":"spells");
   ch[arr]=ch[arr]||[];
   const i=ch[arr].indexOf(spellKey);
+  // an armed swap intercepts the next take for its row and kind (E3 · D115(g)): the
+  // outgoing pick's POSITION keeps its acquisition history, the event records the trade
+  if(SWAPARM&&SWAPARM.row===idx&&arr===(SWAPARM.kind==="cantrip"?"cantrips":"spells")
+     &&i<0&&spellKey!==SWAPARM.out){
+    const p=ch[arr].indexOf(SWAPARM.out);
+    if(p>=0){
+      ch[arr][p]=spellKey;
+      state.swaps[SWAPARM.level]={row:idx,kind:SWAPARM.kind,out:SWAPARM.out,in:spellKey};
+      SWAPARM=null; save(); render(); return;
+    }
+    SWAPARM=null;   // the outgoing pick vanished meanwhile — disarm, fall through to a plain take
+  }
   const L=PREVIEW.level;
   // standing at a previewed level, the order is load-bearing (E2 · D115(d)): an add
   // inserts at L's slice point (the earliest open schedule slot — best case, D18); a
@@ -1158,7 +1190,7 @@ function removeChosen(idx,spellKey){ const ch=state.chosen[idx];if(!ch)return;
 
 // ── render ───────────────────────────────────────────────────────────────
 let R=null, curTab="build";
-function render(){ maybeOnboard(); renderGapBar(); CASTMODS=activeCastMods(); R=compute(); R.health=buildHealth(); renderChoices(); renderSlots(); renderCart(); renderSpells(); renderFeatBudget(); renderJumpBar(); renderBuildSwitch();
+function render(){ maybeOnboard(); renderGapBar(); CASTMODS=activeCastMods(); R=compute(); R.health=buildHealth(); renderChoices(); renderSlots(); renderCart(); renderSpells(); renderFeatBudget(); renderJumpBar(); renderBuildSwitch(); renderSwapArm();
   if(TL.open)renderTimeline();           // the open timeline follows every change (E5)
   if(curTab==="table")renderTable(); save(); }
 
@@ -1520,13 +1552,34 @@ function savePreviewAsVersion(){
   const st=JSON.parse(JSON.stringify(src.state));
   st.classes=(st.classes||[]).map(r=>({...r,level:eff.get(r.id)||0})).filter(r=>r.level>0);
   st.levelOrder=(st.levelOrder||[]).filter(id=>st.classes.some(r=>r.id===id));
-  // the fork's history ends at its own top: swap events above the slice go, and a
-  // pointer at or past it means "at top" (E1 · D115(e,g))
+  // the fork's history ends at its own top (E6 · D115(i)). Swap events above the slice
+  // are rewound INTO the arrays first — newest first, so chains resolve — because the
+  // variant held the OUT spell at this level, and only then dropped…
+  Object.entries(st.swaps||{}).map(([k,v])=>[+k,v]).filter(([k])=>k>lv).sort((a,b)=>b[0]-a[0])
+    .forEach(([,v])=>{const ch=st.chosen[v.row]; if(!ch)return;
+      const arr=v.kind==="cantrip"?"cantrips":"spells";
+      const i=(ch[arr]||[]).indexOf(v.in); if(i>=0)ch[arr][i]=v.out;});
   st.swaps=Object.fromEntries(Object.entries(st.swaps||{}).filter(([k])=>+k<=lv));
   if(st.currentLevel!=null&&st.currentLevel>=lv)st.currentLevel=null;
-  // keep the lineage readable: you can tell what it was forked from, and at what level
+  // …then every sticky array is cut at the slice, so the variant holds exactly what
+  // the source held at this level. The live maps are valid here: st is a copy of the
+  // live build, same plan, same schedules. Preparer lists stay whole (daily, D18).
+  const clm=charLevelMap(), fa=featAcqLevels(), oa=optAcqLevels();
+  state.classes.forEach(row=>{const sched=rowSched(row), ch=st.chosen[row.id];
+    if(!sched||!ch)return;
+    const lvls=clm.get(row.id)||[];
+    ch.cantrips=(ch.cantrips||[]).filter((_,i)=>acqAt(sched.cant,i,lvls)<=lv);
+    if(sched.spells)ch.spells=(ch.spells||[]).filter((_,i)=>acqAt(sched.spells,i,lvls)<=lv);
+    if(ch.prep){const book=new Set(ch.spells);ch.prep=ch.prep.filter(k=>book.has(k));}});
+  Object.keys(st.chosen||{}).forEach(id=>{
+    if(!st.classes.some(r=>String(r.id)===String(id)))delete st.chosen[id];});
+  st.feats=(st.feats||[]).filter(fk=>((fa.get(fk)||{}).lv||1)<=lv);
+  Object.keys(st.featSlots||{}).forEach(k=>{if(!st.feats.includes(k))delete st.featSlots[k];});
+  st.optFeats=(st.optFeats||[]).filter(ok=>((oa.get(ok)||{}).lv||1)<=lv);
+  // keep the lineage readable: named as a VARIANT branching here (D115(i)) — the old
+  // "· LV5" copies stay what they are, ordinary variants under their old names
   const used=new Set(buildsOf(src.meta.character).map(b=>b.meta.name));
-  const base=((src.meta.name||"").trim()?src.meta.name.trim()+" · ":"")+"LV"+lv;
+  const base=((src.meta.name||"").trim()?src.meta.name.trim()+" · ":"")+"L"+lv+" variant";
   let name=base; for(let n=2;used.has(name);n++)name=base+" ("+n+")";
   const b=mkBuild(st,src.meta.sources,name);
   b.meta.character=src.meta.character; b.meta.named=src.meta.named;
@@ -3805,6 +3858,27 @@ function placeTimeline(){
   p.style.left=Math.max(12,Math.min(r.left,innerWidth-w-12))+"px";
   p.style.top=Math.max(12,Math.min(r.bottom+8,innerHeight*0.22))+"px";
 }
+// the armed half of a level-up swap (E3 · D115(g)): "− this pick at level k" waits for
+// its replacement to be taken. Module state, cleared on record, cancel or build switch.
+let SWAPARM=null;   // {row, kind:"spell"|"cantrip", out:<key>, level, label}
+function renderSwapArm(){
+  const bar=$("#swapBar"); if(!bar)return;
+  if(!SWAPARM){bar.classList.add("hidden");bar.innerHTML="";return;}
+  bar.innerHTML=""; bar.classList.remove("hidden");
+  const row=state.classes.find(r=>r.id===SWAPARM.row), c=row&&CLS_BY[row.clsKey];
+  const txt=el("div","swaptxt");
+  txt.append(el("b",null,`Swap armed at L${SWAPARM.level} — losing ${SWAPARM.label}`));
+  txt.append(el("div",null,`Take the replacement ${SWAPARM.kind==="cantrip"?"cantrip":"spell"} for ${c?c.name:"the class"} and the trade is recorded — one swap per level-up, nothing is lost below L${SWAPARM.level}.`));
+  bar.append(txt);
+  if(SWAPARM.kind==="spell"){
+    const b=el("button","btn","Choose replacement…");
+    b.onclick=()=>{const rec=R.casters.find(r=>r.idx===SWAPARM.row); if(!rec)return;
+      const clm=charLevelMap(), lvls=clm.get(SWAPARM.row)||[];
+      const clAt=lvls.filter(x=>x<=SWAPARM.level).length;
+      openLevelPick(SWAPARM.row,Math.max(1,maxLvlAt(rowSched(row).caster,Math.max(1,clAt))));};
+    bar.append(b);}
+  bar.append(xBtn("anx",()=>{SWAPARM=null;render();}));
+}
 // where each draggable pick sits, by the same machinery the slices run on (E2)
 function timelinePicks(){
   const clm=charLevelMap(), by=new Map();
@@ -3816,10 +3890,15 @@ function timelinePicks(){
     // a position that later swapped shows what was LEARNED there — the pill at the swap
     // level tells the rest of the story
     const shown=(k,lv,kind)=>unswap([k],row.id,kind,lv)[0];
+    const traded=(k,lv,kind)=>{const ev=Object.entries(state.swaps||{})
+      .find(([l,v])=>+l>lv&&v.row===row.id&&(v.kind||"spell")===kind&&v.in===k);
+      return ev?{at:+ev[0],forName:name(k)}:null;};
     (ch.cantrips||[]).forEach((k,i)=>{const lv=acqAt(sched.cant,i,lvls);
-      put(lv,{kind:"ct",rowId:row.id,key:k,label:name(shown(k,lv,"cantrip")),tag:"c"});});
+      put(lv,{kind:"ct",rowId:row.id,key:k,label:name(shown(k,lv,"cantrip")),tag:"c",
+        lv,lvls,swappable:!!sched.cant,traded:traded(k,lv,"cantrip")});});
     if(sched.spells)(ch.spells||[]).forEach((k,i)=>{const lv=acqAt(sched.spells,i,lvls);
-      put(lv,{kind:"sp",rowId:row.id,key:k,label:name(shown(k,lv,"spell"))});});
+      put(lv,{kind:"sp",rowId:row.id,key:k,label:name(shown(k,lv,"spell")),
+        lv,lvls,swappable:!sched.book,traded:traded(k,lv,"spell")});});
   });
   featAcqLevels().forEach((a,fk)=>{const f=FEAT_BY[fk]; if(!f)return;
     put(a.lv,{kind:"ft",key:fk,label:f.name,tag:"feat",fixed:a.cat==="origin"});});
@@ -3869,6 +3948,11 @@ function renderTimeline(){
   const picks=timelinePicks(), health=(R&&R.health)||buildHealth();
   const multi=state.classes.length>1;
   $("#tlSub").textContent="click a level to view the build there";
+  // the quiet order-matters word (E7): named reasons, only where the order is load-bearing
+  const om=$("#tlOrder"), reasons=orderMatters();
+  if(om){ if(!reasons)om.classList.add("hidden");
+    else{ om.classList.remove("hidden");
+      om.textContent="Order matters in this build — "+reasons.join("; ")+". Drag the rows to change it."; } }
   const commit=order=>{state.levelOrder=order; save(); refreshAll(); render();};
   plan.forEach((id,i0)=>{
     const i=i0+1, row=rowOf.get(id); if(!row)return;
@@ -3899,12 +3983,21 @@ function renderTimeline(){
     else body.append(Object.assign(el("div","logains dim"),{textContent:"no new features"}));
     card.append(body);
     if(cast){const tiles=el("div","lotiles");
-      tiles.append(lvTile("spell",cast.spell,cast.spellUp,
-        tipBlock("Max spell level"+(cast.spellUp?" — raised here":""),
-          "The highest level this class can prepare, set by its OWN level. Multiclassing never raises it.")));
-      tiles.append(lvTile("slot",cast.slot,cast.slotUp,
-        tipBlock("Top slot level"+(cast.slotUp?" — raised here":""),
-          "The highest slot you have, from your COMBINED caster level. Higher slots let you upcast; they don't widen the list.")));
+      // the two clocks agree at most single-class levels — one tile then, two only
+      // when multiclassing (or Pact Magic) pulls them apart
+      if(cast.spell===cast.slot){
+        const up=cast.spellUp||cast.slotUp;
+        tiles.append(lvTile("cast",cast.spell,up,
+          tipBlock("Casting level"+(up?" — raised here":""),
+            "Max spell level and top slot agree here. They are two different clocks — the row shows them separately when multiclassing pulls them apart.")));
+      } else {
+        tiles.append(lvTile("spell",cast.spell,cast.spellUp,
+          tipBlock("Max spell level"+(cast.spellUp?" — raised here":""),
+            "The highest level this class can prepare, set by its OWN level. Multiclassing never raises it.")));
+        tiles.append(lvTile("slot",cast.slot,cast.slotUp,
+          tipBlock("Top slot level"+(cast.slotUp?" — raised here":""),
+            "The highest slot you have, from your COMBINED caster level. Higher slots let you upcast; they don't widen the list.")));
+      }
       card.append(tiles);}      // after the body, so they sit on the RIGHT edge
     // sticky picks the schedule places here (E2); drag a chip to another row to move it
     const here=picks.get(i)||[];
@@ -3912,9 +4005,34 @@ function renderTimeline(){
     if(here.length||sw){
       const chips=el("div","tlchips");
       here.forEach(pk=>{
-        const chipEl=el("span","tlchip"+(pk.fixed?" fixed":""));
+        const armed=SWAPARM&&SWAPARM.out===pk.key&&SWAPARM.row===pk.rowId;
+        const chipEl=el("span","tlchip"+(pk.fixed?" fixed":"")+(pk.traded?" traded":"")+(armed?" swaparmed":""));
         if(pk.tag)chipEl.append(el("span","k",pk.tag));
         chipEl.append(document.createTextNode(pk.label));
+        if(pk.traded)chipEl.append(el("span","sw","⇄"));
+        // click = arm a level-up swap where one is possible (E3 · D115(g)); the tip
+        // always says what a click will or won't do, so the chip is never a dead control
+        if(pk.kind==="sp"||pk.kind==="ct"){
+          const kn=pk.kind==="ct"?"cantrip":"spell";
+          const can=!armed&&!pk.traded&&pk.swappable
+            &&view>pk.lv&&pk.lvls.includes(view)
+            &&(pk.lvls.filter(x=>x<=view).length>=2)&&!state.swaps[view];
+          const why=armed?`Armed — will be traded at L${SWAPARM.level} for the next ${kn} you take. Click to cancel.`
+            :pk.traded?`Traded away at L${pk.traded.at}. Clear that swap's pill to edit further.`
+            :!pk.swappable?"A spellbook only grows — copying in is the wizard's move; nothing is traded away."
+            :state.swaps[view]?`L${view} already carries a swap — clear its pill first (one per level-up).`
+            :!(view>pk.lv)?`Learned at L${pk.lv} — a swap happens on a LATER level-up. Jump to one first.`
+            :!pk.lvls.includes(view)||pk.lvls.filter(x=>x<=view).length<2?`L${view} isn't a level-up of this class — jump to one of its levels to swap there.`
+            :`Click to swap this away at L${view}: it stays known below, and the next ${kn} you take for this class replaces it from L${view} on.`;
+          chipEl.classList.toggle("canswap",can||armed);
+          // the click goes on BEFORE attachTip (its standing rule); a chip with no
+          // action keeps attachTip's tap-to-show, so the tip explains the refusal
+          if(can||armed)chipEl.onclick=e=>{e.stopPropagation();
+            if(armed){SWAPARM=null;render();return;}
+            SWAPARM={row:pk.rowId,kind:kn,out:pk.key,level:view,label:pk.label};
+            render();};
+          attachTip(chipEl,tipBlock(pk.label+(can?" — swap away here":""),why));
+        }
         if(!pk.fixed){
           chipEl.draggable=true;
           chipEl.ondragstart=e=>{e.stopPropagation();TL.drag={type:"chip",...pk};
@@ -5453,10 +5571,9 @@ function printHeadLine(){
     bits.push(c.name+(sub?" ("+(sub.shortName||sub.name)+")":"")+" "+effLevel(r));});
   const race=RACE_BY[state.speciesKey]; if(race)bits.push(race.name);
   box.append(el("div","phsub",bits.join(" · ")));
-  // a preview is a VIEW of a lower level, not a build — on paper, unsaid, it would
-  // read as the character itself (D54)
-  if(PREVIEW.level!=null)
-    box.append(el("div","phnote","Previewed at level "+PREVIEW.level+" — not a saved version."));
+  // printing at a scrubbed level is first-class now (E6 · D115(i)): the header names
+  // the level (charLevel() above) and per-class levels are the slice's — the old
+  // "not a saved version" disclaimer is gone because the sheet no longer lies without it
 }
 
 // ── the tracker: everything expendable, as boxes to tick ───────────────────

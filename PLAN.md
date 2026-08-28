@@ -11,6 +11,7 @@
 
 Level is a parameter, versions are alternatives — the full model is **D115(a–j)**; cite it,
 don't restate it. Order: E1 → E2 → {E3, E4} → E5 → {E6, E7} → E8.
+**E1–E7 are shipped (v1.2.4 → v1.2.8, plus D119's refinements); only the E8 gate remains.**
 
 The guided-builder requirement raised 2026-08-28 was designed the same day → **D118**, and is
 **phase F below** — strictly after the E8 gate; E1–E8 are unchanged by it. Optional follow-up once E2
@@ -31,15 +32,14 @@ picks instead of best-case.
   acquisition character level; every `effLevel` consumer reads the slice; prepared lists stay
   derived (D18). App-side only — no extractor change. **Done when:** the level view lists exactly
   the sticky picks acquired by that level for the five D114 fixture builds.
-- [ ] **E3 — editing at any level** (`sonnet@high`, L) — add/remove become order-aware (a pick
-  made standing at L7 inserts at L7's slice point); removal below top level defined; the level-up
-  swap recordable where RAW grants one. *Partially shipped with E2 (v1.2.5): `toggle()` is
-  order-aware — adds insert at the slice point, a click on a later-acquired pick pulls it back
-  there, removing a visible pick removes it at every level, and editing a swapped-out display
-  entry is refused (that's the swap surface's job). E5 added the timeline's chip-drag (move a
-  pick's acquisition) and the swap pill's × (clear a recorded swap). Remaining: the surface
-  that RECORDS a swap where RAW grants one, and any removal-semantics refinement.* **Done when:** a pick added at L7 shows at L12 and not at
-  L6; a recorded swap shows −X at its level and +Y after; verified in-browser.
+- [x] **E3 — editing at any level** (**completed across v1.2.5 → v1.2.8**, every done-when
+  clause verified in-browser at its step) — adds insert at the viewed level's slice point and a
+  later pick pulls back to it (v1.2.5); chip-drag moves acquisition, the pill's × clears a swap
+  (v1.2.7); **v1.2.8 shipped the recording surface (D119(b))**: click an eligible timeline chip
+  to arm "− this pick at L{view}", take the replacement to record — the position keeps the
+  acquisition history, the event carries the trade; armed / ⇄-traded / pill states all marked.
+  Removal below top stands as defined: removing a visible pick removes it at every level; the
+  swap is the honest alternative when the rules grant one.
 - [x] **E4 — consistency sweep + badge** (**shipped v1.2.6**, done-when verified in-browser: a
   Bard 12 holding a 4th-level spell in a slot that arrives at L5 shows "⚠ L5" on the badge at
   top level, and the bar names it when standing at 5; 19 checks incl. D114's [4,6,8,14,18]) —
@@ -57,14 +57,15 @@ picks instead of best-case.
   single-column rule transferred), draggable pick chips, swap pills, current-level pin, footer
   *fork a variant here* · *set as current level*. A build now **opens at its saved current
   level** (D115(e)), and the E4 ⚠ lives on the chip with the timeline locating each finding.
-- [ ] **E6 — fork-a-variant + print at level** (`sonnet@medium`, S) — `savePreviewAsVersion` →
-  fork-a-variant-here (truncated at the slice, named as a variant, D115(i)); the print sheet at a
-  scrubbed level drops "not a saved version" and names its level. **Done when:** the fork yields
-  the truncated variant and the print header names the level.
-- [ ] **E7 — "order matters" soft flag** (`sonnet@medium`, S) — quiet flag on order-sensitive
-  builds (a boon slot near 19, slot-gated picks), per D115's plan-default round. **Done when:**
-  Fighter 10/Wizard 9 and Warlock 4/Fighter 4/Bard 12 fixtures flag correctly; single-class does
-  not.
+- [x] **E6 — fork-a-variant + print at level** (**shipped v1.2.8**, done-when verified
+  in-browser: the fork truncates arrays at the slice with swaps rewound in, drops late feats and
+  options, prunes orphans, names "· L5 variant", opens on activation; the print header names the
+  level and the "not a saved version" note is gone) — `savePreviewAsVersion` → fork-a-variant-here
+  (truncated at the slice, named as a variant, D115(i)).
+- [x] **E7 — "order matters" soft flag** (**shipped v1.2.8**, done-when verified in-browser:
+  Fighter 10/Wizard 9 flags on pick timing, Warlock 4/Fighter 4/Bard 12 on the level-19 straddle,
+  single-class and casterless-no-straddle multiclass stay silent) — a quiet gold line in the
+  timeline header naming WHY the order is load-bearing, per D115's plan-default round.
 - [ ] **E8 — 🔍 fresh-eyes gate** (`fable@high`, separate session per model-policy) — review the
   shipped phase against D115(a–j) before it is declared done.
 
