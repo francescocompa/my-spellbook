@@ -48,13 +48,14 @@ Content at runtime = baked/SRD bundle ⊕ imported 5etools (IndexedDB) ⊕ custo
 
 ## Build / run
 
-- Dev: `python3 serve.py 8000` → `http://localhost:8000/src/index.html` (launch.json
-  `spellbook`). Use `serve.py`, **not** `python3 -m http.server`: the latter evaluates
-  `os.getcwd()` at argparse time, which the preview sandbox blocks (startup crash);
-  `serve.py` binds an absolute root as a library and sidesteps it. Under the restricted
-  preview sandbox `preview_start` still can't spawn it — start it via Bash, then open the
-  browser at the URL. `serve.py` sends `Cache-Control: no-store`, so a plain reload always
-  picks up edits.
+- Dev: **start the server from Bash** — `python3 serve.py 8000` — then `preview_start`
+  (launch.json `spellbook` is an **attach** config: a `url`, no command) and navigate to
+  `http://localhost:8000/src/index.html`. The preview sandbox cannot spawn the server itself:
+  a spawn config dies with `can't open file 'serve.py': Operation not permitted`, which is
+  why the entry attaches instead. Use `serve.py`, **not** `python3 -m http.server`: the latter
+  evaluates `os.getcwd()` at argparse time, which the sandbox also blocks (startup crash);
+  `serve.py` binds an absolute root as a library and sidesteps it. `serve.py` sends
+  `Cache-Control: no-store`, so a plain reload always picks up edits.
 - Data refresh: `python3 extract.py` (mirror default `~/Documents/D&D/5etool_mirror/…/data`),
   then `python3 build.py`.
 - Deploy: commit + push `main`; Pages builds `main:/docs` (which has `.nojekyll`).
