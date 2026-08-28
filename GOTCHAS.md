@@ -390,5 +390,17 @@
   prepared list is re-chosen every long rest (D18/D115(c)), so "acquired at level N" is
   meaningless for it. Deleting that guard flags every prepared spell as over-budget. Wizard
   copies beyond the free allowance are legal the same way and are exempted by `sched.book`.
+- **`save()`'s identical-write skip must compare DETACHED copies, never the live objects
+  (D120, found by the E8 gate).** `serializeState()` returns `state`'s own arrays and maps by
+  reference, and both `save()` (`b.state=s`) and boot (`applyState(activeBuild().state)`) made
+  the stored build and the live state SHARE those sub-objects. An in-place pick edit then
+  mutated both sides of D116(d)'s stringify compare at once, the write read as "identical"
+  and was skipped — so a session that only toggled spells persisted NOTHING and lost every
+  pick on reload, while any primitive-field edit (level, pin, rename) incidentally flushed
+  the shared graph and hid the hole. Regression window v1.2.2 → v1.2.9. The fix is a JSON
+  round-trip on BOTH boundaries: `save()` stores a detached copy, `applyState` detaches what
+  it reads. If picks ever vanish on reload again while other edits stick, look here first —
+  and never assign a `serializeState()` result (or anything holding `state`'s sub-objects)
+  into a stored build without detaching it.
 - **History purge:** old data-bearing commits are unreachable on origin but GitHub may still serve
   them by exact SHA until it gc's. `backup/pre-purge-20260826` (local) has the original.

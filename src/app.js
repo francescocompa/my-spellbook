@@ -312,6 +312,9 @@ function serializeState(){ const f=state.filters; return {
   swaps:state.swaps||{},                  // charLevel -> one swap event (D115(g))
 };}
 function applyState(s){ s=s||blankBuildState();
+  // the live state must never share sub-objects with the stored build (see save()) —
+  // boot passes activeBuild().state itself, so detach before assigning references in
+  s=JSON.parse(JSON.stringify(s));
   Object.assign(state,{classes:s.classes||[],speciesKey:s.speciesKey||"",feats:s.feats||[],
     optFeats:s.optFeats||[],featSlots:s.featSlots||{},chosen:s.chosen||{},choices:s.choices||{},
     nextRowId:s.nextRowId||1,levelOrder:s.levelOrder||[],customSources:s.customSources||[],
@@ -376,7 +379,11 @@ function persistBuilds(){ try{localStorage.setItem(LS_BUILDS,JSON.stringify(BUIL
 function saveSources(){ try{localStorage.setItem(LS_SOURCES,JSON.stringify([...SRC]));}catch(e){storageNotice(e);} }
 // auto-save: every edit writes through to the active build (D34) — no dirty state to lose
 function save(){ const b=activeBuild(); if(!b)return;
-  const s=serializeState();
+  // DETACHED copy, never the live sub-objects: serializeState() returns `state`'s own
+  // arrays/maps by reference, and storing those into `b.state` makes the next in-place
+  // edit mutate BOTH sides of the identical-write compare below — which then reads
+  // "identical" and skips the write, so pure pick edits never reached localStorage.
+  const s=JSON.parse(JSON.stringify(serializeState()));
   // an identical write is skipped so `meta.updated` means "last EDITED", not "last
   // rendered" — merely opening the app used to re-stamp the active build every boot
   if(JSON.stringify(s)===JSON.stringify(b.state)

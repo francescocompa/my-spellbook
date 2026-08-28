@@ -11,7 +11,8 @@
 
 Level is a parameter, versions are alternatives — the full model is **D115(a–j)**; cite it,
 don't restate it. Order: E1 → E2 → {E3, E4} → E5 → {E6, E7} → E8.
-**E1–E7 are shipped (v1.2.4 → v1.2.8, plus D119's refinements); only the E8 gate remains.**
+**Phase E is COMPLETE — E1–E7 shipped (v1.2.4 → v1.2.8, plus D119's refinements) and the E8
+gate passed 2026-08-28 (v1.2.10, with the D120 fix).**
 
 The guided-builder requirement raised 2026-08-28 was designed the same day → **D118**, and is
 **phase F below** — strictly after the E8 gate; E1–E8 are unchanged by it. Optional follow-up once E2
@@ -66,10 +67,16 @@ picks instead of best-case.
   Fighter 10/Wizard 9 flags on pick timing, Warlock 4/Fighter 4/Bard 12 on the level-19 straddle,
   single-class and casterless-no-straddle multiclass stay silent) — a quiet gold line in the
   timeline header naming WHY the order is load-bearing, per D115's plan-default round.
-- [ ] **E8 — 🔍 fresh-eyes gate** (`fable@high`, separate session per model-policy) — review the
-  shipped phase against D115(a–j) before it is declared done.
+- [x] **E8 — 🔍 fresh-eyes gate** (**passed 2026-08-28**, fable@high, separate session) — code
+  review of the whole substrate (E1/E2/E4 core, E5 surface, E3 swap flow, E6 fork/print, E7,
+  importer migration) + in-browser verification of every D115 clause on fresh fixtures: slices,
+  swap arm→record→clear, fork rewind+truncation, pin+reopen-at-level, chip/row drag incl.
+  visible refusal, D119(a) tile merge/split, preparer pass-through, wizard-copy exemption,
+  E1 round-trip. **Phase E holds — one CRITICAL adjacent regression found and fixed (D120):**
+  `save()`'s D116(d) skip compared the live state against itself, so pure pick edits never
+  persisted (v1.2.2 → v1.2.9). Three cosmetic side notes logged in D120, none blocking.
 
-## Phase F — the guided builder (D118, decided 2026-08-28; starts after the E8 gate)
+## Phase F — the guided builder (D118, decided 2026-08-28; **the plan of record** — E8 passed)
 
 A separate coach-driven flow over the D115 substrate, forward and reverse — the full model is
 **D118(a–k)**; cite it, don't restate it. Order: F1 → F2 → F3 → F4.

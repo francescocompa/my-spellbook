@@ -12,32 +12,22 @@
 > | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 > | `ARCHIVE.md` | Bodies of consumed phases and old rationale |
 
-## TL;DR (2026-08-28 · **v1.2.9**, code at `d55f8cf`, pushed · **LIVE on GitHub Pages**)
-- **State:** working, committed, **pushed**, tags pushed, tree clean except this handoff.
-  **Phase E's build work is COMPLETE — E1–E7 all shipped this session** (v1.2.4 → v1.2.8, five
-  tagged releases), each done-when verified in-browser. What the app does now that it didn't:
-  a build **works at every level**. The pick arrays ARE the acquisition order (E1) plus a saved
-  `currentLevel` and swap events; order + each class's schedule maps every pick to the level it
-  arrived at (E2), and every level-view consumer reads that slice; a build-wide **consistency
-  sweep** locates what doesn't add up AT ITS LEVEL and flags it on the level chip and a bar
-  (E4); the chip opens a **timeline popover** — jump to any level, drag rows to reorder the
-  level plan (the D59 panel is retired into it), drag pick chips to move acquisition, pin the
-  current level, fork a variant (E5); editing at any level is order-aware and the **level-up
-  swap now records** by click-to-arm on a chip + take the replacement (E3, closed);
-  fork-a-variant truncates at the slice with swaps rewound, and printing at a level is
-  first-class (E6); a quiet **order-matters** line names why the order is load-bearing (E7).
-  Also this session: **D118 DECIDED** — the guided builder (a coach rail, forward and reverse
-  over the same substrate) is **phase F (F1–F4)**, strictly after the E8 gate; and **D119** —
-  the timeline's two casting tiles merge where the clocks agree, and the swap flow's shape.
-  Two real bugs were found and fixed en route, both now in `GOTCHAS.md`: an importer boot-brick
-  (a build imported without filters stored live Sets as `{}` and the next boot died at
-  `new Set({})`) and two popover traps (a re-render detaches a click's target so an INSIDE
-  click read as outside; scroll must re-anchor a fixed popover, not close it).
-- **Next action:** **E8 — the 🔍 fresh-eyes gate** (`fable@high`, **a separate session** per
-  `~/.claude/docs/model-policy.md`): review the shipped phase against **D115(a–j)** before it
-  is declared done. Nothing else in phase E is open. After the gate, **phase F** (D118) is the
-  plan of record. The 🔶 **magic-item / reward import** decision remains ungated and awaits
-  Francesco's call.
+## TL;DR (2026-08-28 · **v1.2.10** · **LIVE on GitHub Pages**)
+- **State:** working, committed, pushed. **PHASE E IS DONE — E8 passed** (fable@high, separate
+  session, 2026-08-28): full code review of the substrate plus in-browser verification of every
+  D115 clause on fresh fixtures (slices, swap arm→record→clear, fork rewind, pin+reopen,
+  chip/row drag with visible refusal, D119(a) tile merge/split, preparer pass-through,
+  wizard-copy exemption, E1 round-trip). The gate found and fixed **one CRITICAL regression,
+  D120**: `save()`'s identical-write skip (D116(d)) compared the live state against itself —
+  `serializeState()` returns live sub-objects by reference and both `save()` and boot made
+  `b.state` share them — so a session that only toggled spell picks persisted NOTHING and lost
+  them on reload (window v1.2.2 → v1.2.9). Fixed by detaching at both boundaries; no-restamp
+  behaviour preserved, verified both ways in-browser. Three cosmetic side notes logged in D120
+  (dead `recordSwap`, a chain-swap tip label, Escape-under-the-picker), none blocking.
+  Phase E's shape (E1–E7, v1.2.4 → v1.2.8) is described in `PLAN.md` and `CHANGELOG.md`.
+- **Next action:** **Phase F — the guided builder (D118)** is the plan of record: **F1**
+  (step-list derivation, `sonnet@high`, M) → F2 (coach rail) → F3 (entry points) → F4 (gate).
+  The 🔶 **magic-item / reward import** decision remains ungated and awaits Francesco's call.
 - **Manual for Francesco:** ⓪ **Refresh your imported data in each browser** — ⋯ → **Refresh
   imported data** (choose the folder once if asked). The v1.2.2 parser fixes live in your
   stored digests only after it: heals the **Savant double-grant** (an Evoker was offered 5
@@ -69,8 +59,8 @@ https://claude.ai/code/artifact/47dbe945-a18a-4444-af21-c0143faa2eb0
 
 ## Now
 
-**Phase E is built and awaiting its gate** (D115) — E1–E7 shipped 2026-08-28, E8 is the only
-open task in it. **Phase F** (the guided builder, D118) is queued strictly behind that gate.
+**Phase E is complete** (D115) — E1–E7 shipped and the E8 gate passed 2026-08-28 (with the
+D120 fix). **Phase F** (the guided builder, D118) is the plan of record; F1 is next.
 v7 (saved builds) is complete — T1–T5 and T7, all six task bodies and the storage shape →
 `ARCHIVE.md#v7-tasks`. Non-goals as narrowed by D115: no **authored** timeline (the level view
 is derived from the acquisition order; versions are alternatives, never levels), no server sync
@@ -87,5 +77,3 @@ Split out of this file on 2026-08-27 so the resume read is short. Nothing was dr
 - → moved: the Backlog — `PLAN.md`
 - → moved: Build / run — `CLAUDE.md`
 - → moved: the Shipped list — `CHANGELOG.md`
-
-⟳ Rename previous session → "Phase E — the build at every level" · session: resolve by cwd + latest

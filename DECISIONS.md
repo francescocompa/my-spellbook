@@ -922,6 +922,26 @@ written up in full in `GOTCHAS.md` — that is the copy to trust.
     doesn't need one); swap-on-remove prompts in the cart (heavier, off the level surface).
   Enforced by: src/app.js (renderTimeline chips, SWAPARM, toggle intercept). Affects: PLAN E3/E5.
 
+- **D120 (2026-08-28) The stored build and the live state never share objects — `save()` and
+  `applyState` both detach.** Mechanism: E8 fresh-eyes gate (separate session, fable@high); found
+  while probing D115(e) reload behaviour — picks vanished on reload while other edits stuck.
+  Root cause: `serializeState()` returns the live sub-objects by reference, so after any full
+  save (or boot, which applies `activeBuild().state` itself) the D116(d) identical-write compare
+  diffed an object against itself and skipped every pure pick edit; localStorage silently went
+  stale (regression window v1.2.2 → v1.2.9). Fix: JSON round-trip at both boundaries — `save()`
+  stores a detached copy, `applyState` detaches what it reads. D116(d)'s intent is preserved
+  (a plain open still doesn't restamp `meta.updated`; verified both ways in-browser).
+  *Rejected:* comparing against a cached last-written string (a second cache that can drift from
+  what localStorage really holds); dropping the skip and always writing (reintroduces the exact
+  restamp D116(d) exists to stop); deep-copying in `serializeState` alone (leaves boot's shared
+  identity in place — the first edit after open still self-masks). → **Gotcha** (the enforced
+  copy lives in `GOTCHAS.md`). Enforced by: src/app.js `save()`/`applyState`. Affects: GOTCHAS.md.
+  E8 side notes, logged not fixed: `recordSwap()` has no callers (the toggle intercept writes
+  `state.swaps` directly, and the "only writers" comment above it is stale); a chained swap's
+  chip tip names the LAST event's level, not the chip's own trade (unreachable from the UI —
+  chains are blocked — import-only); Escape with the level picker open closes the timeline
+  UNDER it, and the picker itself only closes by ×/outside (pre-E5 behaviour, now more visible).
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives
