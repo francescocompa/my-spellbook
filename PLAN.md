@@ -36,8 +36,9 @@ picks instead of best-case.
   swap recordable where RAW grants one. *Partially shipped with E2 (v1.2.5): `toggle()` is
   order-aware — adds insert at the slice point, a click on a later-acquired pick pulls it back
   there, removing a visible pick removes it at every level, and editing a swapped-out display
-  entry is refused (that's the swap surface's job). Remaining: the swap-recording surface, and
-  any removal-semantics refinement beyond remove-everywhere.* **Done when:** a pick added at L7 shows at L12 and not at
+  entry is refused (that's the swap surface's job). E5 added the timeline's chip-drag (move a
+  pick's acquisition) and the swap pill's × (clear a recorded swap). Remaining: the surface
+  that RECORDS a swap where RAW grants one, and any removal-semantics refinement.* **Done when:** a pick added at L7 shows at L12 and not at
   L6; a recorded swap shows −X at its level and +Y after; verified in-browser.
 - [x] **E4 — consistency sweep + badge** (**shipped v1.2.6**, done-when verified in-browser: a
   Bard 12 holding a 4th-level spell in a slot that arrives at L5 shows "⚠ L5" on the badge at
@@ -48,12 +49,14 @@ picks instead of best-case.
   schedule (wizard copies exempt, preparers not swept), feat slots incl. origin and epic-without-
   a-19+-slot, optional features past their progression, subclass due and unset. `choices` are
   already `atLevel`-gated at resolution, so they need no separate check.*
-- [ ] **E5 — the timeline popover** (`fable@high` — core-surface design, L) — chip "L7 / 20 + ⚠";
-  popover per the D115(j) mockup: zone tinting, draggable rows (retires the old level-order
-  panel; single-column rule transfers), draggable pick chips, swap pills, current-level pin,
-  footer *fork a variant here* · *set as current level*. Escalate to a modal only if density
-  demands (D115 raw note). **Done when:** every popover interaction verified in-browser at
-  desktop and phone widths.
+- [x] **E5 — the timeline popover** (**shipped v1.2.7**, done-when verified in-browser: every
+  interaction — open/toggle, row-click jump with the popover staying open, row drag reorder,
+  chip drag move + visible refusal, swap pill + clear, pin, fork, Escape/outside/scroll-out
+  closes, re-anchor on scroll — at desktop and phone widths) — chip "L7 / 20 + ⚠"; popover per
+  the D115(j) mockup: zone tinting, draggable rows (the old level-order panel is retired; its
+  single-column rule transferred), draggable pick chips, swap pills, current-level pin, footer
+  *fork a variant here* · *set as current level*. A build now **opens at its saved current
+  level** (D115(e)), and the E4 ⚠ lives on the chip with the timeline locating each finding.
 - [ ] **E6 — fork-a-variant + print at level** (`sonnet@medium`, S) — `savePreviewAsVersion` →
   fork-a-variant-here (truncated at the slice, named as a variant, D115(i)); the print sheet at a
   scrubbed level drops "not a saved version" and names its level. **Done when:** the fork yields

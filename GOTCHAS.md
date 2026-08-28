@@ -230,6 +230,17 @@
 - **A nested action button must stop its click** — `xBtn` does. If a handler re-renders, the
   original event keeps bubbling and hits the *freshly attached* parent handler: dismissing the
   level preview immediately re-armed it that way. Watch for this in any rebuild-on-click.
+  **The same bug wears a second face on outside-click closers (E5):** a handler that re-renders
+  detaches the click's target, so when the event reaches a document-level "was this outside?"
+  listener, `target.closest(...)` finds nothing and an INSIDE click reads as outside — the
+  timeline popover shut itself on every row jump this way. Two guards, keep both: the inner
+  handler stops propagation, and the closer treats `!document.contains(e.target)` as inside.
+- **A fixed popover under a scrolling page re-anchors, it doesn't close (E5).** A jump from the
+  timeline re-renders the page, and that alone fires scroll events — a close-on-scroll listener
+  kills the popover mid-walk through the levels. `placeTimeline()` re-anchors to the chip's
+  current rect on scroll (rAF-throttled) and closes only when the chip actually leaves the
+  viewport. The build-switcher's close-on-scroll menus are DIFFERENT: those are tiny row menus
+  whose anchor lists scroll under them — don't "fix" either to match the other.
 - **Preview is a VIEWER (D64) — in the code as it stands; D115 supersedes the viewer, not the
   rule.** Phase E makes the level view editable with a saved current level, but per-level truth
   comes from an acquisition ORDER, sliced. The standing trap is unchanged: do not reintroduce
@@ -371,8 +382,9 @@
   visible while you stand at 12, which is the badge's entire reason to exist. Anything that
   "optimizes" it to reuse `sliceChosen()`/`featsAt()` silently turns the badge into a report on
   the current view and the done-when stops holding. The BAR is the level-local half (it reads
-  `PREVIEW.level` deliberately); the BADGE is build-wide. Both are advisory (D31): they name and
-  locate, they never remove or block.
+  `PREVIEW.level` deliberately); the badge is build-wide — since E5 it is the ⚠ ON THE LEVEL
+  CHIP, whose tip names the offending levels and whose timeline rows locate each finding. Both
+  are advisory (D31): they name and locate, they never remove or block.
 - **A preparer's spell list is not swept, and must not be.** `rowSched().spells` is null for a
   daily preparer (Cleric, Druid, Paladin…), and the sweep returns before the spell loop — a
   prepared list is re-chosen every long rest (D18/D115(c)), so "acquired at level N" is

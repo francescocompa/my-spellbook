@@ -56,7 +56,8 @@
 
       <!-- CHARACTER -->
       <div class="card" id="secChar">
-        <h2>Character <span class="hbadge hidden" id="healthChip"></span><span class="count" id="clvlChip"></span></h2>
+        <!-- the chip reads "L7 / 20" (+ ⚠ when the sweep found something) and opens the timeline -->
+        <h2>Character <span class="count" id="clvlChip"></span></h2>
         <div class="body">
           <div class="fieldset">
             <label class="fld">Classes &amp; levels</label>
@@ -522,15 +523,20 @@
     <button class="btn on" id="csrcSave">Save</button>
   </div>
 </div></div>
-<div class="modal hidden" id="lvlOrderModal"><div class="box">
-  <div class="mh mh-stack">
-    <div class="mh-row"><h2>Level order</h2><button class="x ico" id="loClose" data-ico="x" aria-label="Close"></button></div>
-    <div class="sub">Which class each character level is taken in. The preview unlocks in this order; totals always match the build.</div>
+<!-- E5 · D115(j): the timeline popover — the level chip opens it; rows jump the view,
+     dragging a row reorders the level plan (absorbs the old Level order panel), dragging
+     a pick chip moves its acquisition, the footer forks and pins. -->
+<div class="tlpop hidden" id="tlPop" role="dialog" aria-label="Timeline">
+  <div class="tlhead">
+    <b>Timeline</b><span class="tlsub" id="tlSub"></span>
+    <button class="x ico" id="tlClose" data-ico="x" aria-label="Close"></button>
   </div>
-  <div class="mb">
-    <div id="loList" class="lolist"></div>
+  <div id="tlList" class="lolist tllist"></div>
+  <div class="tlfoot">
+    <button class="btn" id="tlFork"></button>
+    <button class="btn" id="tlPin"></button>
   </div>
-</div></div>
+</div>
 <div class="modal hidden" id="prepModal"><div class="box">
   <div class="mh mh-stack">
     <div class="mh-row"><h2 id="prepTitle">Spell preparation</h2><button class="x ico" id="prepClose" data-ico="x" aria-label="Close"></button></div>

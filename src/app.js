@@ -328,6 +328,12 @@ function applyState(s){ s=s||blankBuildState();
     : FILTER_DEFAULT();
   // every class row needs a stable id (cart/choices are keyed by it, never by array index)
   state.classes.forEach(r=>{if(r.id==null)r.id=state.nextRowId++;});
+  // a build opens at its saved current level (E5 · D115(e)); top is one row-click away.
+  // PREVIEW stays module state — this only POINTS it; callers render right after.
+  const tot=state.classes.reduce((a,r)=>a+(r.level||0),0);
+  PREVIEW.level=(typeof state.currentLevel==="number"&&state.currentLevel>=1&&state.currentLevel<tot)
+    ?state.currentLevel:null;
+  document.body.classList.toggle("previewing",PREVIEW.level!=null);
 }
 // derived labels — a build never stores what can be computed from its own picks
 // "Glory Paladin 5 / Abjurer Wizard 3" — each class carries ITS OWN subclass, so the
@@ -1152,7 +1158,8 @@ function removeChosen(idx,spellKey){ const ch=state.chosen[idx];if(!ch)return;
 
 // ── render ───────────────────────────────────────────────────────────────
 let R=null, curTab="build";
-function render(){ maybeOnboard(); renderGapBar(); CASTMODS=activeCastMods(); R=compute(); renderChoices(); renderSlots(); renderCart(); renderSpells(); renderFeatBudget(); renderJumpBar(); renderBuildSwitch();
+function render(){ maybeOnboard(); renderGapBar(); CASTMODS=activeCastMods(); R=compute(); R.health=buildHealth(); renderChoices(); renderSlots(); renderCart(); renderSpells(); renderFeatBudget(); renderJumpBar(); renderBuildSwitch();
+  if(TL.open)renderTimeline();           // the open timeline follows every change (E5)
   if(curTab==="table")renderTable(); save(); }
 
 // ── choices panel ──────────────────────────────────────────────────────────
@@ -3673,66 +3680,38 @@ addEventListener("scroll",()=>{ if(_jumpRaf)return;
   _jumpRaf=requestAnimationFrame(()=>{_jumpRaf=0;syncJumpBar();}); },{passive:true});
 addEventListener("resize",()=>syncJumpBar(),{passive:true});
 
-// ── level plan & preview render (D54/D59) ─────────────────────────────────
-// the Character card's level chip doubles as the preview control (D54): click it to
-// scrub the build at a lower level, view-only — release and nothing has changed
+// ── level plan & the timeline popover (E5 · D115(j), supersedes D54's chip/D59's panel) ──
+// The Character card's level chip reads "L7 / 20" (+ ⚠ when the E4 sweep found
+// something) and opens the TIMELINE: a jumpable list of every character level — what
+// class it was taken in, what it granted, which sticky picks the schedule says arrived
+// there. Rows drag to reorder the level plan (this absorbed the old Level order panel);
+// pick chips drag between rows to move acquisition; the footer forks and pins.
 function renderLevelChip(){
   const chip=$("#clvlChip"); if(!chip)return;
   const total=state.classes.reduce((a,r)=>a+(r.level||0),0);
   detachTip(chip);                       // the node is reused; its old meaning is gone
-  chip.innerHTML=""; chip.classList.toggle("prevon",PREVIEW.level!=null);
-  if(!total){chip.classList.remove("prevable");return;}
-  if(PREVIEW.level==null){
-    chip.textContent="level "+total;
-    chip.classList.toggle("prevable",total>1);
-    if(total>1){
-      chip.onclick=e=>{e.stopPropagation();hideTip();setPreview(total-1);};
-      attachTip(chip,tipBlock("Preview at a lower level","See what this build looks like before it reaches level "+total+". Nothing is changed — picks above the preview are just flagged."));}
-    return;}
-  chip.classList.remove("prevable");
-  const mk=(lbl,fn,cls,tip)=>{const b=el("button","pvb"+(cls?" "+cls:""),lbl);
-    b.onclick=e=>{e.stopPropagation();fn();};            // set BEFORE attachTip
-    if(tip)attachTip(b,tip); return b;};
-  // the two actions are icons: the chip sits in a card heading and the words pushed the
-  // level number off a phone. The popover carries the whole explanation (D57).
-  const mkIco=(ico,fn,label,tip)=>{const b=el("button","pvb pvo ico-only");b.append(icoEl(ico));
-    b.setAttribute("aria-label",label);
-    b.onclick=e=>{e.stopPropagation();fn();};            // set BEFORE attachTip
-    attachTip(b,tip); return b;};
-  chip.append(mk("−",()=>setPreview(PREVIEW.level-1)));
-  chip.append(el("b","pvn","L"+PREVIEW.level));
-  chip.append(mk("+",()=>setPreview(PREVIEW.level+1)));
-  if(state.classes.length>1)
-    chip.append(mkIco("order",()=>openLvlOrder(),"Level order",
-      tipBlock("Level order","Which class each character level is taken in — what the preview unlocks by.")));
-  chip.append(mkIco("bookmark",()=>savePreviewAsVersion(),"Save as version",
-    tipBlock("Save this level as a version","Makes a real build at L"+PREVIEW.level+" that you can pick spells in freely, alongside the full-level one. Your picks come with it; anything over that level's budget is flagged, never dropped.")));
-  chip.append(xBtn("pvx",()=>setPreview(null)));
+  chip.innerHTML=""; chip.onclick=null;
+  chip.classList.toggle("prevon",PREVIEW.level!=null);
+  if(!total){chip.classList.remove("prevable");closeTimeline();return;}
+  const view=PREVIEW.level==null?total:PREVIEW.level;
+  chip.classList.add("prevable");
+  chip.append(el("b","pvn",`L${view} / ${total}`));
+  const h=(R&&R.health)||buildHealth();
+  if(h.levels.length){const w=el("span","chipwarn");w.append(icoEl("warn"));chip.append(w);}
+  chip.onclick=e=>{e.stopPropagation();hideTip();toggleTimeline();};
+  attachTip(chip,tipBlock("The build at every level",
+    (view<total?`Viewing level ${view} of ${total}. `:"")
+    +"Click to open the timeline: jump to any level, reorder how the levels were taken, and move picks between them."
+    +(h.levels.length?` ⚠ ${h.findings.length===1?"One thing doesn’t":h.findings.length+" things don’t"} add up — at ${h.levels.map(l=>"L"+l).join(", ")}; the timeline marks the rows.`:"")));
 }
-// The build-health surfaces (E4 · D115(f)). Two altitudes, one sweep: the BADGE always
-// names the offending levels — that is what makes a problem at 5 visible from 12 — and
+// The build-health surfaces (E4 · D115(f), consolidated by E5). One sweep, two
+// altitudes: the level CHIP carries the ⚠ (its tip names the offending levels, the
+// timeline marks the rows — that is what makes a problem at 5 visible from 12) and
 // the BAR names what is wrong at the level you are actually standing at. Both are
-// advisory (D31): they say so, they jump you there, they never change anything.
+// advisory (D31): they say so, they locate it, they never change anything.
 function renderHealth(){
-  const chip=$("#healthChip"), bar=$("#healthBar");
-  const h=buildHealth();
-  if(chip){
-    detachTip(chip); chip.innerHTML=""; chip.onclick=null;
-    if(!h.levels.length)chip.classList.add("hidden");
-    else{
-      chip.classList.remove("hidden");
-      chip.append(icoEl("warn"));
-      const shown=h.levels.slice(0,3).map(l=>"L"+l).join(" · ");
-      chip.append(el("span",null,shown+(h.levels.length>3?` +${h.levels.length-3}`:"")));
-      // set the click BEFORE attachTip, or the tip becomes the whole click
-      chip.onclick=e=>{e.stopPropagation();hideTip();setPreview(h.levels[0]);};
-      attachTip(chip,tipBlock(
-        h.findings.length===1?"1 thing doesn’t add up":`${h.findings.length} things don’t add up`,
-        h.findings.slice(0,8).map(f=>`L${f.level}: ${f.text}`).join(" ")
-          +(h.findings.length>8?` (+${h.findings.length-8} more)`:"")
-          +" Nothing is removed — click to look at the first one."));
-    }
-  }
+  const bar=$("#healthBar");
+  const h=(R&&R.health)||buildHealth();
   if(!bar)return;
   const here=PREVIEW.level!=null?(h.byLevel.get(PREVIEW.level)||[]):[];
   if(!here.length){bar.classList.add("hidden");bar.innerHTML="";return;}
@@ -3805,61 +3784,201 @@ const lvTile=(kind,lvl,up,tip)=>{
   t.append(el("b",null,lvl?ROMAN[lvl]:"—"));
   t.append(el("small",null,kind));
   attachTip(t,tip); return t;};
-// One card per character level, in acquisition order: which class it was taken in and
-// what that level gave you. Drag a card by its handle to reorder — the class totals are
-// fixed by the build, so reordering only changes WHEN each level lands (D59).
-function renderLvlOrder(){
-  const box=$("#loList"); if(!box)return; box.innerHTML="";
-  const plan=classLevelPlan();
+// ── the timeline popover (E5 · D115(j)) ────────────────────────────────────
+// One row per character level, in plan order. A row: which class that level was taken
+// in, what it granted (D63's named gains + the two casting clocks), the sticky picks
+// the schedule says arrived there (E2), any recorded swap (D115(g)), and the E4 flags
+// for that level. Zones tint lived history apart from the plan above the current-level
+// pin. Clicking a row JUMPS the view; the popover stays open so levels can be walked.
+let TL={open:false,drag:null};   // drag: {type:"row",i} | {type:"chip",kind,rowId,key}
+function toggleTimeline(){ TL.open?closeTimeline():openTimeline(); }
+function openTimeline(){ TL.open=true; placeTimeline(); renderTimeline();
+  $("#tlPop").classList.remove("hidden"); }
+function closeTimeline(){ if(!TL.open)return; TL.open=false;
+  const p=$("#tlPop"); if(p)p.classList.add("hidden"); }
+// fixed-position, placed from the chip (the menus-in-scrollers rule); the phone sheet
+// position is CSS's (!important), so the inline numbers only matter on desktop
+function placeTimeline(){
+  const p=$("#tlPop"),chip=$("#clvlChip"); if(!p||!chip)return;
+  const w=Math.min(470,innerWidth-24), r=chip.getBoundingClientRect();
+  p.style.width=w+"px"; p.style.right="auto";
+  p.style.left=Math.max(12,Math.min(r.left,innerWidth-w-12))+"px";
+  p.style.top=Math.max(12,Math.min(r.bottom+8,innerHeight*0.22))+"px";
+}
+// where each draggable pick sits, by the same machinery the slices run on (E2)
+function timelinePicks(){
+  const clm=charLevelMap(), by=new Map();
+  const put=(lv,chip)=>{const a=by.get(lv)||[];a.push(chip);by.set(lv,a);};
+  state.classes.forEach(row=>{
+    const sched=rowSched(row); if(!sched)return;
+    const lvls=clm.get(row.id)||[], ch=state.chosen[row.id]||{};
+    const name=k=>{const sp=SPELL_BY[k];return sp?sp.name:String(k).split("|")[0];};
+    // a position that later swapped shows what was LEARNED there — the pill at the swap
+    // level tells the rest of the story
+    const shown=(k,lv,kind)=>unswap([k],row.id,kind,lv)[0];
+    (ch.cantrips||[]).forEach((k,i)=>{const lv=acqAt(sched.cant,i,lvls);
+      put(lv,{kind:"ct",rowId:row.id,key:k,label:name(shown(k,lv,"cantrip")),tag:"c"});});
+    if(sched.spells)(ch.spells||[]).forEach((k,i)=>{const lv=acqAt(sched.spells,i,lvls);
+      put(lv,{kind:"sp",rowId:row.id,key:k,label:name(shown(k,lv,"spell"))});});
+  });
+  featAcqLevels().forEach((a,fk)=>{const f=FEAT_BY[fk]; if(!f)return;
+    put(a.lv,{kind:"ft",key:fk,label:f.name,tag:"feat",fixed:a.cat==="origin"});});
+  optAcqLevels().forEach((a,ok)=>{const o=OPT_BY[ok]; if(!o)return;
+    put(a.lv,{kind:"of",key:ok,label:o.name,tag:"opt"});});
+  return by;
+}
+// move a dragged chip so its acquisition lands on `L`. Class picks: an array position
+// maps to a level by INDEX alone, so the first index the schedule puts at L is the
+// insertion point. Feats and options interleave categories, so those try each insertion
+// and keep the one the mapper says lands at L — a handful of positions, always honest.
+function dropChipOnLevel(chip,L){
+  if(chip.kind==="sp"||chip.kind==="ct"){
+    const row=state.classes.find(r=>r.id===chip.rowId); if(!row)return false;
+    const sched=rowSched(row)||{}, sa=chip.kind==="ct"?sched.cant:sched.spells;
+    const arr=chip.kind==="ct"?"cantrips":"spells", ch=state.chosen[row.id];
+    if(!sa||!ch||!ch[arr])return false;
+    const lvls=charLevelMap().get(row.id)||[];
+    const i=ch[arr].indexOf(chip.key); if(i<0)return false;
+    let j=-1; for(let k=0;k<ch[arr].length;k++)if(acqAt(sa,k,lvls)===L){j=k;break;}
+    if(j<0)return false;
+    ch[arr].splice(i,1); ch[arr].splice(j,0,chip.key);
+    save(); return true;
+  }
+  const arrName=chip.kind==="ft"?"feats":"optFeats";
+  const mapper=chip.kind==="ft"?()=>featAcqLevels():()=>optAcqLevels();
+  const base=state[arrName]; const i=base.indexOf(chip.key); if(i<0)return false;
+  const rest=base.slice(); rest.splice(i,1);
+  for(let k=0;k<=rest.length;k++){
+    const t=rest.slice(); t.splice(k,0,chip.key);
+    state[arrName]=t;
+    const lv=(mapper().get(chip.key)||{}).lv;
+    if(lv===L){save(); return true;}
+  }
+  state[arrName]=base; return false;
+}
+function renderTimeline(){
+  const box=$("#tlList"); if(!box)return;
+  const keepScroll=box.scrollTop;
+  box.innerHTML="";
+  const plan=classLevelPlan(), total=plan.length;
+  if(!total){closeTimeline();return;}
   const rowOf=new Map(state.classes.map(r=>[r.id,r]));
   const perClass=new Map();               // running class level, for the gains line
-  let dragFrom=null;
-  const commit=order=>{state.levelOrder=order; save(); renderLvlOrder();
-    if(PREVIEW.level!=null){refreshAll();render();}};
-  plan.forEach((id,i)=>{
-    const row=rowOf.get(id); if(!row)return;
+  const view=PREVIEW.level==null?total:PREVIEW.level;
+  const cur=(typeof state.currentLevel==="number"&&state.currentLevel<total)?state.currentLevel:total;
+  const picks=timelinePicks(), health=(R&&R.health)||buildHealth();
+  const multi=state.classes.length>1;
+  $("#tlSub").textContent="click a level to view the build there";
+  const commit=order=>{state.levelOrder=order; save(); refreshAll(); render();};
+  plan.forEach((id,i0)=>{
+    const i=i0+1, row=rowOf.get(id); if(!row)return;
     const cl=(perClass.get(id)||0)+1;      // advanced below, between the two slot reads
     const c=CLS_BY[row.clsKey];
-    const card=el("div","locard"); card.draggable=true; card.dataset.i=String(i);
-    card.append(icoEl("grip","logrip"));
+    const card=el("div","locard tlrow"+(i>cur?" zplan":"")+(i===cur?" zpin":"")+(i===view?" here":""));
+    card.dataset.lv=String(i);
+    if(multi){const g=icoEl("grip","logrip");card.append(g);card.draggable=true;}
     const body=el("div","lobody");
     const top=el("div","lotop");
-    top.append(el("span","lolv","L"+(i+1)));
+    top.append(el("span","lolv","L"+i));
     top.append(el("b","locls",(c?c.name:"?")+" "+cl));
+    if(i===cur){const pin=el("span","tlpin");pin.append(icoEl("bookmark"));
+      top.append(pin);
+      attachTip(pin,tipBlock("Current level","Where this character actually stands (D115). The build opens viewing this level; levels above are the plan."));}
+    const flags=health.byLevel.get(i);
+    if(flags){const wI=el("span","tlwarn");wI.append(icoEl("warn"));
+      top.append(wI);
+      attachTip(wI,tipBlock(`Level ${i}: ${flags.length===1?"1 thing doesn’t":flags.length+" things don’t"} add up`,
+        flags.map(f=>f.text).join(" ")));}
     body.append(top);
-    const feats=levelGains(row,cl);
+    const gains=levelGains(row,cl);
     // the slot table is read across the WHOLE plan up to here, never from this class alone
     const before=planSlots(perClass); perClass.set(id,cl);
     const after=planSlots(perClass);
     const cast=levelCasting(row,cl,before,after);
-    if(feats.length)body.append(Object.assign(el("div","logains"),{textContent:feats.join(" · ")}));
+    if(gains.length)body.append(Object.assign(el("div","logains"),{textContent:gains.join(" · ")}));
     else body.append(Object.assign(el("div","logains dim"),{textContent:"no new features"}));
-    let tiles=null;
-    if(cast){tiles=el("div","lotiles");
+    card.append(body);
+    if(cast){const tiles=el("div","lotiles");
       tiles.append(lvTile("spell",cast.spell,cast.spellUp,
         tipBlock("Max spell level"+(cast.spellUp?" — raised here":""),
           "The highest level this class can prepare, set by its OWN level. Multiclassing never raises it.")));
       tiles.append(lvTile("slot",cast.slot,cast.slotUp,
         tipBlock("Top slot level"+(cast.slotUp?" — raised here":""),
-          "The highest slot you have, from your COMBINED caster level. Higher slots let you upcast; they don't widen the list.")));}
-    card.append(body);
-    if(tiles)card.append(tiles);      // after the body, so they sit on the RIGHT edge
-    card.ondragstart=e=>{dragFrom=i;e.dataTransfer.effectAllowed="move";
-      try{e.dataTransfer.setData("text/plain",String(i));}catch(_){}
+          "The highest slot you have, from your COMBINED caster level. Higher slots let you upcast; they don't widen the list.")));
+      card.append(tiles);}      // after the body, so they sit on the RIGHT edge
+    // sticky picks the schedule places here (E2); drag a chip to another row to move it
+    const here=picks.get(i)||[];
+    const sw=(state.swaps||{})[i];
+    if(here.length||sw){
+      const chips=el("div","tlchips");
+      here.forEach(pk=>{
+        const chipEl=el("span","tlchip"+(pk.fixed?" fixed":""));
+        if(pk.tag)chipEl.append(el("span","k",pk.tag));
+        chipEl.append(document.createTextNode(pk.label));
+        if(!pk.fixed){
+          chipEl.draggable=true;
+          chipEl.ondragstart=e=>{e.stopPropagation();TL.drag={type:"chip",...pk};
+            e.dataTransfer.effectAllowed="move";
+            try{e.dataTransfer.setData("text/plain",pk.label);}catch(_){}
+            chipEl.classList.add("dragging");};
+          chipEl.ondragend=()=>{TL.drag=null;
+            box.querySelectorAll(".tlchip").forEach(x=>x.classList.remove("dragging"));
+            box.querySelectorAll(".locard").forEach(x=>x.classList.remove("dropinto"));};
+        }
+        chips.append(chipEl);});
+      if(sw){
+        const name=k=>{const sp=SPELL_BY[k];return sp?sp.name:String(k).split("|")[0];};
+        const pill=el("span","tlswap");
+        pill.append(el("span","out","− "+name(sw.out)));
+        pill.append(el("span",null,"+ "+name(sw.in)));
+        pill.append(xBtn("xsm",()=>{clearSwap(i);refreshAll();render();}));
+        chips.append(pill);
+        attachTip(pill,tipBlock("Level-up swap","Taking this level, "+name(sw.out)+" was traded for "+name(sw.in)+" (D115: one swap per level, where the rules grant one). × forgets the swap."));
+      }
+      card.append(chips);
+    }
+    // click = jump the view there; the popover stays open so levels can be walked.
+    // stopPropagation, because the jump re-renders this very list — the bubbling click
+    // would reach the outside-click closer with a DETACHED target that reads as
+    // "outside" and shut the popover (the re-render-under-a-bubbling-event trap)
+    card.onclick=e=>{ if(e.target.closest(".tlchip,.tlswap,.logrip,button"))return;
+      e.stopPropagation(); setPreview(i===total?null:i); };
+    // row drag (multiclass): reorder WHICH class each level is taken in — the old
+    // Level order panel's whole job, absorbed here (D115(j) retires it)
+    card.ondragstart=e=>{ if(TL.drag&&TL.drag.type==="chip")return;
+      if(!multi){e.preventDefault();return;}
+      TL.drag={type:"row",i:i0}; e.dataTransfer.effectAllowed="move";
+      try{e.dataTransfer.setData("text/plain",String(i0));}catch(_){}
       card.classList.add("dragging");};
-    card.ondragend=()=>{dragFrom=null;
+    card.ondragend=()=>{TL.drag=null;
       box.querySelectorAll(".locard").forEach(x=>x.classList.remove("dragging","dropinto"));};
-    card.ondragover=e=>{if(dragFrom==null||dragFrom===i)return;
-      e.preventDefault();e.dataTransfer.dropEffect="move";card.classList.add("dropinto");};
+    card.ondragover=e=>{ if(!TL.drag)return;
+      if(TL.drag.type==="row"&&TL.drag.i===i0)return;
+      e.preventDefault(); e.dataTransfer.dropEffect="move"; card.classList.add("dropinto");};
     card.ondragleave=()=>card.classList.remove("dropinto");
-    card.ondrop=e=>{e.preventDefault();card.classList.remove("dropinto");
-      if(dragFrom==null||dragFrom===i)return;
-      const o=plan.slice(),[moved]=o.splice(dragFrom,1);
-      o.splice(dragFrom<i?i-1:i,0,moved);
-      commit(o);};
+    card.ondrop=e=>{ e.preventDefault(); card.classList.remove("dropinto");
+      const d=TL.drag; if(!d)return;
+      if(d.type==="row"){ if(d.i===i0)return;
+        const o=plan.slice(),[moved]=o.splice(d.i,1);
+        o.splice(d.i<i0?i0-1:i0,0,moved);
+        commit(o); return;}
+      // a chip: land its acquisition on this level, or refuse visibly — a silent
+      // no-op on a drop is a dead control (the DOM-handler rule)
+      if(dropChipOnLevel(d,i)){refreshAll();render();}
+      else{card.classList.add("refuse");setTimeout(()=>card.classList.remove("refuse"),380);}};
     box.append(card);});
+  // footer: fork a variant here · set as current level (D115(i,e))
+  const fork=$("#tlFork"),pin=$("#tlPin");
+  fork.textContent="Fork a variant here";
+  fork.disabled=PREVIEW.level==null;
+  fork.title=PREVIEW.level==null?"Jump to a lower level first — the fork branches there":"";
+  fork.onclick=()=>{savePreviewAsVersion();closeTimeline();};
+  const pinned=view===cur;
+  pin.textContent=pinned?"Current level ✓":"Set as current level";
+  pin.disabled=pinned;
+  pin.onclick=()=>{setCurrentLevel(view>=total?null:view);render();};
+  box.scrollTop=keepScroll;
 }
-function openLvlOrder(){ renderLvlOrder(); $("#lvlOrderModal").classList.remove("hidden"); }
 // ── slots, cart and spell list render ──────────────────────────────────────
 function renderSlots(){
   renderLevelChip(); renderHealth();
@@ -4125,7 +4244,7 @@ function mkEmpty(){const e=el("div","empty");
 const SPTIP=el("div","sptip");document.body.appendChild(SPTIP);
 const SPMODAL=el("div","spmodal hidden");document.body.appendChild(SPMODAL);
 SPMODAL.onclick=e=>{if(e.target===SPMODAL||e.target.classList.contains("x"))SPMODAL.classList.add("hidden");};
-document.addEventListener("keydown",e=>{if(e.key==="Escape"){SPMODAL.classList.add("hidden");hideTip();closeBswMenus();}});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){SPMODAL.classList.add("hidden");hideTip();closeBswMenus();closeTimeline();}});
 document.addEventListener("click",()=>hideTip(),true);   // a tap elsewhere dismisses a tapped tip
 function esc(s){return (s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));}
 // ── spell text highlighting (monster-forge cc-* convention, read-only) ──────
@@ -5205,7 +5324,27 @@ $("#bImportFile").onchange=e=>{const f=e.target.files&&e.target.files[0]; if(!f)
 $("#bImportBox").addEventListener("drop",e=>{const f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];
   if(!f)return; const rd=new FileReader(); rd.onload=()=>doBuildImport(String(rd.result)); rd.readAsText(f);});
 $("#nbClose").onclick=()=>$("#newBuildModal").classList.add("hidden");
-$("#loClose").onclick=()=>$("#lvlOrderModal").classList.add("hidden");
+// the timeline popover (E5): explicit close, outside click, Escape (with the other
+// dismissals), and any scroll outside it — a fixed popover doesn't travel with the page
+$("#tlClose").onclick=()=>closeTimeline();
+document.addEventListener("click",e=>{ if(!TL.open)return;
+  // a target no longer in the document means an inner handler re-rendered under the
+  // bubbling click — that click started INSIDE something, never treat it as outside
+  if(!document.contains(e.target))return;
+  if(e.target.closest("#tlPop")||e.target.closest("#clvlChip"))return;
+  closeTimeline();});
+// scrolling under a fixed popover: RE-ANCHOR it to the chip rather than close — a jump
+// re-renders the page and that alone fires scroll events, which must not kill the
+// popover mid-walk. Only the chip actually leaving the viewport closes it.
+let _tlRaf=0;
+addEventListener("scroll",e=>{ if(!TL.open)return;
+  const t=e.target;
+  if(t&&t.closest&&t.closest("#tlPop"))return;
+  if(_tlRaf)return;
+  _tlRaf=requestAnimationFrame(()=>{_tlRaf=0; if(!TL.open)return;
+    const chip=$("#clvlChip"), r=chip&&chip.getBoundingClientRect();
+    if(!r||r.bottom<0||r.top>innerHeight)closeTimeline(); else placeTimeline();});},true);
+addEventListener("resize",()=>{if(TL.open)placeTimeline();},{passive:true});
 $("#csrcAdd").onclick=()=>openCsrc(null);
 $("#csrcClose").onclick=()=>$("#csrcModal").classList.add("hidden");
 $("#csrcSave").onclick=saveCsrc;

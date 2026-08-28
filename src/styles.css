@@ -759,15 +759,11 @@ table.spelltable td.cmp .l.iffy{color:var(--good);cursor:help;
 .gaptxt{flex:1;min-width:0;font-size:11.5px;color:var(--muted);line-height:1.35;cursor:help}
 .gaptxt b{display:block;color:var(--gold);font-size:12px;font-weight:600}
 .gapbar .btn{flex:0 0 auto}
-/* build health (E4 · D115(f)): the badge names the levels whose slice doesn't add up —
-   it is what makes a problem at level 5 visible while you stand at 12 — and the bar
-   names what is wrong at the level you are standing at. Advisory, like everything (D31). */
-.hbadge{display:inline-flex;align-items:center;gap:5px;margin-left:8px;padding:2px 9px;
-  border-radius:20px;font-family:var(--sans);font-size:11px;font-weight:600;cursor:pointer;
-  border:1px solid var(--bad);background:var(--bad-soft);color:var(--bad)}
-.hbadge.hidden{display:none}
-.hbadge .ico svg{width:11px;height:11px}
-.hbadge:hover{background:color-mix(in srgb,var(--bad) 16%,var(--bg))}
+/* build health (E4 · D115(f)): since E5 the level CHIP carries the badge — an inline ⚠
+   whose tip names the offending levels, with the timeline locating each one — and the
+   bar names what is wrong at the level you are standing at. Advisory, like everything (D31). */
+.chipwarn{display:inline-flex;align-items:center;color:var(--bad);margin-left:2px}
+.chipwarn svg{width:11px;height:11px}
 .healthbar{display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;padding:9px 12px;
   border-radius:10px;border:1px solid var(--bad);
   background:color-mix(in srgb,var(--bad) 9%,var(--bg))}
@@ -1077,6 +1073,47 @@ table.spelltable .pickcell{cursor:help}
   padding:2px 5px;display:inline-flex;align-items:center;line-height:0}
 .count .pvb.pvo .ico svg{width:11px;height:11px}
 .count .pvx{color:inherit;margin-left:1px}
+/* ── the timeline popover (E5 · D115(j)) ─────────────────────────────────── */
+/* fixed so the column's overflow can't clip it (the standing menus-in-scrollers rule);
+   placed from the chip's rect by JS, full-width sheet under 641px */
+.tlpop{position:fixed;z-index:60;display:flex;flex-direction:column;
+  background:var(--panel);border:1px solid var(--line-strong);border-radius:14px;
+  box-shadow:var(--shadow);max-height:min(74vh,640px)}
+.tlpop.hidden{display:none}
+.tlhead{display:flex;align-items:center;gap:8px;padding:10px 12px 8px;border-bottom:1px solid var(--line)}
+.tlhead b{font-family:var(--font);font-size:15px;font-weight:600}
+.tlhead .tlsub{flex:1;min-width:0;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tlfoot{display:flex;gap:8px;padding:9px 12px;border-top:1px solid var(--line)}
+.tlfoot .btn{flex:1;font-size:12px}
+.tllist{flex:1;padding:8px 10px;max-height:none}
+/* zones: lived history · the current-level pin · the plan above it */
+.locard.zplan{border-style:dashed;opacity:.82}
+.locard.zpin{border-color:var(--accent)}
+.locard.here{background:var(--accent-soft);border-color:var(--accent)}
+.locard.tlrow{cursor:pointer;flex-wrap:wrap}
+.locard.tlrow:active{cursor:pointer}
+.locard .tlpin{display:inline-flex;align-items:center;color:var(--accent)}
+.locard .tlpin svg{width:11px;height:11px}
+.locard .tlwarn{display:inline-flex;align-items:center;color:var(--bad);cursor:help}
+.locard .tlwarn svg{width:12px;height:12px}
+.locard.refuse{animation:tlrefuse .35s}
+@keyframes tlrefuse{0%,100%{border-color:var(--line)}50%{border-color:var(--bad)}}
+/* pick chips: what the schedule says arrives at this level; drag one to another level */
+.tlchips{flex-basis:100%;display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.tlchip{font-size:10.5px;line-height:1;padding:3px 7px;border:1px solid var(--line);
+  border-radius:20px;background:var(--panel-2);color:var(--ink);cursor:grab;white-space:nowrap}
+.tlchip:active{cursor:grabbing}
+.tlchip.fixed{cursor:default;color:var(--muted)}
+.tlchip.dragging{opacity:.4}
+.tlchip .k{color:var(--muted);font-size:9px;margin-right:3px;text-transform:uppercase;letter-spacing:.03em}
+/* a recorded level-up swap (D115(g)): −out +in, clearable */
+.tlswap{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;line-height:1;
+  padding:3px 7px;border:1px solid var(--free);border-radius:20px;background:var(--free-soft);color:var(--free)}
+.tlswap .out{text-decoration:line-through;opacity:.75}
+@media (max-width:640px){
+  .tlpop{left:2.5vw !important;right:2.5vw !important;width:auto !important;
+    top:auto !important;bottom:2vh;max-height:82vh}
+}
 /* one column at every width: the list is a SEQUENCE, and columns break the reading of it */
 .lolist{display:flex;flex-direction:column;gap:6px;max-height:56vh;overflow:auto;padding:2px}
 .locard{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--line);
