@@ -8,6 +8,14 @@
 > 🔶 at the top.
 
 ## Queue
+- [ ] **A build that works seamlessly at every level** — 🔶 **DESIGN SESSION, requested
+  2026-08-28 (D115).** Multi-step back-and-forth, not a patch. The trigger: D114 made the level
+  ORDER load-bearing — which character level a feat slot arrives at now decides whether it can be
+  an Epic Boon — and with no explicit order `classLevelPlan()` guesses "each class in full, in row
+  order". Francesco has accepted that default **for now**. The session has to reach the level plan
+  itself, the preview (D54 viewer, D64 versions-not-stamps), retraining, and what a build even
+  means at a level other than its top one. **Done when:** the model is a decision entry with task
+  lines behind it. ⚑ (owner: Francesco, 2026-08-28)
 - [ ] **Magic-item / reward ingestion** — 🔶 **RESEARCHED 2026-08-27, awaiting Francesco's call.**
   The old note said "items carry no structured uses"; that is **wrong** and the audit corrected it.
   What the 5etools corpus actually holds:

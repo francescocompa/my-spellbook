@@ -288,6 +288,14 @@
   Committing a rename in the switcher calls `afterBuildMeta(false)` — header and manager only.
   Re-rendering the popover there would destroy the ⋯ button between mousedown and mouseup, so the
   click never lands. Only the character rename (which can regroup rows) passes `true`.
+- **A feat slot is gained at a CLASS level but arrives at a CHARACTER level, and only the second
+  one qualifies an Epic Boon (D114).** `charLevel()>=19` is not "you have a feat slot at 19" —
+  Fighter 10 / Wizard 9 is level 19 with slots at 4, 6, 8, 14, 18 and none after, while
+  Warlock 4 / Fighter 4 / Bard 12 has two, at 19 **and** 20. `featSlotLevels()` walks
+  `classLevelPlan()` and is the only correct source for this; it also honours `PREVIEW.level` by
+  slicing the plan, so never re-derive it from `effLevel(row)`, which knows class levels only.
+  A boon **spends** a slot — anything counting feats must use `slotsUsed` (general + epic), or the
+  budget offers one more feat than the character has.
 - **Feat category ≠ feat slot (D84).** `featCatId`/`featCatLabel` are the book's own label;
   `featSlot` is what it can be spent from; `featSlotOf(key)` is what it WAS spent from
   (`state.featSlots`, validated against `SLOTS_FOR` on read, so a stale record can't misattribute).

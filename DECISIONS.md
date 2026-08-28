@@ -727,6 +727,33 @@ written up in full in `GOTCHAS.md` — that is the copy to trust.
   carousel filter and the gotcha would all rework for display value); merging alternates only;
   a flat searched list (loses the shelf feel); extra edition preset buttons.
 
+- **D114 (2026-08-28)** **An Epic Boon is a feat you take WITH a feat slot, not a bonus pick, and
+  the slot's CHARACTER level is what qualifies it.** The old rule was one line —
+  `epic = charLevel()>=19 ? 1 : 0` — which got single-class 20 right by luck (ASIs at 4/8/12/16
+  plus the class-19 Epic Boon feature) and multiclass wrong three ways: it handed a boon to a
+  build with no feat slot anywhere near 19 (Fighter 10 / Wizard 9 gains slots at character 4, 6,
+  8, 14, 18 and none after), it capped at one a build whose slots land on **both** 19 and 20
+  (Francesco's Warlock 4 / Fighter 4 / Bard 12 — slots at 4, 11, 15, **19**, **20**), and it made
+  the boon **additive**, offering six feats to a character who has five. Every Epic Boon feat in
+  the corpus carries `prereq: "level 19"` — a character-level test — and both the ASI feature and
+  the class-19 Epic Boon feature read "…or another feat of your choice for which you qualify", so
+  they are one pool. `featSlotLevels()` now walks `classLevelPlan()` and returns the **character**
+  level each feat slot arrives at (class levels 4/8/12/16, plus Fighter 6/14 and Rogue 10, plus
+  class level 19); `general` is all of them, `epic` is how many landed at 19+, and the general row
+  counts boons among what it has spent (`slotsUsed`). The epic row now appears on **holding such a
+  slot**, not on being level 19. Enforcement stays soft (D31): the caps flag, they never block.
+  → Gotcha. *Rejected:* keeping the two pools separate and merely raising the cap (it would still
+  invent a feat the character does not have); counting boons by class level 19 alone (correct for
+  single-class, but it denies the level-19/20 ASIs that legally qualify).
+- **D115 (2026-08-28) OPEN — 🔶 a build that works seamlessly at every level.** D114 exposed that
+  the *order* levels were taken in is now load-bearing: which character level a feat slot arrives
+  at decides whether it may be a boon, and with no explicit order `classLevelPlan()` falls back to
+  "each class in full, in row order". Francesco: **"it's ok how it works right now multiclass by
+  default"** — the fallback stands for now — and wants **"a greater multi-step back and forth
+  design session to readdress the possibility of a multi level build that works seamlessly at
+  every level."** Parked as a design session, not a patch; it reaches the level plan, the preview
+  (D54/D64), retraining and version copies. ⚑ (owner: Francesco, 2026-08-28)
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

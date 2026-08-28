@@ -2045,7 +2045,7 @@ function renderEntBudget(){
     return;}
   const b=featBudget();
   box.append(budgetPill("origin",b.originPicked,b.origin,b.originPicked<b.origin));
-  box.append(budgetPill("general",b.generalPicked,b.general,b.generalPicked<b.general));
+  box.append(budgetPill("general",b.slotsUsed,b.general,b.slotsUsed<b.general));
   if(b.epic)box.append(budgetPill("epic boon",b.epicPicked,b.epic,b.epicPicked<b.epic));
 }
 function budgetPill(label,have,cap,owed){
@@ -4386,8 +4386,9 @@ function prereqState(ent){
 const charLevel=()=>PREVIEW.level!=null?PREVIEW.level
   :state.classes.reduce((a,r)=>a+(r.level||0),0);
 function refreshAddFeat(){
-  // Epic Boons unlock at character level 19 (the level-19 feat feature)
-  const epic=$("#epicRow");if(epic)epic.classList.toggle("hidden",charLevel()<19);
+  // D114: the row appears when a feat slot you actually HOLD arrived at character level 19+ —
+  // being level 19 is not enough on its own (a Fighter 10 / Wizard 9 gains no slot at 19 or 20)
+  const epic=$("#epicRow");if(epic)epic.classList.toggle("hidden",!featBudget().epic);
 }
 // a slot's count, in line with its field. FOUR states, and none of them is an error:
 // `need` = still owed, `done` = filled, `over` = more taken than the level grants, and
@@ -4395,7 +4396,7 @@ function refreshAddFeat(){
 // general feats). `none` is dimmed and unavailable, never accented — a cap of 0 used to
 // fall through to `need`, painting an urgent 0/0 for a slot that isn't due yet and
 // promising "0 of 0 left to choose".
-function slotCount(node,have,cap){
+function slotCount(node,have,cap,note){
   if(!node)return;
   const st=have>cap?"over":!cap?"none":have>=cap?"done":"need";
   node.className="cnt "+st;
@@ -4405,28 +4406,53 @@ function slotCount(node,have,cap){
     none:["None at this level","Your level grants none of these yet. You can still take one — it will read as more than your level grants."],
     done:["Slots filled",`All ${cap} taken.`],
     need:["Still to choose",`${cap-have} of ${cap} left to choose.`]};
-  attachTip(node,tipBlock(TIP[st][0],TIP[st][1]));}
+  attachTip(node,tipBlock(TIP[st][0],TIP[st][1]+(note?" "+note:"")));}
 // feat budget: general feats from ASI levels (+Fighter/Rogue extras), 1 origin feat + 1 for Humans.
 // NOTE: data only carries spell-granting feats (extract.py filters the rest) — full feat lists need the mirror.
 const ASI_EXTRA={Fighter:[6,14],Rogue:[10]};
+const ASI_LEVELS=[4,8,12,16];
+// D114: a feat slot is gained at a CLASS level but arrives at a CHARACTER level, and an Epic
+// Boon is a feat you may take with any slot once you are character level 19+ — never a bonus
+// pick of its own. Walking the level plan is what tells the two apart: `charLevel()>=19` alone
+// gave a boon to a build with no feat slot anywhere near 19, and capped at one a build whose
+// ASIs land on both 19 and 20. Returns the character level each slot arrives at.
+function featSlotLevels(){
+  const plan=classLevelPlan();
+  const lim=PREVIEW.level==null?plan.length:Math.min(PREVIEW.level,plan.length);
+  const byRow=new Map(state.classes.map(r=>[r.id,r]));
+  const at=new Map(); const out=[];
+  for(let i=0;i<lim;i++){
+    const row=byRow.get(plan[i]); if(!row)continue;
+    const c=CLS_BY[row.clsKey]; if(!c)continue;
+    const cl=(at.get(row.id)||0)+1; at.set(row.id,cl);
+    // class level 19 is the Epic Boon feature — still a feat slot, and it may take any feat
+    // ("an Epic Boon feat or another feat of your choice for which you qualify")
+    if(ASI_LEVELS.includes(cl)||(ASI_EXTRA[c.name]||[]).includes(cl)||cl===19)out.push(i+1);
+  }
+  return out;
+}
 function featBudget(){
-  let general=0;
-  state.classes.forEach(row=>{const c=CLS_BY[row.clsKey];if(!c)return;
-    // general ASI feats: 4/8/12/16 (+ class extras). Level 19 is the Epic Boon slot, tracked separately.
-    [4,8,12,16,...(ASI_EXTRA[c.name]||[])].forEach(l=>{if(effLevel(row)>=l)general++;});});
+  const slots=featSlotLevels();
+  const general=slots.length;                          // every feat slot your classes grant
+  const epic=slots.filter(l=>l>=19).length;            // …of those, the ones a boon may use
   const race=RACE_BY[state.speciesKey];const isHuman=/human/i.test((race&&race.name)||"");
   const origin=(state.classes.length?1:0)+(isHuman?1:0);
-  const epic=charLevel()>=19?1:0;   // one Epic Boon at level 19
   // attribution follows the slot the feat was SPENT from (D84), not its category: origin
   // is a subset of general, so an origin feat taken at an ASI is a general feat spent.
   const inSlot=want=>state.feats.filter(fk=>featSlotOf(fk)===want).length;
   const originPicked=inSlot("origin"), epicPicked=inSlot("epic"), generalPicked=inSlot("general");
-  return {general,origin,epic,originPicked,generalPicked,epicPicked,isHuman};
+  // a boon SPENDS a feat slot, so the general row counts it too; `epic` is a sub-limit on how
+  // many of those slots may be boons, not a pool beside them
+  return {general,origin,epic,originPicked,generalPicked,epicPicked,isHuman,
+          slotsUsed:generalPicked+epicPicked};
 }
 function renderFeatBudget(){const b=featBudget();
   slotCount($("#originCnt"),b.originPicked,b.origin);
-  slotCount($("#generalCnt"),b.generalPicked,b.general);
-  slotCount($("#epicCnt"),b.epicPicked,b.epic);}
+  slotCount($("#generalCnt"),b.slotsUsed,b.general,
+    b.epic?"Every feat your classes grant, boons included.":null);
+  slotCount($("#epicCnt"),b.epicPicked,b.epic,
+    `${b.epic===1?"One feat slot arrives":`${b.epic} feat slots arrive`} at character level 19 or later, `
+    +`so a boon is taken WITH one of your feat slots, not on top of them.`);}
 // ── optional features: invocations, metamagic, pact boons… (D28) ───────────
 // Slots come from each class/subclass's optionalfeatureProgression, so a "slot" is
 // {name, types, have} and nothing about a specific feature type is hardcoded here.
