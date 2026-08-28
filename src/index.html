@@ -116,6 +116,9 @@
       <div class="card" id="secSpells">
         <h2>Eligible spells <span class="count" id="spCount"></span></h2>
         <div class="body">
+          <!-- F2 · D118(b): while a guided pick step is current, the list is pre-filtered
+               to what is legal at that acquisition point and this line says so -->
+          <div class="guidenote hidden" id="guideNote"></div>
           <div class="filters">
             <input type="search" id="fq" placeholder="filter by name…">
             <button class="btn" id="filterBtn">Filters</button>
@@ -525,22 +528,40 @@
     <button class="btn on" id="csrcSave">Save</button>
   </div>
 </div></div>
-<!-- E5 · D115(j): the timeline popover — the level chip opens it; rows jump the view,
-     dragging a row reorders the level plan (absorbs the old Level order panel), dragging
-     a pick chip moves its acquisition, the footer forks and pins. -->
-<div class="tlpop hidden" id="tlPop" role="dialog" aria-label="Timeline">
-  <div class="tlhead">
-    <b>Timeline</b><span class="tlsub" id="tlSub"></span>
-    <button class="x ico" id="tlClose" data-ico="x" aria-label="Close"></button>
-  </div>
-  <!-- E7: the quiet "order matters" word, only on builds where it does -->
-  <div class="tlorder hidden" id="tlOrder"></div>
-  <div id="tlList" class="lolist tllist"></div>
-  <div class="tlfoot">
-    <button class="btn" id="tlFork"></button>
-    <button class="btn" id="tlPin"></button>
+<!-- E5 · D115(j), reshaped by D122: the timeline is a full MODAL now (its raw note
+     anticipated this) — the level chip opens it; rows jump the view, dragging a row
+     reorders the level plan, dragging a pick chip moves its acquisition, the footer
+     forks and pins. The E7 order-matters word lives in the gold flag by the title. -->
+<div class="modal hidden" id="tlModal" role="dialog" aria-label="Timeline">
+  <div class="box tlbox">
+    <div class="mh">
+      <h2>Timeline</h2><span class="ordflag hidden" id="tlOrder"></span>
+      <button class="x ico" id="tlClose" data-ico="x" aria-label="Close"></button>
+    </div>
+    <div class="mb tlmb"><div id="tlList" class="lolist tllist"></div></div>
+    <div class="tlfoot">
+      <button class="btn" id="tlFork"></button>
+      <button class="btn" id="tlPin"></button>
+    </div>
   </div>
 </div>
+<!-- F2 · D118(k): the guided builder's coach rail — the whole decision chain grouped
+     under level headers, jump-anywhere, structural choices answered inline, no modals.
+     Desktop: a side rail; phone widths: a bottom sheet showing the current level's group. -->
+<aside class="grail hidden" id="guideRail" aria-label="Guided builder">
+  <div class="grhead">
+    <b>Guided builder</b><span class="grprog" id="grProg"></span>
+    <button class="grshowall" id="grAll" aria-label="Show the whole chain"></button>
+    <button class="x ico" id="grClose" data-ico="x" aria-label="Close the guide"></button>
+  </div>
+  <div class="grsub" id="grSub"></div>
+  <div class="grlist" id="grList"></div>
+  <div class="grfoot">
+    <button class="btn" id="grBack">← Back</button>
+    <button class="btn" id="grSkip">Skip</button>
+    <button class="btn on" id="grNext">Next →</button>
+  </div>
+</aside>
 <div class="modal hidden" id="prepModal"><div class="box">
   <div class="mh mh-stack">
     <div class="mh-row"><h2 id="prepTitle">Spell preparation</h2><button class="x ico" id="prepClose" data-ico="x" aria-label="Close"></button></div>

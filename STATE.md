@@ -25,12 +25,14 @@
   behaviour preserved, verified both ways in-browser. Three cosmetic side notes logged in D120
   (dead `recordSwap`, a chain-swap tip label, Escape-under-the-picker), none blocking.
   Phase E's shape (E1–E7, v1.2.4 → v1.2.8) is described in `PLAN.md` and `CHANGELOG.md`.
-- **Next action:** **Phase F — F2, the coach rail** (`fable@high`, L — the core surface, per
-  the D118(k) mockup). **F1 shipped v1.2.11** the same day: `guideSteps()` derives one step
-  per decision statelessly from the build (statuses done/open/skipped, pool descriptors,
-  direction as iteration order) and `guideResume()` finds where a walk re-enters — verified
-  on the five D114 fixtures in both directions; two semantics calls logged as **D121**.
-  Then F3 (entry points + reverse wiring) → F4 (gate, separate session). The 🔶
+- **Next action:** **Phase F — F3, entry points + reverse wiring** (`sonnet@medium`, S):
+  "Start guided" beside start-empty, "Guide me from here" in the timeline footer + ⋯ alias,
+  reverse-on-a-ready-build asking the walk direction. **F1 shipped v1.2.11** (`guideSteps()` /
+  `guideResume()`, D121) and **F2 shipped v1.2.12** — the coach rail per D118(k), verified at
+  both widths; **the rail has NO entry point until F3** (`openGuide()` exists, nothing calls
+  it). **D122** (2026-08-29, direct notes) reshaped the timeline: full modal, order flag by
+  the title, casting tiles only where a clock changes (dimmed), multiclass run rails with
+  no-op drops not being drop targets. Then F4 (gate, separate session). The 🔶
   **magic-item / reward import** decision remains ungated and awaits Francesco's call.
 - **Manual for Francesco:** ⓪ **Refresh your imported data in each browser** — ⋯ → **Refresh
   imported data** (choose the folder once if asked). The v1.2.2 parser fixes live in your

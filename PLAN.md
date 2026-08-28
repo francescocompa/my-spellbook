@@ -90,10 +90,17 @@ A separate coach-driven flow over the D115 substrate, forward and reverse — th
   character level with pool descriptors for F2/F3. Statuses stateless (D118(j)); two calls made
   en route → **D121**: the frontier ignores class steps (a hand-levelled build reads all-open,
   not all-skipped) and OPTIONAL steps (the swap y/n) never capture re-entry.
-- [ ] **F2 — the coach rail** (`fable@high` — core surface, L) — side rail per the D118(k)
-  mockup: level-grouped chain, jump-anywhere, structural choices inline (no modals), page
-  pre-filtered with "legal now" highlighting, Skip/Back/Next, progress; bottom sheet at phone
-  widths. **Done when:** every rail interaction verified in-browser at desktop and phone widths.
+- [x] **F2 — the coach rail** (**shipped v1.2.12**, fable@high, done-when verified in-browser
+  at desktop AND phone widths: open/resume, jump-anywhere, inline class-continue/add, inline
+  subclass, species/feat handoff to the real pickers, spell-step page pre-filter + guided note
+  + take → auto-advance past optional steps, swap armed from the rail, Skip/Back/Next, progress,
+  whole-chain toggle on the phone sheet, both walk directions) — `renderGuide()` over the F1
+  chain: level-grouped rail, statuses done/open/skipped rendered honestly, structural choices
+  answered inline (D118(k), no new modals), `#guideNote` names the pre-filter on the spell list.
+  **No user-facing entry point yet — that is F3's whole job** (until then `openGuide()` exists
+  but nothing calls it). **D122 rode along**: the timeline became a full modal (its ×, sub-note,
+  order-flag, changed-only dimmed casting tiles, and multiclass run aggregation with no-op
+  drops not being targets).
 - [ ] **F3 — entry points + reverse wiring** (`sonnet@medium`, S) — "Start guided" beside
   start-empty; "Guide me from here" in the E5 popover footer + ⋯ menu alias; reverse on a ready
   build asks the walk direction; leftovers settle at top, soft-flagged (D118(g)). **Done when:**

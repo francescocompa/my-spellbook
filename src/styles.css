@@ -1076,18 +1076,26 @@ table.spelltable .pickcell{cursor:help}
 /* ── the timeline popover (E5 · D115(j)) ─────────────────────────────────── */
 /* fixed so the column's overflow can't clip it (the standing menus-in-scrollers rule);
    placed from the chip's rect by JS, full-width sheet under 641px */
-.tlpop{position:fixed;z-index:60;display:flex;flex-direction:column;
-  background:var(--panel);border:1px solid var(--line-strong);border-radius:14px;
-  box-shadow:var(--shadow);max-height:min(74vh,640px)}
-.tlpop.hidden{display:none}
-.tlhead{display:flex;align-items:center;gap:8px;padding:10px 12px 8px;border-bottom:1px solid var(--line)}
-.tlhead b{font-family:var(--font);font-size:15px;font-weight:600}
-.tlhead .tlsub{flex:1;min-width:0;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tlorder{padding:7px 12px 0;font-size:11px;line-height:1.45;color:var(--gold)}
-.tlorder.hidden{display:none}
+/* a full modal since D122 — the standard .modal chrome carries the header and the ×;
+   the box caps its height so the LIST scrolls and the footer stays put */
+.tlbox{max-width:520px;display:flex;flex-direction:column;max-height:calc(100vh - 80px)}
+.tlbox .tlmb{flex:1;min-height:0;display:flex;padding:12px 14px}
+/* E7's order-matters word, folded into a gold flag beside the title (D122) */
+.ordflag{display:inline-flex;align-items:center;color:var(--gold);cursor:help}
+.ordflag svg{width:13px;height:13px}
+.ordflag.hidden{display:none}
 .tlfoot{display:flex;gap:8px;padding:9px 12px;border-top:1px solid var(--line)}
 .tlfoot .btn{flex:1;font-size:12px}
-.tllist{flex:1;padding:8px 10px;max-height:none}
+.tllist{flex:1;padding:2px;max-height:none;gap:0}
+/* run aggregation (D122): consecutive levels of one class share a coloured rail and
+   close ranks — the tight gap says "one block", the rail says which class's */
+.tllist .locard{margin-top:6px}
+.tllist .locard:first-child{margin-top:0}
+.tllist .locard.runjoin{margin-top:2px}
+.locard.runc0{border-left:3px solid color-mix(in srgb,var(--accent) 60%,transparent)}
+.locard.runc1{border-left:3px solid color-mix(in srgb,var(--free) 60%,transparent)}
+.locard.runc2{border-left:3px solid color-mix(in srgb,var(--gold) 60%,transparent)}
+.locard.runc3{border-left:3px solid color-mix(in srgb,var(--good) 60%,transparent)}
 /* zones: lived history · the current-level pin · the plan above it */
 .locard.zplan{border-style:dashed;opacity:.82}
 .locard.zpin{border-color:var(--accent)}
@@ -1125,8 +1133,7 @@ table.spelltable .pickcell{cursor:help}
 .swaptxt b{display:block;color:var(--free);font-size:12px;font-weight:600;margin-bottom:2px}
 .swapbar .btn{flex:0 0 auto;font-size:12px}
 @media (max-width:640px){
-  .tlpop{left:2.5vw !important;right:2.5vw !important;width:auto !important;
-    top:auto !important;bottom:2vh;max-height:82vh}
+  .modal .box.tlbox{max-height:calc(100vh - 40px)}
 }
 /* one column at every width: the list is a SEQUENCE, and columns break the reading of it */
 .lolist{display:flex;flex-direction:column;gap:6px;max-height:56vh;overflow:auto;padding:2px}
@@ -1147,20 +1154,17 @@ table.spelltable .pickcell{cursor:help}
 /* The two casting clocks (D68) as tiles, right-aligned so either progression can be read
    straight down the column. Each keeps its own hue at all times — the tint IS the label —
    and the level that RAISED it takes the full colour and a border. */
-.lotiles{flex:0 0 auto;display:flex;gap:5px}
-.lt{min-width:44px;text-align:center;border:1px solid var(--line);border-radius:8px;
-  padding:3px 6px;cursor:help}
-.lt b{display:block;font-size:12px;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums}
-.lt small{display:block;font-size:9px;text-transform:uppercase;letter-spacing:.04em;
-  font-weight:700;margin-top:1px}
-/* no fill anywhere: at rest the two tiles differ only by a hue mixed a third of the way
-   into the muted label, and the level that RAISED one states it with a border */
+.lotiles{flex:0 0 auto;display:flex;gap:8px}
+/* D122: a tile only appears at the level that MOVED its clock, and it is a NOTE —
+   no border, no fill, dimmed — so it can't read as a control */
+.lt{min-width:36px;text-align:center;padding:0 2px;cursor:help}
+.lt b{display:block;font-size:11.5px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
+.lt small{display:block;font-size:8.5px;text-transform:uppercase;letter-spacing:.04em;
+  font-weight:700;margin-top:0}
+/* the two clocks differ only by a hue mixed a third of the way into the muted label */
 .lt-spell small{color:color-mix(in srgb,var(--accent) 38%,var(--muted))}
 .lt-slot small{color:color-mix(in srgb,var(--gold) 38%,var(--muted))}
-.lt-spell.up{border-color:var(--accent)} .lt-spell.up b{color:var(--accent)}
-.lt-slot.up{border-color:var(--gold)}    .lt-slot.up b{color:var(--gold)}
 .lt-cast small{color:color-mix(in srgb,var(--accent) 38%,var(--muted))}
-.lt-cast.up{border-color:var(--accent)}  .lt-cast.up b{color:var(--accent)}
 
 /* ── build export / import (T5) ───────────────────────────────────────────── */
 /* the base .importdrop is a centred row for the big data drop zone — this one is a
@@ -1577,4 +1581,65 @@ label.fld .fldt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-wi
   /* links carry no href on paper, and the SRD notice has to stay legible (CC BY 4.0) */
   a{text-decoration:none;color:var(--ink)}
   footer.credit{margin-top:16px;font-size:9.5px;break-inside:avoid}
+}
+
+/* ── F2 · D118(k): the guided builder's coach rail ─────────────────────────
+   Desktop: a fixed side rail; the layout cedes its width (body.guiding). Phone
+   widths: a bottom sheet showing the current level's group, expandable to the
+   whole chain. No modals anywhere — structural choices answer inline. */
+.grail{position:fixed;z-index:55;top:12px;right:12px;bottom:12px;width:300px;
+  display:flex;flex-direction:column;background:var(--panel);
+  border:1px solid var(--line-strong);border-radius:14px;box-shadow:var(--shadow)}
+.grail.hidden{display:none}
+body.guiding .layout{padding-right:316px}
+.grhead{display:flex;align-items:center;gap:8px;padding:10px 12px 8px;border-bottom:1px solid var(--line)}
+.grhead b{font-family:var(--font);font-size:15px;font-weight:600}
+.grprog{flex:1;font-size:11px;color:var(--muted);white-space:nowrap}
+.grshowall{display:none}
+.grsub{padding:7px 12px 0;font-size:11px;line-height:1.45;color:var(--muted)}
+.grlist{flex:1;overflow-y:auto;padding:8px 10px;scrollbar-width:thin}
+.grfoot{display:flex;gap:8px;padding:9px 12px;border-top:1px solid var(--line)}
+.grfoot .btn{flex:1;font-size:12px}
+/* level groups: a header, then one row per decision */
+.grlv{margin:0 0 10px}
+.grlvh{display:flex;align-items:baseline;gap:6px;margin:0 2px 4px;font-size:10.5px;
+  color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.grlvh b{font-size:11px;color:var(--ink);letter-spacing:0}
+.grstep{display:flex;align-items:center;gap:7px;width:100%;text-align:left;
+  padding:6px 8px;margin:2px 0;border:1px solid var(--line);border-radius:9px;
+  background:var(--panel-2);cursor:pointer;font-size:12px;color:var(--ink);line-height:1.3}
+.grstep .gs-k{flex:1;min-width:0}
+.grstep .gs-lbl{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.03em;display:block}
+.grstep .gs-val{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.grstep .gs-st{flex:0 0 auto;display:inline-flex;align-items:center}
+.grstep .gs-st svg{width:12px;height:12px}
+.grstep.done .gs-st{color:var(--good)}
+.grstep.open .gs-val{color:var(--muted);font-style:italic}
+.grstep.skipped{border-style:dashed}
+.grstep.skipped .gs-st{color:var(--gold)}
+.grstep.optional .gs-lbl::after{content:" · optional";text-transform:none;letter-spacing:0}
+.grstep.cur{border-color:var(--accent);background:var(--accent-soft)}
+.grstep:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+/* inline structural answers (class · subclass · swap) live inside the row's card */
+.grinline{margin:2px 0 6px;padding:7px 8px;border:1px dashed var(--line-strong);
+  border-radius:9px;display:flex;flex-direction:column;gap:6px}
+.grinline .btn{font-size:12px}
+.grinline select{width:100%;font-size:12px;padding:5px 6px;border-radius:7px;
+  border:1px solid var(--line-strong);background:var(--panel);color:var(--ink)}
+.grinline .grhint{font-size:10.5px;color:var(--muted);line-height:1.4}
+/* the pre-filter note above the spell list while a pick step is current */
+.guidenote{margin:0 0 10px;padding:7px 10px;border:1px solid var(--accent);
+  border-radius:9px;background:var(--accent-soft);font-size:11.5px;line-height:1.45}
+.guidenote.hidden{display:none}
+/* phone widths: a bottom sheet — the current level's group, expandable to the chain */
+@media (max-width:920px){
+  .grail{top:auto;left:2.5vw;right:2.5vw;bottom:2vh;width:auto;max-height:46vh}
+  body.guiding .layout{padding-right:0}
+  body.guiding{padding-bottom:48vh}   /* the page stays reachable above the sheet */
+  .grshowall{display:inline-flex;align-items:center;font-size:10.5px;padding:3px 8px;
+    border:1px solid var(--line-strong);border-radius:20px;background:var(--panel-2);
+    color:var(--muted);cursor:pointer}
+  .grail:not(.grexpanded) .grlv:not(.grcur){display:none}
+  .grail:not(.grexpanded) .grsub{display:none}
+  .grail.grexpanded{max-height:82vh}
 }

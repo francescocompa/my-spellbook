@@ -835,7 +835,7 @@ function guideSteps(){
   // an unrecorded spend defaults to origin, exactly as featAcqLevels() reads it
   const originSpent=state.feats.filter(fk=>(featSlotOf(fk)||"origin")==="origin");
   for(let i=0;i<originCap;i++){const fk=originSpent[i];
-    add({lv:1,ord:3,kind:"feat",slot:"origin",label:"Origin feat",done:!!fk,
+    add({lv:1,ord:3,kind:"feat",slot:"origin",pos:i,label:"Origin feat",done:!!fk,
          value:fk?(FEAT_BY[fk]||{}).name:null,pool:{kind:"feat",slot:"origin"}});}
   // one class step per character level — the wizard's "continue or multiclass" answer
   // (D118(e)); every level the plan holds is a decision already made
@@ -881,7 +881,7 @@ function guideSteps(){
   spent.forEach(fk=>{const min=featSlotOf(fk)==="epic"?19:1;
     for(let i=0;i<slots.length;i++)if(!used[i]&&slots[i]>=min){used[i]=true;slotOf[i]=fk;break;}});
   slots.forEach((lv,i)=>{const fk=slotOf[i];
-    add({lv,ord:6,kind:"feat",slot:lv>=19?"epic":"general",done:!!fk,
+    add({lv,ord:6,kind:"feat",slot:lv>=19?"epic":"general",pos:originCap+i,done:!!fk,
          label:lv>=19?"Feat / ASI / Epic Boon":"Feat / ASI",
          value:fk?(FEAT_BY[fk]||{}).name:null,pool:{kind:"feat",slot:"general"}});});
   // optional-feature slots ride their progression's counts (D28), like optAcqLevels()
@@ -895,7 +895,7 @@ function guideSteps(){
       const d=(p.counts[cl-1]||0)-(cl>1?(p.counts[cl-2]||0):0);
       const got=byProg.get(p.name+"|"+lvls[cl-1])||[];
       for(let k=0;k<d;k++){const ok=got[k];
-        add({lv:lvls[cl-1],ord:6,kind:"optfeat",row:row.id,label:p.name,done:!!ok,
+        add({lv:lvls[cl-1],ord:6,kind:"optfeat",row:row.id,pos:k,label:p.name,done:!!ok,
              value:ok?(OPT_BY[ok]||{}).name:null,pool:{kind:"optfeat",types:[...p.types||[]]}});}}});}));
   // the growth affordance: the next class level is itself the next decision
   if(top<20)add({lv:top+1,ord:0,kind:"class",row:null,label:top?"Next level":"Class",
@@ -915,6 +915,209 @@ function guideSteps(){
 function guideResume(steps,desc){
   const list=desc?[...steps].reverse():steps;
   return list.find(s=>s.status!=="done"&&!s.optional)||null;
+}
+// ── the coach rail (F2 · D118(k)) ──────────────────────────────────────────
+// The chain rendered whole, grouped under level headers, jump-anywhere. The rail is
+// ephemeral UI over the stateless derivation above — closing it stores nothing
+// (D118(j)). Structural choices (class · subclass · feat-or-ASI · swap y/n) answer
+// INLINE under the current row; multi-pick decisions hand off to the real page,
+// pre-filtered to what is legal at that acquisition point (D118(b) — see renderSpells).
+// `cur` is a step KEY so it survives every re-render; `autonext` moves it along when
+// the step it points at gets answered on the page.
+let GUIDE={on:false,desc:false,cur:null,autonext:false,expanded:false};
+// identity that survives re-derivation: picks key on their array POSITION (stable
+// under acquisition moves), everything else on what places it
+function guideKey(s){
+  if(s.kind==="spell"||s.kind==="cantrip")return s.kind+"~"+s.row+"~"+s.pos;
+  if(s.kind==="feat")return "feat~"+s.pos;
+  if(s.kind==="optfeat")return "optfeat~"+s.row+"~"+s.label+"~"+s.lv+"~"+s.pos;
+  if(s.kind==="subclass")return "subclass~"+s.row;
+  if(s.kind==="class")return "class~"+s.lv;
+  return s.kind+"~"+s.lv;               // species (lv 1), swap (one per level)
+}
+function openGuide(desc){ GUIDE.on=true; GUIDE.desc=!!desc; GUIDE.cur=null; GUIDE.autonext=true;
+  render(); }
+function closeGuide(){ if(!GUIDE.on)return; GUIDE.on=false; GUIDE.cur=null; render(); }
+// the current pick step, if the page should pre-filter for it (renderSpells asks)
+function guidePickStep(){
+  if(!GUIDE.on||!GUIDE.cur)return null;
+  const s=(R&&R.gsteps||[]).find(x=>guideKey(x)===GUIDE.cur);
+  return s&&(s.kind==="spell"||s.kind==="cantrip")?s:null;
+}
+// jump the walk to a step: point the view at its level (slice editing, D115(d)),
+// focus the page surface that answers it, and remember it as current
+function guideGo(s){
+  GUIDE.cur=guideKey(s); GUIDE.autonext=!s.done;
+  const top=topCharLevel();
+  setPreview(s.lv>=top?null:s.lv);      // renders; the rail re-draws with cur set
+  if(s.kind==="spell"||s.kind==="cantrip")jumpTo($("#secSpells"));
+  else if(s.kind==="optfeat")jumpTo($("#optFeatBlock"));
+}
+function guideWalk(steps){ return GUIDE.desc?[...steps].reverse():steps; }
+function guideStepAfter(steps,key,pred){
+  const list=guideWalk(steps);
+  const i=list.findIndex(x=>guideKey(x)===key);
+  for(let k=i+1;k<list.length;k++)if(!pred||pred(list[k]))return list[k];
+  return null;
+}
+// resolve cur BEFORE the page renders: renderSpells pre-filters on the current pick
+// step, so the resolution cannot wait for the rail's own draw. Falls back to the
+// walk's resume point; auto-advances off a step the page just answered (the coach's
+// forward motion — never off a review jump, which sets autonext false).
+function guideSync(){
+  if(!GUIDE.on)return;
+  const steps=R.gsteps;
+  let cur=GUIDE.cur&&steps.find(x=>guideKey(x)===GUIDE.cur)||null;
+  if(!cur){cur=guideResume(steps,GUIDE.desc);GUIDE.cur=cur?guideKey(cur):null;GUIDE.autonext=true;}
+  else if(cur.done&&GUIDE.autonext){
+    const nx=guideStepAfter(steps,GUIDE.cur,x=>x.status!=="done"&&!x.optional)
+           ||guideResume(steps,GUIDE.desc);
+    if(nx&&guideKey(nx)!==GUIDE.cur)GUIDE.cur=guideKey(nx);
+  }
+}
+function renderGuide(){
+  const rail=$("#guideRail"); if(!rail)return;
+  document.body.classList.toggle("guiding",GUIDE.on);
+  if(!GUIDE.on){rail.classList.add("hidden");return;}
+  const steps=(R&&R.gsteps)||guideSteps();
+  rail.classList.remove("hidden");
+  rail.classList.toggle("grexpanded",GUIDE.expanded);
+  const cur=GUIDE.cur&&steps.find(x=>guideKey(x)===GUIDE.cur)||null;
+  const need=steps.filter(x=>!x.optional);
+  const doneN=need.filter(x=>x.done).length;
+  $("#grProg").textContent=doneN+" / "+need.length+" decided";
+  const top=topCharLevel();
+  $("#grSub").textContent=(GUIDE.desc?`Walking L${top} down to L1`:`Walking L1 up`)
+    +" — click any step to jump; everything is skippable (open slots stay flagged, never blocked).";
+  const all=$("#grAll"); all.textContent=GUIDE.expanded?"this level":"whole chain";
+  all.onclick=()=>{GUIDE.expanded=!GUIDE.expanded;renderGuide();};
+  const box=$("#grList"); const keep=box.scrollTop; box.innerHTML="";
+  // group under level headers — the chain's visible skeleton (D118(c))
+  const byLv=new Map();
+  steps.forEach(s=>{const a=byLv.get(s.lv)||[];a.push(s);byLv.set(s.lv,a);});
+  const lvs=[...byLv.keys()].sort((a,b)=>GUIDE.desc?b-a:a-b);
+  const rowOf=new Map(state.classes.map(r=>[r.id,r]));
+  lvs.forEach(lv=>{
+    const group=byLv.get(lv), g=el("div","grlv");
+    const cls=group.find(x=>x.kind==="class");
+    const h=el("div","grlvh"); h.append(el("b",null,"L"+lv));
+    if(cls&&cls.value)h.append(el("span",null,cls.value));
+    g.append(h);
+    if(cur&&cur.lv===lv)g.classList.add("grcur");
+    group.forEach(s=>{
+      const isCur=cur&&guideKey(s)===GUIDE.cur;
+      const b=el("button","grstep "+s.status+(s.optional?" optional":"")+(isCur?" cur":""));
+      const k=el("span","gs-k");
+      k.append(el("span","gs-lbl",s.label));
+      k.append(el("span","gs-val",s.value||(s.status==="skipped"?"skipped — still open":"to decide")));
+      b.append(k);
+      const st=el("span","gs-st");
+      st.append(icoEl(s.done?"check":s.status==="skipped"?"warn":"dot"));
+      b.append(st);
+      b.onclick=()=>{guideGo(s);};
+      g.append(b);
+      if(isCur){const inl=guideInline(s,rowOf);if(inl)g.append(inl);}
+    });
+    box.append(g);
+  });
+  box.scrollTop=keep;
+  // Back · Skip · Next walk the chain; Next seeks the next open decision
+  const back=$("#grBack"),skip=$("#grSkip"),next=$("#grNext");
+  const prev=cur&&(()=>{const list=guideWalk(steps);
+    const i=list.findIndex(x=>guideKey(x)===GUIDE.cur);return i>0?list[i-1]:null;})();
+  back.disabled=!prev; back.onclick=()=>prev&&guideGo(prev);
+  const nxAny=cur&&guideStepAfter(steps,GUIDE.cur,null);
+  skip.disabled=!nxAny; skip.onclick=()=>nxAny&&guideGo(nxAny);
+  const nxOpen=cur?(guideStepAfter(steps,GUIDE.cur,x=>x.status!=="done"&&!x.optional)
+                    ||(cur.status!=="done"?null:guideResume(steps,GUIDE.desc))):null;
+  next.textContent=nxOpen?"Next →":(doneN>=need.length?"All decided ✓":"Next →");
+  next.disabled=!nxOpen; next.onclick=()=>nxOpen&&guideGo(nxOpen);
+  $("#grClose").onclick=closeGuide;
+}
+// the inline answer block under the current row — structural choices only (D118(k));
+// pick steps answer on the page, so their block is just the hint
+function guideInline(s,rowOf){
+  const box=el("div","grinline");
+  if(s.kind==="class"&&!s.done){
+    const contId=s.pool.continueOf, cont=contId!=null?rowOf.get(contId):null;
+    const cc=cont&&CLS_BY[cont.clsKey];
+    if(cc){const b=el("button","btn on",`Continue ${cc.name} → level ${(cont.level||0)+1}`);
+      b.onclick=()=>{const plan=classLevelPlan();cont.level=Math.min(20,(cont.level||0)+1);
+        state.levelOrder=plan.concat([cont.id]);save();refreshAll();render();};
+      box.append(b);}
+    const sel=el("select");
+    sel.append(el("option","",cc?"…or take a level in another class":"choose a class"));
+    DATA.classes.filter(visible).forEach(c=>{const o=el("option",null,c.name);o.value=key(c.name,c.source);sel.append(o);});
+    sel.onchange=()=>{const ck=sel.value;if(!ck)return;
+      const plan=classLevelPlan();
+      const have=state.classes.find(r=>r.clsKey===ck);
+      if(have){have.level=Math.min(20,(have.level||0)+1);state.levelOrder=plan.concat([have.id]);}
+      else{const nr={clsKey:ck,subKey:null,level:1,id:state.nextRowId++};state.classes.push(nr);
+        state.levelOrder=plan.concat([nr.id]);}
+      save();refreshAll();render();};
+    box.append(sel);
+    return box;
+  }
+  if(s.kind==="subclass"&&!s.done){
+    const row=rowOf.get(s.row), c=row&&CLS_BY[row.clsKey]; if(!c)return null;
+    const subs=(SUBS_OF[row.clsKey]||[]).filter(visible);
+    const sel=el("select");
+    sel.append(el("option","","choose a subclass…"));
+    subs.forEach(sc=>{const o=el("option",null,sc.shortName||sc.name);o.value=key(sc.name,sc.source);sel.append(o);});
+    sel.onchange=()=>{if(!sel.value)return;row.subKey=sel.value;save();refreshAll();render();};
+    box.append(sel);
+    return box;
+  }
+  if(s.kind==="feat"&&!s.done){
+    const b=el("button","btn on","Choose a feat…");
+    b.onclick=()=>openEntityPicker("feat",s.slot==="epic"?"epic":s.slot==="origin"?"origin":"general");
+    box.append(b);
+    if(s.slot!=="origin")box.append(el("div","grhint",
+      "Or take the Ability Score Improvement instead — ability scores aren't tracked here, so taking the ASI just means skipping this step."));
+    return box;
+  }
+  if(s.kind==="swap"&&!s.done){
+    const row=rowOf.get(s.row), sched=row&&rowSched(row); if(!sched)return null;
+    const ch=state.chosen[s.row]||{};
+    const name=k2=>{const sp=SPELL_BY[k2];return sp?sp.name:String(k2).split("|")[0];};
+    const lvls=charLevelMap().get(s.row)||[];
+    const opts=[];
+    const gather=(arr,sa,kind)=>{(arr||[]).forEach((k2,i)=>{
+      if(acqAt(sa,i,lvls)<s.lv)opts.push({kind,key:unswap([k2],s.row,kind,s.lv-1)[0]});});};
+    if(sched.cant)gather(ch.cantrips,sched.cant,"cantrip");
+    if(sched.spells&&!sched.book)gather(ch.spells,sched.spells,"spell");
+    if(!opts.length){box.append(el("div","grhint","Nothing swappable was learned before this level."));return box;}
+    if((state.swaps||{})[s.lv]){box.append(el("div","grhint","This level already carries a swap — clear its pill in the timeline first."));return box;}
+    const sel=el("select");
+    sel.append(el("option","","swap away…"));
+    opts.forEach(o=>{const e2=el("option",null,(o.kind==="cantrip"?"cantrip · ":"")+name(o.key));
+      e2.value=o.kind+"~"+o.key;sel.append(e2);});
+    box.append(sel);
+    const b=el("button","btn","Arm the swap");
+    b.onclick=()=>{const v=sel.value;if(!v)return;const at=v.indexOf("~");
+      const kind=v.slice(0,at), out=v.slice(at+1);
+      SWAPARM={row:s.row,kind,out,level:s.lv,label:name(out)};
+      setPreview(s.lv>=topCharLevel()?null:s.lv);jumpTo($("#secSpells"));};
+    box.append(b);
+    box.append(el("div","grhint","One swap per level-up: the next "+(opts.some(o=>o.kind==="cantrip")?"pick":"spell")+" you take for this class records the trade. Passing on it is the other honest answer — just move on."));
+    return box;
+  }
+  if(s.kind==="species"&&!s.done){
+    const b=el("button","btn on","Choose a species…");
+    b.onclick=()=>openEntityPicker("species");
+    box.append(b); return box;
+  }
+  if((s.kind==="spell"||s.kind==="cantrip")&&!s.done){
+    box.append(el("div","grhint","The spell list below is filtered to what "
+      +(((rowOf.get(s.row)||{}).clsKey&&CLS_BY[rowOf.get(s.row).clsKey])||{name:"this class"}).name
+      +" can legally take at L"+s.lv+" — pick from it."));
+    return box;
+  }
+  if(s.kind==="optfeat"&&!s.done){
+    box.append(el("div","grhint","Pick it in the Optional features block on the page — jumped there for you."));
+    return box;
+  }
+  return null;
 }
 
 // ── custom spell sources (D55) ─────────────────────────────────────────────
@@ -1304,7 +1507,10 @@ function removeChosen(idx,spellKey){ const ch=state.chosen[idx];if(!ch)return;
 
 // ── render ───────────────────────────────────────────────────────────────
 let R=null, curTab="build";
-function render(){ maybeOnboard(); renderGapBar(); CASTMODS=activeCastMods(); R=compute(); R.health=buildHealth(); renderChoices(); renderSlots(); renderCart(); renderSpells(); renderFeatBudget(); renderJumpBar(); renderBuildSwitch(); renderSwapArm();
+function render(){ maybeOnboard(); renderGapBar(); CASTMODS=activeCastMods(); R=compute(); R.health=buildHealth();
+  R.gsteps=GUIDE.on?guideSteps():[];     // the guided chain follows every change too (F2)
+  guideSync();
+  renderChoices(); renderSlots(); renderCart(); renderSpells(); renderFeatBudget(); renderJumpBar(); renderBuildSwitch(); renderSwapArm(); renderGuide();
   if(TL.open)renderTimeline();           // the open timeline follows every change (E5)
   if(curTab==="table")renderTable(); save(); }
 
@@ -3959,19 +4165,11 @@ const lvTile=(kind,lvl,up,tip)=>{
 // pin. Clicking a row JUMPS the view; the popover stays open so levels can be walked.
 let TL={open:false,drag:null};   // drag: {type:"row",i} | {type:"chip",kind,rowId,key}
 function toggleTimeline(){ TL.open?closeTimeline():openTimeline(); }
-function openTimeline(){ TL.open=true; placeTimeline(); renderTimeline();
-  $("#tlPop").classList.remove("hidden"); }
+// a full modal since D122 — no chip anchoring, no scroll re-anchoring to maintain
+function openTimeline(){ TL.open=true; renderTimeline();
+  $("#tlModal").classList.remove("hidden"); }
 function closeTimeline(){ if(!TL.open)return; TL.open=false;
-  const p=$("#tlPop"); if(p)p.classList.add("hidden"); }
-// fixed-position, placed from the chip (the menus-in-scrollers rule); the phone sheet
-// position is CSS's (!important), so the inline numbers only matter on desktop
-function placeTimeline(){
-  const p=$("#tlPop"),chip=$("#clvlChip"); if(!p||!chip)return;
-  const w=Math.min(470,innerWidth-24), r=chip.getBoundingClientRect();
-  p.style.width=w+"px"; p.style.right="auto";
-  p.style.left=Math.max(12,Math.min(r.left,innerWidth-w-12))+"px";
-  p.style.top=Math.max(12,Math.min(r.bottom+8,innerHeight*0.22))+"px";
-}
+  const p=$("#tlModal"); if(p)p.classList.add("hidden"); }
 // the armed half of a level-up swap (E3 · D115(g)): "− this pick at level k" waits for
 // its replacement to be taken. Module state, cleared on record, cancel or build switch.
 let SWAPARM=null;   // {row, kind:"spell"|"cantrip", out:<key>, level, label}
@@ -4061,18 +4259,28 @@ function renderTimeline(){
   const cur=(typeof state.currentLevel==="number"&&state.currentLevel<total)?state.currentLevel:total;
   const picks=timelinePicks(), health=(R&&R.health)||buildHealth();
   const multi=state.classes.length>1;
-  $("#tlSub").textContent="click a level to view the build there";
-  // the quiet order-matters word (E7): named reasons, only where the order is load-bearing
+  // the quiet order-matters word (E7, folded into a gold flag by the title — D122):
+  // named reasons live in its tip, only on builds where the order is load-bearing
   const om=$("#tlOrder"), reasons=orderMatters();
-  if(om){ if(!reasons)om.classList.add("hidden");
-    else{ om.classList.remove("hidden");
-      om.textContent="Order matters in this build — "+reasons.join("; ")+". Drag the rows to change it."; } }
+  if(om){ om.innerHTML=""; detachTip(om);
+    if(!reasons)om.classList.add("hidden");
+    else{ om.classList.remove("hidden"); om.append(icoEl("warn"));
+      attachTip(om,tipBlock("Order matters in this build",
+        reasons.map(r=>r[0].toUpperCase()+r.slice(1)).join("; ")
+        +". Drag the rows to change which class each level was taken in.")); } }
   const commit=order=>{state.levelOrder=order; save(); refreshAll(); render();};
+  // run aggregation (D122): consecutive levels of one class read as a block — a
+  // per-class rail plus a closed gap — because reordering INSIDE a run changes nothing
+  const runColor=new Map(); plan.forEach(id=>{if(!runColor.has(id))runColor.set(id,runColor.size%4);});
+  const samePlan=(a,b)=>a.length===b.length&&a.every((x,k)=>x===b[k]);
+  const movedPlan=(from,to)=>{const o=plan.slice(),[mv]=o.splice(from,1);
+    o.splice(from<to?to-1:to,0,mv); return o;};
   plan.forEach((id,i0)=>{
     const i=i0+1, row=rowOf.get(id); if(!row)return;
     const cl=(perClass.get(id)||0)+1;      // advanced below, between the two slot reads
     const c=CLS_BY[row.clsKey];
-    const card=el("div","locard tlrow"+(i>cur?" zplan":"")+(i===cur?" zpin":"")+(i===view?" here":""));
+    const card=el("div","locard tlrow"+(i>cur?" zplan":"")+(i===cur?" zpin":"")+(i===view?" here":"")
+      +(multi?" runc"+runColor.get(id)+(i0>0&&plan[i0-1]===id?" runjoin":""):""));
     card.dataset.lv=String(i);
     if(multi){const g=icoEl("grip","logrip");card.append(g);card.draggable=true;}
     const body=el("div","lobody");
@@ -4096,20 +4304,19 @@ function renderTimeline(){
     if(gains.length)body.append(Object.assign(el("div","logains"),{textContent:gains.join(" · ")}));
     else body.append(Object.assign(el("div","logains dim"),{textContent:"no new features"}));
     card.append(body);
-    if(cast){const tiles=el("div","lotiles");
-      // the two clocks agree at most single-class levels — one tile then, two only
-      // when multiclassing (or Pact Magic) pulls them apart
+    // only the level that MOVED a clock states it (D122) — a quiet note, not a control;
+    // every unchanged level stays clean and the column reads as "what rose where"
+    if(cast&&(cast.spellUp||cast.slotUp)){const tiles=el("div","lotiles");
       if(cast.spell===cast.slot){
-        const up=cast.spellUp||cast.slotUp;
-        tiles.append(lvTile("cast",cast.spell,up,
-          tipBlock("Casting level"+(up?" — raised here":""),
-            "Max spell level and top slot agree here. They are two different clocks — the row shows them separately when multiclassing pulls them apart.")));
+        tiles.append(lvTile("cast",cast.spell,false,
+          tipBlock("Casting level — raised here",
+            "Max spell level and top slot agree here. They are two different clocks — the row notes them separately when multiclassing pulls them apart.")));
       } else {
-        tiles.append(lvTile("spell",cast.spell,cast.spellUp,
-          tipBlock("Max spell level"+(cast.spellUp?" — raised here":""),
+        if(cast.spellUp)tiles.append(lvTile("spell",cast.spell,false,
+          tipBlock("Max spell level — raised here",
             "The highest level this class can prepare, set by its OWN level. Multiclassing never raises it.")));
-        tiles.append(lvTile("slot",cast.slot,cast.slotUp,
-          tipBlock("Top slot level"+(cast.slotUp?" — raised here":""),
+        if(cast.slotUp)tiles.append(lvTile("slot",cast.slot,false,
+          tipBlock("Top slot level — raised here",
             "The highest slot you have, from your COMBINED caster level. Higher slots let you upcast; they don't widen the list.")));
       }
       card.append(tiles);}      // after the body, so they sit on the RIGHT edge
@@ -4185,14 +4392,16 @@ function renderTimeline(){
     card.ondragend=()=>{TL.drag=null;
       box.querySelectorAll(".locard").forEach(x=>x.classList.remove("dragging","dropinto"));};
     card.ondragover=e=>{ if(!TL.drag)return;
-      if(TL.drag.type==="row"&&TL.drag.i===i0)return;
+      // a row drop that would leave the plan IDENTICAL (any move inside a same-class
+      // run) is not a drop target at all (D122) — no highlight, nothing to pretend
+      if(TL.drag.type==="row"&&(TL.drag.i===i0||samePlan(movedPlan(TL.drag.i,i0),plan)))return;
       e.preventDefault(); e.dataTransfer.dropEffect="move"; card.classList.add("dropinto");};
     card.ondragleave=()=>card.classList.remove("dropinto");
     card.ondrop=e=>{ e.preventDefault(); card.classList.remove("dropinto");
       const d=TL.drag; if(!d)return;
       if(d.type==="row"){ if(d.i===i0)return;
-        const o=plan.slice(),[moved]=o.splice(d.i,1);
-        o.splice(d.i<i0?i0-1:i0,0,moved);
+        const o=movedPlan(d.i,i0);
+        if(samePlan(o,plan))return;
         commit(o); return;}
       // a chip: land its acquisition on this level, or refuse visibly — a silent
       // no-op on a drop is a dead control (the DOM-handler rule)
@@ -4421,7 +4630,12 @@ function renderSpells(){
   const wantAll=F.cls===ALL_SPELLS;
   const byClass=i=>wantAll||!F.cls||i.takers.some(t=>t.name===F.cls)||i.srcs.has(F.cls);
   const poolKeys=new Set(items.map(i=>key(i.sp.name,i.sp.source)));
-  const eligible=items.filter(i=>qmatch(i.sp)&&passesSp(i.sp)&&byClass(i));
+  // the guided pre-filter (F2 · D118(b)): while a pick step is current, only what is
+  // legal at that acquisition point — this class's takers, at a castable level
+  const gp=guidePickStep();
+  const guideOk=i=>!gp||(i.takers.some(t=>t.idx===gp.row)
+    &&(gp.kind==="cantrip"?i.sp.level===0:i.sp.level>=1&&i.sp.level<=(gp.pool.castMax||9)));
+  const eligible=items.filter(i=>qmatch(i.sp)&&passesSp(i.sp)&&byClass(i)&&guideOk(i));
   // Two ways a spell you can't take still shows up, always DIMMED and never pickable:
   // the explicit "every spell" option, and any search — a name you typed and can't find
   // is worse than one shown greyed with the reason (D40).
@@ -4446,6 +4660,16 @@ function renderSpells(){
   const dimNote=(extra.length&&!F.q)?` · ${extra.length} dimmed`:"";
   $("#spCount").textContent=eligible.length?nsp(eligible.length)+dimNote
     :(dimNote?`${extra.length} dimmed`:nsp(0));
+  // the guided note names WHY the list is narrowed, and for whom (F2)
+  const gn=$("#guideNote");
+  if(gn){ if(!gp)gn.classList.add("hidden");
+    else{ gn.classList.remove("hidden");
+      const row=state.classes.find(r=>r.id===gp.row), c=row&&CLS_BY[row.clsKey];
+      const cm=gp.pool.castMax||9;
+      gn.textContent=`Guided: choose a ${gp.kind==="cantrip"?"cantrip":"spell"} for `
+        +`${c?c.name:"this class"} at L${gp.lv}`
+        +(gp.kind==="spell"?(cm===1?` — only level 1 is legal there`:` — level 1–${cm} is legal there`):"")
+        +`. ${eligible.length} candidate${eligible.length===1?"":"s"} below; the guide's × lifts the filter.`; } }
   const byLvl={};items.forEach(i=>{(byLvl[i.sp.level]=byLvl[i.sp.level]||[]).push(i);});
   const list=$("#spellList");list.innerHTML="";
   if(!items.length){list.append(mkEmpty());return;}
@@ -5556,27 +5780,12 @@ $("#bImportFile").onchange=e=>{const f=e.target.files&&e.target.files[0]; if(!f)
 $("#bImportBox").addEventListener("drop",e=>{const f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];
   if(!f)return; const rd=new FileReader(); rd.onload=()=>doBuildImport(String(rd.result)); rd.readAsText(f);});
 $("#nbClose").onclick=()=>$("#newBuildModal").classList.add("hidden");
-// the timeline popover (E5): explicit close, outside click, Escape (with the other
-// dismissals), and any scroll outside it — a fixed popover doesn't travel with the page
+// the timeline modal (E5, a modal since D122): explicit close, backdrop click, Escape
+// (with the other dismissals). The strict `target===backdrop` check also keeps the
+// detached-target trap harmless: a click whose handler re-rendered its own target
+// bubbles up with a detached target, which can never equal the backdrop element.
 $("#tlClose").onclick=()=>closeTimeline();
-document.addEventListener("click",e=>{ if(!TL.open)return;
-  // a target no longer in the document means an inner handler re-rendered under the
-  // bubbling click — that click started INSIDE something, never treat it as outside
-  if(!document.contains(e.target))return;
-  if(e.target.closest("#tlPop")||e.target.closest("#clvlChip"))return;
-  closeTimeline();});
-// scrolling under a fixed popover: RE-ANCHOR it to the chip rather than close — a jump
-// re-renders the page and that alone fires scroll events, which must not kill the
-// popover mid-walk. Only the chip actually leaving the viewport closes it.
-let _tlRaf=0;
-addEventListener("scroll",e=>{ if(!TL.open)return;
-  const t=e.target;
-  if(t&&t.closest&&t.closest("#tlPop"))return;
-  if(_tlRaf)return;
-  _tlRaf=requestAnimationFrame(()=>{_tlRaf=0; if(!TL.open)return;
-    const chip=$("#clvlChip"), r=chip&&chip.getBoundingClientRect();
-    if(!r||r.bottom<0||r.top>innerHeight)closeTimeline(); else placeTimeline();});},true);
-addEventListener("resize",()=>{if(TL.open)placeTimeline();},{passive:true});
+$("#tlModal").onclick=e=>{ if(e.target===$("#tlModal"))closeTimeline(); };
 $("#csrcAdd").onclick=()=>openCsrc(null);
 $("#csrcClose").onclick=()=>$("#csrcModal").classList.add("hidden");
 $("#csrcSave").onclick=saveCsrc;

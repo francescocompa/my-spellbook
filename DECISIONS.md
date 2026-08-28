@@ -957,6 +957,39 @@ written up in full in `GOTCHAS.md` — that is the copy to trust.
   swap y/n a structural choice of the chain). Enforced by: src/app.js `guideSteps`/`guideResume`.
   Affects: PLAN F1/F2.
 
+- **D122 (2026-08-29) Timeline refinements v2, direct instruction while F2 shipped.** Raw note:
+  *"remove the note next to timeline; fix visually the x button; turn the popover into a full
+  fledged modal; move the alert to reorder as a note inside an alert icon popover next to title;
+  instead of featuring the Cast/spell/slot option at every level, feature them only at the level
+  where they change, and not as highlighted but in their dimmed state, currently they have a too
+  important visual hierarchy and seem like buttons; let's evaluate if there's a change we can do
+  to the draggable list in multiclass: … there should be a visual aggregation that facilitates
+  moving levels only when moving them matter ideally."*
+  - **(a) The timeline is a FULL MODAL** (standard `.modal` chrome — which also gives it the
+    standard ×, closing the "fix the x button" note by construction). D115(j)'s raw note
+    anticipated exactly this ("we can consider turning it into a proper modal…"). The chip
+    anchoring, the rAF scroll re-anchor and the document-level outside-click closer are GONE —
+    backdrop click (strict `target===backdrop`, detached-target-proof), Escape and × close it.
+    → **Gotcha** (both E5 popover entries updated so the machinery isn't restored).
+  - **(b) The header sub-note ("click a level…") is removed** — the rows teach themselves.
+  - **(c) E7's order-matters word moves into a GOLD FLAG beside the title**; the named reasons
+    and the "drag the rows" instruction live in its tip. Supersedes E7's gold-line surface;
+    E7's derivation (`orderMatters()`) is untouched.
+  - **(d) Casting tiles appear ONLY at the level that moved a clock, styled as dimmed notes**
+    (no border, no fill, no accent) — the tile's presence is the signal, and it can no longer
+    read as a control. In split mode only the clock that changed shows. *Rejected:* keeping
+    per-row tiles in a dimmed state (the repetition was the complaint, not just the weight).
+  - **(e) Multiclass run aggregation:** consecutive levels of one class share a per-class
+    coloured left rail and close ranks (2px joins vs 6px between runs), so a run reads as one
+    block; and a row drop whose resulting plan is IDENTICAL (any move inside a same-class run,
+    including onto its own boundary) is **not a drop target at all** — no highlight, no
+    pretend-move. *Rejected:* collapsing a run into a single draggable block (kills the
+    per-level rows the timeline exists for — picks, flags, tiles live on them); allowing the
+    drop and flashing the refuse animation (a control that accepts a gesture only to refuse it
+    is worse than one that never lights up).
+  Enforced by: src/index.html `#tlModal`, src/styles.css `.tlbox`/`.ordflag`/`.runc*`/`.lt`,
+  src/app.js `renderTimeline`/`openTimeline`. Affects: PLAN E5/E7 surface notes, GOTCHAS.md.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives
