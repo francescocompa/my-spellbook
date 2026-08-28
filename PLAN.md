@@ -17,19 +17,27 @@ The guided-builder requirement raised 2026-08-28 was designed the same day → *
 exists (not scoped): D76's Magical Secrets narrowing could report the EXACT window for ordered
 picks instead of best-case.
 
-- [ ] **E1 — order substrate + saved current level** (`sonnet@high`, M) — treat the
+- [x] **E1 — order substrate + saved current level** (**shipped v1.2.4**, done-when verified
+  in-browser: round-trip with order + pointer + swap, migration leaves `meta.updated` alone) — treat the
   `state.chosen`/`state.feats` array order as the acquisition order; add `state.currentLevel`;
   add the swap-event shape (at most one swap per character level, D115(g)); export/import +
   migration (old builds: order = array order, currentLevel = top). **Done when:** a build
   round-trips export→import with order, pointer and a swap intact, and old builds load unchanged.
-- [ ] **E2 — slice derivation** (`sonnet@high`, M) — per-class sticky-pick schedules (known
+- [x] **E2 — slice derivation** (**shipped v1.2.5**, done-when verified in-browser: 27 checks
+  over five fixtures — Bard 12, Fighter 10/Wizard 9 interleaved, Warlock 4/Fighter 4/Bard 12
+  with slots [4,11,15,19,20], Cleric 20, Sorcerer 15 metamagic — all pass; swap rewind both
+  sides) — per-class sticky-pick schedules (known
   counts, spellbook 2/level, cantrip gains, feat slots via `featSlotLevels()`) map order →
   acquisition character level; every `effLevel` consumer reads the slice; prepared lists stay
   derived (D18). App-side only — no extractor change. **Done when:** the level view lists exactly
   the sticky picks acquired by that level for the five D114 fixture builds.
 - [ ] **E3 — editing at any level** (`sonnet@high`, L) — add/remove become order-aware (a pick
   made standing at L7 inserts at L7's slice point); removal below top level defined; the level-up
-  swap recordable where RAW grants one. **Done when:** a pick added at L7 shows at L12 and not at
+  swap recordable where RAW grants one. *Partially shipped with E2 (v1.2.5): `toggle()` is
+  order-aware — adds insert at the slice point, a click on a later-acquired pick pulls it back
+  there, removing a visible pick removes it at every level, and editing a swapped-out display
+  entry is refused (that's the swap surface's job). Remaining: the swap-recording surface, and
+  any removal-semantics refinement beyond remove-everywhere.* **Done when:** a pick added at L7 shows at L12 and not at
   L6; a recorded swap shows −X at its level and +Y after; verified in-browser.
 - [ ] **E4 — consistency sweep + badge** (`sonnet@high`, M) — per-slice legality (counts vs class
   tables, spell level at acquisition, boons on 19+ slots, choice availability); one build-health

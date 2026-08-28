@@ -594,6 +594,109 @@ function dropRowSwaps(id){
   Object.keys(state.swaps||{}).forEach(k=>{if(state.swaps[k].row===id)delete state.swaps[k];});
 }
 
+// ── slice derivation (E2 · D115(b,c,h)) ────────────────────────────────────
+// Order + schedule = acquisition level. Each position of a sticky pick array (cantrips
+// for every caster; spells for KNOWN casters and the wizard BOOK) is acquired at the
+// first class level whose cumulative schedule admits it, mapped to a CHARACTER level
+// through the full level plan. Daily-prepared lists are not sticky (D18/D115(c)) and
+// pass through whole. Everything here DERIVES views — nothing may mutate state.
+function charLevelMap(){          // rowId -> [char level of class level 1, 2, …] (full plan)
+  const out=new Map();
+  classLevelPlan().forEach((id,i)=>{const a=out.get(id)||[];a.push(i+1);out.set(id,a);});
+  return out;
+}
+function topCharLevel(){return state.classes.reduce((a,r)=>a+(r.level||0),0)||1;}
+// a row's cumulative sticky schedules, indexed [classLevel-1]; spells:null = not sticky
+function rowSched(row){
+  const c=CLS_BY[row.clsKey]; if(!c)return null;
+  const sub=row.subKey?SUB_BY[row.subKey]:null;
+  let caster=c.caster,prepArr=c.prepared,cantArr=c.cantrips,stat=c.static;
+  if(!caster&&sub&&sub.caster){caster=sub.caster;prepArr=sub.prepared;cantArr=sub.cantrips;stat=sub.static;}
+  if(!caster)return null;
+  let spells=null;
+  if(c.spellbook){const a=[];let t=0;for(let k=0;k<20;k++){t+=c.spellbook[k]||0;a.push(t);}spells=a;}
+  else if(stat)spells=prepArr||null;
+  return {cant:cantArr||null,spells};
+}
+// the character level at which position i of a scheduled array is acquired; an
+// off-schedule position (wizard copies, over-budget picks) arrives at the row's top,
+// same as reverse-mode leftovers will (D118(g)) — nothing is hidden below its slice
+function acqAt(sched,i,lvls){
+  if(!sched)return topCharLevel();
+  for(let l=0;l<lvls.length;l++)if((sched[l]||0)>i)return lvls[l];
+  return lvls[lvls.length-1]||topCharLevel();
+}
+// swap events above L are un-applied newest-first on a DISPLAY COPY, so chains resolve:
+// X→Y at 5 and Y→Z at 9 shows X at L4, Y at L7, Z from L9 on (E1 shape, D115(g))
+function unswap(list,rowId,kind,L){
+  Object.entries(state.swaps||{}).map(([k,v])=>[+k,v])
+    .filter(([k,v])=>k>L&&v.row===rowId&&(v.kind||"spell")===kind)
+    .sort((a,b)=>b[0]-a[0])
+    .forEach(([,v])=>{const i=list.indexOf(v.in);if(i>=0)list[i]=v.out;});
+  return list;
+}
+// the view of a row's chosen lists at the preview level; the RAW object when not
+// previewing, so the un-previewed path keeps its live references and costs nothing
+function sliceChosen(row){
+  const ch=state.chosen[row.id]||{cantrips:[],spells:[]};
+  const L=PREVIEW.level; if(L==null)return ch;
+  const sched=rowSched(row)||{cant:null,spells:null};
+  const lvls=charLevelMap().get(row.id)||[];
+  const cut=(arr,sa,kind)=>unswap((arr||[]).filter((_,i)=>acqAt(sa,i,lvls)<=L),row.id,kind,L);
+  const out={cantrips:cut(ch.cantrips,sched.cant,"cantrip"),
+             spells:sched.spells?cut(ch.spells,sched.spells,"spell"):(ch.spells||[]).slice()};
+  // a prepared subset can only draw on the book as it exists at L
+  if(ch.prep){const book=new Set(out.spells);out.prep=(ch.prep||[]).filter(k=>book.has(k));}
+  return out;
+}
+// where a pick made STANDING AT L inserts (D115(d)): after every position acquired by L.
+// The schedule is cumulative, so acquisition level is monotone in position — the slice
+// boundary is a single index, and "visible" is exactly "position < sliceInsertAt".
+function sliceInsertAt(row,arr,L){
+  const ch=state.chosen[row.id]; if(!ch||!ch[arr])return 0;
+  const sched=rowSched(row)||{cant:null,spells:null};
+  const sa=arr==="cantrips"?sched.cant:sched.spells;
+  if(arr==="spells"&&!sa)return ch[arr].length;   // preparer list: daily, order is free
+  const lvls=charLevelMap().get(row.id)||[];
+  let n=0; ch[arr].forEach((_,i)=>{if(acqAt(sa,i,lvls)<=L)n++;});
+  return n;
+}
+// feats: origin slots are character level 1; general/epic spends fill the build's slot
+// levels in array order, earliest available slot first (best case, D18); anything past
+// the budget arrives at top — E4 flags it, nothing hides it (D31)
+function featAcqLevels(){
+  const slots=featSlotLevels(true), used=new Array(slots.length).fill(false);
+  const top=topCharLevel(), out=new Map();
+  state.feats.forEach(fk=>{
+    const cat=featSlotOf(fk)||"origin";
+    if(cat==="origin"){out.set(fk,1);return;}
+    const min=cat==="epic"?19:1;
+    let lv=null;
+    for(let i=0;i<slots.length;i++)if(!used[i]&&slots[i]>=min){used[i]=true;lv=slots[i];break;}
+    out.set(fk,lv==null?top:lv);
+  });
+  return out;
+}
+function featsAt(){ if(PREVIEW.level==null)return state.feats;
+  const acq=featAcqLevels(); return state.feats.filter(fk=>(acq.get(fk)||1)<=PREVIEW.level); }
+// optional features ride their progression's own counts (D28): position within the
+// progression → first class level with room, through the plan like every other schedule
+function optAcqLevels(){
+  const clm=charLevelMap(), top=topCharLevel(), out=new Map(), progs=[];
+  state.classes.forEach(row=>[CLS_BY[row.clsKey],row.subKey?SUB_BY[row.subKey]:null].forEach(src=>{
+    if(src&&src.optFeatures)src.optFeatures.forEach(p=>
+      progs.push({types:new Set(p.types),counts:p.counts||[],lvls:clm.get(row.id)||[],n:0}));}));
+  state.optFeats.forEach(ok=>{const o=OPT_BY[ok];
+    const p=o&&progs.find(x=>(o.types||[]).some(t=>x.types.has(t)));
+    if(!p){out.set(ok,top);return;}
+    const i=p.n++; let lv=null;
+    for(let l=0;l<p.lvls.length;l++)if((p.counts[l]||0)>i){lv=p.lvls[l];break;}
+    out.set(ok,lv==null?top:lv);});
+  return out;
+}
+function optFeatsAt(){ if(PREVIEW.level==null)return state.optFeats;
+  const acq=optAcqLevels(); return state.optFeats.filter(ok=>(acq.get(ok)||1)<=PREVIEW.level); }
+
 // ── custom spell sources (D55) ─────────────────────────────────────────────
 // A named thing the character OWNS that grants spells — a magic item, a boon, a
 // blessing. Lives inside the build (it travels with export), and resolves through
@@ -791,7 +894,9 @@ function compute(){
     o.freeCasts.forEach(g=>{if(g.srcIdx==null)g.srcIdx=r.idx;});
     gout.fixed.push(...o.fixed);gout.freeCasts.push(...o.freeCasts);gout.choices.push(...o.choices);
   });
-  state.feats.forEach(fk=>{const f=FEAT_BY[fk];if(f)resolveGrants(f.grants,charLevel,"f"+fk,f.name,gout,sharedStat,f.source);});
+  // sliced (E2): a feat or optional feature the build only acquires above the view
+  // level doesn't exist yet there — its grants, choices and forms come with it
+  featsAt().forEach(fk=>{const f=FEAT_BY[fk];if(f)resolveGrants(f.grants,charLevel,"f"+fk,f.name,gout,sharedStat,f.source);});
   // An optional feature is resolved outside the caster loop (a feat can grant one too), so
   // its owner is found by which class's progression opened the slot it fills — that is what
   // makes a Warlock's invocation spells part of Warlock. Tag by range rather than resolving
@@ -801,7 +906,7 @@ function compute(){
     casters.forEach(r=>[r.c,r.sub].filter(Boolean).forEach(sc=>
       (sc.optFeatures||[]).forEach(pr=>{ if(pr.types.some(t=>(o.types||[]).includes(t)))idx=r.idx; })));
     return idx;};
-  state.optFeats.forEach(ok=>{const o=OPT_BY[ok];if(!o)return;
+  optFeatsAt().forEach(ok=>{const o=OPT_BY[ok];if(!o)return;
     const f0=gout.fixed.length,c0=gout.freeCasts.length;
     resolveGrants(o.grants,charLevel,"o"+ok,o.name,gout,sharedStat,o.source);
     const own=optOwner(o); if(own==null)return;
@@ -847,7 +952,7 @@ function compute(){
   // caps per record + cart validation
   const caps={}; casters.forEach(r=>caps[r.idx]=capsFor(r));
   const cart={};
-  casters.forEach(r=>{ const ch=state.chosen[r.idx]||{cantrips:[],spells:[]};
+  casters.forEach(r=>{ const ch=sliceChosen(r.row);   // the view's lists (E2) — raw when not previewing
     const cp=caps[r.idx];
     const spItems=(ch.spells||[]).map(k=>SPELL_BY[k]).filter(Boolean);
     // Wizard-style spellbook. Unlike a daily caster, the book grows a FIXED amount per
@@ -941,9 +1046,25 @@ function toggle(idx,spellKey,cantrip,which){
   const arr=which||(cantrip?"cantrips":"spells");
   ch[arr]=ch[arr]||[];
   const i=ch[arr].indexOf(spellKey);
-  if(i>=0)ch[arr].splice(i,1); else ch[arr].push(spellKey);
+  const L=PREVIEW.level;
+  // standing at a previewed level, the order is load-bearing (E2 · D115(d)): an add
+  // inserts at L's slice point (the earliest open schedule slot — best case, D18); a
+  // click on a pick the build only acquires LATER pulls it back to that point instead
+  // of silently deleting it from a list where it never showed
+  if(L!=null&&arr!=="prep"){
+    const row=state.classes.find(r=>r.id===idx);
+    // a swapped-out display entry isn't in the array — editing it means editing the
+    // swap event, which is E3's surface; refuse rather than corrupt the chain
+    if(i<0&&Object.entries(state.swaps||{}).some(([k,v])=>+k>L&&v.row===idx
+       &&(v.kind||"spell")===(arr==="cantrips"?"cantrip":"spell")&&v.out===spellKey))return;
+    const at=row?sliceInsertAt(row,arr,L):ch[arr].length;
+    if(i>=at){ ch[arr].splice(i,1); ch[arr].splice(at,0,spellKey); save(); render(); return; }
+    if(i<0){ ch[arr].splice(at,0,spellKey); save(); render(); return; }
+  } else if(i<0){ ch[arr].push(spellKey); save(); render(); return; }
+  // i>=0 within the visible slice (or not previewing): a plain removal, at every level
+  ch[arr].splice(i,1);
   // dropping a spell from the book must not leave it prepared
-  if(arr==="spells"&&i>=0&&ch.prep){const j=ch.prep.indexOf(spellKey);if(j>=0)ch.prep.splice(j,1);}
+  if(arr==="spells"&&ch.prep){const j=ch.prep.indexOf(spellKey);if(j>=0)ch.prep.splice(j,1);}
   save(); render();
 }
 function removeChosen(idx,spellKey){ const ch=state.chosen[idx];if(!ch)return;
@@ -1079,7 +1200,7 @@ function renderPickList(){
   const lvBox=$("#pickLevels");
   if(lvBox)buildToggleRow(lvBox,presentLevels.map(l=>[String(l),l===0?"C":String(l)]),PICK.levelSet,true,renderPickList);
   const plb=$("#pickLevelBtn");if(plb)plb.innerHTML="Levels"+(PICK.levelSet.size?` <span class="badge">${PICK.levelSet.size}</span>`:"");
-  const cur = isClass ? new Set((state.chosen[PICK.classIdx]||{}).spells||[]) : new Set(state.choices[PICK.id]||[]);
+  const cur = isClass ? new Set(((R&&R.cart[PICK.classIdx])||state.chosen[PICK.classIdx]||{}).spells||[]) : new Set(state.choices[PICK.id]||[]);
   const pv=isClass?pickVerbs(PICK.classIdx,R.casters.find(r=>r.idx===PICK.classIdx)):null;
   const po=$("#pickOnly");if(po){po.classList.toggle("on",!!PICK.onlyPicked);
     po.innerHTML=(isClass?pv.n:"Picked")+(cur.size?` <span class="badge">${cur.size}</span>`:"");}
@@ -3811,7 +3932,8 @@ function renderSpells(){
   $("#fChosen").classList.toggle("on",F.chosen);
   const afc=activeFilterCount();$("#filterBtn").innerHTML="Filters"+(afc?` <span class="badge">${afc}</span>`:"");
 
-  const chosenKeys=new Set(); Object.values(state.chosen).forEach(c=>{(c.cantrips||[]).forEach(k=>chosenKeys.add(k));(c.spells||[]).forEach(k=>chosenKeys.add(k));});
+  // the sliced cart, not raw state (E2) — "chosen" at a previewed level means chosen BY it
+  const chosenKeys=new Set(); R.casters.forEach(r=>{const c=R.cart[r.idx]||{};(c.cantrips||[]).forEach(k=>chosenKeys.add(k));(c.spells||[]).forEach(k=>chosenKeys.add(k));});
   const qmatch=sp=>!F.q||sp.name.toLowerCase().includes(F.q.toLowerCase());
   // everything a spell can be judged on by itself — the eligibility check is separate,
   // because the two escape hatches below need to relax one without relaxing the other
@@ -3867,7 +3989,7 @@ function renderSpells(){
     byLvl[l].forEach(i=>g.append(mkSpell(i,chosenKeys)));list.append(g);}
 }
 // hover toolbar for a spell-level group: tracks picks at that level + quick clear
-function pickedAtLevel(l){return R.casters.reduce((a,rec)=>{const ch=state.chosen[rec.idx]||{};const arr=l===0?ch.cantrips:ch.spells;return a+((arr||[]).map(k=>SPELL_BY[k]).filter(s=>s&&s.level===l).length);},0);}
+function pickedAtLevel(l){return R.casters.reduce((a,rec)=>{const ch=R.cart[rec.idx]||{};const arr=l===0?ch.cantrips:ch.spells;return a+((arr||[]).map(k=>SPELL_BY[k]).filter(s=>s&&s.level===l).length);},0);}
 function clearLevel(l){R.casters.forEach(rec=>{const ch=state.chosen[rec.idx];if(!ch)return;["cantrips","spells"].forEach(a=>{ch[a]=(ch[a]||[]).filter(k=>{const s=SPELL_BY[k];return !(s&&s.level===l);});});});save();render();}
 function lvlTools(l){const t=el("div","lvltools");const n=pickedAtLevel(l);
   t.append(el("span","lvltools-n",n+(l===0?" known":" picked")));
@@ -4030,8 +4152,8 @@ function activeFormGrants(sp){
   const take=(rec)=>((rec&&rec.forms)||[]).forEach(g=>{
     if(String(g.spell||"").toLowerCase()!==want)return;
     out.push({giver:rec.name,mode:g.mode||"add",creatures:g.creatures||[]});});
-  (state.feats||[]).forEach(fk=>take(FEAT_BY[fk]));
-  (state.optFeats||[]).forEach(ok=>take(OPT_BY[ok]));
+  featsAt().forEach(fk=>take(FEAT_BY[fk]));
+  optFeatsAt().forEach(ok=>take(OPT_BY[ok]));
   return out;
 }
 // A 2014 ref carries no book, so it resolves to every book that prints that creature —
@@ -4306,7 +4428,7 @@ function mkSpell(i,chosenKeys){
   const seen=new Set();
   i.takers.forEach(t=>{ if(seen.has(t.idx))return; seen.add(t.idx);
     if(i.always&&i.always.has(t.idx))return;   // always-prepared by this class's own subclass/feature
-    const ch=state.chosen[t.idx];const on=ch&&(t.cantrip?ch.cantrips:ch.spells).includes(k);
+    const ch=R.cart[t.idx]||state.chosen[t.idx];const on=ch&&((t.cantrip?ch.cantrips:ch.spells)||[]).includes(k);
     const rec=R.casters.find(r=>r.idx===t.idx);if(!rec)return;
     // running count for this source's bucket (cantrips vs prepared/known), alert if over its forecast
     const bucket=t.cantrip?"cantrips":"spells";
@@ -4440,11 +4562,11 @@ const lc=x=>String(x||"").toLowerCase();
 const classLevelOf=name=>state.classes.reduce((a,r)=>{const c=CLS_BY[r.clsKey];
   return a+(c&&lc(c.name)===lc(name)?effLevel(r):0);},0);
 const hasCaster=()=>state.classes.some(r=>{const c=CLS_BY[r.clsKey];return c&&c.caster;});
-const pickedFeatNames=()=>state.feats.map(k=>FEAT_BY[k]).filter(Boolean).map(f=>lc(f.name));
-const pickedOptNames=()=>state.optFeats.map(k=>OPT_BY[k]).filter(Boolean).map(o=>lc(o.name));
+const pickedFeatNames=()=>featsAt().map(k=>FEAT_BY[k]).filter(Boolean).map(f=>lc(f.name));
+const pickedOptNames=()=>optFeatsAt().map(k=>OPT_BY[k]).filter(Boolean).map(o=>lc(o.name));
 const pickedSpellNames=()=>{const out=new Set();
-  Object.values(state.chosen).forEach(c=>[...(c.cantrips||[]),...(c.spells||[])].forEach(k=>{
-    const sp=SPELL_BY[k];if(sp)out.add(lc(sp.name));}));
+  state.classes.forEach(r=>{const c=sliceChosen(r);[...(c.cantrips||[]),...(c.spells||[])].forEach(k=>{
+    const sp=SPELL_BY[k];if(sp)out.add(lc(sp.name));});});
   Object.values(state.choices).forEach(v=>(Array.isArray(v)?v:[]).forEach(k=>{
     const sp=SPELL_BY[k];if(sp)out.add(lc(sp.name));}));
   return out;};
@@ -4539,9 +4661,11 @@ const ASI_LEVELS=[4,8,12,16];
 // pick of its own. Walking the level plan is what tells the two apart: `charLevel()>=19` alone
 // gave a boon to a build with no feat slot anywhere near 19, and capped at one a build whose
 // ASIs land on both 19 and 20. Returns the character level each slot arrives at.
-function featSlotLevels(){
+// `full` ignores the preview and walks the whole plan — the acquisition mapping (E2)
+// needs every slot the build will ever have, not just those visible at the view level
+function featSlotLevels(full){
   const plan=classLevelPlan();
-  const lim=PREVIEW.level==null?plan.length:Math.min(PREVIEW.level,plan.length);
+  const lim=(full||PREVIEW.level==null)?plan.length:Math.min(PREVIEW.level,plan.length);
   const byRow=new Map(state.classes.map(r=>[r.id,r]));
   const at=new Map(); const out=[];
   for(let i=0;i<lim;i++){
@@ -4562,7 +4686,8 @@ function featBudget(){
   const origin=(state.classes.length?1:0)+(isHuman?1:0);
   // attribution follows the slot the feat was SPENT from (D84), not its category: origin
   // is a subset of general, so an origin feat taken at an ASI is a general feat spent.
-  const inSlot=want=>state.feats.filter(fk=>featSlotOf(fk)===want).length;
+  const held=featsAt();                                // sliced (E2): spent means spent by L
+  const inSlot=want=>held.filter(fk=>featSlotOf(fk)===want).length;
   const originPicked=inSlot("origin"), epicPicked=inSlot("epic"), generalPicked=inSlot("general");
   // a boon SPENDS a feat slot, so the general row counts it too; `epic` is a sub-limit on how
   // many of those slots may be boons, not a pool beside them
@@ -4586,14 +4711,14 @@ function optSlots(){
       src.optFeatures.forEach(p=>{
         const cap=p.counts[Math.max(0,lv-1)]||0; if(!cap)return;
         const types=new Set(p.types);
-        const picked=state.optFeats.filter(k=>{const o=OPT_BY[k];return o&&o.types.some(t=>types.has(t));});
+        const picked=optFeatsAt().filter(k=>{const o=OPT_BY[k];return o&&o.types.some(t=>types.has(t));});
         out.push({name:p.name,types:p.types,cap,picked,giver:src.name,giverSrc:src.source});
       });};
   state.classes.forEach(row=>{const el0=effLevel(row); if(!el0)return;   // not yet taken in a preview
     const lv=Math.max(1,Math.min(20,el0));
     add(CLS_BY[row.clsKey],lv); add(row.subKey&&SUB_BY[row.subKey],lv);});
   // feats can grant them too (Eldritch Adept, Metamagic Adept, Martial Adept…)
-  state.feats.forEach(fk=>add(FEAT_BY[fk],Math.max(1,charLevel())));
+  featsAt().forEach(fk=>add(FEAT_BY[fk],Math.max(1,charLevel())));
   // one class taken twice can't stack the same feature line twice
   // the same feature line from two sources merges into one slot with the caps summed
   const merged=new Map();
