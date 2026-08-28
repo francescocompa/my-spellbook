@@ -20,7 +20,10 @@ def rich_strip(s):
         parts = body.split(" ", 1)
         rest = parts[1] if len(parts) > 1 else ""
         segs = rest.split("|")
-        return segs[0].strip() if segs and segs[0].strip() else rest
+        txt = segs[0].strip() if segs and segs[0].strip() else rest
+        # a display name may end in a [disambiguator] 5etools' own renderer drops
+        bare = re.sub(r"\s*\[[^\]]*\]$", "", txt).strip()
+        return bare if bare else txt
     prev = None; out = s
     while prev != out:
         prev = out; out = re.sub(r"\{@[^{}]+\}", repl, out)
@@ -32,6 +35,13 @@ def load(path):
 
 def spell_key(name, source):
     return f"{name.lower()}|{source.lower()}"
+
+# A record with no usable name can't be indexed (the app lowercases names at boot) —
+# skip it rather than emit a record that bricks buildIndexes(). Keep identical to
+# extract.js's validName.
+def valid_name(x):
+    n = x.get("name")
+    return isinstance(n, str) and bool(n.strip())
 
 def reprinted(obj):
     return bool(obj.get("reprintedAs"))
@@ -124,6 +134,7 @@ def flatten_entries(entries, strip=None):
 spells = {}
 for f in glob.glob(os.path.join(MIRROR, "spells", "spells-*.json")):
     for sp in load(f).get("spell", []):
+        if not valid_name(sp): continue
         src = sp.get("source", "")
         key = spell_key(sp["name"], src)
         dur = (sp.get("duration") or [{}])[0]
@@ -147,7 +158,9 @@ for f in glob.glob(os.path.join(MIRROR, "spells", "spells-*.json")):
             "higher": flatten_entries(sp.get("entriesHigherLevel")),
             "reprinted": reprinted(sp),
             "page": sp.get("page"),
-            "srd": bool(sp.get("srd52")),
+            # truthy = in SRD 5.2; a STRING is the spell's LICENSED name (5etools carries
+            # the SRD rename for the 17 product-identity spells) — _srd_subset applies it
+            "srd": (sp.get("srd52") or False),
             "cls": [], "sub": [], "feat": [], "race": [],
             # raw entries, kept only until creature sets are resolved (popped before emit):
             # rich_strip() eats {@creature}/{@filter} on the way into `desc`
@@ -423,7 +436,9 @@ for sp in spells.values():
     txt = _entry_text(sp)
     keys, seen = [], set()
     for name, src in CREATURE_RE.findall(txt):
-        cands = [_mon_key(name, src)] if src else mon_by_name.get(name.strip().lower(), [])
+        # a name-only ref can resolve to several sources; sort so the emission order is
+        # canonical rather than an accident of file-read order (parity with extract.js)
+        cands = [_mon_key(name, src)] if src else sorted(mon_by_name.get(name.strip().lower(), []))
         for k in cands:
             if k in mon_pool and k not in seen:
                 seen.add(k); keys.append(k)
@@ -810,6 +825,7 @@ classes = []
 for f in glob.glob(os.path.join(MIRROR, "class", "class-*.json")):
     d = load(f)
     for c in d.get("class", []):
+        if not valid_name(c): continue
         if EXCLUDE_CLASS(c["name"]): continue      # sidekicks aren't player classes
         cp = c.get("casterProgression")
         prepared = c.get("preparedSpellsProgression")
@@ -859,6 +875,7 @@ subclasses = []
 for f in glob.glob(os.path.join(MIRROR, "class", "class-*.json")):
     d = load(f)
     for sc in d.get("subclass", []):
+        if not valid_name(sc): continue
         if EXCLUDE_CLASS(sc.get("className", "")): continue
         rec = {"name": sc.get("name", ""), "shortName": sc.get("shortName", sc.get("name", "")),
                "source": sc.get("source", ""), "group": bgroup(sc.get("source", "")),
@@ -932,7 +949,11 @@ def merge_prose_grants(rec, kind, ident):
         rec["grants"] = g
     for k, v in extra.items():
         g.setdefault(k, [])
-        g[k] = list(g[k]) + [dict(x) for x in v]
+        # 5etools may have grown structured data for a hand-authored grant since the table
+        # was written (it did, for the school Savants) — a feature already present in the
+        # record must not be granted a second time. Keep identical to extract.js.
+        have = {x.get("feature") for x in g[k] if isinstance(x, dict) and x.get("feature")}
+        g[k] = list(g[k]) + [dict(x) for x in v if x.get("feature") not in have]
 
 # ---- casting-rule modifications (D85) -------------------------------------
 # A feature may change HOW you cast spells you ALREADY have — strip a component from a
@@ -1148,6 +1169,7 @@ EMPTY_GRANTS = {"fixed": [], "picks": [], "expansions": [], "optionGroups": [], 
 _featdata = load(os.path.join(MIRROR, "feats.json"))
 _featcats = (_featdata.get("_meta") or {}).get("featCategories") or {}
 for ft in _featdata.get("feat", []):
+    if not valid_name(ft): continue
     cat = ft.get("category", "G")
     fs_class = {"FS:R": "Ranger", "FS:P": "Paladin", "FS": "Fighter"}.get(cat)
     has_spells = "additionalSpells" in ft
@@ -1174,6 +1196,7 @@ for ft in _featdata.get("feat", []):
 optfeats = []
 _optpath = os.path.join(MIRROR, "optionalfeatures.json")
 for o in (load(_optpath).get("optionalfeature", []) if os.path.exists(_optpath) else []):
+    if not valid_name(o): continue
     has_spells = "additionalSpells" in o
     optfeats.append({"name": o["name"], "source": o.get("source", ""),
                      "group": bgroup(o.get("source", "")), "book": bname(o.get("source", "")),
@@ -1191,6 +1214,7 @@ for o in (load(_optpath).get("optionalfeature", []) if os.path.exists(_optpath) 
 races = []
 def emit_species(name, source, blocks, srd=False, page=None, base=None, lineage=None):
     """`base` is the parent species a lineage hangs off — the picker groups on it (D46)."""
+    if not isinstance(name, str) or not name.strip(): return   # see valid_name
     named = [b for b in (blocks or []) if b.get("name")]
     if len(named) > 1:
         for b in named:
@@ -1205,6 +1229,7 @@ def emit_species(name, source, blocks, srd=False, page=None, base=None, lineage=
 
 rd = load(os.path.join(MIRROR, "races.json"))
 for rc in rd.get("race", []):
+    if not valid_name(rc): continue
     emit_species(rc["name"], rc.get("source", ""), rc.get("additionalSpells"), bool(rc.get("srd52")),
                  rc.get("page"))
     if reprinted(rc) and races: races[-1]["reprinted"] = True
@@ -1286,6 +1311,21 @@ def _srd_subset():
             "optfeats": so, "monsters": smon, "fullMc": FULL_MC, "pact": PACT}
 
 srd = _srd_subset()
+# Product-identity names: SRD 5.2 renames 17 spells (Bigby's Hand → Arcane Hand …) and
+# 5etools carries the licensed name as the `srd52` string. The PUBLIC subset must use it
+# everywhere at once — the record itself, other spells' prose, and every grant that names
+# the spell — so the rename runs over the serialized subset, not field by field. The full
+# local digest keeps the real names.
+_ren = {sp["name"]: sp["srd"].strip() for sp in spells.values()
+        if isinstance(sp.get("srd"), str) and sp["srd"].strip()
+        and sp["srd"].strip() != sp["name"]}
+if _ren:
+    blob = json.dumps(srd, ensure_ascii=False, separators=(",", ":"))
+    for old, new in sorted(_ren.items(), key=lambda kv: -len(kv[0])):
+        blob = blob.replace(json.dumps(old, ensure_ascii=False)[1:-1],
+                            json.dumps(new, ensure_ascii=False)[1:-1])
+    srd = json.loads(blob)
+    print(f"SRD renames applied: {len(_ren)} product-identity spells")
 srd_path = os.path.join(os.path.dirname(__file__), "data", "data-srd.json")
 with open(srd_path, "w", encoding="utf-8") as f:
     json.dump(srd, f, ensure_ascii=False, separators=(",", ":"))

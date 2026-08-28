@@ -9,7 +9,7 @@
 Run `python extract.py` first to (re)generate data/data.json from a 5etools
 mirror; then `python build.py`.
 """
-import hashlib, json, os, shutil
+import hashlib, json, os, shutil, sys
 ROOT = os.path.dirname(os.path.abspath(__file__))
 
 def copy_icon(dest):
@@ -112,6 +112,12 @@ VERSION = read("VERSION").strip()
 data_json = read("data", "data.json")
 assert "</script" not in data_json.lower(), "data contains </script"
 
+# every inline step is an exact-string replace — a marker that silently fails to match
+# ships a page referencing files that don't exist beside it, so each must match exactly once
+def sub_once(html, marker, replacement):
+    assert html.count(marker) == 1, f"inline marker not found exactly once: {marker!r}"
+    return html.replace(marker, replacement)
+
 # 1. dev global for src/index.html
 with open(os.path.join(ROOT, "data", "data.js"), "w", encoding="utf-8") as f:
     f.write("window.__VERSION__=" + json.dumps(VERSION) + ";\n")
@@ -122,20 +128,22 @@ html = read("src", "index.html")
 css  = read("src", "styles.css")
 appjs = read("src", "app.js")
 extractjs = read("src", "extract.js")
-html = html.replace('<link rel="stylesheet" href="styles.css">',
-                    "<style>\n" + css + "\n</style>")
-html = html.replace('<script src="extract.js"></script>',
-                    "<script>\n" + extractjs + "\n</script>")
-html = html.replace('<script src="app.js"></script>',
-                    "<script>\n" + appjs + "\n</script>")
+for nm, txt in (("app.js", appjs), ("extract.js", extractjs), ("styles.css", css)):
+    assert "</script" not in txt.lower(), f"{nm} contains </script"
+html = sub_once(html, '<link rel="stylesheet" href="styles.css">',
+                "<style>\n" + css + "\n</style>")
+html = sub_once(html, '<script src="extract.js"></script>',
+                "<script>\n" + extractjs + "\n</script>")
+html = sub_once(html, '<script src="app.js"></script>',
+                "<script>\n" + appjs + "\n</script>")
 
 # 2a. dist/index.html — self-contained, WITH baked data (personal offline build)
-dist = html.replace('<script src="../data/data.js"></script>',
-                    "<script>window.__VERSION__=" + json.dumps(VERSION)
-                    + ";window.__DATA__=" + data_json + ";</script>")
+dist = sub_once(html, '<script src="../data/data.js"></script>',
+                "<script>window.__VERSION__=" + json.dumps(VERSION)
+                + ";window.__DATA__=" + data_json + ";</script>")
 # no manifest and no worker: dist/ is opened by double-click over file://, where a
 # service worker cannot register and an install prompt has no origin to attach to
-dist = dist.replace("<!--PWA-->", "")
+dist = sub_once(dist, "<!--PWA-->", "")
 os.makedirs(os.path.join(ROOT, "dist"), exist_ok=True)
 with open(os.path.join(ROOT, "dist", "index.html"), "w", encoding="utf-8") as f:
     f.write(dist)
@@ -146,9 +154,14 @@ copy_icon("dist")
 srd_file = os.path.join(ROOT, "data", "data-srd.json")
 srd_js = "window.__PUBLIC__=1;window.__VERSION__=" + json.dumps(VERSION) + ";"
 if os.path.exists(srd_file):
-    srd_js += "window.__DATA__=" + read("data", "data-srd.json") + ";"
-shell = html.replace('<script src="../data/data.js"></script>', "<script>" + srd_js + "</script>")
-shell = shell.replace("<!--PWA-->", PWA_HEAD)
+    srd_json = read("data", "data-srd.json")
+    assert "</script" not in srd_json.lower(), "SRD data contains </script"
+    srd_js += "window.__DATA__=" + srd_json + ";"
+else:
+    print("WARNING: data/data-srd.json is missing — the docs build will bake NO data",
+          file=sys.stderr)
+shell = sub_once(html, '<script src="../data/data.js"></script>', "<script>" + srd_js + "</script>")
+shell = sub_once(shell, "<!--PWA-->", PWA_HEAD)
 os.makedirs(os.path.join(ROOT, "docs"), exist_ok=True)
 with open(os.path.join(ROOT, "docs", "index.html"), "w", encoding="utf-8") as f:
     f.write(shell)

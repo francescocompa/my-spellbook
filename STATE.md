@@ -7,7 +7,7 @@
 > |---|---|
 > | `CLAUDE.md` | What this project is, its conventions, build/run, the verify gate, versioning |
 > | `PLAN.md` | The queue — what is next and what is gated |
-> | `DECISIONS.md` | Every decision D7–D115 and what was rejected |
+> | `DECISIONS.md` | Every decision D7–D117 and what was rejected |
 > | `GOTCHAS.md` | Traps that have already cost a session |
 > | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 > | `ARCHIVE.md` | Bodies of consumed phases and old rationale |
@@ -37,13 +37,10 @@
   remove → store restored exactly; five feat-budget builds); parity 0 fail. Print/PDF surface
   (D97–D108) unchanged. `.claude/launch.json` is now an **attach** config — the preview sandbox
   cannot spawn `serve.py`, so start it from Bash first (v1.6, `CLAUDE.md`).
-- **Next action:** 🔶 **the "seamless at every level" design session** (**D115**, requested
-  2026-08-28) — multi-step back-and-forth, not a patch. D114 made the level **order** load-bearing
-  (which character level a slot arrives at decides whether it can be a boon) and the default
-  "each class in full, in row order" stands only *for now*, by Francesco's call. Reaches the level
-  plan, the preview (D54/D64), retraining, and what a build means below its top level.
-  **Done when:** the model is a decision entry with task lines behind it. The 🔶 **magic-item /
-  reward import** decision is still queued behind it in `PLAN.md`.
+- **Next action:** **E1** (phase E — a build at every level). The D115 design session ran
+  2026-08-28 and is **DECIDED**: level is a parameter, versions are alternatives — the model is
+  D115(a–j) in `DECISIONS.md`, the task lines are E1–E8 in `PLAN.md`. The 🔶 **magic-item /
+  reward import** decision is no longer gated and awaits Francesco's call.
 - **Manual for Francesco:** ⓪ **Refresh your imported data — now one click**: ⋯ → **Refresh
   imported data** in each browser (choose the folder once if asked). It re-parses with the
   current extractor: heals the Imp's raw tag, and carries D109 familiar forms, D91 access,
@@ -71,10 +68,11 @@ https://claude.ai/code/artifact/47dbe945-a18a-4444-af21-c0143faa2eb0
 
 ## Now
 
-**Nothing in flight.** v7 (saved builds) is complete — T1–T5 and T7, all six task bodies and
-the storage shape → `ARCHIVE.md#v7-tasks`. Its **non-goals still stand**: no level-by-level
-timeline (versions are named copies the app never orders), no server sync or accounts, no
-sharing a build as a page or URL (D36).
+**Phase E is the plan of record** (D115). v7 (saved builds) is complete — T1–T5 and T7, all six
+task bodies and the storage shape → `ARCHIVE.md#v7-tasks`. Non-goals as narrowed by D115: no
+**authored** timeline (the level view is derived from the acquisition order; versions are
+alternatives, never levels), no server sync or accounts, no sharing a build as a page or URL
+(D36).
 
 The queue is `PLAN.md`; the next action is the 🔶 in the TL;DR.
 
@@ -87,5 +85,3 @@ Split out of this file on 2026-08-27 so the resume read is short. Nothing was dr
 - → moved: the Backlog — `PLAN.md`
 - → moved: Build / run — `CLAUDE.md`
 - → moved: the Shipped list — `CHANGELOG.md`
-
-⟳ Rename previous session → "Library modal, refresh and epic boons" · session: resolve by cwd + latest

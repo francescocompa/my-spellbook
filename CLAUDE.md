@@ -20,7 +20,7 @@ same thing, one of them is wrong:
 | `CLAUDE.md` (this) | What the project is, conventions, build/run, the verify gate, versioning |
 | `STATE.md` | Where things stand right now, and what is blocked on Francesco |
 | `PLAN.md` | The queue — what is next, what is gated |
-| `DECISIONS.md` | Every decision D7–D115 and the options rejected with them |
+| `DECISIONS.md` | Every decision D7–D117 and the options rejected with them |
 | `GOTCHAS.md` | Traps that have already cost a session. **Read before touching the extractors, the importer, grants resolution or any DOM handler.** |
 | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 | `ARCHIVE.md` | Bodies of consumed phases and old rationale — stubs in the live docs point here |
@@ -79,12 +79,17 @@ for two sessions — never re-implement one there.
 `data.js`, `dist/` and `docs/`; `app.js` renders it as a tag at the head of the footer, so any
 page — including a printed sheet — names the code that made it.
 
-- **Every commit bumps it**: `python3 bump.py` (1.4 → 1.5), which also rebuilds. A version
-  nothing was built with lies in the footer.
-- **MAJOR.MINOR, minor is a plain counter** — 1.9 is followed by 1.10, not 2.0.
+- **Every commit bumps it**: `python3 bump.py` (patch, 1.2.1 → 1.2.2), which also rebuilds.
+  A version nothing was built with lies in the footer.
+- **MAJOR.MINOR.PATCH (D117)** — patch for day-to-day fixes and small batches (the
+  once-per-commit default); `--minor` for larger batches that ship features; `--major`
+  for overhauls and massive reworks only.
 - **The major only moves when Francesco says so.** Ask; never take `--major` on your own.
-- Commit messages lead with the version: `v1.5 — what changed`.
-- The pre-1.0 line (v4 → v7) is tagged in place, not rewritten. `CHANGELOG.md` maps it.
+- Commit messages lead with the version: `v1.2.2 — what changed`. Release commits are
+  tagged (`git tag v1.2.2`) and tags are pushed.
+- The pre-semver lines are tagged in place, never rewritten: the pre-1.0 line (v4 → v7)
+  and the two-part 1.x line (1.0 → 1.8, retro-tagged v1.0.0 → v1.2.1). `CHANGELOG.md`
+  maps both.
 
 ## How to work here
 
@@ -103,7 +108,8 @@ page — including a printed sheet — names the code that made it.
 
 ## What this is not
 
-Non-goals, still standing: no level-by-level timeline (versions are named copies the app never
-orders); no server sync or accounts; no sharing a build as a page or URL (D36); no full bestiary
-(D78 carries a bounded creature set). Ability scores and proficiency are **not modelled** —
+Non-goals, still standing: no **authored** level-by-level timeline — per-level truth is a view
+derived from the acquisition order, and versions are alternative builds, never levels (D115
+narrowed this; per-pick stamps stay rejected); no server sync or accounts; no sharing a build as
+a page or URL (D36); no full bestiary (D78 carries a bounded creature set). Ability scores and proficiency are **not modelled** —
 anything needing them is left blank for a human rather than guessed.

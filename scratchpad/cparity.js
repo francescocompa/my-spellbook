@@ -47,7 +47,8 @@ const exList=d=>(d.feats||[]).filter(f=>(f.prereqs||[]).some(b=>(b.exclusiveCat|
   .map(f=>f.name+"|"+f.source+"|"+(f.prereqs.flatMap(b=>b.exclusiveCat||[]).join(","))).sort().join(";");
 cmp("category-exclusive feats",exList(digest),exList(py));
 const prqText=d=>(d.feats||[]).map(f=>f.name+"|"+f.source+"|"+(f.prereq||"")).sort().join(";");
-cmp("feat prereq text",prqText(digest).length,prqText(py).length);
+// byte-identical, not merely same length — a length compare passes a reworded prereq
+cmp("feat prereq text (byte-identical)",prqText(digest)===prqText(py),true);
 const modList=d=>[].concat(d.classes||[],d.subclasses||[]).filter(e=>e.castMods)
   .map(e=>(e.shortName||e.name)+"|"+e.source+"|"+e.castMods.map(m=>m.feature+"/"+m.drop+"/"+(m.when||"-")).join(","))
   .sort().join(";");
@@ -104,6 +105,41 @@ const gkey={classes:e=>e.name+"|"+e.source,
   cmp("feature form grants",jf.length,pf.length);
   if(jf!==pf){fail++;console.log("FAIL form grants differ\n  js:",jf.slice(0,220),"\n  py:",pf.slice(0,220));}
   else console.log("ok   form-grant records:",jf?jf.split(";").length:0);
+}
+// ── whole-record diff — every array, every field (audit 2026-08-28) ────────
+// The curated checks above catch the drift classes that have already bitten (grants,
+// access, forms, prereqs); this one catches the NEXT one — monster text, spell scalars,
+// casting fields — without naming it in advance. Canonical form: keys sorted,
+// `undefined` ≡ absent (structured clone keeps it, JSON drops it — the app reads both
+// the same), and extract.py's own `srd` output field (it powers the SRD subset; the
+// importer has no use for it) skipped.
+{
+  const canon=v=>{ if(Array.isArray(v))return "["+v.map(x=>x===undefined?"null":canon(x)).join(",")+"]";
+    if(v&&typeof v==="object")return "{"+Object.keys(v).filter(k=>k!=="srd"&&v[k]!==undefined).sort()
+      .map(k=>JSON.stringify(k)+":"+canon(v[k])).join(",")+"}";
+    return JSON.stringify(v); };
+  const showDiff=(k,a,b)=>{let i=0;while(i<a.length&&a[i]===b[i])i++;
+    console.log("     e.g.",k,"@"+i,"\n       js:",a.slice(Math.max(0,i-40),i+120),"\n       py:",b.slice(Math.max(0,i-40),i+120));};
+  const rkey={spells:s=>String(s.name).toLowerCase()+"|"+String(s.source).toLowerCase(),
+    classes:e=>e.name+"|"+e.source,
+    subclasses:e=>e.className+"|"+(e.shortName||e.name)+"|"+e.source,
+    feats:e=>e.name+"|"+e.source,races:e=>e.name+"|"+e.source,optfeats:e=>e.name+"|"+e.source};
+  Object.keys(rkey).forEach(arr=>{
+    const jm={},pm={};
+    (digest[arr]||[]).forEach(e=>{jm[rkey[arr](e)]=canon(e);});
+    (py[arr]||[]).forEach(e=>{pm[rkey[arr](e)]=canon(e);});
+    const shared=Object.keys(jm).filter(k=>k in pm);
+    const diff=shared.filter(k=>jm[k]!==pm[k]);
+    cmp(`whole-record diff · ${arr} (of ${shared.length})`,diff.length,0);
+    if(diff.length)diff.slice(0,3).forEach(k=>showDiff(k,jm[k],pm[k]));
+  });
+  const jm={},pm={};
+  Object.entries(digest.monsters||{}).forEach(([k,v])=>{jm[k]=canon(v);});
+  Object.entries(py.monsters||{}).forEach(([k,v])=>{pm[k]=canon(v);});
+  const shared=Object.keys(jm).filter(k=>k in pm);
+  const diff=shared.filter(k=>jm[k]!==pm[k]);
+  cmp(`whole-record diff · monsters (of ${shared.length})`,diff.length,0);
+  if(diff.length)diff.slice(0,3).forEach(k=>showDiff(k,jm[k],pm[k]));
 }
 console.log("report:",JSON.stringify(report).slice(0,160));
 process.exit(fail?1:0);

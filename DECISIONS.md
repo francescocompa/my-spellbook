@@ -121,8 +121,10 @@
   each pick with `atLevel` was chosen first and then **rejected on Francesco's own objections,
   which are correct**: planning at level 20 first leaves every pick unstamped, and a stamp cannot
   express **retraining** — a spell gained, dropped and regained needs intervals per pick, which
-  would touch every budget check, the whole UI and the export format. Versions already do this
-  correctly and already export. The preview stays a viewer.
+  would touch every budget check, the whole UI and the export format. ~~Versions already do this
+  correctly and already export. The preview stays a viewer.~~ **The save-as-version mechanism
+  and the viewer-only preview are SUPERSEDED → D115(i,d); the core — no per-pick stamps — is
+  REAFFIRMED by D115(b,h)** (per-level truth is an order, sliced, never a stamp).
 - **D65 (2026-08-26) Custom sources model how items actually work** — kind is **free text**. A
   source spends **either a shared pool** ("10 charges, regains 1d6+4 at dawn", each spell costing
   N — how most magic items work) **or per-spell uses** (a boon's 1/long rest). It may carry **its
@@ -472,11 +474,15 @@ written up in full in `GOTCHAS.md` — that is the copy to trust.
 - **D52** The build switcher lives in the header beside the title, and goes through
   `switchBuild()` so T2's dialog still fires. *Rejected:* burying it in the ⋯ menu (T4 asks for
   it to be visible); replacing the app title on a phone. Regrouped by D87.
-- **D54** Level preview: plan at full level, look at any level below it. View-only, never saved;
-  multiclass runs through the saved `state.levelOrder`. *Rejected:* versions-as-levels; a true
-  level timeline (the standing non-goal). → Gotcha, and D64 settled what it is NOT.
-- **D59** The level-order panel is a **single column** of draggable level cards at every width —
-  the list is a sequence, and columns break the reading of it. *Rejected:* a `<select>` grid.
+- **D54** Level preview: plan at full level, look at any level below it. ~~View-only, never
+  saved~~ **SUPERSEDED → D115(d,e)** — the level view is editable and the current level is saved;
+  multiclass still runs through the saved `state.levelOrder`. *Rejected:* versions-as-levels; a
+  true level timeline (the standing non-goal, narrowed by D115(b)). → Gotcha, and D64 settled
+  what it is NOT.
+- **D59** ~~The level-order panel~~ **SUPERSEDED → D115(j)** — the surface moves into the
+  timeline popover; the rule transfers: the level sequence is a **single column** of draggable
+  rows at every width — the list is a sequence, and columns break the reading of it.
+  *Rejected:* a `<select>` grid.
 - **D60** A level gate is a lock icon + the level, never prose. **Reuse `lockChip()` for anything
   gated on a level.** A label carrying a chip ellipsizes rather than wrapping.
 - **D61** The Build/Table switch is a fixed size — each label reserves the width of its own bold
@@ -745,14 +751,96 @@ written up in full in `GOTCHAS.md` — that is the copy to trust.
   → Gotcha. *Rejected:* keeping the two pools separate and merely raising the cap (it would still
   invent a feat the character does not have); counting boons by class level 19 alone (correct for
   single-class, but it denies the level-19/20 ASIs that legally qualify).
-- **D115 (2026-08-28) OPEN — 🔶 a build that works seamlessly at every level.** D114 exposed that
-  the *order* levels were taken in is now load-bearing: which character level a feat slot arrives
-  at decides whether it may be a boon, and with no explicit order `classLevelPlan()` falls back to
-  "each class in full, in row order". Francesco: **"it's ok how it works right now multiclass by
-  default"** — the fallback stands for now — and wants **"a greater multi-step back and forth
-  design session to readdress the possibility of a multi level build that works seamlessly at
-  every level."** Parked as a design session, not a patch; it reaches the level plan, the preview
-  (D54/D64), retraining and version copies. ⚑ (owner: Francesco, 2026-08-28)
+- **D115 (2026-08-28) DECIDED — a build works at every level: LEVEL IS A PARAMETER, VERSIONS ARE
+  ALTERNATIVES.** Mechanism: design session, AskUserQuestion × 5 rounds + 2 mockup iterations
+  (2026-08-28). Trigger stands as recorded: D114 made the level order load-bearing, and the old
+  preview was "weak level-by-level tools" whose only save path was a version copy. The model:
+  - **(a) Jobs.** One build usable at any level · track a live character · reference/print at any
+    level. *Not picked:* legality-validation as a goal of its own (it arrives as a by-product of
+    (f)). Raw note: *"keep the variant as true alternative builds variants, while level becomes a
+    'slider' or parameter and a build can be viewed at any given level below its top level."*
+  - **(b) The non-goal narrows, not dies.** "No level-by-level timeline" now means **no AUTHORED
+    timeline artifact**. Per-level truth comes from an **acquisition ORDER** — the existing
+    `state.chosen`/`state.feats` array order made meaningful — normalized like `classLevelPlan()`
+    (no invalid state), sliced at any level; the timeline is a **derived view**. *Rejected:*
+    per-pick `atLevel` stamps (D64's objections stand — reaffirmed, not superseded); app-derived
+    best-case loadouts (the L5 view would be the app's guess, not the character; kills jobs a/b);
+    linked LV-version careers (manual upkeep, edits at 20 never reach the L5 copy).
+  - **(c) Sticky picks only.** Known spells, spellbook entries, feats, fixed choices carry
+    per-level truth; daily-prepared lists stay freely derivable at every level (D18). *Rejected:*
+    recording prepared lists (records what the rules let you change daily).
+  - **(d) The slider is EDITABLE at any level.** Standing at L7, a new pick inserts at L7's slice
+    point; upper views inherit it. Raw note: *"it should detect inconsistencies so that they can
+    be fixed at any level maintaining overall build consistency on the D&D character building
+    ground rules."* *Rejected:* view-only lens (the very weakness that triggered this);
+    append-only editing (a live swap still forces a jump to top).
+  - **(e) A build saves its CURRENT level** and opens there; the plan above stays intact.
+    *Rejected:* ephemeral scrub only.
+  - **(f) Consistency = build-wide sweep + badge.** Every level slice is checked (pick counts vs
+    class tables, spell level available at acquisition, boons on 19+ slots, choices available when
+    features arrive); one badge names the offending levels; per-level flags when standing there.
+    Soft throughout (D31). *Rejected:* per-level-only flags; an on-demand check action.
+  - **(g) Retraining = swap-at-level-up only.** A level event may carry one swap (−X +Y) where
+    RAW grants one (known casters; cantrip/feature swap rules ride the same shape); the wizard
+    spellbook is add-only. *Rejected:* add-only with removal-erases-history (lies to jobs a/c);
+    full per-pick intervals (exactly the cost D64 priced — not justified).
+  - **(h) Mapping is a PURE SLICE, no pins.** Order + each class's acquisition schedule fully
+    determine every level; off-schedule acquisitions belong to custom sources. *Rejected:*
+    per-pick level pins (stamps by the side door).
+  - **(i) Fork replaces save-as-version.** `savePreviewAsVersion` is repurposed to **fork a
+    VARIANT here** — an alternative branching at the slice, truncated and named as such. Existing
+    "· LV5" copies stay ordinary variants (no migration); printing at a scrubbed level becomes
+    first-class (the "not a saved version" print note goes). *Rejected:* removing forking; keeping
+    the level/variant double meaning.
+  - **(j) Surface = chip + timeline POPOVER** (mockup round; chosen over a full-width level rail,
+    cards-as-scrubber, and a rail+cards hybrid — the chip-and-popover is the app's own language,
+    D57/D66). Chip reads "L7 / 20" + ⚠; the popover is a jumpable timeline: zone tinting
+    (history · current pin · plan), **draggable rows absorb level-order editing and retire the
+    D59 panel** (its single-column rule transfers), **pick chips on rows** draggable between rows
+    to move acquisition, swap pills, footer actions *fork a variant here* · *set as current
+    level*. Raw notes: *"we can consider turning it into a proper modal if it features too many
+    details and interactions"* · *"picks acquisition still needs another control in the app"*
+    (acquiring stays in the spell browser; chips only reorder).
+  Supersedes: D54's view-only/never-saved clause → (d)/(e); D59's panel → (j); D64's
+  save-as-version mechanism → (i) (its versions-not-stamps core is reaffirmed by (b)).
+  Enforced by: prose + PLAN.md phase E task lines; once built, the E4 sweep is the guard.
+  Affects: PLAN.md (phase E), CLAUDE.md + STATE.md non-goals wording, src/app.js when built.
+- **D116 (2026-08-28) Audit-batch dispositions** (two-lane audit, AskUserQuestion × 2 rounds;
+  the fix-safe findings needed no decision and shipped in v1.2.2 — `CHANGELOG.md` lists them):
+  - **(a) The public build renames the 17 product-identity spells** to the licensed SRD names
+    5etools carries in `srd52` (Bigby's Hand → Arcane Hand …), applied over the whole
+    serialized subset so prose and grants follow; the full local digest keeps real names.
+    Raw note: *"Check the 5etools folders to see if there is already a series of SRD-only
+    documents and let's embed those. If not, rename manually to SRD names"* — the mirror has
+    no SRD-only documents; the `srd52` string is the mechanism. *Rejected:* dropping the 17
+    from the subset; accepting the license risk.
+  - **(b) `clearImport` is wired**, not deleted: a red armed "Remove imported data" row in the
+    Library's Manage footer (shown only when an import exists) — closes ARCHIVE's ⚑ and is the
+    manual recovery for a digest the boot guard set aside. *Rejected:* deleting the dead code.
+  - **(c) UA/prerelease books fold into "Homebrew & UA"** (`srcGroupOf` remap) — D113's shelf
+    name already promises them. *Rejected:* a sixth "Prerelease (UA)" shelf.
+  - **(d) `save()` skips identical writes**, so `meta.updated` means last EDITED — opening the
+    app no longer re-stamps the active build. *Rejected:* stamping only from mutating call
+    sites (one missed site lies the other way); relabeling to "opened".
+  - **(e) An item's own DC/attack print in the source GROUP HEADER** when the table groups by
+    source ("Staff of Frost · DC 16 · atk +8 · Cha") — the numbers are per-source constants,
+    the header is their altitude. *Rejected:* un-suppressing the Ability column; accepting.
+  - **(f) The gap banner is sticky and the gapped pick chips carry the flag** (D42's visible
+    contract at both altitudes). *Rejected:* auto-scrolling the column; accepting.
+- **D117 (2026-08-28) Versioning is MAJOR.MINOR.PATCH; the past is mapped, never rewritten.**
+  Raw note: *"the versioning convention is moving the .X number too fast, we should make the
+  versions 1.0.0, keep the first number for overhauls or massive reworks, the second number
+  only for larger batches with features, and the third for smaller day to day fixes and
+  batches. Rename the past commits in line with this as well. I am not expert in versioning,
+  so I'll also accept your input and feedback on this."* Implemented: `bump.py` defaults to
+  patch, takes `--minor` for feature batches, keeps `--major` gated on Francesco. On the
+  invited feedback, **"rename the past commits" is honored by RETRO-TAGS + the CHANGELOG map,
+  not a history rewrite** — the repo's SHAs are load-bearing (STATE/ARCHIVE/memories, the
+  purge episode) and the pre-1.0 line set the precedent: tag in place. Map: 1.0→1.0.0,
+  1.1→1.0.1, 1.2→1.0.2, 1.3→1.1.0, 1.4→1.1.1, 1.5→1.1.2, 1.6→1.1.3, 1.7→1.2.0, 1.8→1.2.1;
+  the audit batch ships as 1.2.2. Release tags resume from v1.2.2 (Francesco's call,
+  reversing the CHANGELOG-only recommendation). Enforced by: `bump.py`; `CHANGELOG.md` is
+  the map's single owner. Affects: CLAUDE.md Versioning, CHANGELOG.md, bump.py, VERSION.
 
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for

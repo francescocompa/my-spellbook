@@ -3,19 +3,53 @@
 > What is queued, and what is blocked on a decision. `STATE.md` says where things stand;
 > this says what comes next. Closed items → `ARCHIVE.md#closed-backlog`.
 >
-> **v7 is complete and shipped as v1.0.** There is no phase in flight — the queue below is
-> a backlog, not a plan of record, and nothing in it is urgent. The one gated item is the
-> 🔶 at the top.
+> **v7 is complete and shipped as v1.0.** The plan of record is **phase E** (D115, decided
+> 2026-08-28); the queue below it is a backlog, and its one 🔶 (magic items / rewards) is no
+> longer gated — it awaits Francesco's call.
+
+## Phase E — a build at every level (D115, decided 2026-08-28)
+
+Level is a parameter, versions are alternatives — the full model is **D115(a–j)**; cite it,
+don't restate it. Order: E1 → E2 → {E3, E4} → E5 → {E6, E7} → E8. Optional follow-up once E2
+exists (not scoped): D76's Magical Secrets narrowing could report the EXACT window for ordered
+picks instead of best-case.
+
+- [ ] **E1 — order substrate + saved current level** (`sonnet@high`, M) — treat the
+  `state.chosen`/`state.feats` array order as the acquisition order; add `state.currentLevel`;
+  add the swap-event shape (at most one swap per character level, D115(g)); export/import +
+  migration (old builds: order = array order, currentLevel = top). **Done when:** a build
+  round-trips export→import with order, pointer and a swap intact, and old builds load unchanged.
+- [ ] **E2 — slice derivation** (`sonnet@high`, M) — per-class sticky-pick schedules (known
+  counts, spellbook 2/level, cantrip gains, feat slots via `featSlotLevels()`) map order →
+  acquisition character level; every `effLevel` consumer reads the slice; prepared lists stay
+  derived (D18). App-side only — no extractor change. **Done when:** the level view lists exactly
+  the sticky picks acquired by that level for the five D114 fixture builds.
+- [ ] **E3 — editing at any level** (`sonnet@high`, L) — add/remove become order-aware (a pick
+  made standing at L7 inserts at L7's slice point); removal below top level defined; the level-up
+  swap recordable where RAW grants one. **Done when:** a pick added at L7 shows at L12 and not at
+  L6; a recorded swap shows −X at its level and +Y after; verified in-browser.
+- [ ] **E4 — consistency sweep + badge** (`sonnet@high`, M) — per-slice legality (counts vs class
+  tables, spell level at acquisition, boons on 19+ slots, choice availability); one build-health
+  badge naming the offending levels; per-level flags in place. Soft (D31). **Done when:** an
+  over-budget-at-L5 fixture flags on the badge while viewing L12.
+- [ ] **E5 — the timeline popover** (`fable@high` — core-surface design, L) — chip "L7 / 20 + ⚠";
+  popover per the D115(j) mockup: zone tinting, draggable rows (retires the old level-order
+  panel; single-column rule transfers), draggable pick chips, swap pills, current-level pin,
+  footer *fork a variant here* · *set as current level*. Escalate to a modal only if density
+  demands (D115 raw note). **Done when:** every popover interaction verified in-browser at
+  desktop and phone widths.
+- [ ] **E6 — fork-a-variant + print at level** (`sonnet@medium`, S) — `savePreviewAsVersion` →
+  fork-a-variant-here (truncated at the slice, named as a variant, D115(i)); the print sheet at a
+  scrubbed level drops "not a saved version" and names its level. **Done when:** the fork yields
+  the truncated variant and the print header names the level.
+- [ ] **E7 — "order matters" soft flag** (`sonnet@medium`, S) — quiet flag on order-sensitive
+  builds (a boon slot near 19, slot-gated picks), per D115's plan-default round. **Done when:**
+  Fighter 10/Wizard 9 and Warlock 4/Fighter 4/Bard 12 fixtures flag correctly; single-class does
+  not.
+- [ ] **E8 — 🔍 fresh-eyes gate** (`fable@high`, separate session per model-policy) — review the
+  shipped phase against D115(a–j) before it is declared done.
 
 ## Queue
-- [ ] **A build that works seamlessly at every level** — 🔶 **DESIGN SESSION, requested
-  2026-08-28 (D115).** Multi-step back-and-forth, not a patch. The trigger: D114 made the level
-  ORDER load-bearing — which character level a feat slot arrives at now decides whether it can be
-  an Epic Boon — and with no explicit order `classLevelPlan()` guesses "each class in full, in row
-  order". Francesco has accepted that default **for now**. The session has to reach the level plan
-  itself, the preview (D54 viewer, D64 versions-not-stamps), retraining, and what a build even
-  means at a level other than its top one. **Done when:** the model is a decision entry with task
-  lines behind it. ⚑ (owner: Francesco, 2026-08-28)
 - [ ] **Magic-item / reward ingestion** — 🔶 **RESEARCHED 2026-08-27, awaiting Francesco's call.**
   The old note said "items carry no structured uses"; that is **wrong** and the audit corrected it.
   What the 5etools corpus actually holds:

@@ -336,11 +336,31 @@ function mkBuild(st,sources,name){
   return {id,meta:{name:name||"v1",character:characterFrom(s),named:false,created:now,updated:now,
     summary:describeBuild(s),sources:[...(sources||SRC)]},state:s};
 }
-function persistBuilds(){ try{localStorage.setItem(LS_BUILDS,JSON.stringify(BUILDS));}catch(e){} }
-function saveSources(){ try{localStorage.setItem(LS_SOURCES,JSON.stringify([...SRC]));}catch(e){} }
+// ambient notice bar — the honest channel for failures that would otherwise be silent
+// (storage full, unreadable import). One bar, latest message wins, dismissable.
+function appNotice(msg){
+  let n=document.getElementById("appNotice");
+  if(!n){n=el("div","appnotice");n.id="appNotice";
+    n.append(el("span","antxt"));
+    n.append(xBtn("anx",()=>n.remove()));
+    document.body.append(n);}
+  n.querySelector(".antxt").textContent=msg;
+}
+// D34's contract is "every edit writes through" — a quota failure breaks it, so it must
+// be said once, not swallowed per keystroke
+let LS_WARNED=false;
+function storageNotice(e){ if(LS_WARNED)return; LS_WARNED=true;
+  appNotice("Changes aren't saving — browser storage is full or blocked. The app keeps running, but edits are lost on reload. ("+((e&&e.message)||e)+")"); }
+function persistBuilds(){ try{localStorage.setItem(LS_BUILDS,JSON.stringify(BUILDS));}catch(e){storageNotice(e);} }
+function saveSources(){ try{localStorage.setItem(LS_SOURCES,JSON.stringify([...SRC]));}catch(e){storageNotice(e);} }
 // auto-save: every edit writes through to the active build (D34) — no dirty state to lose
 function save(){ const b=activeBuild(); if(!b)return;
-  b.state=serializeState();
+  const s=serializeState();
+  // an identical write is skipped so `meta.updated` means "last EDITED", not "last
+  // rendered" — merely opening the app used to re-stamp the active build every boot
+  if(JSON.stringify(s)===JSON.stringify(b.state)
+     &&JSON.stringify([...SRC])===JSON.stringify(b.meta.sources))return;
+  b.state=s;
   b.meta.updated=Date.now();
   b.meta.summary=describeBuild(b.state);
   // the label auto-follows the build until you name it yourself (T3 sets `named`)
@@ -656,7 +676,7 @@ function csrcPower(cs){
   const own=(cs.spells||[]).filter(e=>csrcPay(cs,e)==="per").length;
   if(!csrcHasPool(cs))return "per-spell uses";
   const pool=`${cs.pool} charges`+(cs.recharge?" · regains "+cs.recharge:"");
-  return own?`${pool} · ${own} on their own uses`:pool;
+  return own?`${pool} · ${own} spell${own===1?" on its":"s on their"} own uses`:pool;
 }
 
 // ── compute ──────────────────────────────────────────────────────────────
@@ -982,9 +1002,20 @@ function openOffListPick(idx){
 // prepare-by-level: click a level tile → prepare from that class's eligible spells (levels 1..maxLevel)
 function openLevelPick(idx,maxLevel){ const rec=R.casters.find(r=>r.idx===idx); if(!rec)return;
   PICK={classIdx:idx,maxLevel,levelSet:new Set(),onlyPicked:false}; $("#pickSearch").value="";
-  $("#pickTitle").textContent=classLabel(rec)+" — prepare spells";
-  $("#pickSub").textContent=`level 1–${ROMAN[maxLevel]} · click to prepare or unprepare`;
+  // the set being edited is the SPELLBOOK for a wizard and the KNOWN list for a level-swap
+  // caster — calling either "prepare" contradicts the D20/D62 vocabulary the cards use
+  const v=pickVerbs(idx,rec);
+  $("#pickTitle").textContent=classLabel(rec)+" — "+v.title;
+  $("#pickSub").textContent=`level 1–${ROMAN[maxLevel]} · ${v.sub}`;
   $("#pickModal").classList.remove("hidden"); renderPickList(); }
+// one vocabulary per caster kind, everywhere the by-level picker speaks (D20/D62)
+function pickVerbs(idx,rec){ const c=R.cart[idx];
+  return c&&c.known?{title:"spellbook",sub:"click to add or remove from your book",n:"In your book",
+      on:"In your book — click to remove",off:"Add it to your spellbook"}
+    :(rec||{}).static?{title:"known spells",sub:"click to learn or drop",n:"Known",
+      on:"Known — click to drop",off:"Learn it"}
+    :{title:"prepare spells",sub:"click to prepare or unprepare",n:"Prepared",
+      on:"Prepared — click to unprepare",off:"Prepare it"};}
 function renderPickList(){
   const list=$("#pickList"); list.innerHTML="";
   const q=$("#pickSearch").value.toLowerCase(), isClass=PICK.classIdx!=null;
@@ -1001,8 +1032,9 @@ function renderPickList(){
   if(lvBox)buildToggleRow(lvBox,presentLevels.map(l=>[String(l),l===0?"C":String(l)]),PICK.levelSet,true,renderPickList);
   const plb=$("#pickLevelBtn");if(plb)plb.innerHTML="Levels"+(PICK.levelSet.size?` <span class="badge">${PICK.levelSet.size}</span>`:"");
   const cur = isClass ? new Set((state.chosen[PICK.classIdx]||{}).spells||[]) : new Set(state.choices[PICK.id]||[]);
+  const pv=isClass?pickVerbs(PICK.classIdx,R.casters.find(r=>r.idx===PICK.classIdx)):null;
   const po=$("#pickOnly");if(po){po.classList.toggle("on",!!PICK.onlyPicked);
-    po.innerHTML=(isClass?"Prepared":"Picked")+(cur.size?` <span class="badge">${cur.size}</span>`:"");}
+    po.innerHTML=(isClass?pv.n:"Picked")+(cur.size?` <span class="badge">${cur.size}</span>`:"");}
   let items=base.filter(sp=>(!q||sp.name.toLowerCase().includes(q))&&(!PICK.levelSet.size||PICK.levelSet.has(sp.level))
     &&(!PICK.onlyPicked||cur.has(key(sp.name,sp.source))));
   items.sort((a,b)=>a.level-b.level||a.name.localeCompare(b.name));
@@ -1014,8 +1046,8 @@ function renderPickList(){
     const meta=el("div","meta");[ROMAN[sp.level],sp.school,sp.time,sp.range].filter(Boolean).forEach(x=>meta.append(el("span",null,x)));d.append(meta);
     const take=el("div","take");const b=el("button","tk ico-only"+(on?" on":""));
     b.append(icoEl(on?"check":"plus"));
-    const tlbl=on?(isClass?"Prepared — click to unprepare":"Picked — click to remove")
-                 :(isClass?"Prepare it":"Pick it");
+    const tlbl=on?(isClass?pv.on:"Picked — click to remove")
+                 :(isClass?pv.off:"Pick it");
     b.title=tlbl; b.setAttribute("aria-label",tlbl);
     b.onclick=()=>{ if(isClass){ toggle(PICK.classIdx,k,false); renderPickList(); return; }
       let a=state.choices[PICK.id]||[];
@@ -1630,7 +1662,7 @@ function csrcRuleText(){
   else if(onPool)
     // a spell says it costs charges from a pool that doesn't exist — the one real contradiction
     bits.push(`<i class="rl-todo">${onPool} spell${onPool===1?"":"s"} spend${onPool===1?"s":""} charges, but there is no pool</i>`);
-  if(onOwn)bits.push(`<b>${onOwn}</b> on their own uses`);
+  if(onOwn)bits.push(`<b>${onOwn}</b> spell${onOwn===1?" on its":"s on their"} own uses`);
   if(!bits.length)bits.push(spells.length?`each spell on its own uses`:`<i>no charge pool</i>`);
   return head+" · "+bits.join(" · ");
 }
@@ -2198,7 +2230,7 @@ function renderPrepList(){
 }
 
 // ── custom spell authoring (stepped) → stored as a Homebrew source ──────────
-function saveCustom(){try{localStorage.setItem(LS_CUSTOM,JSON.stringify(CUSTOM||{spells:[]}));}catch(e){}}
+function saveCustom(){try{localStorage.setItem(LS_CUSTOM,JSON.stringify(CUSTOM||{spells:[]}));}catch(e){storageNotice(e);}}
 const SCHOOLS=["Abjuration","Conjuration","Divination","Enchantment","Evocation","Illusion","Necromancy","Transmutation"];
 const CT_OPTS=[["action","Action","action"],["bonus action","Bonus action","bonus"],["reaction","Reaction","reaction"],["1 minute","1 minute","long"],["10 minutes","10 minutes","long"],["1 hour","1 hour","long"],["8 hours","8 hours","long"],["24 hours","24 hours","long"]];
 const DUR_OPTS=["Instantaneous","1 round","1 minute","10 minutes","1 hour","8 hours","24 hours","7 days","Until dispelled","Special"];
@@ -2409,7 +2441,10 @@ function importSummary(r){return `${r.spells} spells · ${r.classes} classes · 
   // …and only advise the lookup file when one wasn't supplied. With it present the
   // remainder are spells nothing in the data can cast, which is not a mistake to correct.
   +(r.noAccess?` · ⚠ ${r.noAccess} spell${r.noAccess===1?"":"s"} no class can reach`
-    +(r.lookup?"":" — add generated/gendata-spell-source-lookup.json"):"");}
+    +(r.lookup?"":" — add generated/gendata-spell-source-lookup.json"):"")
+  // a file that threw mid-parse left part of a book behind — the exact half-import
+  // failure the report exists to surface
+  +((r.errors||[]).length?` · ⚠ ${r.errors.length} file${r.errors.length===1?"":"s"} failed: ${r.errors.join(" · ")}`:"");}
 
 // ── additive imports and the book plan (D86) ───────────────────────────────
 // An import used to REPLACE everything stored, so adding one brew meant re-staging every
@@ -2832,6 +2867,8 @@ function openImport(welcome,tab){closeMenu();const r=$("#importReport");
 function renderLibFoot(){
   const st=$("#libStore"); if(!st)return;
   const meta=(IMPORTED&&IMPORTED.meta)||{};
+  // nothing imported → nothing to remove; the danger row earns its place only when real
+  const wipe=$("#importWipe"); if(wipe)wipe.classList.toggle("hidden",!IMPORTED);
   const stamp=$("#importRefresh");
   if(stamp){const when=meta.importedAt?new Date(meta.importedAt).toLocaleDateString():null;
     stamp.title=when?`Last import ${when} · parser v${meta.parser||"?"}`:"Nothing imported yet";}
@@ -2880,7 +2917,7 @@ function loadTableOpts(){ try{const t=JSON.parse(localStorage.getItem(LS_TABLE)|
   if(Array.isArray(t.hidden))tableOpts.hidden=new Set(t.hidden.filter(k=>TABLE_COLS[k]&&!TABLE_COLS[k].fixed));
  }catch(e){} }
 function saveTableOpts(){ try{localStorage.setItem(LS_TABLE,JSON.stringify(
-  {group:tableOpts.group,order:tableOpts.order,hidden:[...tableOpts.hidden]}));}catch(e){} }
+  {group:tableOpts.group,order:tableOpts.order,hidden:[...tableOpts.hidden]}));}catch(e){storageNotice(e);} }
 // short recharge label. cantrips / always-known are effectively at-will.
 function rechargeShort(recharge,isCantrip){
   const r=String(recharge||"").toLowerCase();
@@ -3050,7 +3087,14 @@ function renderTable(){
       const gr=el("tr","grouphdr outer");const td=el("td");td.colSpan=span;
       if(g==="ability"){td.innerHTML=`<span class="abname ${row.ability||""}">${esc(outerLabel(row))}</span>`;}
       else{td.append(el("span",null,outerLabel(row)));
-        const abils=[...new Set(rows.filter(x=>outerKey(x)===ok).map(x=>x.ability).filter(Boolean))];
+        const grp=rows.filter(x=>outerKey(x)===ok);
+        // an item casts on its OWN numbers (D100); grouped by source the suppressed
+        // Ability column was the only table surface carrying them — the header says them
+        if(ownerIdx(row)==null){
+          const dc=[...new Set(grp.map(x=>x.dc).filter(Boolean))],atk=[...new Set(grp.map(x=>x.atk).filter(Boolean))];
+          const num=[dc.length?"DC "+dc.join("/"):"",atk.length?"atk "+atk.join("/"):""].filter(Boolean).join(" · ");
+          if(num)td.append(el("span","hdr-own",num));}
+        const abils=[...new Set(grp.map(x=>x.ability).filter(Boolean))];
         if(abils.length){const w=el("span","hdr-abils");w.innerHTML=abils.map(abChip).join("");td.append(w);}}
       gr.append(td);tbody.append(gr);}}
     if(sp.level!==lastLevel){lastLevel=sp.level;
@@ -3358,6 +3402,7 @@ addEventListener("scroll",()=>{ if(_jumpRaf)return;
   _jumpRaf=requestAnimationFrame(()=>{_jumpRaf=0;syncJumpBar();}); },{passive:true});
 addEventListener("resize",()=>syncJumpBar(),{passive:true});
 
+// ── level plan & preview render (D54/D59) ─────────────────────────────────
 // the Character card's level chip doubles as the preview control (D54): click it to
 // scrub the build at a lower level, view-only — release and nothing has changed
 function renderLevelChip(){
@@ -3509,6 +3554,7 @@ function renderLvlOrder(){
     box.append(card);});
 }
 function openLvlOrder(){ renderLvlOrder(); $("#lvlOrderModal").classList.remove("hidden"); }
+// ── slots, cart and spell list render ──────────────────────────────────────
 function renderSlots(){
   renderLevelChip();
   const g=$("#statGrid");g.innerHTML="";
@@ -3530,7 +3576,7 @@ function renderSlots(){
     R.freeCasts.forEach(c=>{const row=el("div","ct");const n=el("span");
       // a custom source can fix the level it goes off at, and carry its own DC/attack (D65)
       const lv=c.castLv||c.level;
-      n.innerHTML=c.choice?c.desc:(c.name+(lv!=null?` <span style="color:var(--muted)">(${ROMAN[lv]}${c.castLv?" fixed":""})</span>`:""));
+      n.innerHTML=c.choice?esc(c.desc):(esc(c.name)+(lv!=null?` <span style="color:var(--muted)">(${ROMAN[lv]}${c.castLv?" fixed":""})</span>`:""));
       const lab=rechargeShort(c.recharge,c.level===0),atWill=lab==="at will";
       row.append(n);
       // same narrowing as the table's Ability column — a CHOICE row names no single
@@ -3557,7 +3603,7 @@ function renderCart(){
       : r.static
       ? `Level-swap caster: a fixed known list of ${r.prepared}, learned as you level up and capped at your top slot each time (plus one swap per level). So the count you can hold at each level is limited — the tiles show it, highest levels capped tightest.`
       : `Daily caster: re-prepare any ${r.prepared} eligible spells each long rest, any mix of levels up to ${ROMAN[r.maxLvl]}. Cantrips are fixed and not re-prepared daily.`;
-    const bh=el("div","bh");const nm=el("div","nm");nm.innerHTML=r.name+(r.viaSub?` <small>· ${r.viaSub.shortName}</small>`:"")+` <small>· L${r.level}</small>`;bh.append(nm);
+    const bh=el("div","bh");const nm=el("div","nm");nm.innerHTML=esc(r.name)+(r.viaSub?` <small>· ${esc(r.viaSub.shortName)}</small>`:"")+` <small>· L${r.level}</small>`;bh.append(nm);
     const kchip=el("span","kind"+(kn?" wiz":r.static?"":" daily"),kindLabel);kchip.title=kindTip;bh.append(kchip);
     b.append(bh);
     b.append(meter("Cantrips",c.cantrips.length,r.cantrips));
@@ -3625,6 +3671,9 @@ function renderCart(){
         cell.title=`${ROMAN[L]}-level ${wiz?"in your spellbook":r.static?"in your known spells":"prepared"} — ${atL} of up to ${ceil} at this level`
           +(copied?` (+${atL-free} copied in beyond the free allowance)`
             :overFree?` — you are over your ${wiz?"spellbook":r.static?"known":"prepared"} total, so there is no room left at any level until you drop some`
+            // an EMPTY tile zeroed by the shared over-total must not promise growth (D70's
+            // reason-clause, not its maths): leveling can't fill it while the total is over
+            :(room<0&&atL===0&&!wiz)?` — no room here while you are over your ${r.static?"known":"prepared"} total`
             :r.static&&!kn?` (fills up gradually as you level)`:"")+`. Tap to edit.`;
         cell.onclick=()=>openLevelPick(r.idx,L);
         cell.innerHTML=`<b>${atL}<span class="dcap">/${ceil}</span></b><small>${ROMAN[L]}${L===r.maxLvl?" · max":""}</small>`;dist.append(cell);}
@@ -3639,6 +3688,10 @@ function renderCart(){
     if(picks.length){const cc=el("div","cartchips");
       picks.map(p=>({...p,sp:SPELL_BY[p.k]})).filter(p=>p.sp).sort((a,b)=>a.sp.level-b.sp.level||a.sp.name.localeCompare(b.sp.name))
         .forEach(p=>{const chip=el("span","cartchip");chip.append(el("span","lv",p.sp.level===0?"C":ROMAN[p.sp.level].replace(/\D/g,"")));
+          // the pick itself carries the gap flag (D42's visible contract, at chip altitude):
+          // its book is off, nothing is removed, the banner has the one-click fix
+          if(!srcOn(p.sp.source)){chip.classList.add("gapped");
+            chip.title=bookName(p.sp.source)+" is turned off in Sources — the pick is kept, not removed. The banner above can turn the book back on.";}
           const nm=el("span",null,p.sp.name);attachSpell(nm,p.sp);chip.append(nm);const x=xBtn(null,()=>removeChosen(r.idx,p.k));chip.append(x);cc.append(chip);});
       b.append(cc);}
     // granted (free) for this class
@@ -3767,7 +3820,7 @@ const SPMODAL=el("div","spmodal hidden");document.body.appendChild(SPMODAL);
 SPMODAL.onclick=e=>{if(e.target===SPMODAL||e.target.classList.contains("x"))SPMODAL.classList.add("hidden");};
 document.addEventListener("keydown",e=>{if(e.key==="Escape"){SPMODAL.classList.add("hidden");hideTip();closeBswMenus();}});
 document.addEventListener("click",()=>hideTip(),true);   // a tap elsewhere dismisses a tapped tip
-function esc(s){return (s||"").replace(/[&<>]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[m]));}
+function esc(s){return (s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));}
 // ── spell text highlighting (monster-forge cc-* convention, read-only) ──────
 const CC_DMG=["acid","bludgeoning","cold","fire","force","lightning","necrotic","piercing","poison","psychic","radiant","slashing","thunder"];
 const CC_CONDS=["blinded","charmed","deafened","frightened","grappled","incapacitated","invisible","paralyzed","petrified","poisoned","prone","restrained","stunned","unconscious","exhaustion"];
@@ -3808,7 +3861,7 @@ function compModalHTML(sp,eff){
   if(c.m)out.push(mark("m","M"+(c.mat?` (${esc(c.mat)})`:"")));
   return out.join(", ")||"—";}
 function metaLine(sp){const r=sp.ritual?" (ritual)":"";
-  return sp.level===0?`${sp.school} cantrip${r}`:`${ROMAN[sp.level]}-level ${sp.school}${r}`;}
+  return sp.level===0?`${esc(sp.school)} cantrip${r}`:`${ROMAN[sp.level]}-level ${esc(sp.school)}${r}`;}
 // ONE source-book chip for the whole app (D39). Its popover names the book in full and
 // says where the element is printed (D51). Not to be confused with `.srcbadge`, which
 // says who GRANTS a spell in your build.
@@ -3820,9 +3873,9 @@ function bookChip(src,page){
 const bookTip=(src,page)=>`<h4>${esc(bookName(src))}</h4>`
   +(page?`<div class="line"><b>Page</b><span>${esc(String(page))}</span></div>`:"")
   +`<div class="line"><b>Code</b><span>${esc(src)}</span></div>`;
-function tipHTML(sp){return `<h4>${sp.name}</h4><div class="sub">${metaLine(sp)}</div>`
-  +`<div class="line"><b>Time</b> ${sp.time}</div><div class="line"><b>Range</b> ${sp.range}</div>`
-  +`<div class="line"><b>Duration</b> ${sp.conc?"Concentration, ":""}${sp.durTxt}</div>`
+function tipHTML(sp){return `<h4>${esc(sp.name)}</h4><div class="sub">${metaLine(sp)}</div>`
+  +`<div class="line"><b>Time</b> ${esc(sp.time)}</div><div class="line"><b>Range</b> ${esc(sp.range)}</div>`
+  +`<div class="line"><b>Duration</b> ${sp.conc?"Concentration, ":""}${esc(sp.durTxt)}</div>`
   +((sp.desc||[]).length?`<p>${ccText(sp.desc[0].slice(0,240))}${sp.desc[0].length>240?"…":""}</p>`:"")+`<p style="color:var(--muted);font-size:11px">click for full details</p>`;}
 function posTip(ev){const pad=14,w=SPTIP.offsetWidth,h=SPTIP.offsetHeight;let x=ev.clientX+pad,y=ev.clientY+pad;
   if(x+w>innerWidth-8)x=ev.clientX-w-pad; if(y+h>innerHeight-8)y=innerHeight-h-8; SPTIP.style.left=Math.max(8,x)+"px";SPTIP.style.top=Math.max(8,y)+"px";}
@@ -4049,8 +4102,8 @@ function modalHTML(sp){
   // the Components row marks what your own build removes (D85) — struck through when the
   // feature always applies, merely marked when it depends on something we can't check
   const eff=compEffect(sp,modsForSpell(sp,null));
-  const grid=[["Casting time",sp.time],["Range",sp.range],["Components",compModalHTML(sp,eff)],
-              ["Duration",(sp.conc?"Concentration, up to ":"")+sp.durTxt]];
+  const grid=[["Casting time",esc(sp.time)],["Range",esc(sp.range)],["Components",compModalHTML(sp,eff)],
+              ["Duration",(sp.conc?"Concentration, up to ":"")+esc(sp.durTxt)]];
   const bk=sp.source!==CORE?` <span class="bchip" data-book="${esc(sp.source)}"${sp.page?` data-page="${esc(String(sp.page))}"`:""}>${esc(sp.source)}</span>`:"";
   return `<div class="box"><button class="x ico" type="button" title="Close" aria-label="Close">${ICONS.x}</button>`
     +`<div class="mh"><h3>${esc(sp.name)}${bk}</h3>`
@@ -4548,6 +4601,9 @@ function srcGroupOf(code,s){
   if(g==="core")return CORE_2024.includes(code)?"core24":"core14";
   if(g==="supplement-alt")return "supplement";
   if(g==="setting-alt")return "setting";
+  // UA/prerelease books belong on the shelf whose NAME already promises them (D113);
+  // before this remap the raw key rendered as an unlabeled "PRERELEASE" shelf after Other
+  if(g==="prerelease")return "brew";
   return GROUP_NAME[g]?g:g;   // an unknown group keeps its own shelf rather than vanishing
 }
 // ── shared grouped source checklist (D27) ──────────────────────────────────
@@ -4681,6 +4737,15 @@ $("#customDone").onclick=compileCustom;
 $("#libBtn").onclick=()=>openImport(false);
 $("#refreshBtn").onclick=refreshImported;
 $("#importRefresh").onclick=refreshImported;
+// the one "back to bundled" path (closes ARCHIVE's standing ⚑, and it is now also the
+// manual recovery for a digest the boot guard set aside). armed, never a native confirm (D53)
+armConfirm($("#importWipe"),null,async()=>{
+  await clearImport();
+  IMPORT_STAGE=[]; cancelBuild();
+  planFromStage(null,null); renderImportPlan(); renderImportStage(); renderLibFoot();
+  const rep=$("#importReport");
+  if(rep)rep.textContent="Imported data removed — the app is back on its built-in books. Builds and homebrew are untouched; picks from removed books are kept and flagged.";
+});
 $("#libTabSrc").onclick=()=>setLibTab("src");
 $("#libTabMan").onclick=()=>setLibTab("man");
 $("#libSrcSearch").oninput=e=>{SRC_Q=e.target.value;renderLibSources();};
@@ -4754,7 +4819,7 @@ function folderButtons(){
   const r=$("#folderRescan"), f=$("#folderForget");
   if(r)r.classList.toggle("hidden",!remembered);
   if(f)f.classList.toggle("hidden",!remembered);
-  const p=$("#folderPick"); if(p)p.textContent=remembered?"Choose another folder…":"Choose folder…";
+  const p=$("#folderPick"); if(p)p.textContent=remembered?"choose another folder…":"choose folder…";
   const sub=$("#folderSub");
   if(sub)sub.textContent=remembered?(FOLDER.name||"remembered folder"):(FSA()?"":"one session at a time in this browser");
 }
@@ -4907,7 +4972,7 @@ let TITLE_BEFORE=null;
 function loadPrintOpts(){ try{const t=JSON.parse(localStorage.getItem(LS_PRINT)||"null");
   if(t&&typeof t==="object")Object.keys(PRINT).forEach(k=>{if(t[k]!=null)PRINT[k]=t[k];});}catch(e){}
   applyPrintOpts(); }
-function savePrintOpts(){ try{localStorage.setItem(LS_PRINT,JSON.stringify(PRINT));}catch(e){}
+function savePrintOpts(){ try{localStorage.setItem(LS_PRINT,JSON.stringify(PRINT));}catch(e){storageNotice(e);}
   applyPrintOpts(); }
 // The selector-scoped options ride on the document; `@page` is not selector-scoped at
 // all, so page size gets its own style element. Both are inert until something prints.
@@ -5071,8 +5136,8 @@ const cardId=sp=>"sp-"+key(sp.name,sp.source).toLowerCase().replace(/[^a-z0-9]+/
 let PRINT_ROWS=[];      // what renderTable last put on the sheet — the cards follow it
 function printCardHTML(sp){
   const eff=compEffect(sp,modsForSpell(sp,null));
-  const grid=[["Casting time",sp.time],["Range",sp.range],["Components",compModalHTML(sp,eff)],
-              ["Duration",(sp.conc?"Concentration, up to ":"")+sp.durTxt]];
+  const grid=[["Casting time",esc(sp.time)],["Range",esc(sp.range)],["Components",compModalHTML(sp,eff)],
+              ["Duration",(sp.conc?"Concentration, up to ":"")+esc(sp.durTxt)]];
   const bk=sp.source+(sp.page?" p."+sp.page:"");
   // only the forms this character marked (or the single form a summon has) — Find Familiar
   // carries 65, and an appendix that prints all of them is not an appendix
@@ -5242,7 +5307,11 @@ let BOOT_MODE="fresh";
 (async()=>{
   try{ await importLoad(); }catch(_){}
   dropLegacyFolderDb();
-  assembleData();                      // now with whatever IndexedDB held
+  // a stored digest that assembleData chokes on must not brick every boot from here on —
+  // set it aside, start on baked, and say so. Refresh imported data re-parses and heals it.
+  try{ assembleData(); }               // now with whatever IndexedDB held
+  catch(e){ IMPORT_CACHE=null; assembleData();
+    appNotice("Imported data was unreadable, so the app started on its bundled data — your builds are untouched. Use ⋯ → Refresh imported data (or re-import) to restore the library. ("+((e&&e.message)||e)+")"); }
   loadSources();
   BOOT_MODE=loadBuilds();              // "loaded" | "migrated" | "fresh"
   applyState(activeBuild().state);

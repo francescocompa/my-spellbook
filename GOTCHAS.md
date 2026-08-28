@@ -43,8 +43,11 @@
   own file filter that happened to be STRICTER than `zipWanted()` — which is exactly how the bug
   above hid through two sessions of "parity is exact". It now imports `zipWanted` and
   `dropFoundryStubs` from extract.js and asserts on the record that broke. Parity is **exact**:
-  936 spells, 27 classes, 65 monsters, 276/276 feats, 213/213 optional features, prereqs
-  byte-identical.
+  936 spells, 27 classes, 78 monsters, 276/276 feats, 213/213 optional features, prereqs
+  byte-identical — and since 2026-08-28 a **whole-record canonical diff** covers every field of
+  every shared record in all six arrays plus the monsters map, so the next drift class needs no
+  curated check to be caught. Its canonical form: keys sorted, `undefined` ≡ absent, extract.py's
+  own `srd` field skipped; everything else — explicit `null` included — must match byte for byte.
 - **Spell-source lookup** (`generated/gendata-spell-source-lookup.json`) is what gives spells
   their `cls`/`sub`/`feat`/`race` access — without it imported spells match no class.
   **And a second file in the export is lookup-SHAPED: `spells/sources.json` (D91).** Same
@@ -183,8 +186,6 @@
 - **Preview (D54) is module state, never saved.** Every level consumer must go through
   `effLevel(row)` / `charLevel()` — reading `row.level` directly leaks full-level numbers into
   a preview. `state.levelOrder` normalizes through `classLevelPlan()`; never trust it raw.
-- **Custom sources (D55)** synthesize a grants object (`customSourceGrants`) and ride
-  `resolveGrants` with tok `x<id>` — they must never grow their own downstream path.
 - **A custom-source entry is a named spell OR a choice (D96).** `csrcIsPick(e)` (i.e. `e.pick`)
   distinguishes them, and `csrcRowId(e)` = `e.key||e.id` because a pick has no spell key —
   anything keying rows on `e.key` will collide or silently no-op on picks. A pick's filter uses
@@ -229,21 +230,29 @@
 - **A nested action button must stop its click** — `xBtn` does. If a handler re-renders, the
   original event keeps bubbling and hits the *freshly attached* parent handler: dismissing the
   level preview immediately re-armed it that way. Watch for this in any rebuild-on-click.
-- **Preview is a VIEWER (D64).** Per-level loadouts are versions ("save as version"), not
-  per-pick stamps. Do not reintroduce `atLevel` on picks without solving retraining intervals.
+- **Preview is a VIEWER (D64) — in the code as it stands; D115 supersedes the viewer, not the
+  rule.** Phase E makes the level view editable with a saved current level, but per-level truth
+  comes from an acquisition ORDER, sliced. The standing trap is unchanged: do not reintroduce
+  `atLevel` stamps on picks — stamps cannot express retraining intervals and D115(b,h)
+  re-rejected them.
 - **A wizard has two sets (D62):** `chosen[idx].spells` is the spellbook, `chosen[idx].prep` is
   today's prepared subset. Anything that reads "what is prepared" must branch on
   `cart.known.book`, or it will treat the whole book as prepared.
-- **Custom sources (D65)** synthesize grants via `customSourceGrants` + `resolveGrants` (tok
+- **Custom sources (D55/D65)** synthesize grants via `customSourceGrants` + `resolveGrants` (tok
   `x<id>`), EXCEPT `mode:"list"`, which widens the eligible pool instead. Per-grant extras
-  (DC, attack, fixed cast level) ride through `spellOut`'s `extra` argument.
+  (DC, attack, fixed cast level) ride through `spellOut`'s `extra` argument. They must never
+  grow their own downstream path.
 - **`.tk.over` must not eat `.tk.on` (D72/D79).** A selected take chip on an over-budget class
   used to render entirely red, because `.tk.over` follows `.tk.on` at equal specificity — which
   is why selection "sometimes didn't highlight". Selection owns the **border and the icon**;
   `.over` owns the text. `.tk.on.over` restates the green border after both.
 - **Two extractor tables are hand-authored and must stay in lockstep (D79):** `PROSE_GRANTS`
   (features that grant spells in prose with no `additionalSpells` — Mystic Arcanum and friends)
-  and `MOD_RE` (the sentences that become a grant's `note`). Both exist in extract.py AND
+  and `MOD_RE` (the sentences that become a grant's `note`). **A hand table can also go stale
+  the OTHER way: 5etools grew structured picks for the school Savants (2026-08-28) and the
+  merge double-granted them** — `mergeProseGrants`/`merge_prose_grants` now skip any entry
+  whose `feature` name the record already carries, so a table entry retires itself the day
+  the mirror catches up. Both exist in extract.py AND
   extract.js, plus **`CAST_MODS`** (D85). `scratchpad/gparity.js` is **gone** — `cparity.js`
   absorbed it and now diffs grants record-by-record across all five arrays, cast mods, the feat
   `catName` histogram, the category-exclusive list and the note count. It reports **0 diffs and

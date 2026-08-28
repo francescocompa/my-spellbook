@@ -12,11 +12,18 @@ const RECHARGE={will:"at will",daily:"per long rest",rest:"per short rest",resou
 function richStrip(s){ if(typeof s!=="string")return s;
   const repl=m=>{const body=m.slice(2,-1);const sp=body.indexOf(" ");
     const rest=sp>=0?body.slice(sp+1):"";const segs=rest.split("|");
-    return (segs[0]&&segs[0].trim())?segs[0].trim():rest;};
+    const txt=(segs[0]&&segs[0].trim())?segs[0].trim():rest;
+    // a display name may end in a [disambiguator] 5etools' own renderer drops
+    const bare=txt.replace(/\s*\[[^\]]*\]$/,"").trim();
+    return bare||txt;};
   let prev=null,out=s;
   while(prev!==out){prev=out;out=out.replace(/\{@[^{}]+\}/g,repl);}
   return out; }
 function titleCase(s){return s.replace(/\b\w/g,c=>c.toUpperCase());}
+// A record with no usable name can't be indexed (the app lowercases names at boot) — skip
+// it rather than store a record that bricks buildIndexes() on every later load. Keep
+// identical to extract.py's valid_name.
+const validName=x=>typeof x.name==="string"&&!!x.name.trim();
 
 function castTime(sp){const t=(sp.time&&sp.time[0])||{};const n=t.number==null?1:t.number,u=t.unit||"action";
   if(u==="action")return["action","action"];if(u==="bonus")return["bonus action","bonus"];
@@ -167,7 +174,12 @@ const PROSE_GRANTS={
 function mergeProseGrants(rec,kind,ident){
   const extra=PROSE_GRANTS[kind+"|"+ident+"|"+(rec.source||"")]; if(!extra)return;
   if(!rec.grants)rec.grants={fixed:[],picks:[],expansions:[],optionGroups:[],ability:null};
-  Object.keys(extra).forEach(k=>{rec.grants[k]=(rec.grants[k]||[]).concat(extra[k].map(x=>Object.assign({},x)));});}
+  // 5etools may have grown structured data for a hand-authored grant since the table was
+  // written (it did, for the school Savants) — a feature already present in the record
+  // must not be granted a second time. Keep identical to extract.py.
+  Object.keys(extra).forEach(k=>{const cur=rec.grants[k]||[];
+    const have=new Set(cur.filter(x=>x&&x.feature).map(x=>x.feature));
+    rec.grants[k]=cur.concat(extra[k].filter(x=>x.feature==null||!have.has(x.feature)).map(x=>Object.assign({},x)));});}
 // ---- casting-rule modifications (D85) --------------------------------------
 // A feature may change HOW you cast spells you ALREADY have — strip a component from a
 // whole school, from a class's list, from four named spells. 5etools carries none of that
@@ -597,25 +609,29 @@ function buildDigest(files){
 
   files.forEach(f=>{const j=f.json;if(!j||typeof j!=="object")return;report.files++;
     try{
-      (j.spell||[]).forEach(sp=>{const src=sp.source||"";const k=spellKey(sp.name,src);
+      (j.spell||[]).forEach(sp=>{if(!validName(sp)){report.errors.push(f.name+": unnamed spell skipped");return;}
+        const src=sp.source||"";const k=spellKey(sp.name,src);
         const dur=(sp.duration&&sp.duration[0])||{};const ct=castTime(sp),rs=rangeStr(sp);
         spells[k]={name:sp.name,source:src,group:bgroup(src),book:bname(src),level:sp.level||0,
           school:SCHOOL[sp.school]||sp.school||"",time:ct[0],tcat:ct[1],range:rs[0],rcat:rs[1],
           comp:components(sp),ritual:!!((sp.meta||{}).ritual),conc:!!dur.concentration,
           dmg:uniqSort(sp.damageInflict),cond:uniqSort(sp.conditionInflict),save:uniqSort(sp.savingThrow),
           atk:!!sp.spellAttack,durTxt:durationText(sp),desc:flattenEntries(sp.entries),
-          higher:flattenEntries(sp.entriesHigherLevel),reprinted:reprinted(sp),page:sp.page,cls:[],sub:[],feat:[],race:[],
+          higher:flattenEntries(sp.entriesHigherLevel),reprinted:reprinted(sp),page:sp.page??null,cls:[],sub:[],feat:[],race:[],
           // raw entries, popped once creature sets are resolved — richStrip eats the
           // {@creature}/{@filter} tags on the way into `desc` (mirrors extract.py)
           _raw:JSON.stringify([sp.entries,sp.entriesHigherLevel])};});
-      (j.class||[]).forEach(c=>{if(EXCLUDE_CLASS(c.name))return;   // sidekicks aren't player classes
+      (j.class||[]).forEach(c=>{if(!validName(c)){report.errors.push(f.name+": unnamed class skipped");return;}
+        if(EXCLUDE_CLASS(c.name))return;   // sidekicks aren't player classes
         const cp=c.casterProgression,prepared=c.preparedSpellsProgression,known=c.spellsKnownProgression;
         const change=c.preparedSpellsChange;const isStatic=(change==="level")||(!!known&&!prepared);
-        const rec={name:c.name,source:c.source||"",group:bgroup(c.source||""),book:bname(c.source||""),reprinted:reprinted(c),page:c.page,
-          caster:cp,ability:c.spellcastingAbility,static:!!(isStatic&&cp),
+        const rec={name:c.name,source:c.source||"",group:bgroup(c.source||""),book:bname(c.source||""),reprinted:reprinted(c),page:c.page??null,
+          // explicit nulls, never absent keys — extract.py writes None for these and the
+          // whole-record parity diff reads absent ≠ null as drift
+          caster:cp??null,ability:c.spellcastingAbility??null,static:!!(isStatic&&cp),
           countType:prepared?"fixed":known?"known":(cp?"formula":null),
-          subclassLevel:subclassLevel(c),cantrips:c.cantripProgression,prepared:prepared||known,
-          spellbook:c.spellsKnownProgressionFixed,slots:slotTable(c.classTableGroups),
+          subclassLevel:subclassLevel(c)??null,cantrips:c.cantripProgression??null,prepared:(prepared||known)??null,
+          spellbook:c.spellsKnownProgressionFixed??null,slots:slotTable(c.classTableGroups)??null,
           grants:parseGrants(c.additionalSpells,clsfeatIdx[c.name+"|"+(c.source||"")]),grantsFightingStyle:null,bonusChoices:[],
           optFeatures:optProgression(c),
           features:featureList(clsfeatIdx[c.name+"|"+(c.source||"")])};
@@ -623,9 +639,10 @@ function buildDigest(files){
         if(ORDER_CANTRIP[okey])rec.bonusChoices.push(ORDER_CANTRIP[okey]);
         if(FS_CLASS_LEVEL[c.name]&&c.source==="XPHB")rec.grantsFightingStyle=FS_CLASS_LEVEL[c.name];
         mergeProseGrants(rec,"class",rec.name); attachCastMods(rec,"class",rec.name); classes.push(rec);});
-      (j.subclass||[]).forEach(sc=>{if(EXCLUDE_CLASS(sc.className||""))return;
+      (j.subclass||[]).forEach(sc=>{if(!validName(sc)){report.errors.push(f.name+": unnamed subclass skipped");return;}
+        if(EXCLUDE_CLASS(sc.className||""))return;
         const rec={name:sc.name||"",shortName:sc.shortName||sc.name||"",source:sc.source||"",
-        group:bgroup(sc.source||""),book:bname(sc.source||""),reprinted:reprinted(sc),page:sc.page,
+        group:bgroup(sc.source||""),book:bname(sc.source||""),reprinted:reprinted(sc),page:sc.page??null,
         className:sc.className||"",classSource:sc.classSource||"",
         grants:parseGrants(sc.additionalSpells,subfeatIdx[(sc.className||"")+"|"+(sc.shortName||sc.name||"")+"|"+(sc.source||"")]),
         optFeatures:optProgression(sc),
@@ -637,20 +654,24 @@ function buildDigest(files){
         const _sid=sc.shortName||sc.name||"";
         mergeProseGrants(rec,"subclass",_sid); attachCastMods(rec,"subclass",_sid); subclasses.push(rec);});
       const featCats=(j._meta&&j._meta.featCategories)||null;   // a brew may name its own
-      (j.feat||[]).forEach(ft=>{const cat=ft.category||"G";const hasSpells="additionalSpells"in ft;
-        feats.push({name:ft.name,source:ft.source||"",group:bgroup(ft.source||""),book:bname(ft.source||""),reprinted:reprinted(ft),page:ft.page,
+      (j.feat||[]).forEach(ft=>{if(!validName(ft)){report.errors.push(f.name+": unnamed feat skipped");return;}
+        const cat=ft.category||"G";const hasSpells="additionalSpells"in ft;
+        feats.push({name:ft.name,source:ft.source||"",group:bgroup(ft.source||""),book:bname(ft.source||""),reprinted:reprinted(ft),page:ft.page??null,
           category:cat,fsClass:({"FS:R":"Ranger","FS:P":"Paladin","FS":"Fighter"})[cat]||null,hasSpells,
           catName:featCatName(cat,featCats),      // what the picker calls this category
           optFeatures:optProgression(ft),prereq:prereqText(ft,cat,featCats),prereqs:prereqBlocks(ft,cat,featCats),
           grants:hasSpells?parseGrants(ft.additionalSpells):{fixed:[],picks:[],expansions:[],optionGroups:[],ability:null},
           _raw:ft});});
-      (j.optionalfeature||[]).forEach(o=>{const hasSpells="additionalSpells"in o;
+      (j.optionalfeature||[]).forEach(o=>{if(!validName(o)){report.errors.push(f.name+": unnamed optional feature skipped");return;}
+        const hasSpells="additionalSpells"in o;
         optfeats.push({name:o.name,source:o.source||"",group:bgroup(o.source||""),book:bname(o.source||""),
-          reprinted:reprinted(o),page:o.page,types:o.featureType||[],prereq:prereqText(o),prereqs:prereqBlocks(o),hasSpells,
+          reprinted:reprinted(o),page:o.page??null,types:o.featureType||[],prereq:prereqText(o),prereqs:prereqBlocks(o),hasSpells,
           grants:hasSpells?parseGrants(o.additionalSpells):{fixed:[],picks:[],expansions:[],optionGroups:[],ability:null},
           _raw:o});});
       // `base` is the parent species a lineage hangs off — the picker groups on it (D46)
-      const emitSpecies=(name,source,blocks,page,base,lineage)=>{const named=(blocks||[]).filter(b=>b.name);
+      const emitSpecies=(name,source,blocks,page,base,lineage)=>{ page=page??null;
+        if(typeof name!=="string"||!name.trim()){report.errors.push(f.name+": unnamed species skipped");return;}
+        const named=(blocks||[]).filter(b=>b.name);
         if(named.length>1)named.forEach(b=>races.push({name:`${name} — ${b.name}`,source,group:bgroup(source),book:bname(source),reprinted:false,page,base:name,lineage:b.name,grants:parseGrants([b])}));
         else races.push({name,source,group:bgroup(source),book:bname(source),reprinted:false,page,base:base||name,lineage:base?(lineage||name):"",grants:parseGrants(blocks)});};
       (j.race||[]).forEach(rc=>{emitSpecies(rc.name,rc.source||"",rc.additionalSpells,rc.page);
@@ -722,7 +743,9 @@ function buildDigest(files){
     const txt=sp._raw||""; const keys=[],seen={};
     let mm; CREATURE_RE.lastIndex=0;
     while((mm=CREATURE_RE.exec(txt))){
-      const cands=mm[2]?[monKey(mm[1],mm[2])]:(monByName[String(mm[1]).trim().toLowerCase()]||[]);
+      // a name-only ref can resolve to several sources; sort so the emission order is
+      // canonical rather than an accident of file-read order (parity with extract.py)
+      const cands=mm[2]?[monKey(mm[1],mm[2])]:(monByName[String(mm[1]).trim().toLowerCase()]||[]).slice().sort();
       cands.forEach(k=>{if(monPool[k]&&!seen[k]){seen[k]=1;keys.push(k);}});}
     if(sp.source==="XPHB"){ let fm; BFILTER_RE.lastIndex=0;
       while((fm=BFILTER_RE.exec(txt)))filterMatches(fm[1]).forEach(k=>{if(!seen[k]){seen[k]=1;keys.push(k);}});}

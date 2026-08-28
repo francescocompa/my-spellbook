@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 """Bump the version, then rebuild so every deliverable carries the new number.
 
-    python3 bump.py            # 1.4 -> 1.5   (the ordinary case, once per commit)
-    python3 bump.py --major    # 1.4 -> 2.0   (Francesco's call, never taken alone)
+    python3 bump.py            # 1.2.1 -> 1.2.2  (patch — day-to-day fixes and small batches)
+    python3 bump.py --minor    # 1.2.1 -> 1.3.0  (a larger batch that ships features)
+    python3 bump.py --major    # 1.2.1 -> 2.0.0  (an overhaul — Francesco's call, never taken alone)
     python3 bump.py --show     # print the current version and stop
 
-MAJOR.MINOR, where MINOR is a plain counter — 1.9 is followed by 1.10, not 2.0. The
-major moves only when Francesco says a release is a release; nothing here decides that
-on its own, which is why --major exists as an explicit flag rather than a rule.
+MAJOR.MINOR.PATCH (D117, 2026-08-28): the major moves only for overhauls and massive
+reworks and only when Francesco says so; the minor is for larger batches that ship
+features; the patch is the ordinary once-per-commit counter. Nothing here decides a
+major on its own, which is why --major exists as an explicit flag rather than a rule.
+The pre-semver 1.x line is mapped, not rewritten — CHANGELOG.md carries the table.
 
 VERSION is the single source of truth: build.py reads it and injects `__VERSION__` into
 data.js, dist/index.html and docs/index.html; app.js renders it in the footer.
@@ -22,20 +25,24 @@ def read():
         return f.read().strip()
 
 def parse(v):
-    major, _, minor = v.partition(".")
-    return int(major), int(minor or 0)
+    parts = v.split(".")
+    while len(parts) < 3:          # a legacy two-part number reads as X.Y.0
+        parts.append("0")
+    return [int(p) for p in parts[:3]]
 
 def main():
     args = sys.argv[1:]
     cur = read()
     if "--show" in args:
         print(cur); return
-    major, minor = parse(cur)
+    major, minor, patch = parse(cur)
     if "--major" in args:
-        major, minor = major + 1, 0
+        major, minor, patch = major + 1, 0, 0
+    elif "--minor" in args:
+        minor, patch = minor + 1, 0
     else:
-        minor += 1
-    new = f"{major}.{minor}"
+        patch += 1
+    new = f"{major}.{minor}.{patch}"
     with open(PATH, "w", encoding="utf-8") as f:
         f.write(new + "\n")
     print(f"{cur} -> {new}")

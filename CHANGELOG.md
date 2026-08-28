@@ -1,26 +1,30 @@
 # Changelog
 
 The version in the app's footer comes from `VERSION`, which `build.py` injects into every
-deliverable. **MAJOR.MINOR**, minor bumped once per commit (`python3 bump.py`); the major
-moves only on Francesco's say-so (`python3 bump.py --major`).
+deliverable. **MAJOR.MINOR.PATCH** (D117, 2026-08-28): the **major** moves only for
+overhauls or massive reworks, on Francesco's say-so (`python3 bump.py --major`); the
+**minor** for larger batches that ship features (`--minor`); the **patch** once per
+ordinary commit (`python3 bump.py`). Releases are tagged (`git tag v1.2.2`) from 1.2.2 on.
 
-**1.0 is where the numbering starts.** Everything before it is the internal v4 → v7 line the
-commit messages already named, mapped onto a pre-1.0 series and tagged in place — no history
-was rewritten, so every SHA in `STATE.md`, `ARCHIVE.md` and the memories stays valid.
-`git tag` lists them; `git show v0.6.5` opens one.
+**The old two-part 1.x line (1.0 → 1.8) is mapped, not rewritten** — same commits, same
+SHAs, retro-tagged with their semver identity, exactly as the pre-1.0 line was. The table
+below names both. Everything before 1.0.0 is the internal v4 → v7 line, mapped onto a
+pre-1.0 series and tagged in place. `git tag` lists them all; `git show v0.6.5` opens one.
 
 ## 1.x — the numbered line
 
-| Version | Commit | What shipped |
-|---|---|---|
-| **1.7** | 65aa06d | **Epic boons** (D114): a boon is a feat taken WITH a slot that arrived at character level 19+, never a bonus pick. `featSlotLevels()` walks the level plan; the old `charLevel()>=19?1:0` gave boons to builds with no slot near 19 and capped at one builds with slots on 19 **and** 20. D115 opens the multi-level-build design session. |
-| **1.6** | d8db42a | `CLAUDE.md` dev-server note matches the attach-mode launch config (the preview sandbox cannot spawn `serve.py`). |
-| **1.5** | 0b52f16 | The ⋯ Refresh actually refreshes: await the folder recall inside the click, so the first click of a session no longer falls through to "choose the folder". |
-| **1.4** | 3cb4ede | Handoff: STATE stamped, docs aligned to D113. |
-| **1.3** | 99e883f | **The Library** (D110–D113): import + Sources merged into one two-tab modal; universal drop zone (zip / files / dragged folder); one three-state book list with one Apply; parse on arrival; Refresh imported data (one click, summary + parser stamp); edition-first source groups with search. |
-| **1.2** | d9a233f | Stat-block tag strip on every free-text field (the Imp's `{@variantrule}`); folder scan backfills book names from books.json; folder import carries the lookup, books.json and bestiary files, in readOrder. |
-| **1.1** | e9d4886 | `/clean`: the doc set split (STATE → CLAUDE/PLAN/DECISIONS/GOTCHAS/CHANGELOG/ARCHIVE). |
-| **1.0** | 7523c81 | The app reports its own version. `VERSION` + `bump.py` + a footer tag; the numbering starts here. |
+| Version | (was) | Commit | What shipped |
+|---|---|---|---|
+| **1.2.2** | — | *this commit* | **The audit batch**: unnamed-record guard in both extractors + boot fallback (a malformed brew can no longer brick every boot); escaping pass on imported strings (`esc()` covers quotes; six raw `innerHTML` sinks closed); **Savant double-grant fixed** (5etools grew structured picks; the hand table now retires itself per feature); `[disambiguator]` tag suffixes stripped; whole-record parity diff (35 checks); build.py marker asserts; import-file errors surfaced; storage-quota notice; "Remove imported data" danger row; UA books on the Homebrew & UA shelf; caster-kind vocabulary in the by-level picker; `meta.updated` means edited, not opened; item DC/attack in source group headers; sticky gap banner + flagged chips; **SRD subset renames the 17 product-identity spells** to their licensed names; MAJOR.MINOR.PATCH versioning (D117). |
+| **1.2.1** | 1.8 | d14ac89 | Handoff: STATE stamped, docs aligned to D115. |
+| **1.2.0** | 1.7 | 65aa06d | **Epic boons** (D114): a boon is a feat taken WITH a slot that arrived at character level 19+, never a bonus pick. `featSlotLevels()` walks the level plan; the old `charLevel()>=19?1:0` gave boons to builds with no slot near 19 and capped at one builds with slots on 19 **and** 20. D115 opens the multi-level-build design session. |
+| **1.1.3** | 1.6 | d8db42a | `CLAUDE.md` dev-server note matches the attach-mode launch config (the preview sandbox cannot spawn `serve.py`). |
+| **1.1.2** | 1.5 | 0b52f16 | The ⋯ Refresh actually refreshes: await the folder recall inside the click, so the first click of a session no longer falls through to "choose the folder". |
+| **1.1.1** | 1.4 | 3cb4ede | Handoff: STATE stamped, docs aligned to D113. |
+| **1.1.0** | 1.3 | 99e883f | **The Library** (D110–D113): import + Sources merged into one two-tab modal; universal drop zone (zip / files / dragged folder); one three-state book list with one Apply; parse on arrival; Refresh imported data (one click, summary + parser stamp); edition-first source groups with search. |
+| **1.0.2** | 1.2 | d9a233f | Stat-block tag strip on every free-text field (the Imp's `{@variantrule}`); folder scan backfills book names from books.json; folder import carries the lookup, books.json and bestiary files, in readOrder. |
+| **1.0.1** | 1.1 | e9d4886 | `/clean`: the doc set split (STATE → CLAUDE/PLAN/DECISIONS/GOTCHAS/CHANGELOG/ARCHIVE). |
+| **1.0.0** | 1.0 | 7523c81 | The app reports its own version. `VERSION` + `bump.py` + a footer tag; the numbering starts here. |
 
 ## 0.x — before the numbering (tagged retroactively)
 

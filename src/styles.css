@@ -368,7 +368,7 @@
 .importplan .quick{margin-bottom:8px;align-items:center}
 .importplan .planq{flex:1 1 150px;min-width:120px;width:auto;font-size:12.5px;padding:5px 8px}
 .importplanlist{max-height:min(46vh,360px);overflow:auto;padding-right:4px}
-.importplan .btn.danger{color:var(--bad);border-color:var(--bad)}
+.importplan .btn.danger,#libFoot .btn.danger{color:var(--bad);border-color:var(--bad)}
 /* The list scrolls; the actions under it are PINNED, so "New build" is reachable whether
    you have two builds or twenty. */
 .bswpop{left:0;right:auto;min-width:min(320px,86vw);max-height:min(64vh,460px);
@@ -428,6 +428,11 @@
 .classrow input[type=number]{text-align:center}
 /* spell detail: tooltip + modal */
 /* above .spmodal (70) — the book chip inside the spell modal has a popover too */
+.appnotice{position:fixed;left:50%;transform:translateX(-50%);bottom:14px;z-index:95;
+  display:flex;align-items:center;gap:10px;max-width:min(92vw,560px);
+  background:var(--panel);border:1px solid var(--bad);border-radius:10px;
+  box-shadow:var(--shadow);padding:9px 12px;font-size:12.5px;color:var(--ink)}
+.appnotice .antxt{min-width:0}
 .sptip{position:fixed;z-index:90;max-width:340px;background:var(--panel);border:1px solid var(--line-strong);border-radius:10px;box-shadow:0 14px 40px #0006;padding:11px 13px;font-size:12.5px;pointer-events:none;opacity:0;transition:opacity .1s}
 .sptip.show{opacity:1}
 .sptip h4{font-family:var(--font);font-size:14px;margin:0 0 3px}
@@ -743,9 +748,14 @@ table.spelltable td.cmp .l.iffy{color:var(--good);cursor:help;
 .entname .fmark{color:var(--accent);font-size:11px}
 .entprev{font-size:11px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* a build holding picks from books you have turned off: flagged, never pruned (T2) */
+/* sticky, and opaque enough to sit over scrolled content — the column is its own
+   scroller on desktop, and a banner that can rest off-screen isn't a visible contract */
 .gapbar{display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:9px 12px;border-radius:10px;
-  border:1px solid var(--gold);background:var(--gold-soft)}
+  border:1px solid var(--gold);background:color-mix(in srgb,var(--gold) 9%,var(--bg));
+  position:sticky;top:0;z-index:6}
 .gapbar.hidden{display:none}
+.cartchip.gapped{border-color:var(--gold)}
+.cartchip.gapped .lv{color:var(--gold)}
 .gaptxt{flex:1;min-width:0;font-size:11.5px;color:var(--muted);line-height:1.35;cursor:help}
 .gaptxt b{display:block;color:var(--gold);font-size:12px;font-weight:600}
 .gapbar .btn{flex:0 0 auto}
@@ -896,6 +906,7 @@ table.spelltable td.hasast{cursor:pointer}
 .abname.int{color:var(--ab-int)}.abname.wis{color:var(--ab-wis)}.abname.cha{color:var(--ab-cha)}
 .grouphdr.outer td{position:relative}
 .hdr-abils{display:inline-flex;gap:4px;margin-left:8px;vertical-align:1px}
+.hdr-own{margin-left:8px;font-size:11px;font-weight:600;color:var(--gold)}
 /* spell text highlights (monster-forge cc-* convention) */
 .sptip .cc-dice,.spmodal .cc-dice,.cc-dice{color:var(--cc-dice);font-weight:600}
 .cc-dc{color:var(--cc-dc);font-weight:600}
@@ -1277,6 +1288,7 @@ label.fld .fldt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-wi
   padding-top:7px;border-top:1px solid var(--line)}
 
 @media print{
+  .appnotice{display:none}
   /* The LIGHT sheet, on white — the default. A dark-theme screen would otherwise print
      a black page. Flattening every colour to black would lose what the pickcell and chip
      tints mean, so the hues stay and only the grounds go; soft tints become transparent,
