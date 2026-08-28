@@ -942,6 +942,21 @@ written up in full in `GOTCHAS.md` — that is the copy to trust.
   chains are blocked — import-only); Escape with the level picker open closes the timeline
   UNDER it, and the picker itself only closes by ×/outside (pre-E5 behaviour, now more visible).
 
+- **D121 (2026-08-28) F1 status semantics: the frontier ignores class steps, and optional
+  steps never capture re-entry.** Mechanism: two calls surfaced while building F1's
+  `guideSteps()`/`guideResume()` (fixture E exposed both). ① `skipped` = unanswered below the
+  frontier — but class steps are pre-answered by the plan (D118(e)), so counting them dragged
+  the frontier to top and a hand-levelled build with no picks read ALL-skipped; the frontier now
+  tracks the highest level with a done NON-class step, so that build reads all-open and the
+  forward walk still leaves skipped ones honestly behind it. *Rejected:* keying the frontier on
+  `state.currentLevel` (conflates D115(e)'s "where the character stands" with "how far the
+  answers go"). ② The swap y/n step is `optional:true` and `guideResume()` passes it: "no swap"
+  is a legitimate answer the build cannot store (stateless, D118(j)), so an unanswered one would
+  trap re-entry at the first level-up forever. *Rejected:* storing an answered-no bit (the
+  stored wizard session D118(j) already rejected); dropping swap steps entirely (D118(k) names
+  swap y/n a structural choice of the chain). Enforced by: src/app.js `guideSteps`/`guideResume`.
+  Affects: PLAN F1/F2.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

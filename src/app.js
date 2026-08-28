@@ -810,6 +810,113 @@ function buildHealth(){
   return {findings:out,levels,byLevel};
 }
 
+// ── guided builder: step derivation (F1 · D118) ────────────────────────────
+// One step per DECISION (D118(c)), derived STATELESSLY from the build (D118(j)) — the
+// build IS the wizard's state, so exiting loses nothing and re-entry recomputes. The
+// list is grouped by character level; DIRECTION is only an iteration order over it
+// (D118(f)), never a second engine. Statuses: `done` (the build answers it), `open`
+// (unanswered at or above the frontier), `skipped` (unanswered below it — you moved
+// past). The frontier is the highest level carrying a done step, so a forward walk
+// leaves open slots ahead of it and skipped ones behind, with no stored session bit.
+// Preparer spell lists yield NO steps (daily, D18/D115(c)); a wizard's spell steps are
+// the free 2-per-level allowance — copying more in is legal and not a slot. Each step
+// carries the pool descriptor F2/F3 need ("legal now": castMax at the slice; reverse
+// mode restricts any pool to the build's own picks, D118(f)).
+function guideSteps(){
+  const steps=[], plan=classLevelPlan(), top=plan.length;
+  const clm=charLevelMap(), rowOf=new Map(state.classes.map(r=>[r.id,r]));
+  const add=s=>steps.push(s);
+  // L1 group: species + the origin feat slot(s) — everything the app models (D118(d))
+  const race=RACE_BY[state.speciesKey];
+  add({lv:1,ord:2,kind:"species",label:"Species",done:!!race,
+       value:race?race.name:null,pool:{kind:"species"}});
+  const originCap=(state.classes.length?1:0)
+    +(/human/i.test((race||{}).name||"")?1:0);
+  // an unrecorded spend defaults to origin, exactly as featAcqLevels() reads it
+  const originSpent=state.feats.filter(fk=>(featSlotOf(fk)||"origin")==="origin");
+  for(let i=0;i<originCap;i++){const fk=originSpent[i];
+    add({lv:1,ord:3,kind:"feat",slot:"origin",label:"Origin feat",done:!!fk,
+         value:fk?(FEAT_BY[fk]||{}).name:null,pool:{kind:"feat",slot:"origin"}});}
+  // one class step per character level — the wizard's "continue or multiclass" answer
+  // (D118(e)); every level the plan holds is a decision already made
+  const perClass=new Map();
+  plan.forEach((id,i0)=>{const lv=i0+1, row=rowOf.get(id), c=row&&CLS_BY[row.clsKey];
+    const cl=(perClass.get(id)||0)+1; perClass.set(id,cl);
+    add({lv,ord:0,kind:"class",row:id,cl,label:"Class",done:true,
+         value:c?c.name+" "+cl:"?",pool:{kind:"class",continueOf:id}});
+    // subclass, where this class level makes it due
+    if(c&&cl===(c.subclassLevel||3))
+      add({lv,ord:1,kind:"subclass",row:id,label:c.name+" subclass",done:!!row.subKey,
+           value:row.subKey?((SUB_BY[row.subKey]||{}).shortName||(SUB_BY[row.subKey]||{}).name):null,
+           pool:{kind:"subclass",clsKey:row.clsKey}});
+    // sticky pick slots this class level opens (E2's schedules; dense arrays fill in order)
+    const sched=rowSched(row); if(!sched)return;
+    const ch=state.chosen[id]||{cantrips:[],spells:[]};
+    const delta=(a)=>a?(a[cl-1]||0)-(cl>1?(a[cl-2]||0):0):0;
+    const from=(a)=>cl>1?(a[cl-2]||0):0;
+    for(let k=0;k<delta(sched.cant);k++){const p=from(sched.cant)+k;
+      add({lv,ord:4,kind:"cantrip",row:id,pos:p,label:"Cantrip",
+           done:p<(ch.cantrips||[]).length,
+           value:p<(ch.cantrips||[]).length?(SPELL_BY[ch.cantrips[p]]||{}).name:null,
+           pool:{kind:"cantrip",row:id}});}
+    if(sched.spells)for(let k=0;k<delta(sched.spells);k++){const p=from(sched.spells)+k;
+      add({lv,ord:5,kind:"spell",row:id,pos:p,label:sched.book?"Spellbook spell":"Spell",
+           done:p<(ch.spells||[]).length,
+           value:p<(ch.spells||[]).length?(SPELL_BY[ch.spells[p]]||{}).name:null,
+           pool:{kind:"spell",row:id,castMax:Math.max(1,maxLvlAt(sched.caster,cl))}});}
+    // the level-up swap question (D115(g)/D119(b)): the class taking this level may
+    // trade one earlier pick — a real decision, answered yes (an event) or passed
+    const swappable=cl>=2&&((sched.cant&&(ch.cantrips||[]).length)
+                            ||(sched.spells&&!sched.book&&(ch.spells||[]).length));
+    if(swappable){const ev=(state.swaps||{})[lv];
+      add({lv,ord:7,kind:"swap",row:id,label:"Swap a pick",done:!!ev,optional:true,
+           value:ev?("− "+String(ev.out).split("|")[0]+" + "+String(ev.in).split("|")[0]):null,
+           pool:{kind:"swap",row:id}});}
+  });
+  // general/epic feat slots at the character levels the plan puts them (D114); spends
+  // attribute in array order, earliest slot first — same walk featAcqLevels() does
+  const slots=featSlotLevels(true), used=new Array(slots.length).fill(false);
+  const spent=state.feats.filter(fk=>(featSlotOf(fk)||"origin")!=="origin");
+  const slotOf=new Array(slots.length).fill(null);
+  spent.forEach(fk=>{const min=featSlotOf(fk)==="epic"?19:1;
+    for(let i=0;i<slots.length;i++)if(!used[i]&&slots[i]>=min){used[i]=true;slotOf[i]=fk;break;}});
+  slots.forEach((lv,i)=>{const fk=slotOf[i];
+    add({lv,ord:6,kind:"feat",slot:lv>=19?"epic":"general",done:!!fk,
+         label:lv>=19?"Feat / ASI / Epic Boon":"Feat / ASI",
+         value:fk?(FEAT_BY[fk]||{}).name:null,pool:{kind:"feat",slot:"general"}});});
+  // optional-feature slots ride their progression's counts (D28), like optAcqLevels()
+  const oa=optAcqLevels(), byProg=new Map();
+  state.optFeats.forEach(ok=>{const a=oa.get(ok); if(!a||a.over)return;
+    const key=a.slot+"|"+a.lv, l=byProg.get(key)||[]; l.push(ok); byProg.set(key,l);});
+  state.classes.forEach(row=>[CLS_BY[row.clsKey],row.subKey?SUB_BY[row.subKey]:null].forEach(src=>{
+    if(!src||!src.optFeatures)return;
+    const lvls=clm.get(row.id)||[];
+    src.optFeatures.forEach(p=>{for(let cl=1;cl<=lvls.length;cl++){
+      const d=(p.counts[cl-1]||0)-(cl>1?(p.counts[cl-2]||0):0);
+      const got=byProg.get(p.name+"|"+lvls[cl-1])||[];
+      for(let k=0;k<d;k++){const ok=got[k];
+        add({lv:lvls[cl-1],ord:6,kind:"optfeat",row:row.id,label:p.name,done:!!ok,
+             value:ok?(OPT_BY[ok]||{}).name:null,pool:{kind:"optfeat",types:[...p.types||[]]}});}}});}));
+  // the growth affordance: the next class level is itself the next decision
+  if(top<20)add({lv:top+1,ord:0,kind:"class",row:null,label:top?"Next level":"Class",
+                 done:false,value:null,pool:{kind:"class",continueOf:top?plan[top-1]:null}});
+  steps.sort((a,b)=>a.lv-b.lv||a.ord-b.ord||(a.pos||0)-(b.pos||0));
+  // the frontier turns unanswered-below into "skipped" — no session state involved.
+  // Class steps don't count toward it: the plan pre-answers them (D118(e)), so a
+  // hand-levelled build with no picks yet reads all-open, not all-skipped
+  const frontier=steps.reduce((m,s)=>s.done&&s.kind!=="class"?Math.max(m,s.lv):m,0);
+  steps.forEach(s=>{s.status=s.done?"done":(s.lv<frontier?"skipped":"open");});
+  return steps;
+}
+// where a walk resumes (D118(j)): the first not-done step in the walk's own order —
+// ascending for forward, descending for reverse (D118(f)). OPTIONAL steps (the swap
+// y/n) never capture it: "no swap" is a legitimate answer the build can't store, so
+// an unanswered one would trap re-entry at the first level-up forever.
+function guideResume(steps,desc){
+  const list=desc?[...steps].reverse():steps;
+  return list.find(s=>s.status!=="done"&&!s.optional)||null;
+}
+
 // ── custom spell sources (D55) ─────────────────────────────────────────────
 // A named thing the character OWNS that grants spells — a magic item, a boon, a
 // blessing. Lives inside the build (it travels with export), and resolves through

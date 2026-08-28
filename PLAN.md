@@ -81,12 +81,15 @@ picks instead of best-case.
 A separate coach-driven flow over the D115 substrate, forward and reverse — the full model is
 **D118(a–k)**; cite it, don't restate it. Order: F1 → F2 → F3 → F4.
 
-- [ ] **F1 — step-list derivation** (`sonnet@high`, M) — from the E2 schedules + build state,
-  derive the per-decision step list grouped by character level, statuses (done / open / skipped)
-  computed statelessly (D118(j)); direction is an iteration order over the same slices, ascending
-  or descending (D118(f)); candidate pools: full catalog (forward) vs the build's own picks
-  (reverse). **Done when:** the five D114 fixture builds yield correct step lists in both
-  directions, and re-entry lands on the first open slot.
+- [x] **F1 — step-list derivation** (**shipped v1.2.11**, done-when verified in-browser: the
+  five D114 fixtures yield correct step lists — counts, levels, labels, castMax pools — in both
+  directions, and `guideResume()` lands on the first open slot; a filled Bard 20 derives 73
+  steps, inside D118(c)'s band) — `guideSteps()` derives one step per decision from the build
+  alone (class-per-level, subclass, species, origin/general/epic feat slots, sticky pick slots
+  via the E2 schedules, optional-feature slots, swap y/n at eligible level-ups), grouped by
+  character level with pool descriptors for F2/F3. Statuses stateless (D118(j)); two calls made
+  en route → **D121**: the frontier ignores class steps (a hand-levelled build reads all-open,
+  not all-skipped) and OPTIONAL steps (the swap y/n) never capture re-entry.
 - [ ] **F2 — the coach rail** (`fable@high` — core surface, L) — side rail per the D118(k)
   mockup: level-grouped chain, jump-anywhere, structural choices inline (no modals), page
   pre-filtered with "legal now" highlighting, Skip/Back/Next, progress; bottom sheet at phone
