@@ -7,12 +7,12 @@
 > |---|---|
 > | `CLAUDE.md` | What this project is, its conventions, build/run, the verify gate, versioning |
 > | `PLAN.md` | The queue — what is next and what is gated |
-> | `DECISIONS.md` | Every decision D7–D113 and what was rejected |
+> | `DECISIONS.md` | Every decision D7–D115 and what was rejected |
 > | `GOTCHAS.md` | Traps that have already cost a session |
 > | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 > | `ARCHIVE.md` | Bodies of consumed phases and old rationale |
 
-## TL;DR (2026-08-27 · **v1.4**, pushed · **LIVE on GitHub Pages**)
+## TL;DR (2026-08-28 · **v1.7**, `65aa06d`, pushed · **LIVE on GitHub Pages**)
 - **State:** working, committed, **pushed**, tree clean. This session shipped **the Library**
   (v1.3, **D110–D113**): the import modal and the Sources modal are ONE modal with a
   **Sources | Manage** tab bar behind one ⋯ **Library…** entry. Sources gained a search field,
@@ -23,19 +23,32 @@
   disclosure, **parse on arrival** (no "Read staged files" click), and **one three-state book
   list** — kept · new · available-in-folder — reconciled by one Apply. **Refresh imported data**
   (⋯ menu + Manage footer) re-reads the remembered folder with the current parser and re-imports
-  exactly the stored books, reporting a summary + parser stamp. Before it (v1.2): stat-block
+  exactly the stored books, reporting a summary + parser stamp — it needed v1.5 to work from the
+  menu at all (the folder recall is async and was not awaited). Before that (v1.2): stat-block
   senses/languages/etc. now go through the tag strip in both extractors (the Imp's raw
   `{@variantrule}`), and the folder path stopped dropping book names, the spell-source lookup,
   `books.json` and bestiary files — the zip/folder behaviour gap is closed → `GOTCHAS.md`.
+  Then **epic boons** (v1.7, **D114**): a boon is a feat taken **with** a feat slot that arrived
+  at **character** level 19+, never a bonus pick — `featSlotLevels()` walks `classLevelPlan()`,
+  `general` counts every slot (boons included, via `slotsUsed`) and `epic` is the sub-limit.
+  The old one-liner gave a boon to builds with no slot near 19 and capped at one the builds whose
+  slots land on 19 **and** 20 (Francesco's Warlock 4 / Fighter 4 / Bard 12 → **0/2**).
   All flows verified in-browser (fixture folder scan → available row → Apply add → danger Apply
-  remove → store restored exactly); parity 0 fail. Print/PDF surface (D97–D108) unchanged.
-- **Next action:** the standing 🔶 **decide the magic-item / reward import** — researched, parked on Francesco's call; findings
-  and the one real trap are in `PLAN.md`. **Done when:** rewards-first vs items-first vs
-  neither is a decision entry with a task line behind it.
+  remove → store restored exactly; five feat-budget builds); parity 0 fail. Print/PDF surface
+  (D97–D108) unchanged. `.claude/launch.json` is now an **attach** config — the preview sandbox
+  cannot spawn `serve.py`, so start it from Bash first (v1.6, `CLAUDE.md`).
+- **Next action:** 🔶 **the "seamless at every level" design session** (**D115**, requested
+  2026-08-28) — multi-step back-and-forth, not a patch. D114 made the level **order** load-bearing
+  (which character level a slot arrives at decides whether it can be a boon) and the default
+  "each class in full, in row order" stands only *for now*, by Francesco's call. Reaches the level
+  plan, the preview (D54/D64), retraining, and what a build means below its top level.
+  **Done when:** the model is a decision entry with task lines behind it. The 🔶 **magic-item /
+  reward import** decision is still queued behind it in `PLAN.md`.
 - **Manual for Francesco:** ⓪ **Refresh your imported data — now one click**: ⋯ → **Refresh
   imported data** in each browser (choose the folder once if asked). It re-parses with the
   current extractor: heals the Imp's raw tag, and carries D109 familiar forms, D91 access,
-  D82 stub-drop, `catName`/`castMods`. ① **Print from Chrome or Safari**,
+  D82 stub-drop, `catName`/`castMods`. Nothing about the epic-boon fix needs a re-import.
+  ① **Print from Chrome or Safari**,
   not from an in-app PDF writer: the filename and the clickable spell links come from the
   browser's own export, and some hosts ignore both (D108). ② **Turn XMM on in Sources** for Find
   Familiar's Monster Manual 2024 forms in the default view (D81). ③ Optional — ask GitHub Support
@@ -75,4 +88,4 @@ Split out of this file on 2026-08-27 so the resume read is short. Nothing was dr
 - → moved: Build / run — `CLAUDE.md`
 - → moved: the Shipped list — `CHANGELOG.md`
 
-⟳ Rename previous session → "Library modal and refresh" · session: resolve by cwd + latest
+⟳ Rename previous session → "Library modal, refresh and epic boons" · session: resolve by cwd + latest

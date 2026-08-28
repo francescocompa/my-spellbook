@@ -13,7 +13,11 @@ was rewritten, so every SHA in `STATE.md`, `ARCHIVE.md` and the memories stays v
 
 | Version | Commit | What shipped |
 |---|---|---|
-| **1.3** | — | **The Library** (D110–D113): import + Sources merged into one two-tab modal; universal drop zone (zip / files / dragged folder); one three-state book list with one Apply; parse on arrival; Refresh imported data (one click, summary + parser stamp); edition-first source groups with search. |
+| **1.7** | 65aa06d | **Epic boons** (D114): a boon is a feat taken WITH a slot that arrived at character level 19+, never a bonus pick. `featSlotLevels()` walks the level plan; the old `charLevel()>=19?1:0` gave boons to builds with no slot near 19 and capped at one builds with slots on 19 **and** 20. D115 opens the multi-level-build design session. |
+| **1.6** | d8db42a | `CLAUDE.md` dev-server note matches the attach-mode launch config (the preview sandbox cannot spawn `serve.py`). |
+| **1.5** | 0b52f16 | The ⋯ Refresh actually refreshes: await the folder recall inside the click, so the first click of a session no longer falls through to "choose the folder". |
+| **1.4** | 3cb4ede | Handoff: STATE stamped, docs aligned to D113. |
+| **1.3** | 99e883f | **The Library** (D110–D113): import + Sources merged into one two-tab modal; universal drop zone (zip / files / dragged folder); one three-state book list with one Apply; parse on arrival; Refresh imported data (one click, summary + parser stamp); edition-first source groups with search. |
 | **1.2** | d9a233f | Stat-block tag strip on every free-text field (the Imp's `{@variantrule}`); folder scan backfills book names from books.json; folder import carries the lookup, books.json and bestiary files, in readOrder. |
 | **1.1** | e9d4886 | `/clean`: the doc set split (STATE → CLAUDE/PLAN/DECISIONS/GOTCHAS/CHANGELOG/ARCHIVE). |
 | **1.0** | 7523c81 | The app reports its own version. `VERSION` + `bump.py` + a footer tag; the numbering starts here. |
