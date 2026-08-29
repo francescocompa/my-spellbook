@@ -101,11 +101,18 @@ A separate coach-driven flow over the D115 substrate, forward and reverse — th
   but nothing calls it). **D122 rode along**: the timeline became a full modal (its ×, sub-note,
   order-flag, changed-only dimmed casting tiles, and multiclass run aggregation with no-op
   drops not being targets).
-- [ ] **F3 — entry points + reverse wiring** (`sonnet@medium`, S) — "Start guided" beside
-  start-empty; "Guide me from here" in the E5 popover footer + ⋯ menu alias; reverse on a ready
-  build asks the walk direction; leftovers settle at top, soft-flagged (D118(g)). **Done when:**
-  all three entries reach the rail, and a ready L12 fixture reverse-engineers to a legal order
-  with its leftovers flagged.
+- [x] **F3 — entry points + reverse wiring** (**shipped v1.2.13**, done-when verified
+  in-browser: all three entries reach the rail — "Create & start guided" in the new-build
+  modal goes straight to the forward walk, the timeline footer's "Guide me from here" and the
+  ⋯ "Guided builder…" alias open the walk chooser on a ready build; a Bard 12 fixture with
+  three spell-level violations and one over-budget pick reconstructed via the reverse walk to
+  **0 spell-level findings** with the unplaced 17th pick settled at top and flagged) —
+  reverse mode (D118(f,g)): the chooser asks continue-vs-reconstruct and the walk direction;
+  reconstruct narrows the page pool to the row's OWN picks and a take PLACES the pick at the
+  current slot's array position (stateless — the position is the answer; the displaced pick
+  drifts later and stays in the pool; review clicks can never delete). Reverse re-entry lands
+  on the first slot whose occupant is illegal where it sits; illegal slots carry a red ⚠ in
+  the rail in every mode.
 - [ ] **F4 — 🔍 fresh-eyes gate** (`fable@high`, separate session per model-policy) — review the
   shipped phase against D118(a–k) before it is declared done.
 

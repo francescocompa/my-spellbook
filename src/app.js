@@ -924,7 +924,12 @@ function guideResume(steps,desc){
 // pre-filtered to what is legal at that acquisition point (D118(b) — see renderSpells).
 // `cur` is a step KEY so it survives every re-render; `autonext` moves it along when
 // the step it points at gets answered on the page.
-let GUIDE={on:false,desc:false,cur:null,autonext:false,expanded:false};
+// `reverse` is D118(f)'s reconstruct mode: the candidate pool narrows to the build's
+// own picks and answering a slot PLACES a pick at that slot's array position — a
+// stateless gesture (the position IS the answer), so leftovers drift to the top slice
+// and take E4 flags exactly as D118(g) requires. `choose` renders the walk chooser
+// that a ready build gets on entry (D118(f) "asks which walk").
+let GUIDE={on:false,desc:false,reverse:false,choose:false,cur:null,autonext:false,stepNext:false,expanded:false};
 // identity that survives re-derivation: picks key on their array POSITION (stable
 // under acquisition moves), everything else on what places it
 function guideKey(s){
@@ -935,9 +940,36 @@ function guideKey(s){
   if(s.kind==="class")return "class~"+s.lv;
   return s.kind+"~"+s.lv;               // species (lv 1), swap (one per level)
 }
-function openGuide(desc){ GUIDE.on=true; GUIDE.desc=!!desc; GUIDE.cur=null; GUIDE.autonext=true;
-  render(); }
-function closeGuide(){ if(!GUIDE.on)return; GUIDE.on=false; GUIDE.cur=null; render(); }
+function openGuide(desc,reverse){ GUIDE.on=true; GUIDE.desc=!!desc; GUIDE.reverse=!!reverse;
+  GUIDE.choose=false; GUIDE.cur=null; GUIDE.autonext=true; render(); }
+function closeGuide(){ if(!GUIDE.on)return; GUIDE.on=false; GUIDE.choose=false; GUIDE.reverse=false;
+  GUIDE.cur=null; render(); }
+// the shared entry for an EXISTING build (F3 · D118(i)): a fresh/empty build walks
+// forward without ceremony; a build that already answered something is asked which
+// walk it wants (continue forward, or reconstruct over its own picks — D118(f))
+function guideEntry(){
+  const answered=state.speciesKey||state.feats.length||state.optFeats.length
+    ||Object.values(state.chosen||{}).some(ch=>((ch&&ch.cantrips||[]).length+(ch&&ch.spells||[]).length)>0);
+  if(!state.classes.length||!answered){openGuide(false);return;}
+  GUIDE.on=true; GUIDE.choose=true; GUIDE.reverse=false; GUIDE.cur=null; render();
+}
+// a pick slot holding a spell its class could not cast where the slot arrives — the
+// rail marks it and the reverse walk resumes at the first one
+function guideSlotIllegal(s){
+  if(s.kind!=="spell"||!s.done||!s.pool.castMax)return false;
+  const ch=state.chosen[s.row]||{}; const sp=SPELL_BY[(ch.spells||[])[s.pos]];
+  return !!sp&&sp.level>s.pool.castMax;
+}
+// reverse mode's answer (D118(f,g)): put the clicked pick AT this slot's position —
+// the previous occupant shifts one later and stays in the pool for a later slot;
+// whatever is never placed ends up in the top slice, flagged, never deleted
+function guidePlace(s,k){
+  const arr=s.kind==="cantrip"?"cantrips":"spells";
+  const ch=state.chosen[s.row]; if(!ch||!ch[arr])return;
+  const i=ch[arr].indexOf(k); if(i<0)return;
+  if(i!==s.pos){ch[arr].splice(i,1);ch[arr].splice(s.pos,0,k);}
+  GUIDE.stepNext=true; save(); render();
+}
 // the current pick step, if the page should pre-filter for it (renderSpells asks)
 function guidePickStep(){
   if(!GUIDE.on||!GUIDE.cur)return null;
@@ -965,11 +997,26 @@ function guideStepAfter(steps,key,pred){
 // walk's resume point; auto-advances off a step the page just answered (the coach's
 // forward motion — never off a review jump, which sets autonext false).
 function guideSync(){
-  if(!GUIDE.on)return;
+  if(!GUIDE.on||GUIDE.choose)return;
   const steps=R.gsteps;
   let cur=GUIDE.cur&&steps.find(x=>guideKey(x)===GUIDE.cur)||null;
-  if(!cur){cur=guideResume(steps,GUIDE.desc);GUIDE.cur=cur?guideKey(cur):null;GUIDE.autonext=true;}
-  else if(cur.done&&GUIDE.autonext){
+  // an explicit "this step is answered, move on" (reverse placements use it — their
+  // slots are always `done`, so the forward done-detection below can't fire)
+  if(cur&&GUIDE.stepNext){GUIDE.stepNext=false;
+    const nx=guideStepAfter(steps,GUIDE.cur,GUIDE.reverse?null:(x=>x.status!=="done"&&!x.optional));
+    if(nx)GUIDE.cur=guideKey(nx);
+    return;
+  }
+  GUIDE.stepNext=false;
+  if(!cur){
+    // reverse re-entry: the first slot whose occupant is illegal where it sits — the
+    // exact place reconstruction is needed — else the walk's first step (D118(j))
+    if(GUIDE.reverse){const list=guideWalk(steps);
+      cur=list.find(guideSlotIllegal)||list[0]||null;}
+    else cur=guideResume(steps,GUIDE.desc);
+    GUIDE.cur=cur?guideKey(cur):null;GUIDE.autonext=true;
+  }
+  else if(cur.done&&GUIDE.autonext&&!GUIDE.reverse){
     const nx=guideStepAfter(steps,GUIDE.cur,x=>x.status!=="done"&&!x.optional)
            ||guideResume(steps,GUIDE.desc);
     if(nx&&guideKey(nx)!==GUIDE.cur)GUIDE.cur=guideKey(nx);
@@ -982,13 +1029,38 @@ function renderGuide(){
   const steps=(R&&R.gsteps)||guideSteps();
   rail.classList.remove("hidden");
   rail.classList.toggle("grexpanded",GUIDE.expanded);
+  // the walk chooser a ready build gets on entry (F3 · D118(f,i))
+  if(GUIDE.choose){
+    $("#grProg").textContent="";
+    $("#grSub").textContent="This build has answers in it already — pick how the guide should walk it.";
+    const box=$("#grList"); box.innerHTML="";
+    const c1=el("div","grinline");
+    const b1=el("button","btn on","Continue building — walk up from here");
+    b1.onclick=()=>openGuide(false,false);
+    c1.append(b1,el("div","grhint","Picks up at the first open decision and walks forward with the full catalog."));
+    const c2=el("div","grinline");
+    c2.append(el("div","grhint","Or reconstruct the level story: walk the levels and place the build's OWN picks where they were acquired. Nothing is deleted — whatever you don't place settles at the top level and stays flagged (soft, as always)."));
+    const b2=el("button","btn","Reconstruct — walk L1 up");
+    b2.onclick=()=>openGuide(false,true);
+    const b3=el("button","btn","Reconstruct — walk L"+topCharLevel()+" down");
+    b3.onclick=()=>openGuide(true,true);
+    c2.append(b2,b3);
+    box.append(c1,c2);
+    ["grBack","grSkip","grNext"].forEach(id=>{$("#"+id).disabled=true;});
+    $("#grNext").textContent="Next →";
+    $("#grClose").onclick=closeGuide;
+    return;
+  }
   const cur=GUIDE.cur&&steps.find(x=>guideKey(x)===GUIDE.cur)||null;
   const need=steps.filter(x=>!x.optional);
   const doneN=need.filter(x=>x.done).length;
   $("#grProg").textContent=doneN+" / "+need.length+" decided";
   const top=topCharLevel();
-  $("#grSub").textContent=(GUIDE.desc?`Walking L${top} down to L1`:`Walking L1 up`)
-    +" — click any step to jump; everything is skippable (open slots stay flagged, never blocked).";
+  $("#grSub").textContent=(GUIDE.reverse
+    ?`Reconstructing over the build's own picks, `+(GUIDE.desc?`L${top} down`:`L1 up`)
+      +" — each slot takes the pick that was acquired there; the rest drift to the top."
+    :(GUIDE.desc?`Walking L${top} down to L1`:`Walking L1 up`)
+      +" — click any step to jump; everything is skippable (open slots stay flagged, never blocked).");
   const all=$("#grAll"); all.textContent=GUIDE.expanded?"this level":"whole chain";
   all.onclick=()=>{GUIDE.expanded=!GUIDE.expanded;renderGuide();};
   const box=$("#grList"); const keep=box.scrollTop; box.innerHTML="";
@@ -1012,7 +1084,9 @@ function renderGuide(){
       k.append(el("span","gs-val",s.value||(s.status==="skipped"?"skipped — still open":"to decide")));
       b.append(k);
       const st=el("span","gs-st");
-      st.append(icoEl(s.done?"check":s.status==="skipped"?"warn":"dot"));
+      const ill=guideSlotIllegal(s);          // a filled slot whose spell can't sit there
+      if(ill)b.classList.add("gsill");
+      st.append(icoEl(ill?"warn":s.done?"check":s.status==="skipped"?"warn":"dot"));
       b.append(st);
       b.onclick=()=>{guideGo(s);};
       g.append(b);
@@ -1028,9 +1102,12 @@ function renderGuide(){
   back.disabled=!prev; back.onclick=()=>prev&&guideGo(prev);
   const nxAny=cur&&guideStepAfter(steps,GUIDE.cur,null);
   skip.disabled=!nxAny; skip.onclick=()=>nxAny&&guideGo(nxAny);
-  const nxOpen=cur?(guideStepAfter(steps,GUIDE.cur,x=>x.status!=="done"&&!x.optional)
-                    ||(cur.status!=="done"?null:guideResume(steps,GUIDE.desc))):null;
-  next.textContent=nxOpen?"Next →":(doneN>=need.length?"All decided ✓":"Next →");
+  // reverse walks EVERY slot (they are all `done` — review is the point); forward
+  // seeks the next open decision
+  const nxOpen=GUIDE.reverse?nxAny
+    :cur?(guideStepAfter(steps,GUIDE.cur,x=>x.status!=="done"&&!x.optional)
+          ||(cur.status!=="done"?null:guideResume(steps,GUIDE.desc))):null;
+  next.textContent=nxOpen?"Next →":(GUIDE.reverse?"End of the walk":doneN>=need.length?"All decided ✓":"Next →");
   next.disabled=!nxOpen; next.onclick=()=>nxOpen&&guideGo(nxOpen);
   $("#grClose").onclick=closeGuide;
 }
@@ -1481,6 +1558,12 @@ function toggle(idx,spellKey,cantrip,which){
     }
     SWAPARM=null;   // the outgoing pick vanished meanwhile — disarm, fall through to a plain take
   }
+  // reconstruct placement (F3 · D118(f)): while the guide's current slot belongs to
+  // this row and kind, a click on one of the row's own picks ANSWERS the slot —
+  // position, not toggle — so review clicks can never delete a pick (D118(g))
+  if(GUIDE.on&&GUIDE.reverse){const gp=guidePickStep();
+    if(gp&&gp.row===idx&&arr===(gp.kind==="cantrip"?"cantrips":"spells")
+       &&ch[arr].includes(spellKey)){guidePlace(gp,spellKey);return;}}
   const L=PREVIEW.level;
   // standing at a previewed level, the order is load-bearing (E2 · D115(d)): an add
   // inserts at L's slice point (the earliest open schedule slot — best case, D18); a
@@ -3692,6 +3775,7 @@ function addPreparableRows(push,rows){
 }
 function renderTable(){
   renderTableCastMods();
+  TABLE_MM=activeMetamagic();
   const rows=tableRows();
   if(PRINT_MODE)PRINT_ROWS=rows;
 
@@ -3801,6 +3885,46 @@ function shortCell(short,full,label){
 // a spell is "also with your spell slots" if it's an eligible pool spell for a caster.
 // Module scope on purpose: cellFor() below is top-level and calls it.
 const slotCastable=sp=>{const e=R.pool.get(key(sp.name,sp.source));return !!(e&&e.takers.length);};
+// ── metamagic applicability tags (D123) ────────────────────────────────────
+// Which SELECTED metamagic options can touch a given spell, judged from digest fields
+// alone — advisory (D31): a tag says the option's core condition holds, never that
+// every clause of the prose was checked. Options that apply to nearly everything
+// (Subtle Spell) are deliberately absent — a tag on every row says nothing. Predicates
+// are hand-authored on the XPHB wording and keyed by NAME, so PHB reprints ride along.
+const METAMAGIC_WHEN={
+  "Careful Spell":{tag:"careful",test:sp=>(sp.save||[]).length>0,
+    why:"forces a saving throw, so chosen creatures can be spared"},
+  "Distant Spell":{tag:"distant",test:sp=>sp.rcat==="ranged"||sp.rcat==="touch",
+    why:"has a range to double (touch becomes 30 feet)"},
+  "Empowered Spell":{tag:"empower",test:sp=>(sp.dmg||[]).length>0,
+    why:"rolls damage, so dice can be rerolled"},
+  "Extended Spell":{tag:"extend",test:sp=>/minute|hour|day/i.test(sp.durTxt||""),
+    why:"lasts a minute or longer, so the duration can double"},
+  "Heightened Spell":{tag:"heighten",test:sp=>(sp.save||[]).length>0,
+    why:"forces a saving throw, and one save can be made with disadvantage"},
+  "Quickened Spell":{tag:"quicken",test:sp=>sp.tcat==="action",
+    why:"takes an action to cast, which can become a bonus action"},
+  "Seeking Spell":{tag:"seek",test:sp=>(sp.atk||[]).length>0,
+    why:"makes an attack roll, and a miss can be rerolled"},
+  "Transmuted Spell":{tag:"transmute",
+    test:sp=>(sp.dmg||[]).some(d=>["acid","cold","fire","lightning","poison","thunder"].includes(d)),
+    why:"deals a damage type Transmuted Spell can change"},
+  "Twinned Spell":{tag:"twin",
+    test:sp=>Array.isArray(sp.higher)&&/target one additional/i.test(sp.higher.join(" ")),
+    why:"can target one additional creature from a higher slot — Twinned adds one without spending it"},
+};
+// the taken metamagic options with a predicate, and the class rows whose own
+// progressions grant Metamagic — tags only make sense on that class's spells
+let TABLE_MM=null;
+function activeMetamagic(){
+  const taken=state.optFeats.map(k=>OPT_BY[k])
+    .filter(o=>o&&(o.types||[]).includes("MM")&&METAMAGIC_WHEN[o.name]);
+  if(!taken.length)return null;
+  const rows=new Set();
+  state.classes.forEach(r=>[CLS_BY[r.clsKey],r.subKey?SUB_BY[r.subKey]:null].forEach(src=>{
+    if(src&&(src.optFeatures||[]).some(p=>(p.types||[]).includes("MM")))rows.add(r.id);}));
+  return rows.size?{rows,opts:[...new Map(taken.map(o=>[o.name,o])).values()]}:null;
+}
 function cellFor(k,row){
   const {sp,type,recharge}=row, src=row.src;
   if(k==="mark"){
@@ -3828,6 +3952,14 @@ function cellFor(k,row){
     } else td.textContent=sp.name;
     attachSpell(td,sp);
     if(sp.ritual)td.append(Object.assign(el("span"),{textContent:" R",style:"color:var(--gold);font-size:10px;font-weight:700"}));
+    // selected metamagic that can touch THIS spell (D123), on the class that owns it
+    const mo=row.idx!=null?row.idx:(row.ownIdx!=null?row.ownIdx:null);
+    if(TABLE_MM&&mo!=null&&TABLE_MM.rows.has(mo)){
+      TABLE_MM.opts.forEach(opt=>{const d=METAMAGIC_WHEN[opt.name];
+        if(!d.test(sp))return;
+        const t=el("span","mmtag",d.tag);
+        attachTip(t,tipBlock(opt.name,"This spell "+d.why+". Advisory — the option's full text has the final word."));
+        td.append(t);});}
     return td;}
   if(k==="save"){const td=el("td","savecell");td.innerHTML=defenceHTML(sp);return td;}
   if(k==="school")return shortCell(shortSchool(sp.school),sp.school,"School");
@@ -4146,16 +4278,21 @@ function levelCasting(row,cl,before,after){
   const c=CLS_BY[row.clsKey]; if(!c)return null;
   const sub=row.subKey?SUB_BY[row.subKey]:null;
   const caster=c.caster||(sub&&sub.caster)||null; if(!caster)return null;
-  const pact=caster==="pact";
-  const slot=pact?(after.pact?after.pact.lvl:0):topSlot(after.slots);
-  const slotWas=pact?(before.pact?before.pact.lvl:0):topSlot(before.slots);
   const spell=maxLvlAt(caster,cl), spellWas=cl>1?maxLvlAt(caster,cl-1):0;
-  return {spell,spellUp:spell>spellWas,slot,slotUp:slot>slotWas};
+  // Pact Magic is measured on its own terms (D123): count × slot level, never folded
+  // into the regular-slot clock
+  if(caster==="pact"){
+    const p=after.pact||{num:0,lvl:0}, pw=before.pact||{num:0,lvl:0};
+    return {spell,spellUp:spell>spellWas,slot:0,slotUp:false,
+            pact:p,pactUp:p.num!==pw.num||p.lvl!==pw.lvl};
+  }
+  const slot=topSlot(after.slots), slotWas=topSlot(before.slots);
+  return {spell,spellUp:spell>spellWas,slot,slotUp:slot>slotWas,pact:null,pactUp:false};
 }
-const lvTile=(kind,lvl,up,tip)=>{
-  const t=el("div","lt lt-"+kind+(up?" up":""));
-  t.append(el("b",null,lvl?ROMAN[lvl]:"—"));
-  t.append(el("small",null,kind));
+const lvTile=(kind,big,word,tip)=>{
+  const t=el("div","lt lt-"+kind);
+  t.append(el("b",null,big));
+  t.append(el("small",null,word));
   attachTip(t,tip); return t;};
 // ── the timeline popover (E5 · D115(j)) ────────────────────────────────────
 // One row per character level, in plan order. A row: which class that level was taken
@@ -4305,21 +4442,32 @@ function renderTimeline(){
     else body.append(Object.assign(el("div","logains dim"),{textContent:"no new features"}));
     card.append(body);
     // only the level that MOVED a clock states it (D122) — a quiet note, not a control;
-    // every unchanged level stays clean and the column reads as "what rose where"
-    if(cast&&(cast.spellUp||cast.slotUp)){const tiles=el("div","lotiles");
-      if(cast.spell===cast.slot){
-        tiles.append(lvTile("cast",cast.spell,false,
-          tipBlock("Casting level — raised here",
-            "Max spell level and top slot agree here. They are two different clocks — the row notes them separately when multiclassing pulls them apart.")));
+    // every unchanged level stays clean and the column reads as "what rose where".
+    // Where the two clocks agree the tile says "spell" in a NEUTRAL word (D123) —
+    // "cast" named a merger the reader never asked about. Pact Magic gets its own
+    // tile, measured as count × slot level (D123).
+    if(cast&&(cast.spellUp||cast.slotUp||cast.pactUp)){const tiles=el("div","lotiles");
+      if(cast.pact){
+        if(cast.spellUp)tiles.append(lvTile("spell",ROMAN[cast.spell],"spell",
+          tipBlock("Max spell level — raised here",
+            "The highest level this class can cast, set by its OWN level.")));
+        if(cast.pactUp)tiles.append(lvTile("pact",cast.pact.num+"× "+ROMAN[cast.pact.lvl],"pact",
+          tipBlock("Pact Magic slots — changed here",
+            `${cast.pact.num} slot${cast.pact.num===1?"":"s"}, all level ${cast.pact.lvl}, back on a short rest. `
+            +"Pact Magic is its own clock beside regular spell slots.")));
+      } else if(cast.spell===cast.slot){
+        tiles.append(lvTile("cast",ROMAN[cast.spell],"spell",
+          tipBlock("Max spell level — raised here",
+            "Top slot level agrees with it here. They are two different clocks — the row notes them separately when multiclassing pulls them apart.")));
       } else {
-        if(cast.spellUp)tiles.append(lvTile("spell",cast.spell,false,
+        if(cast.spellUp)tiles.append(lvTile("spell",ROMAN[cast.spell],"spell",
           tipBlock("Max spell level — raised here",
             "The highest level this class can prepare, set by its OWN level. Multiclassing never raises it.")));
-        if(cast.slotUp)tiles.append(lvTile("slot",cast.slot,false,
+        if(cast.slotUp)tiles.append(lvTile("slot",ROMAN[cast.slot],"slot",
           tipBlock("Top slot level — raised here",
             "The highest slot you have, from your COMBINED caster level. Higher slots let you upcast; they don't widen the list.")));
       }
-      card.append(tiles);}      // after the body, so they sit on the RIGHT edge
+      if(tiles.children.length)card.append(tiles);}   // right edge, after the body
     // sticky picks the schedule places here (E2); drag a chip to another row to move it
     const here=picks.get(i)||[];
     const sw=(state.swaps||{})[i];
@@ -4633,7 +4781,10 @@ function renderSpells(){
   // the guided pre-filter (F2 · D118(b)): while a pick step is current, only what is
   // legal at that acquisition point — this class's takers, at a castable level
   const gp=guidePickStep();
-  const guideOk=i=>!gp||(i.takers.some(t=>t.idx===gp.row)
+  // reconstruct mode narrows further, to the row's OWN picks (F3 · D118(f))
+  const own=gp&&GUIDE.reverse
+    ?new Set(((state.chosen[gp.row]||{})[gp.kind==="cantrip"?"cantrips":"spells"])||[]):null;
+  const guideOk=i=>!gp||((own?own.has(key(i.sp.name,i.sp.source)):i.takers.some(t=>t.idx===gp.row))
     &&(gp.kind==="cantrip"?i.sp.level===0:i.sp.level>=1&&i.sp.level<=(gp.pool.castMax||9)));
   const eligible=items.filter(i=>qmatch(i.sp)&&passesSp(i.sp)&&byClass(i)&&guideOk(i));
   // Two ways a spell you can't take still shows up, always DIMMED and never pickable:
@@ -4666,10 +4817,14 @@ function renderSpells(){
     else{ gn.classList.remove("hidden");
       const row=state.classes.find(r=>r.id===gp.row), c=row&&CLS_BY[row.clsKey];
       const cm=gp.pool.castMax||9;
-      gn.textContent=`Guided: choose a ${gp.kind==="cantrip"?"cantrip":"spell"} for `
-        +`${c?c.name:"this class"} at L${gp.lv}`
-        +(gp.kind==="spell"?(cm===1?` — only level 1 is legal there`:` — level 1–${cm} is legal there`):"")
-        +`. ${eligible.length} candidate${eligible.length===1?"":"s"} below; the guide's × lifts the filter.`; } }
+      gn.textContent=GUIDE.reverse
+        ?`Guided (reconstruct): which pick did ${c?c.name:"this class"} have in this L${gp.lv} slot? `
+          +`Only the build's own picks are listed — click one to place it there. `
+          +`${eligible.length} candidate${eligible.length===1?"":"s"} below.`
+        :`Guided: choose a ${gp.kind==="cantrip"?"cantrip":"spell"} for `
+          +`${c?c.name:"this class"} at L${gp.lv}`
+          +(gp.kind==="spell"?(cm===1?` — only level 1 is legal there`:` — level 1–${cm} is legal there`):"")
+          +`. ${eligible.length} candidate${eligible.length===1?"":"s"} below; the guide's × lifts the filter.`; } }
   const byLvl={};items.forEach(i=>{(byLvl[i.sp.level]=byLvl[i.sp.level]||[]).push(i);});
   const list=$("#spellList");list.innerHTML="";
   if(!items.length){list.append(mkEmpty());return;}
@@ -5825,6 +5980,15 @@ $("#nbCreate").onclick=()=>{
   newBuild($("#nbChar").value.trim(),$("#nbVer").value.trim());
   $("#buildModal").classList.add("hidden");     // straight into the fresh build
 };
+// the three guided entries (F3 · D118(i)): beside start-empty · timeline footer · ⋯ alias
+$("#nbGuided").onclick=()=>{
+  $("#newBuildModal").classList.add("hidden");
+  newBuild($("#nbChar").value.trim(),$("#nbVer").value.trim());
+  $("#buildModal").classList.add("hidden");
+  openGuide(false);                             // fresh build: forward, no ceremony
+};
+$("#guideBtn").onclick=()=>{closeMenu();guideEntry();};
+$("#tlGuide").onclick=()=>{closeTimeline();guideEntry();};
 $("#nbVer").onkeydown=e=>{if(e.key==="Enter")$("#nbCreate").click();};
 $("#nbChar").onkeydown=e=>{if(e.key==="Enter")$("#nbVer").focus();};
 armConfirm($("#resetBtn"),null,()=>{

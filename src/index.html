@@ -29,6 +29,7 @@
       <button class="btn iconbtn ico" id="menuBtn" data-ico="dots" title="Settings" aria-label="Settings"></button>
       <div class="menupop hidden" id="menuPop">
         <button id="buildsBtn"><span class="mi ico" data-ico="stack"></span>Builds…</button>
+        <button id="guideBtn"><span class="mi ico" data-ico="spark"></span>Guided builder…</button>
         <div class="sep"></div>
         <button id="customBtn"><span class="mi ico" data-ico="pencil"></span>Custom spell…</button>
         <button id="hbBtn"><span class="mi ico" data-ico="stack"></span>My homebrew…</button>
@@ -420,6 +421,8 @@
   </div>
   <div class="prepnav">
     <span class="prepnav-sp"></span>
+    <!-- F3 · D118(i): start-guided lives beside start-empty -->
+    <button class="btn lbl-ico" id="nbGuided"><span class="ico" data-ico="spark"></span>Create &amp; start guided</button>
     <button class="btn on" id="nbCreate">Create build</button>
   </div>
 </div></div>
@@ -542,6 +545,7 @@
     <div class="tlfoot">
       <button class="btn" id="tlFork"></button>
       <button class="btn" id="tlPin"></button>
+      <button class="btn" id="tlGuide">Guide me from here</button>
     </div>
   </div>
 </div>

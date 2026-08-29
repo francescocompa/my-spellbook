@@ -1161,10 +1161,12 @@ table.spelltable .pickcell{cursor:help}
 .lt b{display:block;font-size:11.5px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
 .lt small{display:block;font-size:8.5px;text-transform:uppercase;letter-spacing:.04em;
   font-weight:700;margin-top:0}
-/* the two clocks differ only by a hue mixed a third of the way into the muted label */
+/* split tiles differ by a hue mixed a third of the way into the muted label; the
+   merged tile and pact stay NEUTRAL (D123) — nothing there is asking for attention */
 .lt-spell small{color:color-mix(in srgb,var(--accent) 38%,var(--muted))}
 .lt-slot small{color:color-mix(in srgb,var(--gold) 38%,var(--muted))}
-.lt-cast small{color:color-mix(in srgb,var(--accent) 38%,var(--muted))}
+.lt-cast small,.lt-pact small{color:var(--muted)}
+.lt-pact{min-width:52px}
 
 /* ── build export / import (T5) ───────────────────────────────────────────── */
 /* the base .importdrop is a centred row for the big data drop zone — this one is a
@@ -1614,6 +1616,11 @@ body.guiding .layout{padding-right:316px}
 .grstep .gs-st{flex:0 0 auto;display:inline-flex;align-items:center}
 .grstep .gs-st svg{width:12px;height:12px}
 .grstep.done .gs-st{color:var(--good)}
+.grstep.gsill .gs-st{color:var(--bad)}   /* a filled slot whose spell can't sit there */
+/* selected-metamagic tags in the spell table's name cell (D123) — quiet, neutral */
+.nm .mmtag{display:inline-block;margin-left:4px;padding:1px 5px;border:1px solid var(--line-strong);
+  border-radius:8px;font-size:8.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;
+  color:var(--muted);vertical-align:1px;cursor:help}
 .grstep.open .gs-val{color:var(--muted);font-style:italic}
 .grstep.skipped{border-style:dashed}
 .grstep.skipped .gs-st{color:var(--gold)}

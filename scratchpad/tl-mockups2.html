@@ -1,0 +1,174 @@
+<!doctype html><html data-theme="dark"><head><meta charset="utf-8"><title>Timeline mockups — highlight/rails · pick counts · accent hue</title>
+<style>
+:root{
+  --bg:#17140f; --panel:#211d16; --panel-2:#2a251c; --ink:#ece4d6; --muted:#a99e8d;
+  --line:#3a3225; --line-strong:#4c4130; --accent:#d97a5f; --accent-soft:#d97a5f1f;
+  --gold:#d4ad5a; --gold-soft:#d4ad5a1c; --good:#7fbb8c; --free:#a6a1e6; --bad:#e0796b;
+  --font:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:13px;padding:26px 30px 80px}
+h1{font-family:var(--font);font-size:22px;margin:0 0 4px}
+h2{font-family:var(--font);font-size:17px;margin:38px 0 4px;padding-top:18px;border-top:1px solid var(--line-strong)}
+h3{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:20px 0 8px}
+p.note{color:var(--muted);max-width:720px;line-height:1.5;margin:4px 0 10px}
+.cols{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start}
+.col{flex:1 1 300px;max-width:360px}
+.lolist{display:flex;flex-direction:column;padding:2px;background:var(--panel);border:1px solid var(--line-strong);border-radius:12px;padding:10px}
+.locard{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--line);
+  border-radius:10px;background:var(--panel-2);margin-top:6px;position:relative}
+.locard:first-child{margin-top:0}
+.locard.runjoin{margin-top:2px}
+.lolv{font-size:10px;font-weight:700;color:var(--muted);background:var(--panel);border-radius:7px;padding:1px 6px}
+.locls{font-size:13px;font-weight:600}
+.gains{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.4}
+.lobody{flex:1;min-width:0}
+.lt{min-width:36px;text-align:center;padding:0 2px}
+.lt b{display:block;font-size:11.5px;font-weight:600;color:var(--muted)}
+.lt small{display:block;font-size:8.5px;text-transform:uppercase;letter-spacing:.04em;font-weight:700;color:var(--muted)}
+.chips{flex-basis:100%;display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.tlchip{font-size:10.5px;line-height:1;padding:3px 7px;border:1px solid var(--line);border-radius:20px;background:var(--panel-2)}
+.locard{flex-wrap:wrap}
+
+/* ── M1 current (broken) ─────────────────────────────────── */
+.v0 .locard{border-left:3px solid color-mix(in srgb,var(--free) 60%,transparent)}
+.v0 .locard.b{border-left-color:color-mix(in srgb,var(--gold) 60%,transparent)}
+.v0 .locard.here{background:var(--accent-soft);border-color:var(--accent)}   /* rail eaten */
+.v0 .locard.zpin{border-color:var(--accent)}
+
+/* ── M1-A: rail as an inset bar the highlight can't eat ───── */
+.v1 .locard::before{content:"";position:absolute;left:4px;top:6px;bottom:6px;width:3px;border-radius:2px;
+  background:color-mix(in srgb,var(--free) 65%,transparent)}
+.v1 .locard{padding-left:15px}
+.v1 .locard.b::before{background:color-mix(in srgb,var(--gold) 65%,transparent)}
+.v1 .locard.here{background:var(--accent-soft);border-color:var(--accent)}
+.v1 .locard.zpin{border-color:var(--accent)}
+
+/* ── M1-B: no rails — run divider labels between class blocks ─ */
+.v2 .rundiv{display:flex;align-items:center;gap:8px;margin:10px 2px 4px;font-size:9.5px;
+  text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.v2 .rundiv:first-child{margin-top:0}
+.v2 .rundiv::after{content:"";flex:1;height:1px;background:var(--line-strong)}
+.v2 .rundiv .sw{width:8px;height:8px;border-radius:3px}
+.v2 .locard{margin-top:2px}
+.v2 .locard.here{background:var(--accent-soft);border-color:var(--accent)}
+.v2 .locard.zpin{border-color:var(--accent)}
+
+/* ── M1-C: class colour lives in the L-pill; no rail ─────── */
+.v3 .locard .lolv{background:color-mix(in srgb,var(--free) 30%,var(--panel));color:var(--ink)}
+.v3 .locard.b .lolv{background:color-mix(in srgb,var(--gold) 30%,var(--panel))}
+.v3 .locard.here{background:var(--accent-soft);border-color:var(--accent)}
+.v3 .locard.zpin{border-color:var(--accent)}
+
+/* ── M4 pick-count variants ──────────────────────────────── */
+.cnttxt{color:var(--muted)}
+.cnttxt b{color:var(--ink);font-weight:600}
+.ghost{border-style:dashed;color:var(--muted);background:none}
+.cnttile{min-width:40px;text-align:center;padding:0 2px}
+.cnttile b{display:block;font-size:11.5px;font-weight:600;color:var(--muted)}
+.cnttile small{display:block;font-size:8.5px;text-transform:uppercase;letter-spacing:.04em;font-weight:700;color:var(--muted)}
+
+/* ── M5 palette samples ──────────────────────────────────── */
+.pal{border:1px solid var(--line-strong);border-radius:12px;background:var(--panel);padding:14px;margin-top:8px}
+.pal h4{margin:0 0 10px;font-family:var(--font);font-size:14px}
+.sw{display:inline-block;width:15px;height:15px;border-radius:4px;vertical-align:-3px;margin-right:5px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.btn{font-size:12px;padding:6px 14px;border-radius:8px;border:1px solid var(--line-strong);background:var(--panel-2);color:var(--ink)}
+.chipx{font-size:11px;padding:3px 9px;border-radius:20px;border:1px solid}
+.alert{font-size:11px;padding:6px 10px;border-radius:8px;border:1px solid;max-width:280px;line-height:1.4}
+.p-teal{--acc:#5fc2b4;--accsoft:#5fc2b41f}
+.p-blue{--acc:#7fa7dd;--accsoft:#7fa7dd1f}
+.p-keep{--acc:#d97a5f;--accsoft:#d97a5f1f;--bad2:#ff5d47}
+.pal .on{background:var(--acc);border-color:var(--acc);color:#17140f;font-weight:600}
+.pal .chipx.acc{border-color:var(--acc);color:var(--acc);background:var(--accsoft)}
+.pal .here2{border:1px solid var(--acc);background:var(--accsoft);border-radius:10px;padding:8px 10px;font-size:12px}
+.pal .alert{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 9%,var(--bg));color:var(--bad)}
+.p-keep .alert{border-color:var(--bad2);background:color-mix(in srgb,var(--bad2) 10%,var(--bg));color:var(--bad2)}
+</style></head><body>
+<h1>Timeline mockups — three open calls</h1>
+<p class="note">Fake data throughout: a Warlock run (violet) then a Bard run (gold), with L3 = the viewed level ("here") and L4 = the pinned current level. Sections match the three notes.</p>
+
+<h2>M1 · row highlight vs class separation</h2>
+<p class="note">The problem today: "here"/pin recolour the whole border, and the class rail (a border-left) is eaten by it — on the two highlighted rows you can no longer tell which class block you are in.</p>
+<div class="cols">
+  <div class="col"><h3>Current — the bug</h3>
+    <div class="lolist v0">
+      <div class="locard"><span class="lolv">L2</span><div class="lobody"><span class="locls">Warlock 2</span><div class="gains">Magical Cunning</div></div></div>
+      <div class="locard here runjoin"><span class="lolv">L3</span><div class="lobody"><span class="locls">Warlock 3</span><div class="gains">Pact Boon</div></div></div>
+      <div class="locard zpin b"><span class="lolv">L4</span><div class="lobody"><span class="locls">Bard 1</span><div class="gains">Bardic Inspiration</div></div></div>
+      <div class="locard b runjoin"><span class="lolv">L5</span><div class="lobody"><span class="locls">Bard 2</span><div class="gains">Jack of All Trades</div></div></div>
+    </div></div>
+  <div class="col"><h3>A — inset rail the highlight can't touch</h3>
+    <div class="lolist v1">
+      <div class="locard"><span class="lolv">L2</span><div class="lobody"><span class="locls">Warlock 2</span><div class="gains">Magical Cunning</div></div></div>
+      <div class="locard here runjoin"><span class="lolv">L3</span><div class="lobody"><span class="locls">Warlock 3</span><div class="gains">Pact Boon</div></div></div>
+      <div class="locard zpin b"><span class="lolv">L4</span><div class="lobody"><span class="locls">Bard 1</span><div class="gains">Bardic Inspiration</div></div></div>
+      <div class="locard b runjoin"><span class="lolv">L5</span><div class="lobody"><span class="locls">Bard 2</span><div class="gains">Jack of All Trades</div></div></div>
+    </div></div>
+  <div class="col"><h3>B — no rails; run divider labels</h3>
+    <div class="lolist v2">
+      <div class="rundiv"><span class="sw" style="background:#a6a1e6"></span>Warlock · L1–L3</div>
+      <div class="locard"><span class="lolv">L2</span><div class="lobody"><span class="locls">Warlock 2</span><div class="gains">Magical Cunning</div></div></div>
+      <div class="locard here runjoin"><span class="lolv">L3</span><div class="lobody"><span class="locls">Warlock 3</span><div class="gains">Pact Boon</div></div></div>
+      <div class="rundiv"><span class="sw" style="background:#d4ad5a"></span>Bard · L4–L18</div>
+      <div class="locard zpin b"><span class="lolv">L4</span><div class="lobody"><span class="locls">Bard 1</span><div class="gains">Bardic Inspiration</div></div></div>
+      <div class="locard b runjoin"><span class="lolv">L5</span><div class="lobody"><span class="locls">Bard 2</span><div class="gains">Jack of All Trades</div></div></div>
+    </div></div>
+  <div class="col"><h3>C — class colour in the L-pill</h3>
+    <div class="lolist v3">
+      <div class="locard"><span class="lolv">L2</span><div class="lobody"><span class="locls">Warlock 2</span><div class="gains">Magical Cunning</div></div></div>
+      <div class="locard here runjoin"><span class="lolv">L3</span><div class="lobody"><span class="locls">Warlock 3</span><div class="gains">Pact Boon</div></div></div>
+      <div class="locard zpin b"><span class="lolv">L4</span><div class="lobody"><span class="locls">Bard 1</span><div class="gains">Bardic Inspiration</div></div></div>
+      <div class="locard b runjoin"><span class="lolv">L5</span><div class="lobody"><span class="locls">Bard 2</span><div class="gains">Jack of All Trades</div></div></div>
+    </div></div>
+</div>
+
+<h2>M4 · how many picks each level wants, and how many it has</h2>
+<p class="note">The schedule knows both numbers (E2). Three places the count could live — shown on a Bard 5 row that grants 2 spell picks, 1 taken.</p>
+<div class="cols">
+  <div class="col"><h3>A — counted in the gains line</h3>
+    <div class="lolist v1">
+      <div class="locard b"><span class="lolv">L5</span><div class="lobody"><span class="locls">Bard 5</span>
+        <div class="gains">Font of Inspiration · <span class="cnttxt">spells <b>1 of 2</b> picked</span></div>
+        <div class="chips"><span class="tlchip">Hypnotic Pattern</span></div></div>
+        <div class="lt"><b>3rd</b><small>spell</small></div></div>
+    </div></div>
+  <div class="col"><h3>B — ghost chips for open slots</h3>
+    <div class="lolist v1">
+      <div class="locard b"><span class="lolv">L5</span><div class="lobody"><span class="locls">Bard 5</span>
+        <div class="gains">Font of Inspiration</div>
+        <div class="chips"><span class="tlchip">Hypnotic Pattern</span><span class="tlchip ghost">+ spell</span></div></div>
+        <div class="lt"><b>3rd</b><small>spell</small></div></div>
+    </div></div>
+  <div class="col"><h3>C — a count tile beside the casting tiles</h3>
+    <div class="lolist v1">
+      <div class="locard b"><span class="lolv">L5</span><div class="lobody"><span class="locls">Bard 5</span>
+        <div class="gains">Font of Inspiration</div>
+        <div class="chips"><span class="tlchip">Hypnotic Pattern</span></div></div>
+        <div class="cnttile"><b>1/2</b><small>picks</small></div>
+        <div class="lt"><b>3rd</b><small>spell</small></div></div>
+    </div></div>
+</div>
+
+<h2>M5 · accent hue — three directions</h2>
+<p class="note">Each card shows the accent doing its jobs (primary button, selection chip, the "here" row tint) NEXT TO a real alert, so the separation is judged where it failed. Every other token (gold, good, violet, parchment) stays as is.</p>
+<div class="cols">
+  <div class="col pal p-teal"><h4><span class="sw" style="background:#5fc2b4"></span>A — Verdigris teal</h4>
+    <div class="row"><button class="btn on">Take the spell</button><span class="chipx acc">✓ Bard 5/6</span></div>
+    <div class="here2" style="margin-top:8px">L3 · Warlock 3 — the viewed level</div>
+    <div class="alert" style="margin-top:8px">⚠ Enemies Abound is level 3, but Warlock 3 casts at most level 2.</div>
+    <p class="note" style="font-size:11px">Aged-copper feel, fits the manuscript mood; maximum distance from the red alert AND from gold/green/violet.</p></div>
+  <div class="col pal p-blue"><h4><span class="sw" style="background:#7fa7dd"></span>B — Ink blue</h4>
+    <div class="row"><button class="btn on">Take the spell</button><span class="chipx acc">✓ Bard 5/6</span></div>
+    <div class="here2" style="margin-top:8px">L3 · Warlock 3 — the viewed level</div>
+    <div class="alert" style="margin-top:8px">⚠ Enemies Abound is level 3, but Warlock 3 casts at most level 2.</div>
+    <p class="note" style="font-size:11px">Quill-ink blue; clearly apart from alerts, but sits nearer the violet used for swaps/pact — the two would need care side by side.</p></div>
+  <div class="col pal p-keep"><h4><span class="sw" style="background:#d97a5f"></span>C — Keep the rust; move the ALERT instead</h4>
+    <div class="row"><button class="btn on">Take the spell</button><span class="chipx acc">✓ Bard 5/6</span></div>
+    <div class="here2" style="margin-top:8px">L3 · Warlock 3 — the viewed level</div>
+    <div class="alert" style="margin-top:8px">⚠ Enemies Abound is level 3, but Warlock 3 casts at most level 2.</div>
+    <p class="note" style="font-size:11px">The identity stays; --bad shifts to a hotter scarlet and every alert keeps its ⚠. Cheapest change — but accent and alert stay in the same red family.</p></div>
+</div>
+</body></html>

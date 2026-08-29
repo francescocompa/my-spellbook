@@ -990,6 +990,33 @@ written up in full in `GOTCHAS.md` — that is the copy to trust.
   Enforced by: src/index.html `#tlModal`, src/styles.css `.tlbox`/`.ordflag`/`.runc*`/`.lt`,
   src/app.js `renderTimeline`/`openTimeline`. Affects: PLAN E5/E7 surface notes, GOTCHAS.md.
 
+- **D123 (2026-08-29) Tile semantics + metamagic tags, direct instruction while F3 shipped.**
+  Raw notes: *"when slot and spell are overlapping, write 'spell' in the tile, not 'cast'.
+  Also the word should be neutral color"* · *"pact slots should be measured differently in
+  these tiles (ex. 1st pact), ideally also with amount"* · *"some selected metamagic options
+  could be mentioned in the spell table rows when they affect only a specific type of spell
+  (ex. twinned)"*.
+  - **(a) The merged casting tile reads "spell" in the muted colour** — where the two clocks
+    agree, naming the merger ("cast") answered a question nobody asked; split tiles keep their
+    38% hue mix.
+  - **(b) Pact Magic gets its OWN tile, measured as count × slot level** ("2× 2nd pact",
+    neutral), shown at levels where either number moves; it never merges with the spell clock.
+    `levelCasting` now returns `{pact,pactUp}` for pact casters instead of masquerading pact
+    level as a slot level.
+  - **(c) Metamagic applicability tags in the Spell table's name cell** (`METAMAGIC_WHEN`,
+    app-side hand table): when the build has a metamagic option selected, spells it can touch
+    carry a quiet neutral tag (twin, quicken, careful…) with the reason in the tip. Judged
+    from digest fields only (save/dmg/atk/tcat/rcat/durTxt/higher) — advisory (D31), scoped
+    to rows owned by the class whose progression grants Metamagic. **Twinned uses the XPHB
+    shape** (`higher` text matching "target one additional") — Scorching Ray's "one additional
+    ray" correctly does NOT tag. **Options that touch nearly everything (Subtle) are
+    deliberately absent** — a tag on every row says nothing (the note asked for "only a
+    specific type of spell"). *Rejected:* putting metamagic into the extractor `CAST_MODS`
+    table (applicability depends on the BUILD's selections, an app-side fact; and D85 mods
+    mark casting rules, not opportunity).
+  Enforced by: src/app.js `levelCasting`/`lvTile`/`METAMAGIC_WHEN`/`activeMetamagic`.
+  Affects: the timeline tiles, the Spell table name cell.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

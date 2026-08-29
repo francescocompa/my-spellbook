@@ -25,15 +25,16 @@
   behaviour preserved, verified both ways in-browser. Three cosmetic side notes logged in D120
   (dead `recordSwap`, a chain-swap tip label, Escape-under-the-picker), none blocking.
   Phase E's shape (E1–E7, v1.2.4 → v1.2.8) is described in `PLAN.md` and `CHANGELOG.md`.
-- **Next action:** **Phase F — F3, entry points + reverse wiring** (`sonnet@medium`, S):
-  "Start guided" beside start-empty, "Guide me from here" in the timeline footer + ⋯ alias,
-  reverse-on-a-ready-build asking the walk direction. **F1 shipped v1.2.11** (`guideSteps()` /
-  `guideResume()`, D121) and **F2 shipped v1.2.12** — the coach rail per D118(k), verified at
-  both widths; **the rail has NO entry point until F3** (`openGuide()` exists, nothing calls
-  it). **D122** (2026-08-29, direct notes) reshaped the timeline: full modal, order flag by
-  the title, casting tiles only where a clock changes (dimmed), multiclass run rails with
-  no-op drops not being drop targets. Then F4 (gate, separate session). The 🔶
-  **magic-item / reward import** decision remains ungated and awaits Francesco's call.
+- **Next action:** two live threads. ① **Francesco's call on the three D124 mockups** —
+  `scratchpad/tl-mockups2.html` (open it in a browser): M1 row-highlight vs class rails,
+  M4 per-level pick counts, M5 accent hue; asked via AskUserQuestion 2026-08-29, implement
+  the picks when answered. ② **F4 — the phase F 🔍 fresh-eyes gate** (`fable@high`,
+  **a separate session** — this one built F): review F1–F3 against D118(a–k).
+  **Phase F's build work is COMPLETE**: F1 v1.2.11 (step derivation, D121), F2 v1.2.12
+  (coach rail + D122's timeline-modal rework), F3 v1.2.13 (entries + reverse reconstruct;
+  also D123 — pact tiles measured as count × level, merged tile says "spell", and selected
+  metamagic now tags qualifying Spell-table rows). The 🔶 **magic-item / reward import**
+  decision remains ungated and awaits Francesco's call.
 - **Manual for Francesco:** ⓪ **Refresh your imported data in each browser** — ⋯ → **Refresh
   imported data** (choose the folder once if asked). The v1.2.2 parser fixes live in your
   stored digests only after it: heals the **Savant double-grant** (an Evoker was offered 5
