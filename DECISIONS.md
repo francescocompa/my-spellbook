@@ -1057,6 +1057,32 @@ written up in full in `GOTCHAS.md` — that is the copy to trust.
   Enforced by: src/app.js `timelinePicks`/`renderTimeline`, src/styles.css rails/dividers/
   ghost/count/mask rules. Affects: the timeline; the Spell table name cell (tags removed).
 
+- **D125 (2026-08-29) The forward guide clamps its current pick step to the row's FIRST open
+  slot — found by the F4 fresh-eyes gate.** Mechanism: F4 gate session (fable@high, separate
+  from the F1–F3 build session), reviewing the shipped rail against D118(a–k). The hole: skip
+  an earlier pick slot of a row, jump to a later slot of the same row — the page pre-filtered
+  by the LATER slot's castMax, but a take always lands in the row's first open slot (the pick
+  arrays are dense, D115(b,h): push-at-end and `sliceInsertAt` both resolve there), so a
+  legal-looking pick could arrive at a slot whose cap it breaks. Reproduced: Bard 3, L2 slot
+  skipped, L3 step current ("level 1–2 is legal") — taking Invisibility (L2) landed in the
+  L2 slot (cap 1) and went red. The rail flagged it instantly and nothing was lost (D118(e,g)
+  held; the failure was only the pre-filter's honesty, D118(b)). Fix: `guideSync` retargets a
+  forward, not-done spell/cantrip step whose `pos` exceeds the filled count to the same
+  row+kind step at the filled count — the note and cap now always describe where the pick
+  really lands; once the earlier slot fills, a jump to the later step sticks. Reverse mode is
+  positional placement and needs no clamp. *Rejected:* letting the take honour the clicked
+  slot's position (a hole in a dense array is exactly the holding pen D118(g) rejected);
+  filtering by the landing slot while leaving `cur` on the clicked step (the rail would
+  highlight one step while the note described another). Side note, logged not fixed: in
+  reverse mode a step at `pos ≥ length` accepts a placement click as a silent no-op —
+  harmless (never deletes) and unreachable in a normal walk. Gate verdict: every other
+  clause of D118(a–k) verified in-browser this session (all three entries, chooser, both
+  walks, inline structural answers, phone sheet + whole-chain toggle, stateless close/resume,
+  skip/frontier semantics, 73 steps at Bard 20, reverse re-entry at the first illegal slot,
+  own-picks narrowing, flag-don't-prune). Enforced by: src/app.js `guideSync` clamp; the
+  cap/note text follows `guidePickStep()` so it cannot drift separately. Affects: PLAN.md F4
+  (done), STATE.md next-action.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

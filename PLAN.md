@@ -3,10 +3,10 @@
 > What is queued, and what is blocked on a decision. `STATE.md` says where things stand;
 > this says what comes next. Closed items → `ARCHIVE.md#closed-backlog`.
 >
-> **v7 shipped as v1.0; phase E (D115) is DONE; phase F (D118) is BUILT.** The plan of
-> record is **F4 — the phase F fresh-eyes gate**, which needs a session that didn't build
-> F1–F3. The queue below is a backlog; its one 🔶 (magic items / rewards) is ungated and
-> awaits Francesco's call.
+> **v7 shipped as v1.0; phase E (D115) is DONE; phase F (D118) is DONE — the F4 gate
+> passed 2026-08-29 (D125 fixed in-gate).** Nothing is queued as a plan of record. The
+> queue below is a backlog; its one 🔶 (magic items / rewards) is ungated and awaits
+> Francesco's call.
 
 ## Phase E — a build at every level (D115, decided 2026-08-28)
 
@@ -26,9 +26,9 @@ picks instead of best-case.
 
 A separate coach-driven flow over the D115 substrate, forward and reverse — the full model is
 **D118(a–k)**; cite it, don't restate it. Order: F1 → F2 → F3 → F4.
-**F1–F3 shipped 2026-08-29 (v1.2.11 → v1.2.13); only the F4 gate remains** — and D122–D124
-(timeline modal + refinements, tile semantics, metamagic row, Ember palette) rode alongside,
-so the gate reviews the rail against D118(a–k) with those surfaces as they now stand.
+**F1–F3 shipped 2026-08-29 (v1.2.11 → v1.2.13); the F4 gate passed the same day** (D122–D124
+— timeline modal + refinements, tile semantics, metamagic row, Ember palette — rode alongside
+and were the surfaces the gate reviewed against). **The phase is closed.**
 
 - [x] **F1 — step-list derivation** (**shipped v1.2.11**, done-when verified in-browser: the
   five D114 fixtures yield correct step lists — counts, levels, labels, castMax pools — in both
@@ -62,8 +62,11 @@ so the gate reviews the rail against D118(a–k) with those surfaces as they now
   drifts later and stays in the pool; review clicks can never delete). Reverse re-entry lands
   on the first slot whose occupant is illegal where it sits; illegal slots carry a red ⚠ in
   the rail in every mode.
-- [ ] **F4 — 🔍 fresh-eyes gate** (`fable@high`, separate session per model-policy) — review the
-  shipped phase against D118(a–k) before it is declared done.
+- [x] **F4 — 🔍 fresh-eyes gate** (**passed 2026-08-29**, fable@high, separate session per
+  model-policy) — every D118(a–k) clause verified in-browser on a fresh fixture; one real
+  finding, fixed in-gate → **D125** (the forward walk's pre-filter described a later slot
+  than the one a take actually fills; `guideSync` now clamps to the row's first open slot).
+  **Phase F is DONE.**
 
 ## Queue
 - [ ] **Magic-item / reward ingestion** — 🔶 **RESEARCHED 2026-08-27, awaiting Francesco's call.**

@@ -1021,6 +1021,20 @@ function guideSync(){
            ||guideResume(steps,GUIDE.desc);
     if(nx&&guideKey(nx)!==GUIDE.cur)GUIDE.cur=guideKey(nx);
   }
+  // a forward take always lands in the row's FIRST open slot — the pick arrays are
+  // dense (D115(b,h)), so a later open slot cannot be answered where it shows (the
+  // take would fall short and the pre-filter would lie about the cap, D125). The walk
+  // clamps to the slot the take will actually fill; reverse placement is positional
+  // and needs no clamp.
+  if(!GUIDE.reverse&&GUIDE.cur){
+    const c=steps.find(x=>guideKey(x)===GUIDE.cur);
+    if(c&&(c.kind==="spell"||c.kind==="cantrip")&&!c.done){
+      const arr=c.kind==="cantrip"?"cantrips":"spells";
+      const first=(((state.chosen[c.row]||{})[arr])||[]).length;
+      if(c.pos>first){const t=steps.find(x=>x.kind===c.kind&&x.row===c.row&&x.pos===first);
+        if(t)GUIDE.cur=guideKey(t);}
+    }
+  }
 }
 function renderGuide(){
   const rail=$("#guideRail"); if(!rail)return;

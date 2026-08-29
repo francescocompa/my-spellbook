@@ -34,10 +34,11 @@
   in the spell details' "Metamagic" row (left the table); and the **Ember palette** shipped —
   terracotta accent, crimson alerts, all five theme blocks (P1 Verdigris was picked once
   then REVERSED — don't re-propose it).
-- **Next action:** **F4 — the phase F 🔍 fresh-eyes gate** (`fable@high`, **a separate
-  session** per model-policy — this one built F1–F3): review the rail against **D118(a–k)**
-  as the surfaces now stand (D122–D124). Nothing else in phase F is open. The 🔶
-  **magic-item / reward import** decision remains ungated and awaits Francesco's call.
+- **Next action:** none queued — **F4 passed 2026-08-29 and phase F is DONE** (one finding,
+  fixed in-gate → D125: the forward walk now clamps its pick step to the row's first open
+  slot so the pre-filter names the real landing place). The 🔶 **magic-item / reward
+  import** decision remains ungated and awaits Francesco's call; the backlog in PLAN.md
+  is what's left.
 - **Manual for Francesco:** ⓪ **Refresh your imported data in each browser** — ⋯ → **Refresh
   imported data** (choose the folder once if asked). The v1.2.2 parser fixes live in your
   stored digests only after it: heals the **Savant double-grant** (an Evoker was offered 5
@@ -87,5 +88,3 @@ Split out of this file on 2026-08-27 so the resume read is short. Nothing was dr
 - → moved: the Backlog — `PLAN.md`
 - → moved: Build / run — `CLAUDE.md`
 - → moved: the Shipped list — `CHANGELOG.md`
-
-⟳ Rename previous session → "E8 gate, guided builder, Ember palette" · session: resolve by cwd + latest
