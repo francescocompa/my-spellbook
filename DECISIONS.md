@@ -1211,6 +1211,42 @@ written up in full in `GOTCHAS.md` — that is the copy to trust.
   for Bard/Cleric/Wizard, export round-trip, fork rewind of both kinds). Affects:
   GOTCHAS.md E1 line, PLAN W2, the W4 timeline batch (retrain chips ride this shape).
 
+- **D129 (2026-08-29) DECIDED — Refresh from the ⋯ menu runs INLINE with a visible progress →
+  outcome; the Library modal opens only when a human is needed.** Mechanism: Francesco's direct
+  instruction, raw: *"The refresh import data still leads to the library modal in the menu, and
+  once in the modal there is no feedback of it working. In menu, the button should work without
+  opening the modal, and should have a loading status into a completed status or alert if it
+  didn't work, some way to give feedback. Same feedback applied to the modal."* D111 kept its
+  contract (one click, then report, parser stamp) — only the surfaces change. Five states, two
+  surfaces: **busy** (both buttons disabled + "Refreshing…", spinner on the `.btn`; from the
+  menu the notice bar carries the stage line, from the modal `#importReport` does), **done**
+  ("Re-imported N books with parser vX." — a green notice that fades after 9 s, and the report's
+  own line), **failed** (red notice + report, modal stays shut — a read or storage error is not
+  something the modal can fix), **ask** (the four cases whose fix IS in the modal: nothing
+  imported, no remembered folder, permission refused, the folder holds none of your books —
+  those open it on Manage and say why in both places), **idle**. The stage line reads the
+  pipeline's own `#folderProgress` counters rather than threading a callback through the scan
+  and the stage; `RSEEN` keeps a line left over from an earlier scan out. `applyPlan` now
+  returns **null or a sentence** (importSave's contract) so the caller can report the outcome
+  somewhere other than `rep`. Two false-success holes closed on the way: a stage that read
+  **nothing** — a folder gone stale — used to fall through to `applyPlan`, which re-stored the
+  digest you already had under a NEW parser stamp and reported "Re-imported N books"; the same
+  went for a `buildImport` that bailed. Both now stop with "Your imported data is unchanged."
+  A refresh that couldn't re-read every stored book says so ("N weren't in that folder and kept
+  their stored data") instead of counting them as re-imported. *Rejected:* keeping the modal as
+  the only report surface (that IS the bug — from the menu it reads as "it just opened a
+  modal"); a MutationObserver mirroring the pipeline's DOM writes (more machinery than a 180 ms
+  read of one node, and it would mirror error text as progress); threading progress callbacks
+  into `stageScanBooks`/`buildImport` (a surface task must not reshape the pipeline); an
+  outcome notice that waits to be dismissed (good news shouldn't outstay it — failures and asks
+  still do); a global `.btn:disabled` look (Apply's disabled state is not this batch's to
+  change). Enforced by: src/app.js `refreshImported`/`refreshButtons`/`refreshPaint`/
+  `refreshStage`/`refreshDone`/`refreshFail`/`refreshAsk`, `appNotice(msg,kind,fade)`;
+  `REFRESH_BUSY` also gates Apply, folder pick/rescan/forget. In-browser verified on an
+  isolated origin (real scan/stage/merge/apply over real 5etools files behind a stubbed
+  directory handle): both fallback paths, permission refused, wrong folder, the false-success
+  guard, double-click, and the happy path end to end.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

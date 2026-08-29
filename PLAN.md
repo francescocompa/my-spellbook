@@ -104,6 +104,15 @@ coordinating session. The guided-builder notes became **phase G below (D126)**.
   annotated); pact tile fits its square. Deviation flagged: an ARMED chip's level tag is a
   marker, not a mover (no event exists yet).
 
+- [x] **W5 — Refresh imported data UX** (**merged v1.2.23 → D129**): the ⋯ menu button
+  refreshes INLINE (busy → staged progress → green done / red fail notice); the modal opens
+  only for the four ask-cases a human must fix, and its own button gets the same states. Two
+  FALSE-SUCCESS holes closed: a stage that read nothing (stale folder, dead permission) used
+  to re-store the unchanged digest under a new parser stamp and report "Re-imported N books"
+  — the likely mechanism behind the Aberrant-still-duplicated report; both now stop with
+  "Your imported data is unchanged", and books the folder no longer holds are named, not
+  counted.
+
 ## Phase G — the guided builder as a full-size page (D126, decided 2026-08-29)
 
 Ground-up surface redesign over the standing D118(a–j) model — the full design is

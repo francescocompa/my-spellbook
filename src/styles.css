@@ -452,6 +452,28 @@
   background:var(--panel);border:1px solid var(--bad);border-radius:10px;
   box-shadow:var(--shadow);padding:9px 12px;font-size:12.5px;color:var(--ink)}
 .appnotice .antxt{min-width:0}
+/* the bar is red by default because it was built for failures; work in progress and good news
+   own their own borders (D129). An empty slot must not claim a flex gap. */
+.appnotice.busy{border-color:var(--line-strong)}
+.appnotice.ok{border-color:var(--good)}
+.appnotice.ask{border-color:var(--gold)}
+.appnotice .anspin,.appnotice .anicon:empty{display:none}
+.appnotice .anicon{flex:none;display:flex;align-items:center}
+.appnotice .anicon svg{width:14px;height:14px}
+.appnotice.ok .anicon{color:var(--good)} .appnotice.ask .anicon{color:var(--gold)}
+.appnotice:not(.busy):not(.ok):not(.ask) .anicon{color:var(--bad)}
+.appnotice.busy .anspin{display:block}
+.anspin,.btn.busy::before{content:"";flex:none;width:12px;height:12px;border-radius:50%;
+  border:2px solid var(--line-strong);border-top-color:var(--accent);animation:sbspin .7s linear infinite}
+.btn.busy::before{display:inline-block;vertical-align:-2px;margin-right:7px}
+/* scoped to .busy on purpose: there is no global .btn:disabled look, and Apply's disabled
+   state is not this batch's to change */
+.btn.busy{opacity:.75;cursor:default}
+@keyframes sbspin{to{transform:rotate(360deg)}}
+/* a spinner that can't spin still has to read as busy — keep the accent arc, drop the motion */
+@media (prefers-reduced-motion:reduce){.anspin,.btn.busy::before{animation:none}}
+.menupop button:disabled{opacity:.55;cursor:default}
+.menupop button:disabled:hover{background:none}
 .sptip{position:fixed;z-index:90;max-width:340px;background:var(--panel);border:1px solid var(--line-strong);border-radius:10px;box-shadow:0 14px 40px #0006;padding:11px 13px;font-size:12.5px;pointer-events:none;opacity:0;transition:opacity .1s}
 .sptip.show{opacity:1}
 .sptip h4{font-family:var(--font);font-size:14px;margin:0 0 3px}
