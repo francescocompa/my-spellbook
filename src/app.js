@@ -3952,14 +3952,8 @@ function cellFor(k,row){
     } else td.textContent=sp.name;
     attachSpell(td,sp);
     if(sp.ritual)td.append(Object.assign(el("span"),{textContent:" R",style:"color:var(--gold);font-size:10px;font-weight:700"}));
-    // selected metamagic that can touch THIS spell (D123), on the class that owns it
-    const mo=row.idx!=null?row.idx:(row.ownIdx!=null?row.ownIdx:null);
-    if(TABLE_MM&&mo!=null&&TABLE_MM.rows.has(mo)){
-      TABLE_MM.opts.forEach(opt=>{const d=METAMAGIC_WHEN[opt.name];
-        if(!d.test(sp))return;
-        const t=el("span","mmtag",d.tag);
-        attachTip(t,tipBlock(opt.name,"This spell "+d.why+". Advisory — the option's full text has the final word."));
-        td.append(t);});}
+    // D124: metamagic tags moved OUT of the table rows, into the spell details —
+    // METAMAGIC_WHEN/activeMetamagic feed that surface now
     return td;}
   if(k==="save"){const td=el("td","savecell");td.innerHTML=defenceHTML(sp);return td;}
   if(k==="school")return shortCell(shortSchool(sp.school),sp.school,"School");
@@ -4328,10 +4322,14 @@ function renderSwapArm(){
     bar.append(b);}
   bar.append(xBtn("anx",()=>{SWAPARM=null;render();}));
 }
-// where each draggable pick sits, by the same machinery the slices run on (E2)
+// where each draggable pick sits, by the same machinery the slices run on (E2).
+// Also derives, per level: the OPEN schedule slots (ghost chips, D124) and the
+// wants/has pick counts the count tile states.
 function timelinePicks(){
-  const clm=charLevelMap(), by=new Map();
+  const clm=charLevelMap(), by=new Map(), counts=new Map();
   const put=(lv,chip)=>{const a=by.get(lv)||[];a.push(chip);by.set(lv,a);};
+  const bump=(lv,want,have)=>{const c=counts.get(lv)||{want:0,have:0};
+    c.want+=want;c.have+=have;counts.set(lv,c);};
   state.classes.forEach(row=>{
     const sched=rowSched(row); if(!sched)return;
     const lvls=clm.get(row.id)||[], ch=state.chosen[row.id]||{};
@@ -4348,12 +4346,24 @@ function timelinePicks(){
     if(sched.spells)(ch.spells||[]).forEach((k,i)=>{const lv=acqAt(sched.spells,i,lvls);
       put(lv,{kind:"sp",rowId:row.id,key:k,label:name(shown(k,lv,"spell")),
         lv,lvls,swappable:!sched.book,traded:traded(k,lv,"spell")});});
+    // open slots + counts, per class level, on the same cumulative schedules
+    lvls.forEach((lv,cl0)=>{
+      [["cantrips",sched.cant],["spells",sched.spells]].forEach(([arr,sa])=>{
+        if(!sa)return;
+        const from=cl0>0?(sa[cl0-1]||0):0, to=sa[cl0]||0;
+        if(to<=from)return;
+        const len=(ch[arr]||[]).length;
+        const have=Math.max(0,Math.min(to,len)-from);
+        bump(lv,to-from,have);
+        for(let p=Math.max(from,len);p<to;p++)
+          put(lv,{kind:"ghost",rowId:row.id,gkind:arr,lv});
+      });});
   });
   featAcqLevels().forEach((a,fk)=>{const f=FEAT_BY[fk]; if(!f)return;
     put(a.lv,{kind:"ft",key:fk,label:f.name,tag:"feat",fixed:a.cat==="origin"});});
   optAcqLevels().forEach((a,ok)=>{const o=OPT_BY[ok]; if(!o)return;
     put(a.lv,{kind:"of",key:ok,label:o.name,tag:"opt"});});
-  return by;
+  return {by,counts};
 }
 // move a dragged chip so its acquisition lands on `L`. Class picks: an array position
 // maps to a level by INDEX alone, so the first index the schedule puts at L is the
@@ -4394,7 +4404,7 @@ function renderTimeline(){
   const perClass=new Map();               // running class level, for the gains line
   const view=PREVIEW.level==null?total:PREVIEW.level;
   const cur=(typeof state.currentLevel==="number"&&state.currentLevel<total)?state.currentLevel:total;
-  const picks=timelinePicks(), health=(R&&R.health)||buildHealth();
+  const {by:picks,counts:pickCounts}=timelinePicks(), health=(R&&R.health)||buildHealth();
   const multi=state.classes.length>1;
   // the quiet order-matters word (E7, folded into a gold flag by the title — D122):
   // named reasons live in its tip, only on builds where the order is load-bearing
@@ -4412,10 +4422,22 @@ function renderTimeline(){
   const samePlan=(a,b)=>a.length===b.length&&a.every((x,k)=>x===b[k]);
   const movedPlan=(from,to)=>{const o=plan.slice(),[mv]=o.splice(from,1);
     o.splice(from<to?to-1:to,0,mv); return o;};
+  // run divider labels (D124): each class block announces itself once, with its span
+  const runs=[]; plan.forEach((id2,j)=>{
+    if(j===0||plan[j-1]!==id2)runs.push({id:id2,from:j+1,to:j+1});
+    else runs[runs.length-1].to=j+1;});
+  const runAt=new Map(runs.map(r2=>[r2.from,r2]));
   plan.forEach((id,i0)=>{
     const i=i0+1, row=rowOf.get(id); if(!row)return;
     const cl=(perClass.get(id)||0)+1;      // advanced below, between the two slot reads
     const c=CLS_BY[row.clsKey];
+    // a new class block opens with its divider label (D124)
+    if(multi&&runAt.has(i)){const r2=runAt.get(i);
+      const dv=el("div","tlrundiv");
+      dv.append(el("span","rdot c"+runColor.get(id)));
+      dv.append(document.createTextNode((c?c.name:"?")+" · "
+        +(r2.from===r2.to?"L"+r2.from:"L"+r2.from+"–L"+r2.to)));
+      box.append(dv);}
     const card=el("div","locard tlrow"+(i>cur?" zplan":"")+(i===cur?" zpin":"")+(i===view?" here":"")
       +(multi?" runc"+runColor.get(id)+(i0>0&&plan[i0-1]===id?" runjoin":""):""));
     card.dataset.lv=String(i);
@@ -4446,7 +4468,17 @@ function renderTimeline(){
     // Where the two clocks agree the tile says "spell" in a NEUTRAL word (D123) —
     // "cast" named a merger the reader never asked about. Pact Magic gets its own
     // tile, measured as count × slot level (D123).
-    if(cast&&(cast.spellUp||cast.slotUp||cast.pactUp)){const tiles=el("div","lotiles");
+    {const tiles=el("div","lotiles");
+      // the wants/has pick count (D124): stated wherever this level opens pick slots
+      const cnt=pickCounts.get(i);
+      if(cnt&&cnt.want){
+        const ct=el("div","lt lt-count");
+        ct.append(el("b",null,cnt.have+"/"+cnt.want));
+        ct.append(el("small",null,"picks"));
+        attachTip(ct,tipBlock("Picks at this level",
+          `The schedule opens ${cnt.want} pick slot${cnt.want===1?"":"s"} here (cantrips and spells together); ${cnt.have} ${cnt.have===1?"is":"are"} taken.`));
+        tiles.append(ct);}
+      if(cast&&(cast.spellUp||cast.slotUp||cast.pactUp)){
       if(cast.pact){
         if(cast.spellUp)tiles.append(lvTile("spell",ROMAN[cast.spell],"spell",
           tipBlock("Max spell level — raised here",
@@ -4466,7 +4498,7 @@ function renderTimeline(){
         if(cast.slotUp)tiles.append(lvTile("slot",ROMAN[cast.slot],"slot",
           tipBlock("Top slot level — raised here",
             "The highest slot you have, from your COMBINED caster level. Higher slots let you upcast; they don't widen the list.")));
-      }
+      }}
       if(tiles.children.length)card.append(tiles);}   // right edge, after the body
     // sticky picks the schedule places here (E2); drag a chip to another row to move it
     const here=picks.get(i)||[];
@@ -4474,6 +4506,14 @@ function renderTimeline(){
     if(here.length||sw){
       const chips=el("div","tlchips");
       here.forEach(pk=>{
+        // an open schedule slot (D124): a bare + that jumps the view to this level —
+        // adding happens on the page, at the slice point E3 already maintains
+        if(pk.kind==="ghost"){
+          const g=el("span","tlchip ghost","+");
+          attachTip(g,tipBlock("An open "+(pk.gkind==="cantrips"?"cantrip":"spell")+" slot",
+            "The schedule opens this pick at L"+i+" and nothing fills it yet. Click to view the build there and pick — it lands in this slot."));
+          g.onclick=e=>{e.stopPropagation();setPreview(i===total?null:i);jumpTo($("#secSpells"));};
+          chips.append(g); return;}
         const armed=SWAPARM&&SWAPARM.out===pk.key&&SWAPARM.row===pk.rowId;
         const chipEl=el("span","tlchip"+(pk.fixed?" fixed":"")+(pk.traded?" traded":"")+(armed?" swaparmed":""));
         if(pk.tag)chipEl.append(el("span","k",pk.tag));

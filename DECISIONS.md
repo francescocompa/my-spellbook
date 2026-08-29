@@ -1017,6 +1017,37 @@ written up in full in `GOTCHAS.md` — that is the copy to trust.
   Enforced by: src/app.js `levelCasting`/`lvTile`/`METAMAGIC_WHEN`/`activeMetamagic`.
   Affects: the timeline tiles, the Spell table name cell.
 
+- **D124 (2026-08-29) Timeline separation + pick counts (decided); metamagic placement +
+  palette (OPEN).** Mechanism: mockup round (`scratchpad/tl-mockups2.html`) + AskUserQuestion;
+  the two open halves have their second mockup round in `scratchpad/mm-palette-mockups.html`.
+  - **(a) DECIDED — class separation = run divider labels TOGETHER WITH the rail.** Raw:
+    *"Run divider labels, together with current rail."* Each class block opens with a labelled
+    divider ("Bard · L4–L7" + colour dot) AND keeps its coloured left rail — whose colour is
+    now re-asserted after the zone tints, so the here/pin highlight can no longer eat it (the
+    bug that opened the question). *Rejected:* inset-bar-only (A); rail-less dividers (B
+    alone); coloured L-pills (C).
+  - **(b) DECIDED — pick counts = bare "+" ghost chips AND a count tile.** Raw: *"ghost chip
+    with only + to add spells, with also count tile. Also, the spell list shouldn't wrap but
+    bleed past the card, masked by it (like access in spell details)."* Open schedule slots
+    render as dashed "+" chips (click = jump the view there); a neutral "2/6 picks" tile
+    states wants/has wherever a level opens slots; and the chip row is ONE line that bleeds
+    under a right-edge mask and scrolls (the spell-details access pattern) instead of
+    wrapping. *Rejected:* counts in the gains line; labelled "+ spell" ghosts.
+  - **(c) OPEN 🔶 — metamagic moves from the Spell table to the SPELL DETAILS.** Raw: *"for
+    the metamagic, move them from the actual table to the spell details instead (quick mockup
+    to decide where)."* The D123(c) table tags are removed; `METAMAGIC_WHEN`/`activeMetamagic`
+    stay as the feed. Three placements mocked: an Access-style "Your metamagic" row ·
+    meta-line badges · a reasons line above the text.
+  - **(d) OPEN 🔶 — a full palette change, grounded.** Raw: *"propose full alternative
+    palettes, ground your proposal in actual color theory and analysis."* Measured problem:
+    accent sits 3–6° of hue from the alert red at near-equal lightness. Three complete
+    palettes proposed with WCAG/hue numbers: **P1 Verdigris** (split-complementary teal,
+    ΔH≈165°, nothing else moves) · **P2 Lapis & Gold** (illuminated-manuscript blue, ΔH≈145°,
+    the swap/pact violet must move to plum) · **P3 Ember retuned** (terracotta accent +
+    crimson alert, ΔH≈27–30° plus lightness/chroma — identity kept, separation partial).
+  Enforced by: src/app.js `timelinePicks`/`renderTimeline`, src/styles.css rails/dividers/
+  ghost/count/mask rules. Affects: the timeline; the Spell table name cell (tags removed).
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

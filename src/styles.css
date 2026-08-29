@@ -1100,6 +1100,22 @@ table.spelltable .pickcell{cursor:help}
 .locard.zplan{border-style:dashed;opacity:.82}
 .locard.zpin{border-color:var(--accent)}
 .locard.here{background:var(--accent-soft);border-color:var(--accent)}
+/* the class rail SURVIVES every highlight (D124) — these re-assert the left edge after
+   the zone tints above, which repaint all four borders and used to eat it */
+.locard.runc0{border-left-color:color-mix(in srgb,var(--accent) 60%,transparent)}
+.locard.runc1{border-left-color:color-mix(in srgb,var(--free) 60%,transparent)}
+.locard.runc2{border-left-color:color-mix(in srgb,var(--gold) 60%,transparent)}
+.locard.runc3{border-left-color:color-mix(in srgb,var(--good) 60%,transparent)}
+/* run divider labels between class blocks (D124): name + level span + the class dot */
+.tlrundiv{display:flex;align-items:center;gap:7px;margin:10px 2px 2px;font-size:9.5px;
+  text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+.tlrundiv:first-child{margin-top:0}
+.tlrundiv::after{content:"";flex:1;height:1px;background:var(--line-strong)}
+.tlrundiv .rdot{width:8px;height:8px;border-radius:3px;flex:0 0 auto}
+.tlrundiv .rdot.c0{background:color-mix(in srgb,var(--accent) 70%,transparent)}
+.tlrundiv .rdot.c1{background:color-mix(in srgb,var(--free) 70%,transparent)}
+.tlrundiv .rdot.c2{background:color-mix(in srgb,var(--gold) 70%,transparent)}
+.tlrundiv .rdot.c3{background:color-mix(in srgb,var(--good) 70%,transparent)}
 .locard.tlrow{cursor:pointer;flex-wrap:wrap}
 .locard.tlrow:active{cursor:pointer}
 .locard .tlpin{display:inline-flex;align-items:center;color:var(--accent)}
@@ -1108,16 +1124,25 @@ table.spelltable .pickcell{cursor:help}
 .locard .tlwarn svg{width:12px;height:12px}
 .locard.refuse{animation:tlrefuse .35s}
 @keyframes tlrefuse{0%,100%{border-color:var(--line)}50%{border-color:var(--bad)}}
-/* pick chips: what the schedule says arrives at this level; drag one to another level */
-.tlchips{flex-basis:100%;display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
-.tlchip{font-size:10.5px;line-height:1;padding:3px 7px;border:1px solid var(--line);
+/* pick chips: what the schedule says arrives at this level; drag one to another level.
+   ONE line that bleeds past the card under a mask and scrolls (the spell-details access
+   pattern) — wrapping made tall rows out of long lists (D124) */
+.tlchips{flex-basis:100%;display:flex;flex-wrap:nowrap;gap:4px;margin-top:5px;
+  overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;padding-bottom:1px;
+  -webkit-mask-image:linear-gradient(90deg,#000 93%,transparent);
+  mask-image:linear-gradient(90deg,#000 93%,transparent)}
+.tlchips::-webkit-scrollbar{display:none;width:0;height:0}
+.tlchip{flex:0 0 auto;font-size:10.5px;line-height:1;padding:3px 7px;border:1px solid var(--line);
   border-radius:20px;background:var(--panel-2);color:var(--ink);cursor:grab;white-space:nowrap}
+/* an open schedule slot at this level: a bare + that jumps the view there (D124) */
+.tlchip.ghost{border-style:dashed;background:none;color:var(--muted);cursor:pointer;
+  min-width:22px;text-align:center}
 .tlchip:active{cursor:grabbing}
 .tlchip.fixed{cursor:default;color:var(--muted)}
 .tlchip.dragging{opacity:.4}
 .tlchip .k{color:var(--muted);font-size:9px;margin-right:3px;text-transform:uppercase;letter-spacing:.03em}
 /* a recorded level-up swap (D115(g)): −out +in, clearable */
-.tlswap{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;line-height:1;
+.tlswap{display:inline-flex;flex:0 0 auto;align-items:center;gap:4px;font-size:10.5px;line-height:1;
   padding:3px 7px;border:1px solid var(--free);border-radius:20px;background:var(--free-soft);color:var(--free)}
 .tlswap .out{text-decoration:line-through;opacity:.75}
 /* a pick later traded away carries the mark; an ARMED one glows until its replacement lands */
