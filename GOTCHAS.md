@@ -379,8 +379,11 @@
   and each `state.chosen[rowId].cantrips`/`.spells` list picks in acquisition order; per-level
   truth is a slice of it. Nothing may sort a stored pick array in place — every render-side sort
   copies first (`.map()`, `[...]`), and a new one must too. `state.swaps` is keyed by character
-  level (one event max, D115(g)) and a row's swap events are dropped with the row
-  (`dropRowSwaps`), exactly like its `chosen` lists.
+  level, ONE EVENT PER KIND — `{spell?, cantrip?}` since D128 (a level can hold a spell
+  trade AND a cantrip trade; old single-event blobs heal at every stored-state boundary via
+  `swapsNorm`). Read swaps only through `swapEvents()`/`swapAt()` — nothing else may assume
+  the map's depth. A row's swap events are dropped with the row (`dropRowSwaps`), exactly
+  like its `chosen` lists.
 - **The consistency sweep must NEVER read `PREVIEW` (E4 · D115(f)).** `buildHealth()` walks the
   raw pick arrays and the full level plan, not the sliced view — a problem at level 5 has to be
   visible while you stand at 12, which is the badge's entire reason to exist. Anything that

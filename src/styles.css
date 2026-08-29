@@ -1002,6 +1002,13 @@ table.spelltable .pickcell{cursor:help}
   padding:8px 11px;margin:0 0 10px}
 .prepgrp:last-child{margin-bottom:0}
 .prepgrp .cghead{margin-bottom:2px}
+/* the rest-cadence cantrip swap (a wizard's 1/long rest) — outside #prepList so the
+   filter's re-render can't destroy a half-made choice */
+#prepSwap:empty{display:none}
+#prepSwap .prepgrp{margin-bottom:11px}
+.swaprow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
+.swaprow select{flex:1 1 160px;min-width:0}
+.swnote{font-size:10.5px;color:var(--muted);line-height:1.4;margin-top:6px}
 
 /* ── v9: custom-spell authoring form + import panel ── */
 .cgrid{display:grid;grid-template-columns:1fr 1fr;gap:11px 13px}

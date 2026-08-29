@@ -76,10 +76,10 @@ coordinating session. The guided-builder notes became **phase G below (D126)**.
 - [ ] **W1 — general UI fixes** (agent, worktree): no duplicate multiclass rows; feat-picker
   popover batch (icon centering + app-wide check, stay open across filter clicks, ⋯ toggles
   closed, no filter count); collapsible level groups in Eligible spells + the spell-pick modal.
-- [ ] **W2 — the swap model, app-wide** (agent, worktree): per level-up one LEVELED-spell
-  swap (known casters; cantrips never spend it) + one cantrip swap where the 2024 class text
-  grants it (hand table, D123(c) precedent); Wizard cantrip 1/LR in the prepare modal;
-  `state.swaps` two-kind shape with healing migration; timeline arming + guide step + tips.
+- [x] **W2 — the swap model, app-wide** (**merged v1.2.19 → D128**): `SWAP_RULES` verified
+  from XPHB prose; `state.swaps[lv]={spell?,cantrip?}` with healing migration at all three
+  stored-state boundaries; timeline arming per kind; Wizard cantrip 1/LR in the prepare
+  modal; guide emits up to two swap steps. Agent-verified in-browser on an isolated origin.
 - [x] **W3 — sorcerer/edition dedupe investigation** (agent, read-only) — DONE, see the
   report: `reprintedAs` covers all 58 cross-edition subclass links (0 misses); root cause is
   unresolved `_copy` records; TWO bigger live bugs found (67 classic subclasses missing from

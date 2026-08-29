@@ -309,7 +309,7 @@ function serializeState(){ const f=state.filters; return {
   filters:{...f,levels:[...f.levels],time:[...f.time],comp:[...f.comp],tags:[...f.tags],
            books:f.books?[...f.books]:null},
   currentLevel:state.currentLevel==null?null:state.currentLevel,  // null = at top (D115(e))
-  swaps:state.swaps||{},                  // charLevel -> one swap event (D115(g))
+  swaps:state.swaps||{},                  // charLevel -> {spell?,cantrip?} events (D115(g))
 };}
 function applyState(s){ s=s||blankBuildState();
   // the live state must never share sub-objects with the stored build (see save()) —
@@ -320,7 +320,9 @@ function applyState(s){ s=s||blankBuildState();
     nextRowId:s.nextRowId||1,levelOrder:s.levelOrder||[],customSources:s.customSources||[],
     sbFav:s.sbFav||{},
     currentLevel:typeof s.currentLevel==="number"?s.currentLevel:null,
-    swaps:(s.swaps&&typeof s.swaps==="object")?s.swaps:{}});
+    // swapsNorm heals as well as reads: a stored map from before swaps split by kind
+    // arrives as one event per level and comes out in the two-slot shape
+    swaps:swapsNorm(s.swaps)});
   // arr() guards a filters blob that stored a Set as "{}" (a pre-E1 importer fallback did) —
   // boot must heal such a build, not throw at `new Set({})` and die half-rendered
   const arr=x=>Array.isArray(x)?x:[];
@@ -423,7 +425,11 @@ function loadBuilds(){
     let migrated=false;
     Object.values(BUILDS.builds).forEach(b=>{const st=b&&b.state; if(!st)return;
       if(st.currentLevel===undefined){st.currentLevel=null;migrated=true;}
-      if(st.swaps===undefined){st.swaps={};migrated=true;}});
+      if(st.swaps===undefined){st.swaps={};migrated=true;}
+      // and a build stored while a level carried ONE event gains the per-kind shape,
+      // its old `kind` deciding which slot it lands in — nothing is dropped
+      else{const n=swapsNorm(st.swaps);
+        if(JSON.stringify(n)!==JSON.stringify(st.swaps)){st.swaps=n;migrated=true;}}});
     if(migrated)persistBuilds();
     return "loaded";
   }
@@ -590,22 +596,107 @@ function setCurrentLevel(l){
   state.currentLevel=(l==null||l>=total)?null:Math.max(1,Math.round(l));
   save();
 }
-// A level-up may carry ONE swap (−out +in) where RAW grants one (D115(g)); the map is
-// keyed by character level, so one-per-level holds by construction. Whether a swap is
-// GRANTED at a level is the E4 sweep's business — this only keeps the shape sound.
-function recordSwap(lvl,ev){
-  lvl=Math.round(+lvl);
+// ── what each class may trade, and when (app-side hand table) ──────────────
+// The digest models no swap rule — 5etools carries `preparedSpellsChange` and nothing
+// else — so this is a BUILD fact and never enters the extractors (D123(c)'s precedent).
+// Verified 2026-08-29 against the XPHB class prose in the mirror; no XPHB feature in
+// that data uses `_copy`/`_mod`, so every sentence below was read literally.
+//   spell   — "Whenever you gain a <Class> level, you can replace one spell on your
+//             list…": Bard, Sorcerer, Warlock, Eldritch Knight, Arcane Trickster ONLY.
+//             Cleric, Druid, Paladin, Ranger and Wizard change their list on a LONG
+//             REST instead, which is not a build event (D18/D115(c)).
+//   cantrip — "levelup" ("Whenever you gain a <Class> level, you can replace one of
+//             your cantrips…") · "lr" (Wizard: "Whenever you finish a Long Rest…" —
+//             the one class off the level-up cadence) · false (no cantrips at all).
+// The two cadences CROSS: Cleric and Druid trade no spell on level-up yet do trade a
+// cantrip. A class's cantrip rule is never derivable from its spell rule.
+// Keyed by the printed class name, and by SUBCLASS name for the third casters, whose
+// Spellcasting feature is the subclass's own. The rules stated are the 2024 ones, so a
+// 2014 reprint sharing a name inherits them and is offered a cantrip swap its own text
+// doesn't grant — advisory either way (D31): this blocks nothing and removes nothing.
+// Arcane Trickster's locked Mage Hand needs no clause: it is a fixed grant, never a
+// pick, so it can never be the outgoing side.
+const SWAP_RULES={
+  Bard:{spell:true,cantrip:"levelup"},
+  Sorcerer:{spell:true,cantrip:"levelup"},
+  Warlock:{spell:true,cantrip:"levelup"},
+  Cleric:{spell:false,cantrip:"levelup"},
+  Druid:{spell:false,cantrip:"levelup"},
+  Wizard:{spell:false,cantrip:"lr"},
+  Paladin:{spell:false,cantrip:false},
+  Ranger:{spell:false,cantrip:false},
+  // no XPHB Artificer exists. EFA's (the 2024-rules one) re-prepares and replaces a
+  // cantrip on a long rest, like the wizard; TCE's 2014 text swaps on level-up.
+  Artificer:{spell:false,cantrip:"lr"},
+  "Eldritch Knight":{spell:true,cantrip:"levelup"},
+  "Arcane Trickster":{spell:true,cantrip:"levelup"},
+};
+// A row's rule. The subclass is asked first (a third caster's Spellcasting is its own),
+// then the class. An unrecognised caster — homebrew — falls back to what the DIGEST can
+// say: a level-swap list trades a spell, and any class with cantrips trades one on
+// level-up. Unknown must never read as "no" (D31).
+function swapRule(row){
+  const c=row&&CLS_BY[row.clsKey], sub=row&&row.subKey?SUB_BY[row.subKey]:null;
+  const hit=(sub&&SWAP_RULES[sub.name])||(c&&SWAP_RULES[c.name]);
+  if(hit)return hit;
+  const sched=rowSched(row||{});
+  return {spell:!!(sched&&sched.spells&&!sched.book),
+          cantrip:sched&&sched.cant?"levelup":false};
+}
+
+// A level-up may carry ONE swap OF EACH KIND (−out +in) where the class's rules grant
+// one: one leveled spell and one cantrip, independently. The map is keyed by character
+// level and THEN by kind, so one-per-kind-per-level holds by construction. Whether a
+// swap is granted at a level is the E4 sweep's business — this only keeps the shape
+// sound. Callers save: an event always rides an array edit that must go with it.
+const SWAP_KINDS=["spell","cantrip"];
+function recordSwap(lvl,kind,ev){
+  lvl=Math.round(+lvl); kind=kind==="cantrip"?"cantrip":"spell";
   if(!(lvl>=1&&lvl<=20)||!ev||!state.classes.some(r=>r.id===ev.row))return false;
   if(!ev.out||!ev.in||ev.out===ev.in)return false;
-  state.swaps[lvl]={row:ev.row,kind:ev.kind==="cantrip"?"cantrip":"spell",
-                    out:String(ev.out),in:String(ev.in)};
-  save(); return true;
+  (state.swaps[lvl]=state.swaps[lvl]||{})[kind]={row:ev.row,out:String(ev.out),in:String(ev.in)};
+  return true;
 }
-function clearSwap(lvl){ lvl=Math.round(+lvl);
-  if(state.swaps&&state.swaps[lvl]!==undefined){delete state.swaps[lvl];save();} }
+// clearing one kind leaves the other standing; a level with neither drops out entirely
+function clearSwap(lvl,kind){ lvl=Math.round(+lvl);
+  const m=(state.swaps||{})[lvl]; if(!m)return;
+  if(kind){if(m[kind]===undefined)return; delete m[kind];}
+  else SWAP_KINDS.forEach(k=>{delete m[k];});
+  if(!SWAP_KINDS.some(k=>m[k]))delete state.swaps[lvl];
+  save(); }
+const swapAt=(lvl,kind)=>(((state.swaps||{})[lvl])||{})[kind]||null;
+// every event of a map, flattened to [{lvl,kind,row,out,in}] — the read path for every
+// consumer, so none of them has to know the map is two levels deep
+function swapEvents(m){ const out=[];
+  Object.entries(m||state.swaps||{}).forEach(([k,v])=>SWAP_KINDS.forEach(kind=>{
+    const e=v&&v[kind]; if(e)out.push({lvl:+k,kind,row:e.row,out:e.out,in:e.in});}));
+  return out; }
+// One level's events in the two-slot shape. A PRE-TWO-KIND blob is a single event
+// (`{row,kind,out,in}`) — it is read into its own kind's slot, so an old build loses
+// nothing wherever stored state enters (applyState, loadBuilds, an imported file).
+function swapNorm(v){
+  if(!v||typeof v!=="object")return null;
+  const one=e=>(e&&typeof e==="object"&&e.row!==undefined&&e.out&&e.in&&e.out!==e.in)
+    ?{row:e.row,out:String(e.out),in:String(e.in)}:null;
+  if(v.out!==undefined&&v.in!==undefined){        // the single-event shape
+    const e=one(v); return e?{[v.kind==="cantrip"?"cantrip":"spell"]:e}:null;}
+  const out={};
+  SWAP_KINDS.forEach(k=>{const e=one(v[k]); if(e)out[k]=e;});
+  return SWAP_KINDS.some(k=>out[k])?out:null;
+}
+// the whole map, healed: out-of-range levels and malformed events are dropped, never
+// guessed at. Key order is SWAP_KINDS' own, so two normalized maps compare equal —
+// which is what keeps save()'s identical-write skip honest across the migration.
+function swapsNorm(m){ const out={};
+  Object.entries((m&&typeof m==="object")?m:{}).forEach(([k,v])=>{
+    const lvl=Math.round(+k); if(!(lvl>=1&&lvl<=20))return;
+    const n=swapNorm(v); if(n)out[lvl]=n;});
+  return out; }
 // a class row's swap events die with the row, exactly like its `chosen` lists do
 function dropRowSwaps(id){
-  Object.keys(state.swaps||{}).forEach(k=>{if(state.swaps[k].row===id)delete state.swaps[k];});
+  Object.keys(state.swaps||{}).forEach(k=>{const m=state.swaps[k];
+    SWAP_KINDS.forEach(kd=>{if(m[kd]&&m[kd].row===id)delete m[kd];});
+    if(!SWAP_KINDS.some(kd=>m[kd]))delete state.swaps[k];});
 }
 
 // ── slice derivation (E2 · D115(b,c,h)) ────────────────────────────────────
@@ -650,10 +741,9 @@ function acqAt(sched,i,lvls){
 // swap events above L are un-applied newest-first on a DISPLAY COPY, so chains resolve:
 // X→Y at 5 and Y→Z at 9 shows X at L4, Y at L7, Z from L9 on (E1 shape, D115(g))
 function unswap(list,rowId,kind,L){
-  Object.entries(state.swaps||{}).map(([k,v])=>[+k,v])
-    .filter(([k,v])=>k>L&&v.row===rowId&&(v.kind||"spell")===kind)
-    .sort((a,b)=>b[0]-a[0])
-    .forEach(([,v])=>{const i=list.indexOf(v.in);if(i>=0)list[i]=v.out;});
+  swapEvents().filter(e=>e.lvl>L&&e.row===rowId&&e.kind===kind)
+    .sort((a,b)=>b.lvl-a.lvl)
+    .forEach(e=>{const i=list.indexOf(e.in);if(i>=0)list[i]=e.out;});
   return list;
 }
 // the view of a row's chosen lists at the preview level; the RAW object when not
@@ -755,8 +845,8 @@ function buildHealth(){
   const spName=k=>{const sp=SPELL_BY[k];return sp?sp.name:String(k).split("|")[0];};
   // a swapped-IN pick was acquired at the swap, not at its position's schedule slot (D115(g))
   const swIn=new Map();
-  Object.entries(state.swaps||{}).forEach(([k,v])=>{
-    const m=swIn.get(v.row)||new Map(); m.set(v.in,+k); swIn.set(v.row,m);});
+  swapEvents().forEach(e=>{
+    const m=swIn.get(e.row)||new Map(); m.set(e.in,e.lvl); swIn.set(e.row,m);});
 
   state.classes.forEach(row=>{
     const c=CLS_BY[row.clsKey]; if(!c)return;
@@ -864,14 +954,17 @@ function guideSteps(){
            done:p<(ch.spells||[]).length,
            value:p<(ch.spells||[]).length?(SPELL_BY[ch.spells[p]]||{}).name:null,
            pool:{kind:"spell",row:id,castMax:Math.max(1,maxLvlAt(sched.caster,cl))}});}
-    // the level-up swap question (D115(g)/D119(b)): the class taking this level may
-    // trade one earlier pick — a real decision, answered yes (an event) or passed
-    const swappable=cl>=2&&((sched.cant&&(ch.cantrips||[]).length)
-                            ||(sched.spells&&!sched.book&&(ch.spells||[]).length));
-    if(swappable){const ev=(state.swaps||{})[lv];
-      add({lv,ord:7,kind:"swap",row:id,label:"Swap a pick",done:!!ev,optional:true,
-           value:ev?("− "+String(ev.out).split("|")[0]+" + "+String(ev.in).split("|")[0]):null,
-           pool:{kind:"swap",row:id}});}
+    // the level-up swap questions (D115(g)/D119(b)): the class taking this level may
+    // trade one earlier LEVELED spell and one earlier CANTRIP, each only where its own
+    // rules grant it (SWAP_RULES) — two independent decisions, answered or passed
+    if(cl>=2){const rule=swapRule(row);
+      const ask=[];
+      if(rule.spell&&sched.spells&&!sched.book&&(ch.spells||[]).length)ask.push(["spell",7,"Swap a spell"]);
+      if(rule.cantrip==="levelup"&&sched.cant&&(ch.cantrips||[]).length)ask.push(["cantrip",8,"Swap a cantrip"]);
+      ask.forEach(([swkind,ord,label])=>{const ev=swapAt(lv,swkind);
+        add({lv,ord,kind:"swap",swkind,row:id,label,done:!!ev,optional:true,
+             value:ev?("− "+String(ev.out).split("|")[0]+" + "+String(ev.in).split("|")[0]):null,
+             pool:{kind:"swap",row:id,swkind}});});}
   });
   // general/epic feat slots at the character levels the plan puts them (D114); spends
   // attribute in array order, earliest slot first — same walk featAcqLevels() does
@@ -938,7 +1031,8 @@ function guideKey(s){
   if(s.kind==="optfeat")return "optfeat~"+s.row+"~"+s.label+"~"+s.lv+"~"+s.pos;
   if(s.kind==="subclass")return "subclass~"+s.row;
   if(s.kind==="class")return "class~"+s.lv;
-  return s.kind+"~"+s.lv;               // species (lv 1), swap (one per level)
+  if(s.kind==="swap")return "swap~"+s.lv+"~"+s.swkind;   // one per KIND per level
+  return s.kind+"~"+s.lv;               // species (lv 1)
 }
 function openGuide(desc,reverse){ GUIDE.on=true; GUIDE.desc=!!desc; GUIDE.reverse=!!reverse;
   GUIDE.choose=false; GUIDE.cur=null; GUIDE.autonext=true; render(); }
@@ -1168,29 +1262,27 @@ function guideInline(s,rowOf){
     return box;
   }
   if(s.kind==="swap"&&!s.done){
+    const kind=s.swkind==="cantrip"?"cantrip":"spell";
     const row=rowOf.get(s.row), sched=row&&rowSched(row); if(!sched)return null;
     const ch=state.chosen[s.row]||{};
     const name=k2=>{const sp=SPELL_BY[k2];return sp?sp.name:String(k2).split("|")[0];};
     const lvls=charLevelMap().get(s.row)||[];
+    const sa=kind==="cantrip"?sched.cant:sched.spells;
     const opts=[];
-    const gather=(arr,sa,kind)=>{(arr||[]).forEach((k2,i)=>{
-      if(acqAt(sa,i,lvls)<s.lv)opts.push({kind,key:unswap([k2],s.row,kind,s.lv-1)[0]});});};
-    if(sched.cant)gather(ch.cantrips,sched.cant,"cantrip");
-    if(sched.spells&&!sched.book)gather(ch.spells,sched.spells,"spell");
-    if(!opts.length){box.append(el("div","grhint","Nothing swappable was learned before this level."));return box;}
-    if((state.swaps||{})[s.lv]){box.append(el("div","grhint","This level already carries a swap — clear its pill in the timeline first."));return box;}
+    ((kind==="cantrip"?ch.cantrips:ch.spells)||[]).forEach((k2,i)=>{
+      if(acqAt(sa,i,lvls)<s.lv)opts.push(unswap([k2],s.row,kind,s.lv-1)[0]);});
+    if(!opts.length){box.append(el("div","grhint","No "+kind+" was learned before this level."));return box;}
+    if(swapAt(s.lv,kind)){box.append(el("div","grhint","This level already carries a "+kind+" swap — clear its pill in the timeline first."));return box;}
     const sel=el("select");
     sel.append(el("option","","swap away…"));
-    opts.forEach(o=>{const e2=el("option",null,(o.kind==="cantrip"?"cantrip · ":"")+name(o.key));
-      e2.value=o.kind+"~"+o.key;sel.append(e2);});
+    opts.forEach(k2=>{const e2=el("option",null,name(k2));e2.value=k2;sel.append(e2);});
     box.append(sel);
     const b=el("button","btn","Arm the swap");
-    b.onclick=()=>{const v=sel.value;if(!v)return;const at=v.indexOf("~");
-      const kind=v.slice(0,at), out=v.slice(at+1);
-      SWAPARM={row:s.row,kind,out,level:s.lv,label:name(out)};
+    b.onclick=()=>{const v=sel.value;if(!v)return;
+      SWAPARM={row:s.row,kind,out:v,level:s.lv,label:name(v)};
       setPreview(s.lv>=topCharLevel()?null:s.lv);jumpTo($("#secSpells"));};
     box.append(b);
-    box.append(el("div","grhint","One swap per level-up: the next "+(opts.some(o=>o.kind==="cantrip")?"pick":"spell")+" you take for this class records the trade. Passing on it is the other honest answer — just move on."));
+    box.append(el("div","grhint","The next "+kind+" you take for this class records the trade. Passing on it is the other honest answer — just move on."));
     return box;
   }
   if(s.kind==="species"&&!s.done){
@@ -1567,7 +1659,7 @@ function toggle(idx,spellKey,cantrip,which){
     const p=ch[arr].indexOf(SWAPARM.out);
     if(p>=0){
       ch[arr][p]=spellKey;
-      state.swaps[SWAPARM.level]={row:idx,kind:SWAPARM.kind,out:SWAPARM.out,in:spellKey};
+      recordSwap(SWAPARM.level,SWAPARM.kind,{row:idx,out:SWAPARM.out,in:spellKey});
       SWAPARM=null; save(); render(); return;
     }
     SWAPARM=null;   // the outgoing pick vanished meanwhile — disarm, fall through to a plain take
@@ -1587,8 +1679,8 @@ function toggle(idx,spellKey,cantrip,which){
     const row=state.classes.find(r=>r.id===idx);
     // a swapped-out display entry isn't in the array — editing it means editing the
     // swap event, which is E3's surface; refuse rather than corrupt the chain
-    if(i<0&&Object.entries(state.swaps||{}).some(([k,v])=>+k>L&&v.row===idx
-       &&(v.kind||"spell")===(arr==="cantrips"?"cantrip":"spell")&&v.out===spellKey))return;
+    if(i<0&&swapEvents().some(e=>e.lvl>L&&e.row===idx
+       &&e.kind===(arr==="cantrips"?"cantrip":"spell")&&e.out===spellKey))return;
     const at=row?sliceInsertAt(row,arr,L):ch[arr].length;
     if(i>=at){ ch[arr].splice(i,1); ch[arr].splice(at,0,spellKey); save(); render(); return; }
     if(i<0){ ch[arr].splice(at,0,spellKey); save(); render(); return; }
@@ -1972,10 +2064,10 @@ function savePreviewAsVersion(){
   // the fork's history ends at its own top (E6 · D115(i)). Swap events above the slice
   // are rewound INTO the arrays first — newest first, so chains resolve — because the
   // variant held the OUT spell at this level, and only then dropped…
-  Object.entries(st.swaps||{}).map(([k,v])=>[+k,v]).filter(([k])=>k>lv).sort((a,b)=>b[0]-a[0])
-    .forEach(([,v])=>{const ch=st.chosen[v.row]; if(!ch)return;
-      const arr=v.kind==="cantrip"?"cantrips":"spells";
-      const i=(ch[arr]||[]).indexOf(v.in); if(i>=0)ch[arr][i]=v.out;});
+  swapEvents(st.swaps).filter(e=>e.lvl>lv).sort((a,b)=>b.lvl-a.lvl)
+    .forEach(e=>{const ch=st.chosen[e.row]; if(!ch)return;
+      const arr=e.kind==="cantrip"?"cantrips":"spells";
+      const i=(ch[arr]||[]).indexOf(e.in); if(i>=0)ch[arr][i]=e.out;});
   st.swaps=Object.fromEntries(Object.entries(st.swaps||{}).filter(([k])=>+k<=lv));
   if(st.currentLevel!=null&&st.currentLevel>=lv)st.currentLevel=null;
   // …then every sticky array is cut at the slice, so the variant holds exactly what
@@ -2318,16 +2410,19 @@ function applyImportedState(st){
   const top=out.classes.reduce((a,r)=>a+r.level,0);
   const cl=Math.round(+st.currentLevel);
   out.currentLevel=(cl>=1&&cl<top)?cl:null;
-  // swap events (E1 · D115(g)): one per character level, row remapped like every other ref;
-  // anything malformed is dropped, never guessed at
+  // swap events (E1 · D115(g)): up to one LEVELED-SPELL and one CANTRIP event per
+  // character level, rows remapped like every other ref; anything malformed is dropped,
+  // never guessed at. swapNorm also reads a file written while a level carried a single
+  // event, so an older export imports whole.
   out.swaps={};
   Object.entries((st.swaps&&typeof st.swaps==="object")?st.swaps:{}).forEach(([k,v])=>{
-    const lvl=Math.round(+k);
-    if(!(lvl>=1&&lvl<=20)||!v||typeof v!=="object")return;
-    const row=idMap.get(+v.row); if(!row)return;
-    const minus=String(v.out||""), plus=String(v.in||"");
-    if(!minus||!plus)return;
-    out.swaps[lvl]={row,kind:v.kind==="cantrip"?"cantrip":"spell",out:minus,in:plus};});
+    const lvl=Math.round(+k); if(!(lvl>=1&&lvl<=20))return;
+    const n=swapNorm(v); if(!n)return;
+    const m={};
+    SWAP_KINDS.forEach(kind=>{const e=n[kind]; if(!e)return;
+      const row=idMap.get(+e.row); if(!row)return;
+      m[kind]={row,out:e.out,in:e.in};});
+    if(SWAP_KINDS.some(kind=>m[kind]))out.swaps[lvl]=m;});
   return out;
 }
 
@@ -2882,7 +2977,71 @@ function renderPrepStep(){
   const last=PREP.step>=PREP.steps.length-1;
   $("#prepNext").style.display=last?"none":"";
   $("#prepDone").style.display=last?"":"none";
+  renderPrepSwap();
   renderPrepList();
+}
+// ── a cantrip replaced on a LONG REST, not on a level-up ───────────────────
+// The wizard's cadence (SWAP_RULES cantrip:"lr"), so it belongs beside preparing and
+// not on the timeline's arm path. It still edits the acquisition array, so it must
+// record a cantrip event or the timeline would show the new cantrip as if it had been
+// learned where the old one was. The event lands at the level you are STANDING at
+// (D115(e)'s current level, or the top): everything below keeps the cantrip you had.
+// Trading the SAME slot again at that level collapses into the standing event —
+// original out, newest in — rather than chaining, which the level surface refuses too.
+// It lives outside #prepList because the filter re-renders that on every keystroke.
+function renderPrepSwap(){
+  const host=$("#prepSwap"); if(!host)return; host.innerHTML="";
+  const st=prepStep(); if(!st||st.type!=="class")return;
+  const rec=prepRec(); if(!rec)return;
+  const row=state.classes.find(r=>r.id===rec.idx); if(!row)return;
+  if(swapRule(row).cantrip!=="lr")return;
+  const name=k=>{const sp=SPELL_BY[k];return sp?sp.name:String(k).split("|")[0];};
+  const lv=PREVIEW.level==null?topCharLevel():PREVIEW.level;
+  const known=sliceChosen(row).cantrips||[];
+  const box=el("div","prepgrp");
+  const h=el("div","cghead");
+  h.append(el("b",null,"Cantrip swap"));
+  h.append(el("span","cgn","one per long rest"));
+  h.append(Object.assign(el("div","cgcat"),
+    {textContent:`Recorded at L${lv} — below that level the cantrip you traded away is still yours.`}));
+  box.append(h);
+  host.append(box);
+  if(!known.length){box.append(el("div","empty","No cantrip to trade yet."));return;}
+  const standing=swapAt(lv,"cantrip"), held=new Set(known);
+  const pool=[...R.pool.values()]
+    .filter(e=>e.sp.level===0&&e.takers.some(t=>t.idx===rec.idx)&&!held.has(key(e.sp.name,e.sp.source)))
+    .map(e=>e.sp).sort((a,b)=>a.name.localeCompare(b.name));
+  const line=el("div","swaprow");
+  const outSel=el("select"); outSel.append(el("option","","cantrip leaving…"));
+  known.forEach(k=>{const o=el("option",null,name(k));o.value=k;outSel.append(o);});
+  const inSel=el("select"); inSel.append(el("option","","its replacement…"));
+  pool.forEach(sp=>{const o=el("option",null,sp.name);o.value=key(sp.name,sp.source);inSel.append(o);});
+  const b=el("button","btn on","Swap");
+  line.append(outSel,inSel,b);
+  box.append(line);
+  const note=el("div","swnote"); box.append(note);
+  const say=t=>{note.textContent=t;};
+  say(standing&&standing.row!==rec.idx
+    ? `L${lv} already records a cantrip swap for another class — clear its pill in the timeline, or move the view to another level.`
+    : `Pick the cantrip leaving and the one arriving — ${classLabel(rec)} may replace one after each long rest.`);
+  b.onclick=()=>{
+    const out=outSel.value, into=inSel.value;
+    if(!out||!into){say("Pick both sides first.");return;}
+    // one cantrip event per level: an unrelated second trade here would be a chain,
+    // which every swap surface refuses — say why rather than overwrite in silence
+    if(standing&&(standing.row!==rec.idx||standing.in!==out)){
+      say(`L${lv} already records ${name(standing.out)} → ${name(standing.in)}.`
+        +" Clear that pill in the timeline first, or make this trade from another level.");
+      return;}
+    const ch=state.chosen[rec.idx], p=ch?(ch.cantrips||[]).indexOf(out):-1;
+    if(p<0){say("That cantrip isn't in the list any more.");return;}
+    const from=standing?standing.out:out;
+    ch.cantrips[p]=into;
+    // traded back to where it started: the level records nothing at all
+    if(from===into)clearSwap(lv,"cantrip");
+    else recordSwap(lv,"cantrip",{row:rec.idx,out:from,in:into});
+    save(); render(); renderPrepStep();
+  };
 }
 // short of the target, exactly on it, or past it — the three states worth a colour
 const cntState=(n,cap)=>n>cap?"over":(cap>0&&n===cap)?"ok":"under";
@@ -4325,7 +4484,7 @@ function renderSwapArm(){
   const row=state.classes.find(r=>r.id===SWAPARM.row), c=row&&CLS_BY[row.clsKey];
   const txt=el("div","swaptxt");
   txt.append(el("b",null,`Swap armed at L${SWAPARM.level} — losing ${SWAPARM.label}`));
-  txt.append(el("div",null,`Take the replacement ${SWAPARM.kind==="cantrip"?"cantrip":"spell"} for ${c?c.name:"the class"} and the trade is recorded — one swap per level-up, nothing is lost below L${SWAPARM.level}.`));
+  txt.append(el("div",null,`Take the replacement ${SWAPARM.kind==="cantrip"?"cantrip":"spell"} for ${c?c.name:"the class"} and the trade is recorded — one ${SWAPARM.kind==="cantrip"?"cantrip":"spell"} swap per level-up, nothing is lost below L${SWAPARM.level}.`));
   bar.append(txt);
   if(SWAPARM.kind==="spell"){
     const b=el("button","btn","Choose replacement…");
@@ -4351,15 +4510,24 @@ function timelinePicks(){
     // a position that later swapped shows what was LEARNED there — the pill at the swap
     // level tells the rest of the story
     const shown=(k,lv,kind)=>unswap([k],row.id,kind,lv)[0];
-    const traded=(k,lv,kind)=>{const ev=Object.entries(state.swaps||{})
-      .find(([l,v])=>+l>lv&&v.row===row.id&&(v.kind||"spell")===kind&&v.in===k);
-      return ev?{at:+ev[0],forName:name(k)}:null;};
+    const traded=(k,lv,kind)=>{const e=swapEvents()
+      .find(x=>x.lvl>lv&&x.row===row.id&&x.kind===kind&&x.in===k);
+      return e?{at:e.lvl,forName:name(k)}:null;};
+    // what this class may trade on a level-up, and — when it may not — the reason the
+    // chip's tip has to give, so a refusal is never mute (SWAP_RULES)
+    const cn=(CLS_BY[row.clsKey]||{}).name||"This class", rule=swapRule(row);
+    const noCt=rule.cantrip==="levelup"?null
+      :rule.cantrip==="lr"?`${cn} replaces a cantrip after a long rest, not on level-up — do it in Prepare daily.`
+      :`${cn} has no cantrip swap on level-up.`;
+    const noSp=rule.spell?null
+      :sched.book?"A spellbook only grows — copying in is the wizard's move; its prepared list changes on a long rest instead."
+      :`${cn} re-prepares its spells on a long rest, not on level-up — nothing is traded away here.`;
     (ch.cantrips||[]).forEach((k,i)=>{const lv=acqAt(sched.cant,i,lvls);
       put(lv,{kind:"ct",rowId:row.id,key:k,label:name(shown(k,lv,"cantrip")),tag:"c",
-        lv,lvls,swappable:!!sched.cant,traded:traded(k,lv,"cantrip")});});
+        lv,lvls,swappable:!noCt,noswap:noCt,traded:traded(k,lv,"cantrip")});});
     if(sched.spells)(ch.spells||[]).forEach((k,i)=>{const lv=acqAt(sched.spells,i,lvls);
       put(lv,{kind:"sp",rowId:row.id,key:k,label:name(shown(k,lv,"spell")),
-        lv,lvls,swappable:!sched.book,traded:traded(k,lv,"spell")});});
+        lv,lvls,swappable:!noSp,noswap:noSp,traded:traded(k,lv,"spell")});});
     // open slots + counts, per class level, on the same cumulative schedules
     lvls.forEach((lv,cl0)=>{
       [["cantrips",sched.cant],["spells",sched.spells]].forEach(([arr,sa])=>{
@@ -4516,8 +4684,9 @@ function renderTimeline(){
       if(tiles.children.length)card.append(tiles);}   // right edge, after the body
     // sticky picks the schedule places here (E2); drag a chip to another row to move it
     const here=picks.get(i)||[];
-    const sw=(state.swaps||{})[i];
-    if(here.length||sw){
+    // a level may carry one leveled-spell swap AND one cantrip swap — one pill each
+    const sw=(state.swaps||{})[i], swKinds=SWAP_KINDS.filter(k=>sw&&sw[k]);
+    if(here.length||swKinds.length){
       const chips=el("div","tlchips");
       here.forEach(pk=>{
         // an open schedule slot (D124): a bare + that jumps the view to this level —
@@ -4539,11 +4708,11 @@ function renderTimeline(){
           const kn=pk.kind==="ct"?"cantrip":"spell";
           const can=!armed&&!pk.traded&&pk.swappable
             &&view>pk.lv&&pk.lvls.includes(view)
-            &&(pk.lvls.filter(x=>x<=view).length>=2)&&!state.swaps[view];
+            &&(pk.lvls.filter(x=>x<=view).length>=2)&&!swapAt(view,kn);
           const why=armed?`Armed — will be traded at L${SWAPARM.level} for the next ${kn} you take. Click to cancel.`
             :pk.traded?`Traded away at L${pk.traded.at}. Clear that swap's pill to edit further.`
-            :!pk.swappable?"A spellbook only grows — copying in is the wizard's move; nothing is traded away."
-            :state.swaps[view]?`L${view} already carries a swap — clear its pill first (one per level-up).`
+            :!pk.swappable?pk.noswap
+            :swapAt(view,kn)?`L${view} already carries a ${kn} swap — clear its pill first (one of each kind per level-up).`
             :!(view>pk.lv)?`Learned at L${pk.lv} — a swap happens on a LATER level-up. Jump to one first.`
             :!pk.lvls.includes(view)||pk.lvls.filter(x=>x<=view).length<2?`L${view} isn't a level-up of this class — jump to one of its levels to swap there.`
             :`Click to swap this away at L${view}: it stays known below, and the next ${kn} you take for this class replaces it from L${view} on.`;
@@ -4567,14 +4736,24 @@ function renderTimeline(){
             box.querySelectorAll(".locard").forEach(x=>x.classList.remove("dropinto"));};
         }
         chips.append(chipEl);});
-      if(sw){
+      if(swKinds.length){
         const name=k=>{const sp=SPELL_BY[k];return sp?sp.name:String(k).split("|")[0];};
-        const pill=el("span","tlswap");
-        pill.append(el("span","out","− "+name(sw.out)));
-        pill.append(el("span",null,"+ "+name(sw.in)));
-        pill.append(xBtn("xsm",()=>{clearSwap(i);refreshAll();render();}));
-        chips.append(pill);
-        attachTip(pill,tipBlock("Level-up swap","Taking this level, "+name(sw.out)+" was traded for "+name(sw.in)+" (D115: one swap per level, where the rules grant one). × forgets the swap."));
+        swKinds.forEach(kind=>{const ev=sw[kind];
+          const pill=el("span","tlswap");
+          pill.append(el("span","out","− "+name(ev.out)));
+          pill.append(el("span",null,"+ "+name(ev.in)));
+          pill.append(xBtn("xsm",()=>{clearSwap(i,kind);refreshAll();render();}));
+          chips.append(pill);
+          // a wizard's cantrip trade happens on a long rest, not on this level-up —
+          // the level only records where it stood, so the tip must not claim otherwise
+          const evRow=state.classes.find(r=>r.id===ev.row);
+          const rest=kind==="cantrip"&&evRow&&swapRule(evRow).cantrip==="lr";
+          attachTip(pill,tipBlock(kind==="cantrip"?"Cantrip swap":"Spell swap",
+            (rest?"Replaced after a long rest, standing here: ":"Taking this level, ")
+            +name(ev.out)+" was traded for "+name(ev.in)+". "
+            +(rest?"That class replaces one cantrip per long rest — the level only records where it happened."
+                  :"A level-up carries at most one spell swap and one cantrip swap, and only where the class's rules grant them.")
+            +" × forgets this one."));});
       }
       card.append(chips);
     }

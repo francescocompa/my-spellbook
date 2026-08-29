@@ -780,9 +780,10 @@ written up in full in `GOTCHAS.md` — that is the copy to trust.
     class tables, spell level available at acquisition, boons on 19+ slots, choices available when
     features arrive); one badge names the offending levels; per-level flags when standing there.
     Soft throughout (D31). *Rejected:* per-level-only flags; an on-demand check action.
-  - **(g) Retraining = swap-at-level-up only.** A level event may carry one swap (−X +Y) where
-    RAW grants one (known casters; cantrip/feature swap rules ride the same shape); the wizard
-    spellbook is add-only. *Rejected:* add-only with removal-erases-history (lies to jobs a/c);
+  - **(g) Retraining = swap-at-level-up only ~~(one swap per level)~~** **→ one swap per KIND
+    per level since D128** (a level may carry a leveled-spell trade AND a cantrip trade).
+    A level event carries a swap (−X +Y) where RAW grants one; the wizard spellbook is
+    add-only. *Rejected:* add-only with removal-erases-history (lies to jobs a/c);
     full per-pick intervals (exactly the cost D64 priced — not justified).
   - **(h) Mapping is a PURE SLICE, no pins.** Order + each class's acquisition schedule fully
     determine every level; off-schedule acquisitions belong to custom sources. *Rejected:*
@@ -912,7 +913,9 @@ written up in full in `GOTCHAS.md` — that is the copy to trust.
     agree** at a row — they split back into spell + slot exactly where multiclassing (or Pact
     Magic) pulls the clocks apart. *Rejected:* always-two (repetitive at nearly every
     single-class level); always-one (hides the two-clocks distinction D68 exists to keep).
-  - **(b) The swap flow is click-to-arm on a timeline chip, take-to-record.** Clicking an
+  - **(b) The swap flow is click-to-arm on a timeline chip, take-to-record.** *(Eligibility
+    superseded → D128: leveled-spell and cantrip trades are separate, per the verified 2024
+    class rules — "known-caster picks only, one per level" no longer describes it.)* Clicking an
     eligible chip arms "− this pick at L{view}" (violet chip + a swapbar naming the level and
     the loss, with *Choose replacement…* opening the class picker capped at that level's max);
     the next take for that row and kind records the swap — the outgoing pick's POSITION keeps
@@ -1170,6 +1173,38 @@ written up in full in `GOTCHAS.md` — that is the copy to trust.
   Affects: extract.py, src/extract.js, scratchpad/cparity.js, src/app.js `buildIndexes`/
   `reprintOk`/subclass lookup; data + docs rebuilds; Francesco's per-browser re-import
   (Manual list).
+
+- **D128 (2026-08-29) DECIDED — swaps are per KIND: one leveled-spell trade + one cantrip
+  trade per level-up, by the verified 2024 class rules; Wizard's cantrip trade is 1/LR in
+  the prepare modal.** Mechanism: Francesco's direct instruction, raw: *"known casters can
+  swap 1 leveled spell, but cantrips do not count in this swap. Most classes (check to be
+  sure) can swap 1 cantrip on level up (on top of the other swap), while Wizard can swap
+  1/LR (add the option to do so in the prepare spells modal. Fix this issue app-wide"* —
+  built by the W2 agent, rules verified from the mirror's XPHB class prose (zero `_copy`
+  blocks hide XPHB text, so every row is read, not assumed). The table (`SWAP_RULES`,
+  src/app.js): level-up SPELL swap = Bard, Sorcerer, Warlock ("of an eligible level"),
+  Eldritch Knight, Arcane Trickster — exactly the digest's `static:true` set; level-up
+  CANTRIP swap = those five plus Cleric and Druid (their spell cadence is long-rest re-prep,
+  the cantrip cadence still level-up); Wizard = cantrip 1/LR only (spellbook add-only
+  stands); Paladin/Ranger have no cantrips; Artificer per EFA (flagged, no XPHB text). UA
+  "Spell Versatility"/"Modify Spells" confirmed absent from the corpus — never model them.
+  Shape: `state.swaps[lv] = {spell?, cantrip?}` — one event per kind, a level can carry
+  both pills; old single-event blobs heal at every stored-state boundary (applyState /
+  loadBuilds / build import), normalized key order keeps D116(d)'s identical-write compare
+  honest. The wizard's prepare-modal trade records at the viewed level (an array edit
+  without an event would lie about where the cantrip was learned); re-trading the same slot
+  at that level COLLAPSES into the standing event (original out, newest in) — never chains.
+  *Rejected:* a new stored field marking rest-cadence events (the pill derives its wording
+  from `SWAP_RULES` instead); silently overwriting a standing event (the slice below would
+  lie); keying `SWAP_RULES` by name|source (2014 reprints inherit 2024 rules — advisory
+  either way, D31, and writing unverified 2014 rows was worse). Known give: a 2014 class
+  sharing the name is over-offered the 2024 cantrip swap. Supersedes: D115(g)'s
+  one-per-level clause; D119(b)'s eligibility wording (the arm-then-take mechanism stands).
+  → **Gotcha** (the E1 line now states per-kind). Enforced by: src/app.js `SWAP_RULES`/
+  `swapRule`/`swapNorm` and the per-kind writers; in-browser verified by the agent on an
+  isolated origin (migration, both pills on one level, Wizard refusals, guide 2/1/0 steps
+  for Bard/Cleric/Wizard, export round-trip, fork rewind of both kinds). Affects:
+  GOTCHAS.md E1 line, PLAN W2, the W4 timeline batch (retrain chips ride this shape).
 
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
