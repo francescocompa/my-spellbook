@@ -190,8 +190,10 @@ let CLS_BY={},SUB_BY={},SUBS_OF={},FEAT_BY={},RACE_BY={},OPT_BY={},SPELL_BY={},S
 // edition de-duplication: when the same element (by identity) exists under several
 // sources (2014 PHB + 2024 XPHB, TCE + …), keep only the newest and shadow the rest,
 // so the pickers never list the same class/subclass/feat/species/spell twice.
-// 5etools' `reprintedAs` flag catches base classes but is patchy on subclasses, so we
-// collapse by name too. Homebrew (HB) is never shadowed and never shadows official.
+// 5etools' `reprintedAs` flag is carried as `reprinted` + `supersededBy` (D127); it read
+// as "patchy on subclasses" only because the unresolved `_copy` twins arrived without it,
+// so we collapse by name too and the two rules back each other up. Homebrew (HB) is never
+// shadowed and never shadows official.
 let SHADOWED=new WeakSet();
 const EDITION_RANK={XPHB:100,XDMG:99,XMM:98,PHB:50,DMG:49,MM:48};
 const srcRank=s=>EDITION_RANK[s]!=null?EDITION_RANK[s]:10;
@@ -216,12 +218,22 @@ function collapseEditions(list,idOf){
 function buildIndexes(){
   SHADOWED=new WeakSet();
   collapseEditions(DATA.classes, c=>c.name.toLowerCase());
-  collapseEditions(DATA.subclasses, s=>(s.className+"|"+(s.shortName||s.name)).toLowerCase());
+  // D127: the identity carries classSource. 5etools re-attaches every classic subclass to
+  // the 2024 class as a second record, so "Cleric|Life" names TWO different offerings —
+  // Life on Cleric|PHB and Life on Cleric|XPHB. Collapsing them together shadowed 67
+  // classic subclasses out of the 2024 pickers entirely. Scoped to the class, duplicate
+  // PRINTINGS of the same subclass on the same class still collapse, which is the job.
+  collapseEditions(DATA.subclasses, s=>(s.className+"|"+(s.classSource||"")+"|"+(s.shortName||s.name)).toLowerCase());
   collapseEditions(DATA.feats, f=>f.name.toLowerCase());
   collapseEditions(DATA.races, raceDedupeId);
   collapseEditions(DATA.spells, s=>s.name.toLowerCase());
   collapseEditions(DATA.optfeats, o=>o.name.toLowerCase());
   CLS_BY={}; DATA.classes.forEach(c=>CLS_BY[key(c.name,c.source)]=c);
+  // SUB_BY is keyed name|source and 124 subclass records SHARE that key with their
+  // 2024-chassis twin (D127) — whichever is indexed last wins, which is how every 2014
+  // subclass came to resolve to a hollow zero-grant record. It survives only as an
+  // EXISTENCE check (pruneState) and as the last-resort fallback in subOfRow(); anything
+  // that needs the record a build row actually points at must go through subOfRow.
   SUB_BY={}; DATA.subclasses.forEach(s=>SUB_BY[key(s.name,s.source)]=s);
   SUBS_OF={}; DATA.subclasses.forEach(s=>{const k=key(s.className,s.classSource);(SUBS_OF[k]=SUBS_OF[k]||[]).push(s);});
   FEAT_BY={}; DATA.feats.forEach(f=>FEAT_BY[key(f.name,f.source)]=f);
@@ -229,6 +241,17 @@ function buildIndexes(){
   OPT_BY={}; DATA.optfeats.forEach(o=>OPT_BY[key(o.name,o.source)]=o);
   SPELL_BY={}; DATA.spells.forEach(s=>SPELL_BY[key(s.name,s.source)]=s);
   SPELL_BY_NAME={}; DATA.spells.forEach(s=>{(SPELL_BY_NAME[s.name.toLowerCase()]=SPELL_BY_NAME[s.name.toLowerCase()]||[]).push(s);});
+}
+// The subclass a build ROW points at (D127). The stored `subKey` is still name|source and
+// NOTHING migrates — but that key is ambiguous, so the row's own class scopes it: look
+// inside SUBS_OF[row.clsKey] first, and only fall back to the flat index when the class
+// itself isn't loaded (a lean import / a book turned off), where the ambiguous answer is
+// still better than none — a pick is never dropped for content we can't see (D42/D56).
+function subOfRow(row){
+  if(!row||!row.subKey)return null;
+  const list=SUBS_OF[row.clsKey]||[];
+  for(const s of list){ if(key(s.name,s.source)===row.subKey)return s; }
+  return SUB_BY[row.subKey]||null;
 }
 // assemble DATA from the three layers and rebuild indexes; call whenever content changes
 function assembleData(){
@@ -347,7 +370,7 @@ function applyState(s){ s=s||blankBuildState();
 function describeBuild(st){
   const rows=(st&&st.classes)||[];
   if(!rows.length)return "Empty build";
-  const parts=rows.map(r=>{const c=CLS_BY[r.clsKey],sub=r.subKey&&SUB_BY[r.subKey];
+  const parts=rows.map(r=>{const c=CLS_BY[r.clsKey],sub=subOfRow(r);
     return ((sub?(sub.shortName||sub.name)+" ":"")+(c?c.name:"?")+" "+(r.level||0));});
   return parts.join(" / ");
 }
@@ -442,9 +465,41 @@ function loadBuilds(){
 
 const bookName=src=>src?(DATA.sources[src]&&DATA.sources[src].name||src):"";
 const srcOn=src=>SRC.has(src);
+// The record a `supersededBy` uid names, or null (D127). Two uid shapes reach here: a
+// subclass's "Short|Class|ClassSource|Source" and everything else's "Name|SRC". The
+// extractor drops 5etools' `tag`, and a pointer may CROSS types (a 2014 optional feature
+// is reprinted as a 2024 feat, a Dragonmark subrace as a feat), so every same-shaped index
+// is asked rather than just the record's own kind.
+function supersededRec(uid){
+  if(!uid)return null;
+  const parts=String(uid).split("|");
+  if(parts.length>=4){
+    const sn=lc(parts[0]),k=key(parts[1],parts[2]),src=parts[3];
+    return (SUBS_OF[k]||[]).find(s=>lc(s.shortName||s.name)===sn&&s.source===src)||null;
+  }
+  const k=key(parts[0],parts[1]||"");
+  return SPELL_BY[k]||CLS_BY[k]||FEAT_BY[k]||OPT_BY[k]||RACE_BY[k]||SUB_BY[k]||null;
+}
+// Is the thing that superseded `o` actually HERE? 5etools' `reprinted` flag on its own
+// hid a record even when the book that reprinted it was never imported — so importing
+// only 2014 books left their subclasses invisible with nothing standing in for them.
+//   • no pointer at all → a pre-D127 digest: fall back to the flag alone, as before;
+//   • pointer resolves → the successor's own book decides;
+//   • pointer unresolvable but its BOOK is loaded → we can't tell, keep the old answer;
+//   • pointer unresolvable and its book isn't loaded → the successor is not here.
+// Unknown never reads as excluded (D31).
+function supersededLive(o){
+  const uid=o&&o.supersededBy; if(!uid)return true;
+  const rec=supersededRec(uid); if(rec)return srcOn(rec.source);
+  const parts=String(uid).split("|"), src=parts.length>=4?parts[3]:(parts[1]||"");
+  if(!src)return true;
+  const known=!!DATA.sources[src]||Object.keys(DATA.sources).some(c=>c.toUpperCase()===src.toUpperCase());
+  return known?srcOn(src):false;
+}
 // "dedupe" (default) hides both flagged reprints and edition-shadowed duplicates;
 // "all" reveals every edition/source (the escape hatch to reach 2014 content).
-const reprintOk=o=>state.filters.reprint==="all" || (!o.reprinted && !SHADOWED.has(o));
+const reprintOk=o=>state.filters.reprint==="all" ||
+  (!SHADOWED.has(o) && !(o.reprinted && supersededLive(o)));
 const visible=o=>srcOn(o.source)&&reprintOk(o);
 
 // ── rules helpers ────────────────────────────────────────────────────────
@@ -455,7 +510,7 @@ function maxLvlAt(caster,l){ if(caster==="pact")return DATA.pact[Math.min(l,20)-
 
 function resolveRow(row,idx){
   const c=CLS_BY[row.clsKey]; if(!c)return null;
-  const sub=row.subKey?SUB_BY[row.subKey]:null;
+  const sub=subOfRow(row);
   let caster=c.caster,ability=c.ability,prepArr=c.prepared,cantArr=c.cantrips,stat=c.static,listClass=[c.name,c.source],viaSub=null;
   if(!caster&&sub&&sub.caster){caster=sub.caster;ability=sub.ability;prepArr=sub.prepared;cantArr=sub.cantrips;stat=sub.static;listClass=sub.spellList||["Wizard","XPHB"];viaSub=sub;}
   const base={idx:row.id,row,c,sub,name:c.name,level:row.level};
@@ -714,7 +769,7 @@ function topCharLevel(){return state.classes.reduce((a,r)=>a+(r.level||0),0)||1;
 // a row's cumulative sticky schedules, indexed [classLevel-1]; spells:null = not sticky
 function rowSched(row){
   const c=CLS_BY[row.clsKey]; if(!c)return null;
-  const sub=row.subKey?SUB_BY[row.subKey]:null;
+  const sub=subOfRow(row);
   let caster=c.caster,prepArr=c.prepared,cantArr=c.cantrips,stat=c.static;
   if(!caster&&sub&&sub.caster){caster=sub.caster;prepArr=sub.prepared;cantArr=sub.cantrips;stat=sub.static;}
   if(!caster)return null;
@@ -800,7 +855,7 @@ function featsAt(){ if(PREVIEW.level==null)return state.feats;
 // progression → first class level with room, through the plan like every other schedule
 function optAcqLevels(){
   const clm=charLevelMap(), top=topCharLevel(), out=new Map(), progs=[];
-  state.classes.forEach(row=>[CLS_BY[row.clsKey],row.subKey?SUB_BY[row.subKey]:null].forEach(src=>{
+  state.classes.forEach(row=>[CLS_BY[row.clsKey],subOfRow(row)].forEach(src=>{
     if(src&&src.optFeatures)src.optFeatures.forEach(p=>
       progs.push({name:p.name,types:new Set(p.types),counts:p.counts||[],lvls:clm.get(row.id)||[],n:0}));}));
   state.optFeats.forEach(ok=>{const o=OPT_BY[ok];
@@ -937,7 +992,7 @@ function guideSteps(){
     // subclass, where this class level makes it due
     if(c&&cl===(c.subclassLevel||3))
       add({lv,ord:1,kind:"subclass",row:id,label:c.name+" subclass",done:!!row.subKey,
-           value:row.subKey?((SUB_BY[row.subKey]||{}).shortName||(SUB_BY[row.subKey]||{}).name):null,
+           value:(subOfRow(row)||{}).shortName||(subOfRow(row)||{}).name||null,
            pool:{kind:"subclass",clsKey:row.clsKey}});
     // sticky pick slots this class level opens (E2's schedules; dense arrays fill in order)
     const sched=rowSched(row); if(!sched)return;
@@ -981,7 +1036,7 @@ function guideSteps(){
   const oa=optAcqLevels(), byProg=new Map();
   state.optFeats.forEach(ok=>{const a=oa.get(ok); if(!a||a.over)return;
     const key=a.slot+"|"+a.lv, l=byProg.get(key)||[]; l.push(ok); byProg.set(key,l);});
-  state.classes.forEach(row=>[CLS_BY[row.clsKey],row.subKey?SUB_BY[row.subKey]:null].forEach(src=>{
+  state.classes.forEach(row=>[CLS_BY[row.clsKey],subOfRow(row)].forEach(src=>{
     if(!src||!src.optFeatures)return;
     const lvls=clm.get(row.id)||[];
     src.optFeatures.forEach(p=>{for(let cl=1;cl<=lvls.length;cl++){
@@ -2841,7 +2896,7 @@ function buildGaps(st){
       out.push({kind,name:parts[0],source:parts[1]||""}); books.add(parts[1]||""); return; }
     if(visible(o))return; out.push({kind,name:o.name,source:o.source});
     if(!srcOn(o.source))books.add(o.source);};
-  (st.classes||[]).forEach(r=>{add("class",CLS_BY[r.clsKey],r.clsKey); if(r.subKey)add("subclass",SUB_BY[r.subKey],r.subKey);});
+  (st.classes||[]).forEach(r=>{add("class",CLS_BY[r.clsKey],r.clsKey); if(r.subKey)add("subclass",subOfRow(r),r.subKey);});
   if(st.speciesKey)add("species",RACE_BY[st.speciesKey],st.speciesKey);
   (st.feats||[]).forEach(k=>add("feat",FEAT_BY[k],k));
   (st.optFeats||[]).forEach(k=>add("option",OPT_BY[k],k));
@@ -3257,7 +3312,7 @@ function customSpellObj(){const f=CFORM;
     save:f.save?[f.save]:[],atk:!!f.atk,durTxt:f.duration,
     desc:(f.desc||"").trim()?f.desc.trim().split(/\n\s*\n/):[],
     higher:(f.higher||"").trim()?f.higher.trim().split(/\n\s*\n/):[],
-    reprinted:false,cls:f.classes.map(k=>{const p=k.split("|");return [p[0],p[1]];}),sub:[],feat:[],race:[]};}
+    reprinted:false,supersededBy:null,cls:f.classes.map(k=>{const p=k.split("|");return [p[0],p[1]];}),sub:[],feat:[],race:[]};}
 function customPreview(){const sp=customSpellObj();const box=el("div","cpreview");
   box.append(el("div","cpv-h",sp.name||"Untitled spell"));
   box.append(el("div","cpv-sub",metaLine(sp)+(sp.cls.length?" · "+sp.cls.map(c=>c[0]).join(", "):"")));
@@ -3410,7 +3465,9 @@ const DIGEST_ARRAYS=["spells","classes","subclasses","feats","races","optfeats"]
 const ENT_KEY={
   spells:e=>lc(e.name)+"|"+lc(e.source),
   classes:e=>lc(e.name)+"|"+lc(e.source),
-  subclasses:e=>lc(e.className||"")+"|"+lc(e.shortName||e.name||"")+"|"+lc(e.source),
+  // classSource is part of the identity (D127) — without it the 2024-chassis twin and its
+  // 2014 original collide and a merge silently drops 124 of 322 subclass records.
+  subclasses:e=>lc(e.className||"")+"|"+lc(e.classSource||"")+"|"+lc(e.shortName||e.name||"")+"|"+lc(e.source),
   feats:e=>lc(e.name)+"|"+lc(e.source),
   races:e=>lc(e.name)+"|"+lc(e.source),
   optfeats:e=>lc(e.name)+"|"+lc(e.source),
@@ -4140,7 +4197,7 @@ function activeMetamagic(){
     .filter(o=>o&&(o.types||[]).includes("MM")&&METAMAGIC_WHEN[o.name]);
   if(!taken.length)return null;
   const rows=new Set();
-  state.classes.forEach(r=>[CLS_BY[r.clsKey],r.subKey?SUB_BY[r.subKey]:null].forEach(src=>{
+  state.classes.forEach(r=>[CLS_BY[r.clsKey],subOfRow(r)].forEach(src=>{
     if(src&&(src.optFeatures||[]).some(p=>(p.types||[]).includes("MM")))rows.add(r.id);}));
   return rows.size?{rows,opts:[...new Map(taken.map(o=>[o.name,o])).values()]}:null;
 }
@@ -4256,7 +4313,7 @@ function activeCastMods(){
         out.push(Object.assign({},m,{
           giver:kind==="subclass"?(ent.shortName||ent.name):ent.name,
           kind, clsName:(cls&&cls.name)||"", rowId:row.id}));});};
-    push(cls,"class"); push(row.subKey&&SUB_BY[row.subKey],"subclass");
+    push(cls,"class"); push(subOfRow(row),"subclass");
   });
   return out;
 }
@@ -4446,7 +4503,7 @@ function renderHealth(){
 // deliberately NOT here — see levelCasting.
 function levelGains(row,cl){
   const c=CLS_BY[row.clsKey]; if(!c)return [];
-  const sub=row.subKey?SUB_BY[row.subKey]:null;
+  const sub=subOfRow(row);
   const feats=[];
   (c.features||[]).forEach(f=>{if(f.level===cl)feats.push(f.name);});
   if(sub&&cl>=(c.subclassLevel||3))(sub.features||[]).forEach(f=>{if(f.level===cl)feats.push(f.name);});
@@ -4469,7 +4526,7 @@ function planSlots(levels){
   state.classes.forEach(r=>{
     const lvl=levels.get(r.id)||0; if(!lvl)return;
     const c=CLS_BY[r.clsKey]; if(!c)return;
-    const sub=r.subKey?SUB_BY[r.subKey]:null;
+    const sub=subOfRow(r);
     const caster=c.caster||(sub&&sub.caster)||null; if(!caster)return;
     if(caster==="pact"){const p=DATA.pact[Math.min(lvl,20)-1];pact={num:p[0],lvl:p[1]};return;}
     n++; one={c,caster,lvl};
@@ -4489,7 +4546,7 @@ const topSlot=a=>{let m=0;(a||[]).forEach((v,i)=>{if(v>0)m=i+1;});return m;};
 // you can read either progression straight down it.
 function levelCasting(row,cl,before,after){
   const c=CLS_BY[row.clsKey]; if(!c)return null;
-  const sub=row.subKey?SUB_BY[row.subKey]:null;
+  const sub=subOfRow(row);
   const caster=c.caster||(sub&&sub.caster)||null; if(!caster)return null;
   const spell=maxLvlAt(caster,cl), spellWas=cl>1?maxLvlAt(caster,cl-1):0;
   // Pact Magic is measured on its own terms (D123): count × slot level, never folded
@@ -5871,7 +5928,7 @@ function optSlots(){
       });};
   state.classes.forEach(row=>{const el0=effLevel(row); if(!el0)return;   // not yet taken in a preview
     const lv=Math.max(1,Math.min(20,el0));
-    add(CLS_BY[row.clsKey],lv); add(row.subKey&&SUB_BY[row.subKey],lv);});
+    add(CLS_BY[row.clsKey],lv); add(subOfRow(row),lv);});
   // feats can grant them too (Eldritch Adept, Metamagic Adept, Martial Adept…)
   featsAt().forEach(fk=>add(FEAT_BY[fk],Math.max(1,charLevel())));
   // one class taken twice can't stack the same feature line twice
@@ -6380,7 +6437,7 @@ function printHeadLine(){
   const bits=[];
   const lv=charLevel(); if(lv)bits.push("Level "+lv);
   state.classes.forEach(r=>{const c=CLS_BY[r.clsKey];if(!c)return;
-    const sub=r.subKey&&SUB_BY[r.subKey];
+    const sub=subOfRow(r);
     bits.push(c.name+(sub?" ("+(sub.shortName||sub.name)+")":"")+" "+effLevel(r));});
   const race=RACE_BY[state.speciesKey]; if(race)bits.push(race.name);
   box.append(el("div","phsub",bits.join(" · ")));
@@ -6638,7 +6695,10 @@ function randomBuild(){
     // one class, one row — a sample build must be one the builder itself could produce
     const left=casters.filter(c=>!takenClasses().has(c.name.toLowerCase()));
     if(!left.length)break;
-    const c=rnd(left);const lvl=1+Math.floor(Math.random()*20);
+    // the 20-level budget is shared across rows — a legal character never exceeds it
+    const room=20-state.classes.reduce((s,r)=>s+(r.level||0),0);
+    if(room<1)break;
+    const c=rnd(left);const lvl=1+Math.floor(Math.random()*room);
     const row={clsKey:key(c.name,c.source),subKey:null,level:lvl,id:state.nextRowId++};
     const subs=(SUBS_OF[key(c.name,c.source)]||[]).filter(visible);
     if(subs.length&&lvl>=(c.subclassLevel||3)){const s=rnd(subs);row.subKey=key(s.name,s.source);}
@@ -6676,6 +6736,9 @@ function pruneState(){
   const bookLoaded=k=>{const src=String(k).split("|").pop();
     return !!DATA.sources[src]||Object.keys(DATA.sources).some(c=>c.toUpperCase()===src.toUpperCase());};
   state.classes=(state.classes||[]).filter(r=>CLS_BY[r.clsKey]||!bookLoaded(r.clsKey));
+  // deliberately the FLAT index (D127): this asks "does any record with this key still
+  // exist", not "which one does this row mean" — subOfRow() here would drop a stored
+  // subKey the moment its class went missing, and nothing prunes on absence (D42/D56).
   state.classes.forEach(r=>{if(r.subKey&&!SUB_BY[r.subKey]&&bookLoaded(r.subKey))r.subKey=null;});
   state.feats=(state.feats||[]).filter(fk=>FEAT_BY[fk]||!bookLoaded(fk));
   state.optFeats=(state.optFeats||[]).filter(ok=>OPT_BY[ok]||!bookLoaded(ok));

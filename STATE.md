@@ -41,10 +41,10 @@
   A/B/C — the investigation found 73 subclasses resolving to hollow zero-grant records)
   and the standing magic-item / reward import call.
 - **Manual for Francesco:** ⓪ **Refresh your imported data in each browser** — ⋯ → **Refresh
-  imported data** (choose the folder once if asked). The v1.2.2 parser fixes live in your
-  stored digests only after it: heals the **Savant double-grant** (an Evoker was offered 5
-  free picks instead of 3), the `[Area of Effect]`-style tag suffixes, and everything earlier
-  (Imp's raw tag, D109 forms, D91 access). ① **Your build "v2" now shows a health ⚠ at L1–L4**
+  imported data** (choose the folder once if asked). Now also required for **D127** (v1.2.21):
+  a stored digest keeps the hollow 2014 subclasses (no grants, duplicate pairs, missing
+  classics) until re-imported; plus the earlier v1.2.2 fixes (Savant double-grant, tag
+  suffixes, Imp's raw tag, D109 forms, D91 access). ① **Your build "v2" now shows a health ⚠ at L1–L4**
   — it is not a false positive: its Warlock 4 row holds 8 spells where the class knows 5, five
   of them 3rd-level when a Warlock 4 casts at most 2nd. The app already flagged it as over
   before E4; the sweep only located it. Looks like a dev scratch build — fix or ignore, your

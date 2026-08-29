@@ -87,7 +87,12 @@ coordinating session. The guided-builder notes became **phase G below (D126)**.
   report: `reprintedAs` covers all 58 cross-edition subclass links (0 misses); root cause is
   unresolved `_copy` records; TWO bigger live bugs found (67 classic subclasses missing from
   2024 pickers; **73 subclasses resolve to hollow zero-grant records** — every 2014 subclass
-  currently grants no subclass spells). 🔶 fix option A/B/C awaits Francesco.
+  currently grants no subclass spells). Francesco chose **C → D127, BUILT and merged
+  v1.2.21**: `_copy` resolved in both extractors (`_mod` tripwire live at zero),
+  `supersededBy` on all six types, cparity keyed with `classSource` (322/322 diffed, 42
+  checks), app-side class-scoped subclass resolution + successor-aware `reprintOk`.
+  Verified: no duplicate pairs in any class picker, +67 classics visible, the 73 hollow
+  records healed. Needs Francesco's one-click re-import per browser.
 - [ ] **W4 — timeline batch** (agent, queued behind W2): "+ spell"/"+ cantrip" ghost labels
   (supersedes D124(b)'s bare "+" — log on landing); retrain chip = icon + level, click the
   level to edit it, the replacement pick chip highlighted + counter up; picks-count tile
@@ -142,6 +147,14 @@ Order: G1 → G2 → G3 → G4.
   - **Suggested order** (not decided): rewards first as a small self-contained addition, then items
     as *"prefill a custom source from an item"* rather than a first-class entity, since the DC needs
     hand-entry regardless. ⚑ (owner: Francesco, 2026-08-27)
+- [ ] **`SHADOWED` is not source-aware** (D127 agent flag): with XPHB off, 90 reprinted
+  subclasses stop being reprint-hidden but only 6 surface — `collapseEditions` still shadows
+  them behind an XPHB winner whose book is off. Consulting `srcOn` there means re-running
+  `buildIndexes` on every source change — a D-level behavioural call. ⚑ (owner: Francesco, 2026-08-29)
+- [ ] **`subclassFeature` `_copy` records (75, all shallow/same-file, zero `_mod`)** are still
+  unresolved (D127 scoped them out): 2014 twins' FEATURE lists may read hollow even though
+  grants now resolve. If feature names ever look wrong on a 2014 subclass, this is why —
+  the resolver exists, it just isn't pointed at them. ⚑ (owner: Francesco, 2026-08-29)
 - [ ] **Prerequisites we can't check**: ability scores, proficiencies, backgrounds and campaigns
   aren't in the app's model, so those alternatives read "check …" rather than pass/fail. Closing
   this means tracking ability scores — a bigger change than it looks. ⚑ (owner: Francesco, 2026-08-26)

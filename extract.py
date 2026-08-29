@@ -46,6 +46,83 @@ def valid_name(x):
 def reprinted(obj):
     return bool(obj.get("reprintedAs"))
 
+def superseded_by(obj):
+    """The FIRST `reprintedAs` entry, normalized to a plain uid string (D127), or None.
+
+    5etools writes the field in TWO shapes: a bare uid ("Aberrant|Sorcerer|XPHB|XPHB")
+    and an object {"uid": …, "tag": …} whose tag may name a DIFFERENT entity type — a
+    2014 optional feature is reprinted as a 2024 FEAT, a Dragonmark subrace as a feat.
+    The tag is deliberately dropped: the app resolves the uid against every same-shaped
+    index and treats an unresolvable pointer as UNKNOWN, never as "excluded" (D31).
+    **extract.js carries the same function — keep the two identical.**
+    """
+    ra = obj.get("reprintedAs")
+    if not ra: return None
+    if not isinstance(ra, list): ra = [ra]
+    for e in ra:
+        if isinstance(e, str) and e.strip(): return e.strip()
+        if isinstance(e, dict):
+            u = e.get("uid")
+            if isinstance(u, str) and u.strip(): return u.strip()
+    return None
+
+# ---- `_copy` resolution (D127) ---------------------------------------------
+# 5etools ships every classic (2014) subclass TWICE: once attached to its 2014 class, and
+# once as a `_copy` record re-attached to the 2024 class. The copy carries nothing but the
+# reference, so an extractor that never resolves it emits a HOLLOW twin — no grants, no
+# caster progression, and `reprinted` false because its `reprintedAs` hides inside
+# `_copy._preserve` as an INSTRUCTION rather than a value. 73 subclasses lost every spell
+# grant they have to that twin.
+#
+# The rule, matching 5etools' own copy semantics for the shapes actually shipped:
+#   • the parent must live in the SAME FILE (all 124 current subclass copies do);
+#   • the merge is SHALLOW — the parent's fields first, the copy's own fields overriding;
+#   • copy-meta fields (page, srd, reprintedAs, …) are printing-specific and are DROPPED
+#     unless `_copy._preserve` names them — that is exactly how `reprintedAs` reaches the
+#     twin, and why a naive `{**parent, **child}` would be wrong;
+#   • a `_copy` carrying `_mod`/`_templates` is a merge LANGUAGE, not a copy. There are
+#     none among subclasses today; the day 5etools adds one the record is emitted
+#     UNRESOLVED and counted, rather than silently half-merged.
+# Races are deliberately NOT run through this: 15 of their 16 `_copy` records carry `_mod`
+# with entry-level replaceArr/appendArr ops and point at parents in other BOOKS — a
+# different shape wearing the same field name.
+# **extract.js carries the same logic — keep the two identical.**
+_COPY_NEEDS_PRESERVE = {"page", "otherSources", "additionalSources", "reprintedAs",
+                        "srd", "srd52", "basicRules", "basicRules2024", "freeRules2024",
+                        "hasFluff", "hasFluffImages", "hasToken", "isReprinted", "_versions"}
+COPY_UNRESOLVED = []       # [(label, why)] — reported in the run summary
+
+def resolve_copies(items, keyfn, label):
+    """Resolve same-file `_copy` records in a raw 5etools array; unresolvable ones pass
+       through untouched and are recorded in COPY_UNRESOLVED."""
+    if not items: return items
+    idx = {}
+    for x in items:
+        if isinstance(x, dict) and not x.get("_copy"): idx[keyfn(x)] = x
+    out = []
+    for x in items:
+        cp = x.get("_copy") if isinstance(x, dict) else None
+        if not cp:
+            out.append(x); continue
+        why = None
+        if cp.get("_mod") or cp.get("_templates"): why = "_copy carries _mod"
+        parent = idx.get(keyfn(cp))
+        if why is None and parent is None: why = "parent not in the same file"
+        if why:
+            COPY_UNRESOLVED.append((f"{label} {x.get('name')}|{x.get('source')}", why))
+            out.append(x); continue
+        preserve = cp.get("_preserve") or {}
+        merged = {k: v for k, v in parent.items()
+                  if k not in _COPY_NEEDS_PRESERVE or preserve.get(k)}
+        for k, v in x.items():
+            if k != "_copy": merged[k] = v
+        out.append(merged)
+    return out
+
+def _sub_copy_key(s):
+    return (s.get("className"), s.get("classSource"),
+            s.get("shortName") or s.get("name"), s.get("source"))
+
 # ---- sources / books -------------------------------------------------------
 books = {}
 try:
@@ -157,6 +234,7 @@ for f in glob.glob(os.path.join(MIRROR, "spells", "spells-*.json")):
             "desc": flatten_entries(sp.get("entries")),
             "higher": flatten_entries(sp.get("entriesHigherLevel")),
             "reprinted": reprinted(sp),
+            "supersededBy": superseded_by(sp),
             "page": sp.get("page"),
             # truthy = in SRD 5.2; a STRING is the spell's LICENSED name (5etools carries
             # the SRD rename for the 17 product-identity spells) — _srd_subset applies it
@@ -837,7 +915,8 @@ for f in glob.glob(os.path.join(MIRROR, "class", "class-*.json")):
         classes.append({
             "name": c["name"], "source": c.get("source", ""),
             "group": bgroup(c.get("source", "")), "book": bname(c.get("source", "")),
-            "reprinted": reprinted(c), "page": c.get("page"),
+            "reprinted": reprinted(c), "supersededBy": superseded_by(c),
+            "page": c.get("page"),
             "caster": cp,                       # full|artificer|1/2|1/3|pact|None
             "srd": bool(c.get("srd52")),
             "ability": c.get("spellcastingAbility"),
@@ -874,12 +953,13 @@ for c in classes:
 subclasses = []
 for f in glob.glob(os.path.join(MIRROR, "class", "class-*.json")):
     d = load(f)
-    for sc in d.get("subclass", []):
+    for sc in resolve_copies(d.get("subclass", []), _sub_copy_key, "subclass"):
         if not valid_name(sc): continue
         if EXCLUDE_CLASS(sc.get("className", "")): continue
         rec = {"name": sc.get("name", ""), "shortName": sc.get("shortName", sc.get("name", "")),
                "source": sc.get("source", ""), "group": bgroup(sc.get("source", "")),
                "book": bname(sc.get("source", "")), "reprinted": reprinted(sc),
+               "supersededBy": superseded_by(sc),
                "page": sc.get("page"), "srd": bool(sc.get("srd52")),
                "className": sc.get("className", ""), "classSource": sc.get("classSource", ""),
                "grants": parse_grants(sc.get("additionalSpells"),
@@ -1175,6 +1255,7 @@ for ft in _featdata.get("feat", []):
     has_spells = "additionalSpells" in ft
     feats.append({"name": ft["name"], "source": ft.get("source", ""), "group": bgroup(ft.get("source", "")),
                   "book": bname(ft.get("source", "")), "reprinted": reprinted(ft),
+                  "supersededBy": superseded_by(ft),
                   "page": ft.get("page"),
                   "category": cat, "fsClass": fs_class,   # fighting-style feats attach to a class
                   "catName": feat_cat_name(cat, _featcats),  # what the picker calls this category
@@ -1200,7 +1281,8 @@ for o in (load(_optpath).get("optionalfeature", []) if os.path.exists(_optpath) 
     has_spells = "additionalSpells" in o
     optfeats.append({"name": o["name"], "source": o.get("source", ""),
                      "group": bgroup(o.get("source", "")), "book": bname(o.get("source", "")),
-                     "reprinted": reprinted(o), "page": o.get("page"), "srd": bool(o.get("srd52")),
+                     "reprinted": reprinted(o), "supersededBy": superseded_by(o),
+                     "page": o.get("page"), "srd": bool(o.get("srd52")),
                      "types": o.get("featureType") or [],
                      "prereq": _prereq_text(o), "prereqs": _prereq_blocks(o),
                      "hasSpells": has_spells,
@@ -1212,33 +1294,42 @@ for o in (load(_optpath).get("optionalfeature", []) if os.path.exists(_optpath) 
 
 # species (ALL, even without spells; split lineages that carry named blocks)
 races = []
-def emit_species(name, source, blocks, srd=False, page=None, base=None, lineage=None):
-    """`base` is the parent species a lineage hangs off — the picker groups on it (D46)."""
+def emit_species(name, source, blocks, srd=False, page=None, base=None, lineage=None,
+                 reprint=False, superseded=None):
+    """`base` is the parent species a lineage hangs off — the picker groups on it (D46).
+
+    A species that splits into lineages emits SEVERAL records, and the reprint stamp
+    belongs to EVERY one of them (D127). The old code stamped `races[-1]` after the call,
+    so a split species flagged only its last lineage — and the subrace loop never stamped
+    at all, which is why the Gith and Half-Elf twins read as originals."""
     if not isinstance(name, str) or not name.strip(): return   # see valid_name
+    start = len(races)
     named = [b for b in (blocks or []) if b.get("name")]
     if len(named) > 1:
         for b in named:
             races.append({"name": f"{name} — {b['name']}", "source": source, "group": bgroup(source),
-                          "book": bname(source), "reprinted": False, "srd": srd, "page": page,
+                          "book": bname(source), "srd": srd, "page": page,
                           "base": name, "lineage": b["name"], "grants": parse_grants([b])})
     else:
         races.append({"name": name, "source": source, "group": bgroup(source), "book": bname(source),
-                      "reprinted": False, "srd": srd, "page": page,
+                      "srd": srd, "page": page,
                       "base": base or name, "lineage": (lineage or name) if base else "",
                       "grants": parse_grants(blocks)})
+    for r in races[start:]:
+        r["reprinted"] = bool(reprint); r["supersededBy"] = superseded
 
 rd = load(os.path.join(MIRROR, "races.json"))
 for rc in rd.get("race", []):
     if not valid_name(rc): continue
     emit_species(rc["name"], rc.get("source", ""), rc.get("additionalSpells"), bool(rc.get("srd52")),
-                 rc.get("page"))
-    if reprinted(rc) and races: races[-1]["reprinted"] = True
+                 rc.get("page"), reprint=reprinted(rc), superseded=superseded_by(rc))
 for rc in rd.get("subrace", []) if isinstance(rd.get("subrace"), list) else []:
     base = rc.get("raceName", ""); nm = rc.get("name") or ""
     if not rc.get("additionalSpells"):   # skip spell-less subraces (noise)
         continue
     emit_species(f"{base} ({nm})" if nm else base, rc.get("source", ""), rc.get("additionalSpells"),
-                 bool(rc.get("srd52")), rc.get("page"), base=base or None, lineage=nm or None)
+                 bool(rc.get("srd52")), rc.get("page"), base=base or None, lineage=nm or None,
+                 reprint=reprinted(rc), superseded=superseded_by(rc))
 
 # ---- source registry (for the settings selector) ---------------------------
 src_counter = defaultdict(lambda: {"spells": 0, "classes": 0, "subclasses": 0, "feats": 0, "species": 0})
@@ -1335,6 +1426,11 @@ print(f"SRD subset: spells={len(srd['spells'])} classes={len(srd['classes'])} "
 
 print(f"stat blocks attached to spells: {sb_count}; "
       f"creature sets: {creature_sets} spells over {len(monsters)} monsters")
+if COPY_UNRESOLVED:
+    # the D127 tripwire: 0 today. A `_copy` that carries `_mod` is a merge language we do
+    # NOT speak, and half-merging it silently would be worse than leaving it hollow.
+    print(f"UNRESOLVED _copy records: {len(COPY_UNRESOLVED)}")
+    for _lbl, _why in COPY_UNRESOLVED[:20]: print(f"  {_lbl} — {_why}")
 print(f"spells={len(spells)} classes={len(classes)} (casters="
       f"{sum(1 for c in classes if c['caster'])}) subclasses={len(subclasses)} "
       f"feats={len(feats)} species={len(races)} sources={len(sources)}")

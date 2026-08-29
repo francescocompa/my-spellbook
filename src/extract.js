@@ -69,6 +69,69 @@ function flattenEntries(entries,strip){const out=[];strip=strip||richStrip;
 const uniqSort=a=>[...new Set(a||[])].sort();
 const spellKey=(n,s)=>`${String(n).toLowerCase()}|${String(s).toLowerCase()}`;
 const reprinted=o=>!!(o&&o.reprintedAs);
+// The FIRST `reprintedAs` entry, normalized to a plain uid string (D127), or null.
+// 5etools writes the field in TWO shapes: a bare uid ("Aberrant|Sorcerer|XPHB|XPHB") and
+// an object {uid, tag} whose tag may name a DIFFERENT entity type — a 2014 optional
+// feature is reprinted as a 2024 FEAT, a Dragonmark subrace as a feat. The tag is
+// deliberately dropped: the app resolves the uid against every same-shaped index and
+// treats an unresolvable pointer as UNKNOWN, never as "excluded" (D31).
+// **extract.py carries the same function — keep the two identical.**
+function supersededBy(o){
+  let ra=o&&o.reprintedAs; if(!ra)return null;
+  if(!Array.isArray(ra))ra=[ra];
+  for(const e of ra){
+    if(typeof e==="string"&&e.trim())return e.trim();
+    if(e&&typeof e==="object"&&typeof e.uid==="string"&&e.uid.trim())return e.uid.trim();
+  }
+  return null;
+}
+
+// ── `_copy` resolution (D127) ───────────────────────────────────────────────
+// 5etools ships every classic (2014) subclass TWICE: once attached to its 2014 class, and
+// once as a `_copy` record re-attached to the 2024 class. The copy carries nothing but the
+// reference, so an extractor that never resolves it emits a HOLLOW twin — no grants, no
+// caster progression, and `reprinted` false because its `reprintedAs` hides inside
+// `_copy._preserve` as an INSTRUCTION rather than a value. 73 subclasses lost every spell
+// grant they have to that twin.
+//
+// The rule, matching 5etools' own copy semantics for the shapes actually shipped:
+//   • the parent must live in the SAME FILE (all 124 current subclass copies do);
+//   • the merge is SHALLOW — the parent's fields first, the copy's own fields overriding;
+//   • copy-meta fields (page, srd, reprintedAs, …) are printing-specific and are DROPPED
+//     unless `_copy._preserve` names them — that is exactly how `reprintedAs` reaches the
+//     twin, and why a naive {...parent,...child} would be wrong;
+//   • a `_copy` carrying `_mod`/`_templates` is a merge LANGUAGE, not a copy. There are
+//     none among subclasses today; the day 5etools adds one the record is emitted
+//     UNRESOLVED and reported, rather than silently half-merged.
+// Races are deliberately NOT run through this: 15 of their 16 `_copy` records carry `_mod`
+// with entry-level replaceArr/appendArr ops and point at parents in other BOOKS — a
+// different shape wearing the same field name.
+// **extract.py carries the same logic — keep the two identical.**
+const COPY_NEEDS_PRESERVE=new Set(["page","otherSources","additionalSources","reprintedAs",
+  "srd","srd52","basicRules","basicRules2024","freeRules2024","hasFluff","hasFluffImages",
+  "hasToken","isReprinted","_versions"]);
+function resolveCopies(items,keyfn,label,onUnresolved){
+  if(!items||!items.length)return items;
+  const idx={};
+  items.forEach(x=>{if(x&&typeof x==="object"&&!x._copy)idx[keyfn(x)]=x;});
+  return items.map(x=>{
+    const cp=(x&&typeof x==="object")?x._copy:null;
+    if(!cp)return x;
+    let why=null;
+    if(cp._mod||cp._templates)why="_copy carries _mod";
+    const parent=idx[keyfn(cp)];
+    if(!why&&!parent)why="parent not in the same file";
+    if(why){ if(onUnresolved)onUnresolved(`${label} ${x.name}|${x.source}`,why); return x; }
+    const preserve=cp._preserve||{};
+    const merged={};
+    Object.keys(parent).forEach(k=>{if(!COPY_NEEDS_PRESERVE.has(k)||preserve[k])merged[k]=parent[k];});
+    Object.keys(x).forEach(k=>{if(k!=="_copy")merged[k]=x[k];});
+    return merged;
+  });
+}
+// A NUL joiner, not "|" or a space: a book code or a subclass name can hold either,
+// and a key collision here would merge the WRONG parent into a record.
+const subCopyKey=s=>[s.className,s.classSource,s.shortName||s.name,s.source].join("\u0000");
 
 // additionalSpells parsing ---------------------------------------------------
 function parseChoose(choose){
@@ -617,7 +680,7 @@ function buildDigest(files){
           comp:components(sp),ritual:!!((sp.meta||{}).ritual),conc:!!dur.concentration,
           dmg:uniqSort(sp.damageInflict),cond:uniqSort(sp.conditionInflict),save:uniqSort(sp.savingThrow),
           atk:!!sp.spellAttack,durTxt:durationText(sp),desc:flattenEntries(sp.entries),
-          higher:flattenEntries(sp.entriesHigherLevel),reprinted:reprinted(sp),page:sp.page??null,cls:[],sub:[],feat:[],race:[],
+          higher:flattenEntries(sp.entriesHigherLevel),reprinted:reprinted(sp),supersededBy:supersededBy(sp),page:sp.page??null,cls:[],sub:[],feat:[],race:[],
           // raw entries, popped once creature sets are resolved — richStrip eats the
           // {@creature}/{@filter} tags on the way into `desc` (mirrors extract.py)
           _raw:JSON.stringify([sp.entries,sp.entriesHigherLevel])};});
@@ -625,7 +688,7 @@ function buildDigest(files){
         if(EXCLUDE_CLASS(c.name))return;   // sidekicks aren't player classes
         const cp=c.casterProgression,prepared=c.preparedSpellsProgression,known=c.spellsKnownProgression;
         const change=c.preparedSpellsChange;const isStatic=(change==="level")||(!!known&&!prepared);
-        const rec={name:c.name,source:c.source||"",group:bgroup(c.source||""),book:bname(c.source||""),reprinted:reprinted(c),page:c.page??null,
+        const rec={name:c.name,source:c.source||"",group:bgroup(c.source||""),book:bname(c.source||""),reprinted:reprinted(c),supersededBy:supersededBy(c),page:c.page??null,
           // explicit nulls, never absent keys — extract.py writes None for these and the
           // whole-record parity diff reads absent ≠ null as drift
           caster:cp??null,ability:c.spellcastingAbility??null,static:!!(isStatic&&cp),
@@ -639,10 +702,14 @@ function buildDigest(files){
         if(ORDER_CANTRIP[okey])rec.bonusChoices.push(ORDER_CANTRIP[okey]);
         if(FS_CLASS_LEVEL[c.name]&&c.source==="XPHB")rec.grantsFightingStyle=FS_CLASS_LEVEL[c.name];
         mergeProseGrants(rec,"class",rec.name); attachCastMods(rec,"class",rec.name); classes.push(rec);});
-      (j.subclass||[]).forEach(sc=>{if(!validName(sc)){report.errors.push(f.name+": unnamed subclass skipped");return;}
+      // D127: resolve the same-file `_copy` twins BEFORE reading anything off a subclass —
+      // 124 of them are otherwise hollow shells that overwrite the real record downstream.
+      resolveCopies(j.subclass||[],subCopyKey,"subclass",
+        (lbl,why)=>report.errors.push(f.name+": "+lbl+" left unresolved — "+why+" (D127)")
+      ).forEach(sc=>{if(!validName(sc)){report.errors.push(f.name+": unnamed subclass skipped");return;}
         if(EXCLUDE_CLASS(sc.className||""))return;
         const rec={name:sc.name||"",shortName:sc.shortName||sc.name||"",source:sc.source||"",
-        group:bgroup(sc.source||""),book:bname(sc.source||""),reprinted:reprinted(sc),page:sc.page??null,
+        group:bgroup(sc.source||""),book:bname(sc.source||""),reprinted:reprinted(sc),supersededBy:supersededBy(sc),page:sc.page??null,
         className:sc.className||"",classSource:sc.classSource||"",
         grants:parseGrants(sc.additionalSpells,subfeatIdx[(sc.className||"")+"|"+(sc.shortName||sc.name||"")+"|"+(sc.source||"")]),
         optFeatures:optProgression(sc),
@@ -656,7 +723,7 @@ function buildDigest(files){
       const featCats=(j._meta&&j._meta.featCategories)||null;   // a brew may name its own
       (j.feat||[]).forEach(ft=>{if(!validName(ft)){report.errors.push(f.name+": unnamed feat skipped");return;}
         const cat=ft.category||"G";const hasSpells="additionalSpells"in ft;
-        feats.push({name:ft.name,source:ft.source||"",group:bgroup(ft.source||""),book:bname(ft.source||""),reprinted:reprinted(ft),page:ft.page??null,
+        feats.push({name:ft.name,source:ft.source||"",group:bgroup(ft.source||""),book:bname(ft.source||""),reprinted:reprinted(ft),supersededBy:supersededBy(ft),page:ft.page??null,
           category:cat,fsClass:({"FS:R":"Ranger","FS:P":"Paladin","FS":"Fighter"})[cat]||null,hasSpells,
           catName:featCatName(cat,featCats),      // what the picker calls this category
           optFeatures:optProgression(ft),prereq:prereqText(ft,cat,featCats),prereqs:prereqBlocks(ft,cat,featCats),
@@ -665,19 +732,27 @@ function buildDigest(files){
       (j.optionalfeature||[]).forEach(o=>{if(!validName(o)){report.errors.push(f.name+": unnamed optional feature skipped");return;}
         const hasSpells="additionalSpells"in o;
         optfeats.push({name:o.name,source:o.source||"",group:bgroup(o.source||""),book:bname(o.source||""),
-          reprinted:reprinted(o),page:o.page??null,types:o.featureType||[],prereq:prereqText(o),prereqs:prereqBlocks(o),hasSpells,
+          reprinted:reprinted(o),supersededBy:supersededBy(o),page:o.page??null,types:o.featureType||[],prereq:prereqText(o),prereqs:prereqBlocks(o),hasSpells,
           grants:hasSpells?parseGrants(o.additionalSpells):{fixed:[],picks:[],expansions:[],optionGroups:[],ability:null},
           _raw:o});});
-      // `base` is the parent species a lineage hangs off — the picker groups on it (D46)
-      const emitSpecies=(name,source,blocks,page,base,lineage)=>{ page=page??null;
+      // `base` is the parent species a lineage hangs off — the picker groups on it (D46).
+      // D127: a species that SPLITS into lineages emits several records and the reprint
+      // stamp belongs to every one of them. The old code stamped races[races.length-1]
+      // after the call (so a split species flagged only its last lineage) and the subrace
+      // loop never stamped at all — which is why the Gith and Half-Elf twins read as
+      // originals and showed up twice in the picker.
+      const emitSpecies=(name,source,blocks,page,base,lineage,reprint,superseded)=>{ page=page??null;
         if(typeof name!=="string"||!name.trim()){report.errors.push(f.name+": unnamed species skipped");return;}
+        const start=races.length;
         const named=(blocks||[]).filter(b=>b.name);
-        if(named.length>1)named.forEach(b=>races.push({name:`${name} — ${b.name}`,source,group:bgroup(source),book:bname(source),reprinted:false,page,base:name,lineage:b.name,grants:parseGrants([b])}));
-        else races.push({name,source,group:bgroup(source),book:bname(source),reprinted:false,page,base:base||name,lineage:base?(lineage||name):"",grants:parseGrants(blocks)});};
-      (j.race||[]).forEach(rc=>{emitSpecies(rc.name,rc.source||"",rc.additionalSpells,rc.page);
-        if(reprinted(rc)&&races.length)races[races.length-1].reprinted=true;});
+        if(named.length>1)named.forEach(b=>races.push({name:`${name} — ${b.name}`,source,group:bgroup(source),book:bname(source),page,base:name,lineage:b.name,grants:parseGrants([b])}));
+        else races.push({name,source,group:bgroup(source),book:bname(source),page,base:base||name,lineage:base?(lineage||name):"",grants:parseGrants(blocks)});
+        for(let i=start;i<races.length;i++){races[i].reprinted=!!reprint;races[i].supersededBy=superseded??null;}};
+      (j.race||[]).forEach(rc=>{emitSpecies(rc.name,rc.source||"",rc.additionalSpells,rc.page,undefined,undefined,
+        reprinted(rc),supersededBy(rc));});
       (Array.isArray(j.subrace)?j.subrace:[]).forEach(rc=>{const base=rc.raceName||"",nm=rc.name||"";
-        if(!rc.additionalSpells)return;emitSpecies(nm?`${base} (${nm})`:base,rc.source||"",rc.additionalSpells,rc.page,base||null,nm||null);});
+        if(!rc.additionalSpells)return;emitSpecies(nm?`${base} (${nm})`:base,rc.source||"",rc.additionalSpells,rc.page,base||null,nm||null,
+          reprinted(rc),supersededBy(rc));});
     }catch(e){report.errors.push(f.name+": "+e.message);}
   });
 

@@ -58,8 +58,13 @@ const noteCount=d=>{let n=0;const walk=g=>{if(!g)return;["fixed","picks","expans
   ["classes","subclasses","feats","races","optfeats"].forEach(a=>(d[a]||[]).forEach(e=>walk(e.grants)));return n;};
 cmp("grant notes",noteCount(digest),noteCount(py));
 // ── grants, record by record (the standing ⚑ in STATE's backlog) ───────────
+// NOTE (D127): the subclass key MUST carry classSource. 5etools emits every classic
+// subclass twice — once on its 2014 class, once as a `_copy` twin re-attached to the 2024
+// class — and the two differ ONLY in classSource. Keyed without it, 124 of 322 records
+// collided and were never diffed (the last one written won), which is how the hollow
+// unresolved-`_copy` twins hid. Never narrow this key again.
 const gkey={classes:e=>e.name+"|"+e.source,
-  subclasses:e=>e.className+"|"+(e.shortName||e.name)+"|"+e.source,
+  subclasses:e=>e.className+"|"+e.classSource+"|"+(e.shortName||e.name)+"|"+e.source,
   feats:e=>e.name+"|"+e.source, races:e=>e.name+"|"+e.source, optfeats:e=>e.name+"|"+e.source};
 ["classes","subclasses","feats","races","optfeats"].forEach(arr=>{
   const jm={},pm={};
@@ -122,7 +127,7 @@ const gkey={classes:e=>e.name+"|"+e.source,
     console.log("     e.g.",k,"@"+i,"\n       js:",a.slice(Math.max(0,i-40),i+120),"\n       py:",b.slice(Math.max(0,i-40),i+120));};
   const rkey={spells:s=>String(s.name).toLowerCase()+"|"+String(s.source).toLowerCase(),
     classes:e=>e.name+"|"+e.source,
-    subclasses:e=>e.className+"|"+(e.shortName||e.name)+"|"+e.source,
+    subclasses:e=>e.className+"|"+e.classSource+"|"+(e.shortName||e.name)+"|"+e.source,  // D127: classSource, see gkey
     feats:e=>e.name+"|"+e.source,races:e=>e.name+"|"+e.source,optfeats:e=>e.name+"|"+e.source};
   Object.keys(rkey).forEach(arr=>{
     const jm={},pm={};
@@ -140,6 +145,35 @@ const gkey={classes:e=>e.name+"|"+e.source,
   const diff=shared.filter(k=>jm[k]!==pm[k]);
   cmp(`whole-record diff · monsters (of ${shared.length})`,diff.length,0);
   if(diff.length)diff.slice(0,3).forEach(k=>showDiff(k,jm[k],pm[k]));
+}
+// ── D127: `_copy` resolution + the reprint pointer ─────────────────────────
+// 5etools re-attaches every classic subclass to its 2024 class as a `_copy` record. Left
+// unresolved those twins are HOLLOW — no grants, no caster progression, no reprint flag —
+// and they win the SUB_BY collision, which is how every 2014 subclass came to grant
+// nothing. These four checks fail the moment a resolver regresses on either side.
+{
+  const gcount=g=>{ if(!g)return 0; let n=(g.fixed||[]).length+(g.picks||[]).length+(g.expansions||[]).length;
+    (g.optionGroups||[]).forEach(og=>(og.options||[]).forEach(o=>{n+=gcount(o);}));return n; };
+  const zero=d=>(d.subclasses||[]).filter(s=>gcount(s.grants)===0).length;
+  cmp("subclasses with NO grants",zero(digest),zero(py));
+  // every reprinted record must carry a pointer, on both sides — `reprintedAs` has TWO
+  // shapes (a bare uid string and {uid,tag}) and missing one silently drops the pointer
+  const ptr=d=>["spells","classes","subclasses","feats","races","optfeats"]
+    .map(a=>a+":"+(d[a]||[]).filter(e=>e.reprinted).length+"/"+(d[a]||[]).filter(e=>e.supersededBy).length).join(" ");
+  cmp("reprinted/supersededBy per array",ptr(digest),ptr(py));
+  const noPtr=d=>["spells","classes","subclasses","feats","races","optfeats"]
+    .reduce((n,a)=>n+(d[a]||[]).filter(e=>e.reprinted&&!e.supersededBy).length,0);
+  cmp("reprinted records with no pointer",noPtr(digest)+noPtr(py),0);
+  // the named case from the investigation: the twin on the 2024 chassis is whole
+  const am=a=>a.find(s=>s.shortName==="Aberrant Mind"&&s.source==="TCE"&&s.classSource==="XPHB");
+  const aj=am(digest.subclasses),ap=am(py.subclasses);
+  cmp("AberrantMind|TCE on Sorcerer|XPHB grants",aj&&gcount(aj.grants),ap&&gcount(ap.grants));
+  cmp("AberrantMind|TCE on Sorcerer|XPHB grants > 0",!!(aj&&gcount(aj.grants)>0),true);
+  cmp("AberrantMind|TCE on Sorcerer|XPHB supersededBy",aj&&aj.supersededBy,ap&&ap.supersededBy);
+  // the `_mod` tripwire: 0 today, and the importer must SAY SO rather than half-merge
+  const mods=(report.errors||[]).filter(e=>/left unresolved/.test(e));
+  cmp("unresolved _copy records (js)",mods.length,0);
+  if(mods.length)mods.slice(0,5).forEach(m=>console.log("     ",m));
 }
 console.log("report:",JSON.stringify(report).slice(0,160));
 process.exit(fail?1:0);
