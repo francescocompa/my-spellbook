@@ -7,35 +7,37 @@
 > |---|---|
 > | `CLAUDE.md` | What this project is, its conventions, build/run, the verify gate, versioning |
 > | `PLAN.md` | The queue — what is next and what is gated |
-> | `DECISIONS.md` | Every decision D7–D119 and what was rejected |
+> | `DECISIONS.md` | Every decision D7–D124 and what was rejected |
 > | `GOTCHAS.md` | Traps that have already cost a session |
 > | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 > | `ARCHIVE.md` | Bodies of consumed phases and old rationale |
 
-## TL;DR (2026-08-28 · **v1.2.10** · **LIVE on GitHub Pages**)
-- **State:** working, committed, pushed. **PHASE E IS DONE — E8 passed** (fable@high, separate
-  session, 2026-08-28): full code review of the substrate plus in-browser verification of every
-  D115 clause on fresh fixtures (slices, swap arm→record→clear, fork rewind, pin+reopen,
-  chip/row drag with visible refusal, D119(a) tile merge/split, preparer pass-through,
-  wizard-copy exemption, E1 round-trip). The gate found and fixed **one CRITICAL regression,
-  D120**: `save()`'s identical-write skip (D116(d)) compared the live state against itself —
-  `serializeState()` returns live sub-objects by reference and both `save()` and boot made
-  `b.state` share them — so a session that only toggled spell picks persisted NOTHING and lost
-  them on reload (window v1.2.2 → v1.2.9). Fixed by detaching at both boundaries; no-restamp
-  behaviour preserved, verified both ways in-browser. Three cosmetic side notes logged in D120
-  (dead `recordSwap`, a chain-swap tip label, Escape-under-the-picker), none blocking.
-  Phase E's shape (E1–E7, v1.2.4 → v1.2.8) is described in `PLAN.md` and `CHANGELOG.md`.
+## TL;DR (2026-08-29 · **v1.2.16**, code at `dd31abb` (v1.2.15), pushed · **LIVE on GitHub Pages**)
+- **State:** working, committed, **pushed**, tags pushed, tree clean except this handoff.
+  One session closed **phase E and built all of phase F**, six tagged releases
+  (v1.2.10 → v1.2.15). ① **E8 passed** — full substrate review + in-browser verification of
+  every D115 clause on fresh fixtures — and found/fixed **D120, a CRITICAL data-loss
+  regression** (v1.2.2 → v1.2.9): `save()`'s identical-write skip compared the live state
+  against itself (`serializeState()` returns live sub-objects by reference; `save()` and boot
+  both made `b.state` share them), so a session that only toggled picks persisted NOTHING.
+  Detached at both boundaries; no-restamp preserved; three cosmetic side notes logged in D120.
+  ② **F1–F3 shipped** (D118): `guideSteps()`/`guideResume()` derive the per-decision chain
+  statelessly (D121: the frontier ignores class steps; optional steps never capture re-entry);
+  the coach rail renders it (side rail / phone bottom sheet, structural answers inline,
+  spell-list pre-filter with a named note, auto-advance); all three entries exist, and
+  reverse RECONSTRUCT places the build's own picks slot by slot (position = the answer,
+  never deletes; verified: an illegal Bard 12 reordered to zero findings, the over-budget
+  leftover flagged at top). ③ **Francesco's design notes → D122–D124, all DECIDED**: the
+  timeline is a full MODAL (order flag by the title, casting tiles only where a clock moves,
+  run dividers + rails that survive highlights, ghost "+" slots, wants/has count tiles,
+  masked one-line chip rows); pact slots measure as count × level; metamagic mentions live
+  in the spell details' "Metamagic" row (left the table); and the **Ember palette** shipped —
+  terracotta accent, crimson alerts, all five theme blocks (P1 Verdigris was picked once
+  then REVERSED — don't re-propose it).
 - **Next action:** **F4 — the phase F 🔍 fresh-eyes gate** (`fable@high`, **a separate
-  session** — this one built F1–F3): review the shipped phase against D118(a–k). **D124 is
-  fully DECIDED and shipped** (v1.2.14–15): run dividers + rail fix, ghost "+" chips +
-  count tile + masked chip rows, the spell-details "Metamagic" row, and the **P3 Ember
-  palette** (terracotta accent · crimson alerts, all five theme blocks — note the raw
-  reversal: Verdigris was picked once, then switched to Ember; don't re-propose P1).
-  **Phase F's build work is COMPLETE**: F1 v1.2.11 (step derivation, D121), F2 v1.2.12
-  (coach rail + D122's timeline-modal rework), F3 v1.2.13 (entries + reverse reconstruct;
-  also D123 — pact tiles measured as count × level, merged tile says "spell", and selected
-  metamagic now tags qualifying Spell-table rows). The 🔶 **magic-item / reward import**
-  decision remains ungated and awaits Francesco's call.
+  session** per model-policy — this one built F1–F3): review the rail against **D118(a–k)**
+  as the surfaces now stand (D122–D124). Nothing else in phase F is open. The 🔶
+  **magic-item / reward import** decision remains ungated and awaits Francesco's call.
 - **Manual for Francesco:** ⓪ **Refresh your imported data in each browser** — ⋯ → **Refresh
   imported data** (choose the folder once if asked). The v1.2.2 parser fixes live in your
   stored digests only after it: heals the **Savant double-grant** (an Evoker was offered 5
@@ -67,12 +69,12 @@ https://claude.ai/code/artifact/47dbe945-a18a-4444-af21-c0143faa2eb0
 
 ## Now
 
-**Phase E is complete** (D115) — E1–E7 shipped and the E8 gate passed 2026-08-28 (with the
-D120 fix). **Phase F** (the guided builder, D118) is under way: F1 shipped; F2 is next.
-v7 (saved builds) is complete — T1–T5 and T7, all six task bodies and the storage shape →
-`ARCHIVE.md#v7-tasks`. Non-goals as narrowed by D115: no **authored** timeline (the level view
-is derived from the acquisition order; versions are alternatives, never levels), no server sync
-or accounts, no sharing a build as a page or URL (D36).
+**Phase E is DONE** (D115, task bodies → `ARCHIVE.md#phase-e`) and **phase F is BUILT**
+(D118) — F1–F3 shipped 2026-08-29; **F4, the fresh-eyes gate, is the only open task** and
+needs a session that didn't build the phase. v7 (saved builds) is complete →
+`ARCHIVE.md#v7-tasks`. Non-goals as narrowed by D115: no **authored** timeline (the level
+view is derived from the acquisition order; versions are alternatives, never levels), no
+server sync or accounts, no sharing a build as a page or URL (D36).
 
 The queue is `PLAN.md`; the next action is named in the TL;DR.
 
@@ -85,3 +87,5 @@ Split out of this file on 2026-08-27 so the resume read is short. Nothing was dr
 - → moved: the Backlog — `PLAN.md`
 - → moved: Build / run — `CLAUDE.md`
 - → moved: the Shipped list — `CHANGELOG.md`
+
+⟳ Rename previous session → "E8 gate, guided builder, Ember palette" · session: resolve by cwd + latest

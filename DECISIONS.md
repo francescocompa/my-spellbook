@@ -792,7 +792,9 @@ written up in full in `GOTCHAS.md` — that is the copy to trust.
     "· LV5" copies stay ordinary variants (no migration); printing at a scrubbed level becomes
     first-class (the "not a saved version" print note goes). *Rejected:* removing forking; keeping
     the level/variant double meaning.
-  - **(j) Surface = chip + timeline POPOVER** (mockup round; chosen over a full-width level rail,
+  - **(j) Surface = chip + timeline ~~POPOVER~~** **→ a full MODAL since D122(a)** — its own
+    raw note anticipated it; the chip and everything else in (j) stands.
+    (mockup round; chosen over a full-width level rail,
     cards-as-scrubber, and a rail+cards hybrid — the chip-and-popover is the app's own language,
     D57/D66). Chip reads "L7 / 20" + ⚠; the popover is a jumpable timeline: zone tinting
     (history · current pin · plan), **draggable rows absorb level-order editing and retire the

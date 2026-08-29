@@ -3,9 +3,10 @@
 > What is queued, and what is blocked on a decision. `STATE.md` says where things stand;
 > this says what comes next. Closed items → `ARCHIVE.md#closed-backlog`.
 >
-> **v7 is complete and shipped as v1.0.** The plan of record is **phase E** (D115, decided
-> 2026-08-28); the queue below it is a backlog, and its one 🔶 (magic items / rewards) is no
-> longer gated — it awaits Francesco's call.
+> **v7 shipped as v1.0; phase E (D115) is DONE; phase F (D118) is BUILT.** The plan of
+> record is **F4 — the phase F fresh-eyes gate**, which needs a session that didn't build
+> F1–F3. The queue below is a backlog; its one 🔶 (magic items / rewards) is ungated and
+> awaits Francesco's call.
 
 ## Phase E — a build at every level (D115, decided 2026-08-28)
 
@@ -19,67 +20,15 @@ The guided-builder requirement raised 2026-08-28 was designed the same day → *
 exists (not scoped): D76's Magical Secrets narrowing could report the EXACT window for ordered
 picks instead of best-case.
 
-- [x] **E1 — order substrate + saved current level** (**shipped v1.2.4**, done-when verified
-  in-browser: round-trip with order + pointer + swap, migration leaves `meta.updated` alone) — treat the
-  `state.chosen`/`state.feats` array order as the acquisition order; add `state.currentLevel`;
-  add the swap-event shape (at most one swap per character level, D115(g)); export/import +
-  migration (old builds: order = array order, currentLevel = top). **Done when:** a build
-  round-trips export→import with order, pointer and a swap intact, and old builds load unchanged.
-- [x] **E2 — slice derivation** (**shipped v1.2.5**, done-when verified in-browser: 27 checks
-  over five fixtures — Bard 12, Fighter 10/Wizard 9 interleaved, Warlock 4/Fighter 4/Bard 12
-  with slots [4,11,15,19,20], Cleric 20, Sorcerer 15 metamagic — all pass; swap rewind both
-  sides) — per-class sticky-pick schedules (known
-  counts, spellbook 2/level, cantrip gains, feat slots via `featSlotLevels()`) map order →
-  acquisition character level; every `effLevel` consumer reads the slice; prepared lists stay
-  derived (D18). App-side only — no extractor change. **Done when:** the level view lists exactly
-  the sticky picks acquired by that level for the five D114 fixture builds.
-- [x] **E3 — editing at any level** (**completed across v1.2.5 → v1.2.8**, every done-when
-  clause verified in-browser at its step) — adds insert at the viewed level's slice point and a
-  later pick pulls back to it (v1.2.5); chip-drag moves acquisition, the pill's × clears a swap
-  (v1.2.7); **v1.2.8 shipped the recording surface (D119(b))**: click an eligible timeline chip
-  to arm "− this pick at L{view}", take the replacement to record — the position keeps the
-  acquisition history, the event carries the trade; armed / ⇄-traded / pill states all marked.
-  Removal below top stands as defined: removing a visible pick removes it at every level; the
-  swap is the honest alternative when the rules grant one.
-- [x] **E4 — consistency sweep + badge** (**shipped v1.2.6**, done-when verified in-browser: a
-  Bard 12 holding a 4th-level spell in a slot that arrives at L5 shows "⚠ L5" on the badge at
-  top level, and the bar names it when standing at 5; 19 checks incl. D114's [4,6,8,14,18]) —
-  per-slice legality (counts vs class tables, spell level at acquisition, boons on 19+ slots,
-  choice availability); one build-health badge naming the offending levels; per-level flags in
-  place. Soft (D31). *Shipped checks: spell level at acquisition (swap-aware), picks past the
-  schedule (wizard copies exempt, preparers not swept), feat slots incl. origin and epic-without-
-  a-19+-slot, optional features past their progression, subclass due and unset. `choices` are
-  already `atLevel`-gated at resolution, so they need no separate check.*
-- [x] **E5 — the timeline popover** (**shipped v1.2.7**, done-when verified in-browser: every
-  interaction — open/toggle, row-click jump with the popover staying open, row drag reorder,
-  chip drag move + visible refusal, swap pill + clear, pin, fork, Escape/outside/scroll-out
-  closes, re-anchor on scroll — at desktop and phone widths) — chip "L7 / 20 + ⚠"; popover per
-  the D115(j) mockup: zone tinting, draggable rows (the old level-order panel is retired; its
-  single-column rule transferred), draggable pick chips, swap pills, current-level pin, footer
-  *fork a variant here* · *set as current level*. A build now **opens at its saved current
-  level** (D115(e)), and the E4 ⚠ lives on the chip with the timeline locating each finding.
-- [x] **E6 — fork-a-variant + print at level** (**shipped v1.2.8**, done-when verified
-  in-browser: the fork truncates arrays at the slice with swaps rewound in, drops late feats and
-  options, prunes orphans, names "· L5 variant", opens on activation; the print header names the
-  level and the "not a saved version" note is gone) — `savePreviewAsVersion` → fork-a-variant-here
-  (truncated at the slice, named as a variant, D115(i)).
-- [x] **E7 — "order matters" soft flag** (**shipped v1.2.8**, done-when verified in-browser:
-  Fighter 10/Wizard 9 flags on pick timing, Warlock 4/Fighter 4/Bard 12 on the level-19 straddle,
-  single-class and casterless-no-straddle multiclass stay silent) — a quiet gold line in the
-  timeline header naming WHY the order is load-bearing, per D115's plan-default round.
-- [x] **E8 — 🔍 fresh-eyes gate** (**passed 2026-08-28**, fable@high, separate session) — code
-  review of the whole substrate (E1/E2/E4 core, E5 surface, E3 swap flow, E6 fork/print, E7,
-  importer migration) + in-browser verification of every D115 clause on fresh fixtures: slices,
-  swap arm→record→clear, fork rewind+truncation, pin+reopen-at-level, chip/row drag incl.
-  visible refusal, D119(a) tile merge/split, preparer pass-through, wizard-copy exemption,
-  E1 round-trip. **Phase E holds — one CRITICAL adjacent regression found and fixed (D120):**
-  `save()`'s D116(d) skip compared the live state against itself, so pure pick edits never
-  persisted (v1.2.2 → v1.2.9). Three cosmetic side notes logged in D120, none blocking.
+→ archived 2026-08-29: the E1–E8 task bodies (all done, each done-when verified in-browser) — `ARCHIVE.md#phase-e`.
 
-## Phase F — the guided builder (D118, decided 2026-08-28; **the plan of record** — E8 passed)
+## Phase F — the guided builder (D118, decided 2026-08-28)
 
 A separate coach-driven flow over the D115 substrate, forward and reverse — the full model is
 **D118(a–k)**; cite it, don't restate it. Order: F1 → F2 → F3 → F4.
+**F1–F3 shipped 2026-08-29 (v1.2.11 → v1.2.13); only the F4 gate remains** — and D122–D124
+(timeline modal + refinements, tile semantics, metamagic row, Ember palette) rode alongside,
+so the gate reviews the rail against D118(a–k) with those surfaces as they now stand.
 
 - [x] **F1 — step-list derivation** (**shipped v1.2.11**, done-when verified in-browser: the
   five D114 fixtures yield correct step lists — counts, levels, labels, castMax pools — in both
