@@ -40,6 +40,13 @@ const ICONS={
   bookmark:_I('<path d="M4.1 2.7h7.8v10.6L8 10.5l-3.9 2.8z"/>'),
   star:_I('<path d="M8 2.2 9.85 6l4.15.6-3 2.95.71 4.15L8 11.74 4.29 13.7 5 9.55 2 6.6 6.15 6z"/>'),
   print:_I('<path d="M4.6 6.1V2.7h6.8v3.4"/><rect x="2.4" y="6.1" width="11.2" height="4.8" rx="1.4"/><path d="M4.6 9.3h6.8v4H4.6z"/>'),
+  // a trade: two arrows passing each other. Marks a pick swapped away and the one that
+  // replaced it — it replaced the ⇄ glyph the timeline used to type into a chip (D57).
+  retrain:_I('<path d="M2.6 5.4h8.6M9.1 3.3l2.1 2.1-2.1 2.1"/><path d="M13.4 10.6H4.8m2.1-2.1-2.1 2.1 2.1 2.1"/>'),
+  // a branch splitting off its trunk — forking a variant of the build at a level
+  fork:_I('<circle cx="4.6" cy="3.3" r="1.7"/><circle cx="4.6" cy="12.7" r="1.7"/><circle cx="11.6" cy="3.3" r="1.7"/><path d="M4.6 5v6M11.6 5v1.2a2.6 2.6 0 0 1-2.6 2.6H7.2a2.6 2.6 0 0 0-2.6 2.6"/>'),
+  // a compass needle — "guide me from here"
+  compass:_I('<circle cx="8" cy="8" r="5.9"/><path d="m10.6 5.4-1.3 3.9-3.9 1.3 1.3-3.9z"/>'),
 };
 // the small × remove button used inside chips and rows
 function xBtn(cls,onClick){const b=el("button",(cls||"")+" ico xsm");b.innerHTML=ICONS.x;
@@ -720,6 +727,18 @@ function clearSwap(lvl,kind){ lvl=Math.round(+lvl);
   if(!SWAP_KINDS.some(k=>m[k]))delete state.swaps[lvl];
   save(); }
 const swapAt=(lvl,kind)=>(((state.swaps||{})[lvl])||{})[kind]||null;
+// re-date a recorded trade: the SAME event, at another level-up. Nothing is deleted —
+// the outgoing pick keeps its position and its acquisition history, only the level the
+// trade happened at moves. Refuses if the target already carries an event of that kind,
+// and puts the event back where it was if the write is rejected.
+function moveSwap(from,to,kind){
+  from=Math.round(+from); to=Math.round(+to);
+  const ev=swapAt(from,kind); if(!ev||from===to||swapAt(to,kind))return false;
+  const copy={row:ev.row,out:ev.out,in:ev.in};
+  clearSwap(from,kind);                       // saves
+  if(recordSwap(to,kind,copy)){save();return true;}
+  recordSwap(from,kind,copy); save(); return false;
+}
 // every event of a map, flattened to [{lvl,kind,row,out,in}] — the read path for every
 // consumer, so none of them has to know the map is two levels deep
 function swapEvents(m){ const out=[];
@@ -4476,14 +4495,16 @@ function renderLevelChip(){
   chip.onclick=e=>{e.stopPropagation();hideTip();toggleTimeline();};
   attachTip(chip,tipBlock("The build at every level",
     (view<total?`Viewing level ${view} of ${total}. `:"")
-    +"Click to open the timeline: jump to any level, reorder how the levels were taken, and move picks between them."
-    +(h.levels.length?` ⚠ ${h.findings.length===1?"One thing doesn’t":h.findings.length+" things don’t"} add up — at ${h.levels.map(l=>"L"+l).join(", ")}; the timeline marks the rows.`:"")));
+    +"Open the timeline to jump to a level, reorder how the levels were taken, and move picks between them."
+    +(h.levels.length?` ${issueCount(h.findings.length)} to check, at ${h.levels.map(l=>"L"+l).join(", ")} — the timeline marks the rows.`:"")));
 }
 // The build-health surfaces (E4 · D115(f), consolidated by E5). One sweep, two
 // altitudes: the level CHIP carries the ⚠ (its tip names the offending levels, the
 // timeline marks the rows — that is what makes a problem at 5 visible from 12) and
 // the BAR names what is wrong at the level you are actually standing at. Both are
 // advisory (D31): they say so, they locate it, they never change anything.
+// "1 issue" / "3 issues" — the sweep's own count, said plainly wherever it is reported
+const issueCount=n=>n+(n===1?" issue":" issues");
 function renderHealth(){
   const bar=$("#healthBar");
   const h=(R&&R.health)||buildHealth();
@@ -4492,8 +4513,7 @@ function renderHealth(){
   if(!here.length){bar.classList.add("hidden");bar.innerHTML="";return;}
   bar.innerHTML=""; bar.classList.remove("hidden");
   const txt=el("div","healthtxt");
-  txt.append(el("b",null,`Level ${PREVIEW.level}: ${here.length} thing${here.length===1?"":"s"} `
-    +`${here.length===1?"doesn’t":"don’t"} add up here`));
+  txt.append(el("b",null,`Level ${PREVIEW.level}: ${issueCount(here.length)}`));
   here.slice(0,4).forEach(f=>txt.append(el("div",null,f.text)));
   if(here.length>4)txt.append(el("div",null,`+${here.length-4} more at this level`));
   bar.append(txt);
@@ -4501,19 +4521,58 @@ function renderHealth(){
 // What a class level actually gives, NAMED: real class and subclass features (D63).
 // Not derived counts: "Arcane Recovery" says more than "+1 prepared". Spellcasting is
 // deliberately NOT here — see levelCasting.
-function levelGains(row,cl){
+// Each gain is `{t}` — or `{t,pick}` when the thing it names is still UNDECIDED, in
+// which case `pick` says which of the app's OWN choosers opens it. Nothing here decides
+// anything (D31): it only marks the hole and names the door.
+function levelGains(row,cl,charLv,open){
   const c=CLS_BY[row.clsKey]; if(!c)return [];
   const sub=subOfRow(row);
-  const feats=[];
-  (c.features||[]).forEach(f=>{if(f.level===cl)feats.push(f.name);});
-  if(sub&&cl>=(c.subclassLevel||3))(sub.features||[]).forEach(f=>{if(f.level===cl)feats.push(f.name);});
-  if(c.subclassLevel===cl&&!sub)feats.push("subclass — not chosen");
-  if([4,8,12,16].concat(ASI_EXTRA[c.name]||[]).includes(cl))feats.push("Feat / ASI");
-  if(cl===19)feats.push("Epic Boon");
+  const g=[], push=(t,pick)=>g.push(pick?{t,pick}:{t});
+  (c.features||[]).forEach(f=>{if(f.level===cl)push(f.name);});
+  if(sub&&cl>=(c.subclassLevel||3))(sub.features||[]).forEach(f=>{if(f.level===cl)push(f.name);});
+  if(c.subclassLevel===cl&&!sub)push("subclass — not chosen",{kind:"subclass",row:row.id});
+  // a feat slot at this CHARACTER level is open when no non-origin feat maps to it —
+  // asked of featAcqLevels, the same mapper the chips and the sweep read (D114)
+  const slotOpen=!open||!(open.featAt.get(charLv)>0);
+  if([4,8,12,16].concat(ASI_EXTRA[c.name]||[]).includes(cl))
+    push("Feat / ASI",slotOpen?{kind:"feat",slot:"general"}:null);
+  if(cl===19)push("Epic Boon",slotOpen?{kind:"feat",slot:"epic"}:null);
   [c,sub].forEach(src=>{ if(!src||!src.optFeatures)return;
     src.optFeatures.forEach(p=>{const d=(p.counts[cl-1]||0)-(cl>1?(p.counts[cl-2]||0):0);
-      if(d>0)feats.push(`+${d} ${p.name.toLowerCase()}`);});});
-  return feats;
+      if(d<=0)return;
+      const filled=open?(open.optAt.get(p.name+"@"+charLv)||0):d;
+      push(`+${d} ${p.name.toLowerCase()}`,
+        filled<d?{kind:"opt",prog:p,giver:src.name,giverSrc:src.source,cl}:null);});});
+  return g;
+}
+// which slots a level still has open, by the acquisition mappers themselves — one pass
+// per render, so the gains line never runs a count of its own that could disagree.
+function timelineOpen(){
+  const featAt=new Map(), optAt=new Map();
+  featAcqLevels().forEach(a=>{ if(a.cat==="origin")return;
+    featAt.set(a.lv,(featAt.get(a.lv)||0)+1); });
+  optAcqLevels().forEach(a=>{ if(!a.slot)return;
+    const k=a.slot+"@"+a.lv; optAt.set(k,(optAt.get(k)||0)+1); });
+  return {featAt,optAt};
+}
+// open the app's REAL chooser for an undecided gain — never a second picker surface.
+// The timeline closes first: these are page controls and full modals of their own, and
+// a modal over a modal is exactly the collision D126 was opened on.
+function openGainChooser(pick){
+  closeTimeline();
+  if(pick.kind==="subclass"){
+    const sel=document.querySelector('#classRows select[data-sub="'+pick.row+'"]');
+    if(sel&&!sel.disabled){sel.focus();}          // focus scrolls the row into view itself
+    else jumpTo($("#secChar"));
+    return;}
+  if(pick.kind==="feat"){openEntityPicker("feat",pick.slot);return;}
+  if(pick.kind==="opt"){
+    // the page's own slot descriptor where the current view has one; otherwise the same
+    // shape built from the progression, so the picker filters on identical fields
+    const sl=optSlots().find(s=>s.name===pick.prog.name)
+      ||{name:pick.prog.name,types:pick.prog.types,cap:pick.prog.counts[Math.max(0,pick.cl-1)]||1,
+         picked:[],giver:pick.giver,giverSrc:pick.giverSrc};
+    openEntityPicker("opt",sl);}
 }
 // Spellcasting runs on TWO clocks, and a caster-caster multiclass pulls them apart:
 //   • MAX SPELL LEVEL is set by that class's OWN level — multiclassing never raises it.
@@ -4570,12 +4629,16 @@ const lvTile=(kind,big,word,tip)=>{
 // the schedule says arrived there (E2), any recorded swap (D115(g)), and the E4 flags
 // for that level. Zones tint lived history apart from the plan above the current-level
 // pin. Clicking a row JUMPS the view; the popover stays open so levels can be walked.
-let TL={open:false,drag:null};   // drag: {type:"row",i} | {type:"chip",kind,rowId,key}
+// drag: {type:"row",i} | {type:"chip",kind,rowId,key}
+// retrain: which chip's "move the trade" chooser is open — {id, cur, kind}, inline in
+// the row rather than a floating menu (the chip row is a masked scroller and would clip
+// one, and a document-level closer is exactly what D122 removed from this modal)
+let TL={open:false,drag:null,retrain:null};
 function toggleTimeline(){ TL.open?closeTimeline():openTimeline(); }
 // a full modal since D122 — no chip anchoring, no scroll re-anchoring to maintain
 function openTimeline(){ TL.open=true; renderTimeline();
   $("#tlModal").classList.remove("hidden"); }
-function closeTimeline(){ if(!TL.open)return; TL.open=false;
+function closeTimeline(){ if(!TL.open)return; TL.open=false; TL.retrain=null;
   const p=$("#tlModal"); if(p)p.classList.add("hidden"); }
 // the armed half of a level-up swap (E3 · D115(g)): "− this pick at level k" waits for
 // its replacement to be taken. Module state, cleared on record, cancel or build switch.
@@ -4586,11 +4649,14 @@ function renderSwapArm(){
   bar.innerHTML=""; bar.classList.remove("hidden");
   const row=state.classes.find(r=>r.id===SWAPARM.row), c=row&&CLS_BY[row.clsKey];
   const txt=el("div","swaptxt");
-  txt.append(el("b",null,`Swap armed at L${SWAPARM.level} — losing ${SWAPARM.label}`));
-  txt.append(el("div",null,`Take the replacement ${SWAPARM.kind==="cantrip"?"cantrip":"spell"} for ${c?c.name:"the class"} and the trade is recorded — one ${SWAPARM.kind==="cantrip"?"cantrip":"spell"} swap per level-up, nothing is lost below L${SWAPARM.level}.`));
+  const kw=SWAPARM.kind==="cantrip"?"cantrip":"spell";
+  txt.append(el("b",null,`Trading ${SWAPARM.label} away at L${SWAPARM.level}`));
+  txt.append(el("div",null,`Take a ${kw} for ${c?c.name:"the class"} and the trade is recorded. Nothing below L${SWAPARM.level} changes.`));
   bar.append(txt);
   if(SWAPARM.kind==="spell"){
-    const b=el("button","btn","Choose replacement…");
+    const b=el("button","btn");
+    const bl=el("span","lbl-ico");bl.append(icoEl("retrain"),document.createTextNode("Choose replacement…"));
+    b.append(bl);
     b.onclick=()=>{const rec=R.casters.find(r=>r.idx===SWAPARM.row); if(!rec)return;
       const clm=charLevelMap(), lvls=clm.get(SWAPARM.row)||[];
       const clAt=lvls.filter(x=>x<=SWAPARM.level).length;
@@ -4598,24 +4664,35 @@ function renderSwapArm(){
     bar.append(b);}
   bar.append(xBtn("anx",()=>{SWAPARM=null;render();}));
 }
+// a pick key's printed name, for every timeline surface that shows one
+const pickName=k=>{const sp=SPELL_BY[k];return sp?sp.name:String(k).split("|")[0];};
 // where each draggable pick sits, by the same machinery the slices run on (E2).
-// Also derives, per level: the OPEN schedule slots (ghost chips, D124) and the
-// wants/has pick counts the count tile states.
+// Also derives, per level: the OPEN schedule slots (ghost chips, D124), the incoming
+// side of every recorded trade, and the wants/has pick counts the count tile states.
 function timelinePicks(){
   const clm=charLevelMap(), by=new Map(), counts=new Map();
   const put=(lv,chip)=>{const a=by.get(lv)||[];a.push(chip);by.set(lv,a);};
-  const bump=(lv,want,have)=>{const c=counts.get(lv)||{want:0,have:0};
-    c.want+=want;c.have+=have;counts.set(lv,c);};
+  const cell=lv=>{const c=counts.get(lv)||{want:0,have:0,swWant:0,swHave:0};
+    counts.set(lv,c); return c;};
+  // schedule slots and TRADE slots are counted apart: a trade opens a pick slot of its
+  // own at its level, and an ARMED one opens it before the replacement lands — which
+  // must not read as the row being short of its schedule (that is the alert's job).
+  const bump=(lv,want,have)=>{const c=cell(lv);c.want+=want;c.have+=have;};
+  const bumpSwap=(lv,want,have)=>{const c=cell(lv);c.swWant+=want;c.swHave+=have;};
   state.classes.forEach(row=>{
     const sched=rowSched(row); if(!sched)return;
     const lvls=clm.get(row.id)||[], ch=state.chosen[row.id]||{};
-    const name=k=>{const sp=SPELL_BY[k];return sp?sp.name:String(k).split("|")[0];};
+    const name=pickName;
     // a position that later swapped shows what was LEARNED there — the pill at the swap
     // level tells the rest of the story
     const shown=(k,lv,kind)=>unswap([k],row.id,kind,lv)[0];
+    // when the pick SHOWN here left the build. Asked of the shown key, not the stored
+    // one: in a chain (X→Y at 5, Y→Z at 9) the position holds Z, but what stood here
+    // was X and it was traded at 5 — keying on the stored key reported 9.
     const traded=(k,lv,kind)=>{const e=swapEvents()
-      .find(x=>x.lvl>lv&&x.row===row.id&&x.kind===kind&&x.in===k);
-      return e?{at:e.lvl,forName:name(k)}:null;};
+      .filter(x=>x.lvl>lv&&x.row===row.id&&x.kind===kind&&x.out===k)
+      .sort((a,b)=>a.lvl-b.lvl)[0];
+      return e?{at:e.lvl,forName:name(e.in)}:null;};
     // what this class may trade on a level-up, and — when it may not — the reason the
     // chip's tip has to give, so a refusal is never mute (SWAP_RULES)
     const cn=(CLS_BY[row.clsKey]||{}).name||"This class", rule=swapRule(row);
@@ -4625,30 +4702,66 @@ function timelinePicks(){
     const noSp=rule.spell?null
       :sched.book?"A spellbook only grows — copying in is the wizard's move; its prepared list changes on a long rest instead."
       :`${cn} re-prepares its spells on a long rest, not on level-up — nothing is traded away here.`;
+    // HAVE is counted where each pick actually lands, not clamped to the slot count —
+    // an off-schedule pick (past the budget) lands at the row's top level and has to
+    // make that level read OVER, which is exactly where the sweep flags it too
     (ch.cantrips||[]).forEach((k,i)=>{const lv=acqAt(sched.cant,i,lvls);
-      put(lv,{kind:"ct",rowId:row.id,key:k,label:name(shown(k,lv,"cantrip")),tag:"c",
-        lv,lvls,swappable:!noCt,noswap:noCt,traded:traded(k,lv,"cantrip")});});
+      const sk=shown(k,lv,"cantrip");
+      put(lv,{kind:"ct",rowId:row.id,key:k,shownKey:sk,label:name(sk),tag:"c",
+        lv,lvls,swappable:!noCt,noswap:noCt,traded:traded(sk,lv,"cantrip")});
+      bump(lv,0,1);});
     if(sched.spells)(ch.spells||[]).forEach((k,i)=>{const lv=acqAt(sched.spells,i,lvls);
-      put(lv,{kind:"sp",rowId:row.id,key:k,label:name(shown(k,lv,"spell")),
-        lv,lvls,swappable:!noSp,noswap:noSp,traded:traded(k,lv,"spell")});});
-    // open slots + counts, per class level, on the same cumulative schedules
+      const sk=shown(k,lv,"spell");
+      put(lv,{kind:"sp",rowId:row.id,key:k,shownKey:sk,label:name(sk),
+        lv,lvls,swappable:!noSp,noswap:noSp,traded:traded(sk,lv,"spell")});
+      // a wizard's copies past the free allowance are the wizard's LEGAL move, not an
+      // overrun (the level-budget rule) — a book row counts only its scheduled slots
+      if(!sched.book||acqIdx(sched.spells,i,lvls)>=0)bump(lv,0,1);});
+    // WANT + the open slots, per class level, on the same cumulative schedules
     lvls.forEach((lv,cl0)=>{
       [["cantrips",sched.cant],["spells",sched.spells]].forEach(([arr,sa])=>{
         if(!sa)return;
         const from=cl0>0?(sa[cl0-1]||0):0, to=sa[cl0]||0;
         if(to<=from)return;
         const len=(ch[arr]||[]).length;
-        const have=Math.max(0,Math.min(to,len)-from);
-        bump(lv,to-from,have);
+        bump(lv,to-from,0);
         for(let p=Math.max(from,len);p<to;p++)
           put(lv,{kind:"ghost",rowId:row.id,gkind:arr,lv});
       });});
   });
+  // a trade's INCOMING pick belongs to the level the trade happened at: the outgoing
+  // side keeps its chip (and its history) where it was learned, so without this the
+  // replacement appears nowhere. Its own chip, in the trade colour, and its own slot in
+  // the count — a ghost one while an armed trade is still waiting for its replacement.
+  swapEvents().forEach(e=>{
+    put(e.lvl,{kind:"swin",rowId:e.row,key:e.in,label:pickName(e.in),lv:e.lvl,evKind:e.kind,
+               outName:pickName(e.out)});
+    bumpSwap(e.lvl,1,1);});
+  if(SWAPARM){
+    put(SWAPARM.level,{kind:"swghost",rowId:SWAPARM.row,lv:SWAPARM.level,
+                       gkind:SWAPARM.kind==="cantrip"?"cantrips":"spells",label:SWAPARM.label});
+    bumpSwap(SWAPARM.level,1,0);}
   featAcqLevels().forEach((a,fk)=>{const f=FEAT_BY[fk]; if(!f)return;
     put(a.lv,{kind:"ft",key:fk,label:f.name,tag:"feat",fixed:a.cat==="origin"});});
   optAcqLevels().forEach((a,ok)=>{const o=OPT_BY[ok]; if(!o)return;
     put(a.lv,{kind:"of",key:ok,label:o.name,tag:"opt"});});
   return {by,counts};
+}
+// THE eligibility question, asked once and answered in one place: may this pick be
+// traded away at character level T? Arming asks it, the chip's tip explains its clauses,
+// and the retrain-level chooser filters on it — no second copy anywhere (D119(b)/D128).
+function swapLevelOk(pk,T,kind){
+  return !!(pk.swappable && T>pk.lv && pk.lvls.includes(T)
+    && pk.lvls.filter(x=>x<=T).length>=2 && !swapAt(T,kind));
+}
+// the other level-ups a RECORDED trade could have happened at instead. Same predicate,
+// plus the chain's own ceiling: a replacement cannot be traded away before it arrives.
+function swapMoveTargets(pk,kind,cur){
+  const ev=swapAt(cur,kind); if(!ev)return [];
+  const next=swapEvents()
+    .filter(x=>x.row===pk.rowId&&x.kind===kind&&x.out===ev.in&&x.lvl>cur)
+    .reduce((m,x)=>Math.min(m,x.lvl),Infinity);
+  return pk.lvls.filter(T=>T!==cur&&T<next&&swapLevelOk(pk,T,kind));
 }
 // move a dragged chip so its acquisition lands on `L`. Class picks: an array position
 // maps to a level by INDEX alone, so the first index the schedule puts at L is the
@@ -4690,6 +4803,7 @@ function renderTimeline(){
   const view=PREVIEW.level==null?total:PREVIEW.level;
   const cur=(typeof state.currentLevel==="number"&&state.currentLevel<total)?state.currentLevel:total;
   const {by:picks,counts:pickCounts}=timelinePicks(), health=(R&&R.health)||buildHealth();
+  const openSlots=timelineOpen();         // which gains this build hasn't answered yet
   const multi=state.classes.length>1;
   // the quiet order-matters word (E7, folded into a gold flag by the title — D122):
   // named reasons live in its tip, only on builds where the order is load-bearing
@@ -4733,19 +4847,36 @@ function renderTimeline(){
     top.append(el("b","locls",(c?c.name:"?")+" "+cl));
     if(i===cur){const pin=el("span","tlpin");pin.append(icoEl("bookmark"));
       top.append(pin);
-      attachTip(pin,tipBlock("Current level","Where this character actually stands (D115). The build opens viewing this level; levels above are the plan."));}
+      attachTip(pin,tipBlock("Current level","Where the character stands now. The build opens here; levels above are the plan."));}
     const flags=health.byLevel.get(i);
     if(flags){const wI=el("span","tlwarn");wI.append(icoEl("warn"));
       top.append(wI);
-      attachTip(wI,tipBlock(`Level ${i}: ${flags.length===1?"1 thing doesn’t":flags.length+" things don’t"} add up`,
+      attachTip(wI,tipBlock(`Level ${i}: ${issueCount(flags.length)}`,
         flags.map(f=>f.text).join(" ")));}
     body.append(top);
-    const gains=levelGains(row,cl);
+    const gains=levelGains(row,cl,i,openSlots);
     // the slot table is read across the WHOLE plan up to here, never from this class alone
     const before=planSlots(perClass); perClass.set(id,cl);
     const after=planSlots(perClass);
     const cast=levelCasting(row,cl,before,after);
-    if(gains.length)body.append(Object.assign(el("div","logains"),{textContent:gains.join(" · ")}));
+    if(gains.length){
+      const gl=el("div","logains");
+      gains.forEach((g,gi)=>{
+        if(gi)gl.append(document.createTextNode(" · "));
+        if(!g.pick){gl.append(document.createTextNode(g.t));return;}
+        // an undecided gain is quietly clickable — a dashed underline, not a button —
+        // and it opens the app's OWN chooser for that thing (never a copy of one)
+        const a=el("span","gopen",g.t);
+        a.onclick=e=>{e.stopPropagation();hideTip();openGainChooser(g.pick);};
+        attachTip(a,tipBlock("Not chosen yet",
+          g.pick.kind==="subclass"?"Open the class row and pick a subclass."
+          :g.pick.kind==="feat"?(g.pick.slot==="epic"
+              ?"Open the epic boon picker. Taking the ability score improvement instead means leaving this empty."
+              :"Open the feat picker. Taking the ability score improvement instead means leaving this empty.")
+          :`Open the ${lc(g.pick.prog.name)} picker — this level still has room.`));
+        gl.append(a);});
+      body.append(gl);
+    }
     else body.append(Object.assign(el("div","logains dim"),{textContent:"no new features"}));
     card.append(body);
     // only the level that MOVED a clock states it (D122) — a quiet note, not a control;
@@ -4756,19 +4887,27 @@ function renderTimeline(){
     {const tiles=el("div","lotiles");
       // the wants/has pick count (D124): stated wherever this level opens pick slots
       const cnt=pickCounts.get(i);
-      if(cnt&&cnt.want){
-        const ct=el("div","lt lt-count");
-        ct.append(el("b",null,cnt.have+"/"+cnt.want));
+      if(cnt&&(cnt.want||cnt.swWant||cnt.have>cnt.want)){
+        // a trade's slot counts too, and tints the tile the trade colour. The ALERT is
+        // the schedule half alone: an armed trade is short of its replacement by design
+        // and must not read as the level being under its schedule.
+        const tot=cnt.want+cnt.swWant, got=cnt.have+cnt.swHave, off=cnt.have-cnt.want;
+        const ct=el("div","lt lt-count"+(off?" tlalert":"")+(cnt.swWant?" tlswapc":""));
+        ct.append(el("b",null,got+"/"+tot));
         ct.append(el("small",null,"picks"));
         attachTip(ct,tipBlock("Picks at this level",
-          `The schedule opens ${cnt.want} pick slot${cnt.want===1?"":"s"} here (cantrips and spells together); ${cnt.have} ${cnt.have===1?"is":"are"} taken.`));
+          `${tot} slot${tot===1?"":"s"} open here, ${got} taken.`
+          +(cnt.swWant?` ${cnt.swWant===1?"One is":cnt.swWant+" are"} the retrained pick.`:"")
+          +(off?` The schedule wants ${cnt.want} — this level is ${off>0?"over":"under"} by ${Math.abs(off)}.`:"")));
         tiles.append(ct);}
       if(cast&&(cast.spellUp||cast.slotUp||cast.pactUp)){
       if(cast.pact){
         if(cast.spellUp)tiles.append(lvTile("spell",ROMAN[cast.spell],"spell",
           tipBlock("Max spell level — raised here",
             "The highest level this class can cast, set by its OWN level.")));
-        if(cast.pactUp)tiles.append(lvTile("pact",cast.pact.num+"× "+ROMAN[cast.pact.lvl],"pact",
+        // "2×2nd", not "2× 2nd": the tile is a square the size of every other one, and
+        // the spaced form overshot it into the row beside it
+        if(cast.pactUp)tiles.append(lvTile("pact",cast.pact.num+"×"+ROMAN[cast.pact.lvl],"pact",
           tipBlock("Pact Magic slots — changed here",
             `${cast.pact.num} slot${cast.pact.num===1?"":"s"}, all level ${cast.pact.lvl}, back on a short rest. `
             +"Pact Magic is its own clock beside regular spell slots.")));
@@ -4789,36 +4928,78 @@ function renderTimeline(){
     const here=picks.get(i)||[];
     // a level may carry one leveled-spell swap AND one cantrip swap — one pill each
     const sw=(state.swaps||{})[i], swKinds=SWAP_KINDS.filter(k=>sw&&sw[k]);
+    let retrainRow=null;               // the open "move the trade" chooser, if any
     if(here.length||swKinds.length){
       const chips=el("div","tlchips");
       here.forEach(pk=>{
-        // an open schedule slot (D124): a bare + that jumps the view to this level —
-        // adding happens on the page, at the slice point E3 already maintains
-        if(pk.kind==="ghost"){
-          const g=el("span","tlchip ghost","+");
-          attachTip(g,tipBlock("An open "+(pk.gkind==="cantrips"?"cantrip":"spell")+" slot",
-            "The schedule opens this pick at L"+i+" and nothing fills it yet. Click to view the build there and pick — it lands in this slot."));
+        // an open schedule slot (D124): a labelled ghost that jumps the view to this
+        // level — adding happens on the page, at the slice point E3 already maintains
+        if(pk.kind==="ghost"||pk.kind==="swghost"){
+          const gk=pk.gkind==="cantrips"?"cantrip":"spell", trade=pk.kind==="swghost";
+          const g=el("span","tlchip ghost"+(trade?" swghost":""),"+ "+gk);
           g.onclick=e=>{e.stopPropagation();setPreview(i===total?null:i);jumpTo($("#secSpells"));};
+          attachTip(g,trade
+            ?tipBlock("Replacement not chosen",
+              `The trade armed at L${i} is waiting for a ${gk}. Take one for this class and it is recorded.`)
+            :tipBlock("An open "+gk+" slot",
+              "The schedule opens this pick at L"+i+" and nothing fills it yet. Open the build here to fill it."));
           chips.append(g); return;}
+        // the incoming half of a recorded trade: learned HERE, not where the position
+        // it occupies was first filled — so it gets its own chip, in the trade colour
+        if(pk.kind==="swin"){
+          const w=el("span","tlchip swin");
+          w.append(icoEl("retrain","sw"));
+          w.append(document.createTextNode(pk.label));
+          attachTip(w,tipBlock(pk.label,
+            `Learned at L${i} in place of ${pk.outName}. The pill on this row is the trade itself.`));
+          chips.append(w); return;}
         const armed=SWAPARM&&SWAPARM.out===pk.key&&SWAPARM.row===pk.rowId;
         const chipEl=el("span","tlchip"+(pk.fixed?" fixed":"")+(pk.traded?" traded":"")+(armed?" swaparmed":""));
         if(pk.tag)chipEl.append(el("span","k",pk.tag));
         chipEl.append(document.createTextNode(pk.label));
-        if(pk.traded)chipEl.append(el("span","sw","⇄"));
+        // a retrained pick wears the mark AND the level it was retrained at; clicking
+        // exactly the level re-dates the trade. An armed one wears the same pair, but
+        // there is no event to move yet, so the level is a marker only.
+        const atLv=pk.traded?pk.traded.at:armed?SWAPARM.level:null;
+        if(atLv!=null){
+          chipEl.append(icoEl("retrain","sw"));
+          const lt=el("span","swlv","L"+atLv);
+          if(pk.traded){
+            const kn2=pk.kind==="ct"?"cantrip":"spell";
+            const cid=pk.rowId+"|"+pk.kind+"|"+pk.key;
+            const openHere=TL.retrain&&TL.retrain.id===cid;
+            lt.classList.add("editable");
+            lt.onclick=e=>{e.stopPropagation();hideTip();
+              TL.retrain=openHere?null:{id:cid,cur:atLv,kind:kn2};
+              renderTimeline();};
+            attachTip(lt,tipBlock("Retrained at L"+atLv,
+              "Click to move the trade to another level-up of this class."));
+            if(openHere){
+              const targets=swapMoveTargets(pk,kn2,atLv);
+              retrainRow=el("div","tlretrain");
+              retrainRow.append(el("span","rrl","Move the trade to"));
+              targets.forEach(T=>{const b=el("button","btn tiny","L"+T);
+                b.onclick=e=>{e.stopPropagation();
+                  if(moveSwap(atLv,T,kn2)){TL.retrain=null;refreshAll();render();}};
+                retrainRow.append(b);});
+              if(!targets.length)retrainRow.append(el("span","rrn",
+                "No other level-up of this class is free."));
+              retrainRow.append(xBtn("rrx",()=>{TL.retrain=null;renderTimeline();}));}
+          } else attachTip(lt,tipBlock("Armed at L"+atLv,
+              "The trade records once you take the replacement."));
+          chipEl.append(lt);}
         // click = arm a level-up swap where one is possible (E3 · D115(g)); the tip
         // always says what a click will or won't do, so the chip is never a dead control
         if(pk.kind==="sp"||pk.kind==="ct"){
           const kn=pk.kind==="ct"?"cantrip":"spell";
-          const can=!armed&&!pk.traded&&pk.swappable
-            &&view>pk.lv&&pk.lvls.includes(view)
-            &&(pk.lvls.filter(x=>x<=view).length>=2)&&!swapAt(view,kn);
-          const why=armed?`Armed — will be traded at L${SWAPARM.level} for the next ${kn} you take. Click to cancel.`
-            :pk.traded?`Traded away at L${pk.traded.at}. Clear that swap's pill to edit further.`
+          const can=!armed&&!pk.traded&&swapLevelOk(pk,view,kn);
+          const why=armed?`Armed — traded at L${SWAPARM.level} for the next ${kn} you take. Click to cancel.`
+            :pk.traded?`Traded for ${pk.traded.forName} at L${pk.traded.at}. Click that level to move the trade; the pill's × clears it.`
             :!pk.swappable?pk.noswap
-            :swapAt(view,kn)?`L${view} already carries a ${kn} swap — clear its pill first (one of each kind per level-up).`
-            :!(view>pk.lv)?`Learned at L${pk.lv} — a swap happens on a LATER level-up. Jump to one first.`
-            :!pk.lvls.includes(view)||pk.lvls.filter(x=>x<=view).length<2?`L${view} isn't a level-up of this class — jump to one of its levels to swap there.`
-            :`Click to swap this away at L${view}: it stays known below, and the next ${kn} you take for this class replaces it from L${view} on.`;
+            :swapAt(view,kn)?`L${view} already carries a ${kn} trade — clear its pill first.`
+            :!(view>pk.lv)?`Learned at L${pk.lv}. A trade happens at a later level-up — jump to one first.`
+            :!pk.lvls.includes(view)||pk.lvls.filter(x=>x<=view).length<2?`L${view} isn't a level-up of this class — jump to one of its levels to trade there.`
+            :`Click to trade this away at L${view}: it stays known below, and the next ${kn} you take for this class replaces it from L${view} on.`;
           chipEl.classList.toggle("canswap",can||armed);
           // the click goes on BEFORE attachTip (its standing rule); a chip with no
           // action keeps attachTip's tap-to-show, so the tip explains the refusal
@@ -4826,7 +5007,7 @@ function renderTimeline(){
             if(armed){SWAPARM=null;render();return;}
             SWAPARM={row:pk.rowId,kind:kn,out:pk.key,level:view,label:pk.label};
             render();};
-          attachTip(chipEl,tipBlock(pk.label+(can?" — swap away here":""),why));
+          attachTip(chipEl,tipBlock(pk.label+(can?" — trade away here":""),why));
         }
         if(!pk.fixed){
           chipEl.draggable=true;
@@ -4840,31 +5021,32 @@ function renderTimeline(){
         }
         chips.append(chipEl);});
       if(swKinds.length){
-        const name=k=>{const sp=SPELL_BY[k];return sp?sp.name:String(k).split("|")[0];};
         swKinds.forEach(kind=>{const ev=sw[kind];
           const pill=el("span","tlswap");
-          pill.append(el("span","out","− "+name(ev.out)));
-          pill.append(el("span",null,"+ "+name(ev.in)));
-          pill.append(xBtn("xsm",()=>{clearSwap(i,kind);refreshAll();render();}));
+          pill.append(icoEl("retrain","sw"));
+          pill.append(el("span","out","− "+pickName(ev.out)));
+          pill.append(el("span",null,"+ "+pickName(ev.in)));
+          pill.append(xBtn("xsm",()=>{clearSwap(i,kind);TL.retrain=null;refreshAll();render();}));
           chips.append(pill);
           // a wizard's cantrip trade happens on a long rest, not on this level-up —
           // the level only records where it stood, so the tip must not claim otherwise
           const evRow=state.classes.find(r=>r.id===ev.row);
           const rest=kind==="cantrip"&&evRow&&swapRule(evRow).cantrip==="lr";
-          attachTip(pill,tipBlock(kind==="cantrip"?"Cantrip swap":"Spell swap",
-            (rest?"Replaced after a long rest, standing here: ":"Taking this level, ")
-            +name(ev.out)+" was traded for "+name(ev.in)+". "
+          attachTip(pill,tipBlock(kind==="cantrip"?"Cantrip trade":"Spell trade",
+            (rest?"Replaced on a long rest, standing here: ":"Taken at this level: ")
+            +pickName(ev.out)+" for "+pickName(ev.in)+". "
             +(rest?"That class replaces one cantrip per long rest — the level only records where it happened."
-                  :"A level-up carries at most one spell swap and one cantrip swap, and only where the class's rules grant them.")
-            +" × forgets this one."));});
+                  :"A level-up carries one spell trade and one cantrip trade, where the class's rules grant them.")
+            +" × clears it."));});
       }
       card.append(chips);
     }
+    if(retrainRow)card.append(retrainRow);
     // click = jump the view there; the popover stays open so levels can be walked.
     // stopPropagation, because the jump re-renders this very list — the bubbling click
     // would reach the outside-click closer with a DETACHED target that reads as
     // "outside" and shut the popover (the re-render-under-a-bubbling-event trap)
-    card.onclick=e=>{ if(e.target.closest(".tlchip,.tlswap,.logrip,button"))return;
+    card.onclick=e=>{ if(e.target.closest(".tlchip,.tlswap,.tlretrain,.gopen,.logrip,button"))return;
       e.stopPropagation(); setPreview(i===total?null:i); };
     // row drag (multiclass): reorder WHICH class each level is taken in — the old
     // Level order panel's whole job, absorbed here (D115(j) retires it)
@@ -4892,17 +5074,71 @@ function renderTimeline(){
       if(dropChipOnLevel(d,i)){refreshAll();render();}
       else{card.classList.add("refuse");setTimeout(()=>card.classList.remove("refuse"),380);}};
     box.append(card);});
-  // footer: fork a variant here · set as current level (D115(i,e))
-  const fork=$("#tlFork"),pin=$("#tlPin");
-  fork.textContent="Fork a variant here";
+  // the ghost row that ADDS a level, after the last run. One tap continues the class
+  // the plan ends on; the last other class sits beside it and the rest live in a compact
+  // menu (D126(d)'s shape). Every path writes through classLevelPlan() + an append to
+  // state.levelOrder — the same idiom the guide's class step uses, and the only one.
+  if(total<20)box.append(tlAddRow(plan,rowOf,total));
+  // footer: fork a variant · set the current level · start the guide (D115(i,e), D118(i))
+  const fork=$("#tlFork"),pin=$("#tlPin"),guide=$("#tlGuide");
+  const icoBtn=(b,ico,txt)=>{b.innerHTML="";const l=el("span","lbl-ico");
+    l.append(icoEl(ico),document.createTextNode(txt));b.append(l);};
+  icoBtn(fork,"fork","Fork a variant");
   fork.disabled=PREVIEW.level==null;
   fork.title=PREVIEW.level==null?"Jump to a lower level first — the fork branches there":"";
   fork.onclick=()=>{savePreviewAsVersion();closeTimeline();};
   const pinned=view===cur;
-  pin.textContent=pinned?"Current level ✓":"Set as current level";
+  icoBtn(pin,pinned?"check":"bookmark",pinned?"Current level":"Set current level");
   pin.disabled=pinned;
   pin.onclick=()=>{setCurrentLevel(view>=total?null:view);render();};
+  if(guide)icoBtn(guide,"compass","Guide from here");
   box.scrollTop=keepScroll;
+}
+// take the next character level, by the ONE write path: normalize the plan, bump the
+// class row, append the row to the order. Never touch state.levelOrder any other way.
+function tlAddLevel(rowId,clsKey){
+  const plan=classLevelPlan();
+  const r=rowId!=null?state.classes.find(x=>x.id===rowId)
+                     :state.classes.find(x=>x.clsKey===clsKey);
+  if(r){ if((r.level||0)>=20)return;
+    r.level=Math.min(20,(r.level||0)+1); state.levelOrder=plan.concat([r.id]); }
+  else{ const nr={clsKey,subKey:null,level:1,id:state.nextRowId++};
+    state.classes.push(nr); state.levelOrder=plan.concat([nr.id]); }
+  save(); refreshAll(); render();
+}
+function tlAddRow(plan,rowOf,total){
+  const add=el("div","locard tladd");
+  add.append(el("span","lolv","L"+(total+1)));
+  const acts=el("div","tladdacts");
+  const lastId=plan[plan.length-1];
+  let otherId=null;
+  for(let k=plan.length-1;k>=0;k--)if(plan[k]!==lastId){otherId=plan[k];break;}
+  const one=(id,primary)=>{
+    const r=rowOf.get(id), c=r&&CLS_BY[r.clsKey]; if(!r||(r.level||0)>=20)return;
+    const b=el("button","btn tiny"+(primary?" on":""));
+    const l=el("span","lbl-ico");
+    l.append(icoEl("plus"),document.createTextNode((c?c.name:"?")+" "+((r.level||0)+1)));
+    b.append(l);
+    b.onclick=e=>{e.stopPropagation();tlAddLevel(r.id,null);};
+    attachTip(b,tipBlock("Take the next "+(c?c.name:"class")+" level",
+      `Adds character level ${total+1} as ${c?c.name:"?"} ${(r.level||0)+1}.`));
+    acts.append(b);};
+  one(lastId,true);
+  if(otherId!=null)one(otherId,false);
+  const sel=el("select","tladdsel");
+  sel.append(el("option","","another class…"));
+  DATA.classes.filter(visible).forEach(c=>{const o=el("option",null,c.name);
+    o.value=key(c.name,c.source);
+    // a class already at 20 can take no further level — say so rather than accept the
+    // choice and do nothing (a control that swallows a gesture is a dead one)
+    const have=state.classes.find(x=>x.clsKey===o.value);
+    if(have&&(have.level||0)>=20){o.disabled=true;o.textContent=c.name+" · 20";}
+    sel.append(o);});
+  sel.onclick=e=>e.stopPropagation();
+  sel.onchange=()=>{const ck=sel.value; sel.value=""; if(ck)tlAddLevel(null,ck);};
+  acts.append(sel);
+  add.append(acts);
+  return add;
 }
 // ── slots, cart and spell list render ──────────────────────────────────────
 function renderSlots(){
@@ -5688,7 +5924,10 @@ function renderClassRows(){
     sl.append(el("span","fldt","Subclass"));      // its own span so it can ellipsize
     if(locked)sl.append(lockChip(subLvl,"The subclass"));
     sc.append(sl);
-    const ss=el("select",needsSub?"alert":"");ss.append(new Option(locked?"— locked —":"— none —",""));
+    const ss=el("select",needsSub?"alert":"");ss.dataset.sub=String(row.id);
+    // the timeline's "subclass — not chosen" affordance focuses THIS select (never a
+    // second chooser of its own), so the row has to be findable from outside
+    ss.append(new Option(locked?"— locked —":"— none —",""));
     (SUBS_OF[key(c.name,c.source)]||[]).filter(x=>visible(x)||key(x.name,x.source)===row.subKey)
       .sort((a,b)=>a.shortName.localeCompare(b.shortName))
       .forEach(s=>ss.append(new Option(s.shortName+(s.source!==CORE?` (${s.source})`:"")+(s.caster?" ✦":""),key(s.name,s.source))));

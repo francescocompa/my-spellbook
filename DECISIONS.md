@@ -1002,8 +1002,10 @@ written up in full in `GOTCHAS.md` — that is the copy to trust.
   could be mentioned in the spell table rows when they affect only a specific type of spell
   (ex. twinned)"*.
   - **(a) The merged casting tile reads "spell" in the muted colour** — where the two clocks
-    agree, naming the merger ("cast") answered a question nobody asked; split tiles keep their
-    38% hue mix.
+    agree, naming the merger ("cast") answered a question nobody asked; ~~split tiles keep
+    their 38% hue mix~~ **→ superseded 2026-08-29 (W4)**: Francesco, raw — *"spells, slots,
+    picks, and pact tiles should have the same base colors"* — every tile shares the muted
+    base now; only alert/highlight states differ.
   - **(b) Pact Magic gets its OWN tile, measured as count × slot level** ("2× 2nd pact",
     neutral), shown at levels where either number moves; it never merges with the spell clock.
     `levelCasting` now returns `{pact,pactUp}` for pact casters instead of masquerading pact
@@ -1037,7 +1039,10 @@ written up in full in `GOTCHAS.md` — that is the copy to trust.
     render as dashed "+" chips (click = jump the view there); a neutral "2/6 picks" tile
     states wants/has wherever a level opens slots; and the chip row is ONE line that bleeds
     under a right-edge mask and scrolls (the spell-details access pattern) instead of
-    wrapping. *Rejected:* counts in the gains line; labelled "+ spell" ghosts.
+    wrapping. *Rejected:* counts in the gains line; ~~labelled "+ spell" ghosts~~ **→ the
+    label rejection was REVERSED 2026-08-29 (W4)**: Francesco, raw — *"add back the 'spell'
+    to the + spell button … write instead + cantrip if it's a cantrip"* — ghosts read
+    "+ spell" / "+ cantrip" now; the bare "+" is gone.
   - **(c) DECIDED — metamagic lives in the spell details as an Access-style row labelled
     "Metamagic".** Raw: *"Access-style row, do not wrap title (perhaps only 'metamagic' is
     enough)."* One row under Access, the one-word label, dashed neutral chips (twin ·

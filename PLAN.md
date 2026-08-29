@@ -93,12 +93,16 @@ coordinating session. The guided-builder notes became **phase G below (D126)**.
   checks), app-side class-scoped subclass resolution + successor-aware `reprintOk`.
   Verified: no duplicate pairs in any class picker, +67 classics visible, the 73 hollow
   records healed. Needs Francesco's one-click re-import per browser.
-- [ ] **W4 — timeline batch** (agent, queued behind W2): "+ spell"/"+ cantrip" ghost labels
-  (supersedes D124(b)'s bare "+" — log on landing); retrain chip = icon + level, click the
-  level to edit it, the replacement pick chip highlighted + counter up; picks-count tile
-  alert tint when over/under; subtle click-to-choose on unchosen options (quick modal);
-  copy scrub (drop "D115" codes, dry phrasing); "+ add level" at the bottom; icons on
-  buttons that want one.
+- [x] **W4 — timeline batch** (**merged v1.2.22**, 11 items incl. 4 mid-flight additions):
+  labeled ghosts (D124(b) rejection reversed, annotated); retrain chips (icon + Ln, level
+  tag opens an inline move chooser — one eligibility predicate `swapLevelOk` shared by arm/
+  move/ceiling); violet incoming chips + per-half count tiles (over/under crimson — "have"
+  now counted at landing, so over-schedule is finally expressible); quiet click-to-choose
+  on undecided gains (opens the REAL choosers); full copy scrub (all D-codes gone; trade
+  wording); "+ add level" row (D126(d) shape); iconed footer (the ⇄ glyph violation fixed);
+  chip-row mask padding; unified tile base color (D123(a) hue-mix clause superseded,
+  annotated); pact tile fits its square. Deviation flagged: an ARMED chip's level tag is a
+  marker, not a mover (no event exists yet).
 
 ## Phase G — the guided builder as a full-size page (D126, decided 2026-08-29)
 

@@ -1114,8 +1114,11 @@ table.spelltable .pickcell{cursor:help}
 .ordflag{display:inline-flex;align-items:center;color:var(--gold);cursor:help}
 .ordflag svg{width:13px;height:13px}
 .ordflag.hidden{display:none}
-.tlfoot{display:flex;gap:8px;padding:9px 12px;border-top:1px solid var(--line)}
-.tlfoot .btn{flex:1;font-size:12px}
+.tlfoot{display:flex;flex-wrap:wrap;gap:8px;padding:9px 12px;border-top:1px solid var(--line)}
+/* each footer action carries its icon (D57) — the label centres beside it, and the row
+   wraps rather than squeezing three labels into one unreadable line on a phone */
+.tlfoot .btn{flex:1 1 138px;font-size:12px;display:inline-flex;align-items:center;justify-content:center}
+.tlfoot .btn .lbl-ico{justify-content:center}
 .tllist{flex:1;padding:2px;max-height:none;gap:0}
 /* run aggregation (D122): consecutive levels of one class share a coloured rail and
    close ranks — the tight gap says "one block", the rail says which class's */
@@ -1159,14 +1162,20 @@ table.spelltable .pickcell{cursor:help}
    pattern) — wrapping made tall rows out of long lists (D124) */
 .tlchips{flex-basis:100%;display:flex;flex-wrap:nowrap;gap:4px;margin-top:5px;
   overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;padding-bottom:1px;
-  -webkit-mask-image:linear-gradient(90deg,#000 93%,transparent);
-  mask-image:linear-gradient(90deg,#000 93%,transparent)}
+  -webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 34px),transparent);
+  mask-image:linear-gradient(90deg,#000 calc(100% - 34px),transparent)}
+/* the mask is fixed to the SCROLLER, so without trailing room the last chip could never
+   scroll out from under the gradient — it has to be able to reach fully lit space */
+.tlchips>*:last-child{margin-right:36px}
 .tlchips::-webkit-scrollbar{display:none;width:0;height:0}
 .tlchip{flex:0 0 auto;font-size:10.5px;line-height:1;padding:3px 7px;border:1px solid var(--line);
   border-radius:20px;background:var(--panel-2);color:var(--ink);cursor:grab;white-space:nowrap}
-/* an open schedule slot at this level: a bare + that jumps the view there (D124) */
+/* an open schedule slot at this level: a LABELLED ghost ("+ spell") that jumps the view
+   there — the bare "+" said which action but never which slot */
 .tlchip.ghost{border-style:dashed;background:none;color:var(--muted);cursor:pointer;
   min-width:22px;text-align:center}
+/* the replacement an armed trade is still waiting for: the same ghost, trade-coloured */
+.tlchip.ghost.swghost{border-color:color-mix(in srgb,var(--free) 55%,transparent);color:var(--free)}
 .tlchip:active{cursor:grabbing}
 .tlchip.fixed{cursor:default;color:var(--muted)}
 .tlchip.dragging{opacity:.4}
@@ -1177,9 +1186,46 @@ table.spelltable .pickcell{cursor:help}
 .tlswap .out{text-decoration:line-through;opacity:.75}
 /* a pick later traded away carries the mark; an ARMED one glows until its replacement lands */
 .tlchip.traded{border-color:var(--free)}
-.tlchip .sw{color:var(--free);margin-left:3px;font-size:10px}
 .tlchip.canswap{cursor:pointer}
 .tlchip.swaparmed{border-color:var(--free);background:var(--free-soft);color:var(--free)}
+/* the retrain mark: the icon, then the level the trade happens at. A recorded trade's
+   level is itself the control that re-dates it — a dashed rule says so without becoming
+   a button inside a chip inside a draggable row. */
+.tlchip .sw,.tlswap .sw{display:inline-flex;align-items:center;color:var(--free);vertical-align:-1px}
+.tlchip .sw{margin-left:4px}
+.tlchip.swin .sw,.tlswap .sw{margin:0 2px 0 0}
+.tlchip .sw svg,.tlswap .sw svg{width:10px;height:10px}
+.tlchip .swlv{margin-left:3px;font-size:9.5px;font-weight:700;color:var(--free);
+  font-variant-numeric:tabular-nums}
+.tlchip .swlv.editable{cursor:pointer;border-bottom:1px dashed color-mix(in srgb,var(--free) 60%,transparent)}
+.tlchip .swlv.editable:hover,.tlchip .swlv.editable:focus{border-bottom-style:solid;outline:none}
+/* the pick GAINED in a trade — its own chip at the level the trade happened at, in the
+   trade colour, because the outgoing side keeps the chip where it was learned */
+.tlchip.swin{border-color:var(--free);background:var(--free-soft);color:var(--free);cursor:default}
+/* re-dating a trade: an inline row of the other free level-ups. Inline and not a
+   floating menu — the chip row is a masked scroller, and a document-level closer is
+   what D122 deliberately took out of this modal. */
+.tlretrain{flex-basis:100%;display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-top:5px;
+  padding:5px 7px;border:1px dashed var(--free);border-radius:9px;background:var(--free-soft)}
+.tlretrain .rrl{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+  color:var(--free)}
+.tlretrain .rrn{font-size:10.5px;color:var(--muted)}
+.tlretrain .btn.tiny{border-color:color-mix(in srgb,var(--free) 55%,transparent);
+  color:var(--free);background:var(--panel);font-variant-numeric:tabular-nums}
+.tlretrain .btn.tiny:hover{border-color:var(--free);background:var(--panel-2)}
+.tlretrain .rrx{margin-left:auto;color:var(--free)}
+/* an undecided gain, quietly clickable — a dashed underline, never a button (the row is
+   dense reference text and a control in it would out-shout the level itself) */
+.gopen{cursor:pointer;border-bottom:1px dashed var(--line-strong)}
+.gopen:hover,.gopen:focus{color:var(--accent);border-bottom-color:var(--accent);outline:none}
+/* the ghost row that takes the next level: continue the class the plan ends on, the last
+   other class beside it, everything else in a compact menu (D126(d)'s shape) */
+.locard.tladd{cursor:default;border-style:dashed;background:none;flex-wrap:wrap;margin-top:8px}
+.locard.tladd:active{cursor:default}
+.tladdacts{display:flex;flex-wrap:wrap;align-items:center;gap:6px;flex:1;min-width:0}
+.tladdacts .btn.tiny{white-space:nowrap}
+.tladdsel{width:auto;max-width:150px;font-size:11px;padding:3px 22px 3px 7px;border-radius:6px;
+  background-position:calc(100% - 13px) center,calc(100% - 8px) center;color:var(--muted)}
 .swapbar{display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;padding:9px 12px;
   border-radius:10px;border:1px solid var(--free);
   background:color-mix(in srgb,var(--free) 9%,var(--bg))}
@@ -1213,15 +1259,25 @@ table.spelltable .pickcell{cursor:help}
 /* D122: a tile only appears at the level that MOVED its clock, and it is a NOTE —
    no border, no fill, dimmed — so it can't read as a control */
 .lt{min-width:36px;text-align:center;padding:0 2px;cursor:help}
-.lt b{display:block;font-size:11.5px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
+.lt b{display:block;font-size:11.5px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums;
+  white-space:nowrap}
 .lt small{display:block;font-size:8.5px;text-transform:uppercase;letter-spacing:.04em;
-  font-weight:700;margin-top:0}
-/* split tiles differ by a hue mixed a third of the way into the muted label; the
-   merged tile and pact stay NEUTRAL (D123) — nothing there is asking for attention */
-.lt-spell small{color:color-mix(in srgb,var(--accent) 38%,var(--muted))}
-.lt-slot small{color:color-mix(in srgb,var(--gold) 38%,var(--muted))}
-.lt-cast small,.lt-pact small{color:var(--muted)}
-.lt-pact{min-width:52px}
+  font-weight:700;margin-top:0;color:var(--muted)}
+/* ONE base colour for every tile — spell, slot, pact, picks. The per-clock hue mixes are
+   gone: with tiles appearing only where a clock MOVED, the tint said nothing the word
+   didn't, and it made four tiles in a column read as four different kinds of thing.
+   Only the states below (over/under, a trade) are allowed to differ. */
+/* the pact tile is the same square as the rest: "2×2nd" set a shade smaller so the
+   longest reading still fits inside it instead of pushing the row wider */
+.lt-pact b{font-size:10px;letter-spacing:-.02em}
+/* the picks tile states, both a TINT and nothing more — the number keeps its size and
+   the tile never becomes a control. A trade adds a slot here, so the tile wears the
+   trade colour; a level off its schedule wears the alert one, and outranks it. */
+.lt-count.tlswapc{border-radius:7px;background:var(--free-soft)}
+.lt-count.tlswapc b,.lt-count.tlswapc small{color:color-mix(in srgb,var(--free) 55%,var(--muted))}
+.lt-count.tlalert{border-radius:7px;background:var(--bad-soft)}
+.lt-count.tlalert b{color:color-mix(in srgb,var(--bad) 62%,var(--muted))}
+.lt-count.tlalert small{color:color-mix(in srgb,var(--bad) 40%,var(--muted))}
 
 /* ── build export / import (T5) ───────────────────────────────────────────── */
 /* the base .importdrop is a centred row for the big data drop zone — this one is a
