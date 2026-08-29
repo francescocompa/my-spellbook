@@ -5192,8 +5192,22 @@ function modalHTML(sp){
     +eff.why.map(m=>`<div class="gnote cmod"><b>${esc(m.giver+" · "+m.feature)}</b>`
       +(m.when?`<span class="cmwhen">${esc(m.when)}</span>`:"")
       +`<p>${ccText(m.note)}</p></div>`).join("")
-    +statblockHTML(sp)+accessHTML(sp)+`</div></div>`;}
+    +statblockHTML(sp)+accessHTML(sp)+metamagicHTML(sp)+`</div></div>`;}
+// D124(c): the selected metamagic that can touch this spell — an Access-style row
+// (label "Metamagic", one word, no wrap), present only when a class that owns
+// Metamagic can actually take the spell and at least one option's condition holds
+function metamagicHTML(sp){
+  const mm=activeMetamagic(); if(!mm)return "";
+  const e=R&&R.pool&&R.pool.get(key(sp.name,sp.source));
+  if(!e||!e.takers.some(t=>mm.rows.has(t.idx)))return "";
+  const hits=mm.opts.map(o=>({o,d:METAMAGIC_WHEN[o.name]})).filter(x=>x.d.test(sp));
+  if(!hits.length)return "";
+  const chips=hits.map(x=>`<span class="mmchip" data-mmn="${esc(x.o.name)}" data-mmw="${esc(x.d.why)}">${esc(x.d.tag)}</span>`).join("");
+  return `<div class="acc-row mmrow"><span class="secttl">Metamagic</span><div class="achips">${chips}</div></div>`;
+}
 function openSpellModal(sp){hideTip();SPMODAL.innerHTML=modalHTML(sp);
+  SPMODAL.querySelectorAll(".mmchip").forEach(c=>attachTip(c,
+    tipBlock(c.dataset.mmn,"This spell "+c.dataset.mmw+". Advisory — the option's full text has the final word.")));
   const at=SPMODAL.querySelector(".acc-toggle");
   if(at)at.onclick=()=>{const a=at.closest(".access");a.dataset.exp=a.dataset.exp==="1"?"0":"1";};
   const sbt=SPMODAL.querySelector(".sb-toggle");

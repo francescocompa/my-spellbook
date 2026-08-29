@@ -25,13 +25,12 @@
   behaviour preserved, verified both ways in-browser. Three cosmetic side notes logged in D120
   (dead `recordSwap`, a chain-swap tip label, Escape-under-the-picker), none blocking.
   Phase E's shape (E1–E7, v1.2.4 → v1.2.8) is described in `PLAN.md` and `CHANGELOG.md`.
-- **Next action:** two live threads. ① **Francesco's call on the two OPEN D124 halves** —
-  `scratchpad/mm-palette-mockups.html`: where metamagic lives in the spell details
-  (Access-row · meta badges · reasons line) and which full palette (P1 Verdigris ·
-  P2 Lapis · P3 Ember, each with ΔH/WCAG analysis); D124(a,b) — run dividers + rail fix,
-  ghost "+" chips + count tile + masked one-line chip rows — are DECIDED and shipped
-  v1.2.14. ② **F4 — the phase F 🔍 fresh-eyes gate** (`fable@high`, **a separate
-  session** — this one built F): review F1–F3 against D118(a–k).
+- **Next action:** **F4 — the phase F 🔍 fresh-eyes gate** (`fable@high`, **a separate
+  session** — this one built F1–F3): review the shipped phase against D118(a–k). **D124 is
+  fully DECIDED and shipped** (v1.2.14–15): run dividers + rail fix, ghost "+" chips +
+  count tile + masked chip rows, the spell-details "Metamagic" row, and the **P3 Ember
+  palette** (terracotta accent · crimson alerts, all five theme blocks — note the raw
+  reversal: Verdigris was picked once, then switched to Ember; don't re-propose P1).
   **Phase F's build work is COMPLETE**: F1 v1.2.11 (step derivation, D121), F2 v1.2.12
   (coach rail + D122's timeline-modal rework), F3 v1.2.13 (entries + reverse reconstruct;
   also D123 — pact tiles measured as count × level, merged tile says "spell", and selected

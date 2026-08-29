@@ -1,8 +1,8 @@
 :root{
     --bg:#f4f1ea; --panel:#fffdf8; --panel-2:#f0ebe0; --ink:#241f1a; --muted:#7a7066;
-    --line:#e0d8ca; --line-strong:#cabfad; --accent:#8a3324; --accent-soft:#8a332415;
+    --line:#e0d8ca; --line-strong:#cabfad; --accent:#8f4b2b; --accent-soft:#8f4b2b15;
     --gold:#9c7a2e; --gold-soft:#9c7a2e18; --good:#3f6b4a; --good-soft:#3f6b4a14;
-    --free:#5b57a3; --free-soft:#5b57a314; --bad:#b23b2e; --bad-soft:#b23b2e16;
+    --free:#5b57a3; --free-soft:#5b57a314; --bad:#c1273b; --bad-soft:#c1273b16;
     --radius:12px; --shadow:0 1px 2px #0000000f,0 6px 20px #0000000a;
     --font:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
     --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
@@ -11,17 +11,17 @@
   @media (prefers-color-scheme:dark){ :root:not([data-theme=light]){
     color-scheme:dark;
     --bg:#17140f; --panel:#211d16; --panel-2:#2a251c; --ink:#ece4d6; --muted:#a99e8d;
-    --line:#3a3225; --line-strong:#4c4130; --accent:#d97a5f; --accent-soft:#d97a5f1f;
+    --line:#3a3225; --line-strong:#4c4130; --accent:#d9915f; --accent-soft:#d9915f1f;
     --gold:#d4ad5a; --gold-soft:#d4ad5a1c; --good:#7fbb8c; --good-soft:#7fbb8c18;
-    --free:#a6a1e6; --free-soft:#a6a1e618; --bad:#e0796b; --bad-soft:#e0796b1c;
+    --free:#a6a1e6; --free-soft:#a6a1e618; --bad:#f0616e; --bad-soft:#f0616e1c;
     --shadow:0 1px 2px #0000002f,0 8px 24px #00000024;
   }}
   :root[data-theme=dark]{
     color-scheme:dark;
     --bg:#17140f; --panel:#211d16; --panel-2:#2a251c; --ink:#ece4d6; --muted:#a99e8d;
-    --line:#3a3225; --line-strong:#4c4130; --accent:#d97a5f; --accent-soft:#d97a5f1f;
+    --line:#3a3225; --line-strong:#4c4130; --accent:#d9915f; --accent-soft:#d9915f1f;
     --gold:#d4ad5a; --gold-soft:#d4ad5a1c; --good:#7fbb8c; --good-soft:#7fbb8c18;
-    --free:#a6a1e6; --free-soft:#a6a1e618; --bad:#e0796b; --bad-soft:#e0796b1c;
+    --free:#a6a1e6; --free-soft:#a6a1e618; --bad:#f0616e; --bad-soft:#f0616e1c;
     --shadow:0 1px 2px #0000002f,0 8px 24px #00000024;
   }
   *{box-sizing:border-box}
@@ -1400,9 +1400,9 @@ label.fld .fldt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-wi
   :root[data-theme="dark"]:not([data-print="dark"]),
   :root[data-theme="light"]:not([data-print="dark"]){
     --bg:#fff; --panel:#fff; --panel-2:#fff; --ink:#1a1613; --muted:#5f574e;
-    --line:#ccc4b6; --line-strong:#a9a091; --accent:#8a3324; --accent-soft:transparent;
+    --line:#ccc4b6; --line-strong:#a9a091; --accent:#8f4b2b; --accent-soft:transparent;
     --gold:#7d5f1c; --gold-soft:transparent; --good:#2f5a3a; --good-soft:transparent;
-    --free:#4a469a; --free-soft:transparent; --bad:#962e22; --bad-soft:transparent;
+    --free:#4a469a; --free-soft:transparent; --bad:#9c1f30; --bad-soft:transparent;
     --shadow:none;
   }
   /* The DARK sheet — for a PDF that is read on a screen. The palette is restated rather
@@ -1410,9 +1410,9 @@ label.fld .fldt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-wi
      is the only way to stop the browser helpfully dropping every background. */
   :root[data-print="dark"]{
     --bg:#17140f; --panel:#211d16; --panel-2:#2a251c; --ink:#ece4d6; --muted:#a99e8d;
-    --line:#3a3225; --line-strong:#4c4130; --accent:#d97a5f; --accent-soft:#d97a5f1f;
+    --line:#3a3225; --line-strong:#4c4130; --accent:#d9915f; --accent-soft:#d9915f1f;
     --gold:#d4ad5a; --gold-soft:#d4ad5a1c; --good:#7fbb8c; --good-soft:#7fbb8c18;
-    --free:#a6a1e6; --free-soft:#a6a1e618; --bad:#e0796b; --bad-soft:#e0796b1c;
+    --free:#a6a1e6; --free-soft:#a6a1e618; --bad:#f0616e; --bad-soft:#f0616e1c;
     --shadow:none;
     -webkit-print-color-adjust:exact; print-color-adjust:exact;
   }
@@ -1642,10 +1642,11 @@ body.guiding .layout{padding-right:316px}
 .grstep .gs-st svg{width:12px;height:12px}
 .grstep.done .gs-st{color:var(--good)}
 .grstep.gsill .gs-st{color:var(--bad)}   /* a filled slot whose spell can't sit there */
-/* selected-metamagic tags in the spell table's name cell (D123) — quiet, neutral */
-.nm .mmtag{display:inline-block;margin-left:4px;padding:1px 5px;border:1px solid var(--line-strong);
-  border-radius:8px;font-size:8.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;
-  color:var(--muted);vertical-align:1px;cursor:help}
+/* the spell details' Metamagic row (D124(c)) — Access anatomy, quiet dashed chips */
+.spmodal .mmrow{margin-top:6px}
+.spmodal .mmchip{flex:0 0 auto;font-size:10px;padding:2px 9px;border-radius:12px;background:none;
+  border:1px dashed var(--line-strong);color:var(--muted);white-space:nowrap;
+  text-transform:uppercase;letter-spacing:.03em;font-weight:600;cursor:help}
 .grstep.open .gs-val{color:var(--muted);font-style:italic}
 .grstep.skipped{border-style:dashed}
 .grstep.skipped .gs-st{color:var(--gold)}

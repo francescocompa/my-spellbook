@@ -1033,18 +1033,25 @@ written up in full in `GOTCHAS.md` — that is the copy to trust.
     states wants/has wherever a level opens slots; and the chip row is ONE line that bleeds
     under a right-edge mask and scrolls (the spell-details access pattern) instead of
     wrapping. *Rejected:* counts in the gains line; labelled "+ spell" ghosts.
-  - **(c) OPEN 🔶 — metamagic moves from the Spell table to the SPELL DETAILS.** Raw: *"for
-    the metamagic, move them from the actual table to the spell details instead (quick mockup
-    to decide where)."* The D123(c) table tags are removed; `METAMAGIC_WHEN`/`activeMetamagic`
-    stay as the feed. Three placements mocked: an Access-style "Your metamagic" row ·
-    meta-line badges · a reasons line above the text.
-  - **(d) OPEN 🔶 — a full palette change, grounded.** Raw: *"propose full alternative
-    palettes, ground your proposal in actual color theory and analysis."* Measured problem:
-    accent sits 3–6° of hue from the alert red at near-equal lightness. Three complete
-    palettes proposed with WCAG/hue numbers: **P1 Verdigris** (split-complementary teal,
-    ΔH≈165°, nothing else moves) · **P2 Lapis & Gold** (illuminated-manuscript blue, ΔH≈145°,
-    the swap/pact violet must move to plum) · **P3 Ember retuned** (terracotta accent +
-    crimson alert, ΔH≈27–30° plus lightness/chroma — identity kept, separation partial).
+  - **(c) DECIDED — metamagic lives in the spell details as an Access-style row labelled
+    "Metamagic".** Raw: *"Access-style row, do not wrap title (perhaps only 'metamagic' is
+    enough)."* One row under Access, the one-word label, dashed neutral chips (twin ·
+    quicken · careful) with the reason in each tip; rendered only when a Metamagic-owning
+    class can take the spell AND at least one selected option's condition holds. The D123(c)
+    table tags are gone; `METAMAGIC_WHEN`/`activeMetamagic` feed this row now. *Rejected:*
+    meta-line badges (the line is dense and wraps on phones); a reasons line above the text
+    (repeats itself once learned); the two-word label ("Your metamagic" wrapped).
+  - **(d) DECIDED — the palette is P3 EMBER: keep the rust identity, widen the gap.**
+    Mechanism note: the first answer picked P1 Verdigris; Francesco reversed it — raw:
+    *"Try again, switch to ember instead of verdigris."* Applied across all five theme
+    blocks (light, two dark, print-light, print-dark): accent slides to terracotta
+    (light #8f4b2b, dark #d9915f), alerts to crimson (light #c1273b, dark #f0616e, print
+    #9c1f30). Separation = ΔH≈27–30° PLUS a lightness/chroma gap — improved, deliberately
+    not categorical; the analysis (and the caveat that gold sits ~18° from the dark accent)
+    is in `scratchpad/mm-palette-mockups.html`. The app icon keeps the old rust — it is
+    artwork, not a functional colour, and its PNGs are pre-rendered. *Rejected:* **P1
+    Verdigris** (picked once, then reversed — do not re-propose); **P2 Lapis & Gold**
+    (would force the swap/pact violet to move to plum).
   Enforced by: src/app.js `timelinePicks`/`renderTimeline`, src/styles.css rails/dividers/
   ghost/count/mask rules. Affects: the timeline; the Spell table name cell (tags removed).
 
