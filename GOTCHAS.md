@@ -413,5 +413,13 @@
   it reads. If picks ever vanish on reload again while other edits stick, look here first —
   and never assign a `serializeState()` result (or anything holding `state`'s sub-objects)
   into a stored build without detaching it.
+- **The browser pane's localhost proxy can collapse DIFFERENT ports onto ONE shared origin**
+  — so `serve.py 8095` is NOT an isolated sandbox just because the port differs, and
+  `localStorage`/IndexedDB there may be the SAME storage the main session's :8000 tab uses.
+  This burned a whole agent wave (2026-08-29): four agents "verified on isolated origins"
+  while actually sharing one, their fixtures leaked into each other's runs, and the pane's
+  scratch build was overwritten in place. Any agent that drives the pane must treat browser
+  storage as SHARED: snapshot `spellForge.*` (and note IndexedDB) before writing, restore
+  byte-identical after, and verify the restore — never trust port isolation.
 - **History purge:** old data-bearing commits are unreachable on origin but GitHub may still serve
   them by exact SHA until it gc's. `backup/pre-purge-20260826` (local) has the original.

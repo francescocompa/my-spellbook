@@ -47,6 +47,9 @@ const ICONS={
   fork:_I('<circle cx="4.6" cy="3.3" r="1.7"/><circle cx="4.6" cy="12.7" r="1.7"/><circle cx="11.6" cy="3.3" r="1.7"/><path d="M4.6 5v6M11.6 5v1.2a2.6 2.6 0 0 1-2.6 2.6H7.2a2.6 2.6 0 0 0-2.6 2.6"/>'),
   // a compass needle — "guide me from here"
   compass:_I('<circle cx="8" cy="8" r="5.9"/><path d="m10.6 5.4-1.3 3.9-3.9 1.3 1.3-3.9z"/>'),
+  // the character page itself — its two columns. The guide's "switch back" (D126(a)):
+  // deliberately NOT the ⇄ trade icon, which in this app means a swap, not a view
+  views:_I('<rect x="2.2" y="3.2" width="11.6" height="9.6" rx="1.8"/><path d="M6.4 3.2v9.6"/>'),
 };
 // the small × remove button used inside chips and rows
 function xBtn(cls,onClick){const b=el("button",(cls||"")+" ico xsm");b.innerHTML=ICONS.x;
@@ -1098,20 +1101,28 @@ function guideResume(steps,desc){
   const list=desc?[...steps].reverse():steps;
   return list.find(s=>s.status!=="done"&&!s.optional)||null;
 }
-// ── the coach rail (F2 · D118(k)) ──────────────────────────────────────────
-// The chain rendered whole, grouped under level headers, jump-anywhere. The rail is
-// ephemeral UI over the stateless derivation above — closing it stores nothing
-// (D118(j)). Structural choices (class · subclass · feat-or-ASI · swap y/n) answer
-// INLINE under the current row; multi-pick decisions hand off to the real page,
-// pre-filtered to what is legal at that acquisition point (D118(b) — see renderSpells).
+// ── the guided builder PAGE (G1 · D126(a,b,c) — supersedes F2's rail) ───────
+// The guide is its own full-size view now: a header (which build, which level, how far
+// along, the switch back to the character view, the exit), a CHAIN COLUMN — a lean
+// variant of the timeline: level rows with per-class rails, run dividers, flags, and the
+// SAME drag-to-reorder the timeline modal uses (D126(b)) — and the DECISION STAGE beside
+// it. Phone widths show one of the two at a time, one tap apart (D126(c)); the bottom
+// sheet and the whole-chain toggle are gone by decision.
+// The page is ephemeral UI over the stateless derivation above — nothing here is stored
+// (D118(j)), which is exactly why "Character view" can leave and come back for free.
+// Structural choices (class · subclass · feat-or-ASI · swap y/n) answer INLINE on the
+// stage; multi-pick decisions still hand off to the page's pre-filtered list until G3
+// replaces that with a modal (D126(f)).
 // `cur` is a step KEY so it survives every re-render; `autonext` moves it along when
-// the step it points at gets answered on the page.
+// the step it points at gets answered on the page. `away` is the character-view switch:
+// the walk stays exactly where it was, the page just steps aside.
 // `reverse` is D118(f)'s reconstruct mode: the candidate pool narrows to the build's
 // own picks and answering a slot PLACES a pick at that slot's array position — a
 // stateless gesture (the position IS the answer), so leftovers drift to the top slice
 // and take E4 flags exactly as D118(g) requires. `choose` renders the walk chooser
 // that a ready build gets on entry (D118(f) "asks which walk").
-let GUIDE={on:false,desc:false,reverse:false,choose:false,cur:null,autonext:false,stepNext:false,expanded:false};
+let GUIDE={on:false,away:false,desc:false,reverse:false,choose:false,cur:null,
+           autonext:false,stepNext:false,pane:"stage"};
 // identity that survives re-derivation: picks key on their array POSITION (stable
 // under acquisition moves), everything else on what places it
 function guideKey(s){
@@ -1123,18 +1134,23 @@ function guideKey(s){
   if(s.kind==="swap")return "swap~"+s.lv+"~"+s.swkind;   // one per KIND per level
   return s.kind+"~"+s.lv;               // species (lv 1)
 }
-function openGuide(desc,reverse){ GUIDE.on=true; GUIDE.desc=!!desc; GUIDE.reverse=!!reverse;
+function openGuide(desc,reverse){ GUIDE.on=true; GUIDE.away=false; GUIDE.pane="stage";
+  GUIDE.desc=!!desc; GUIDE.reverse=!!reverse;
   GUIDE.choose=false; GUIDE.cur=null; GUIDE.autonext=true; render(); }
-function closeGuide(){ if(!GUIDE.on)return; GUIDE.on=false; GUIDE.choose=false; GUIDE.reverse=false;
-  GUIDE.cur=null; render(); }
+function closeGuide(){ if(!GUIDE.on)return; GUIDE.on=false; GUIDE.away=false; GUIDE.choose=false;
+  GUIDE.reverse=false; GUIDE.cur=null; render(); }
 // the shared entry for an EXISTING build (F3 · D118(i)): a fresh/empty build walks
 // forward without ceremony; a build that already answered something is asked which
-// walk it wants (continue forward, or reconstruct over its own picks — D118(f))
+// walk it wants (continue forward, or reconstruct over its own picks — D118(f)).
+// A walk already in progress is RESUMED rather than re-asked — the entries double as
+// the way back from the character view.
 function guideEntry(){
+  if(GUIDE.on){GUIDE.away=false;render();return;}
   const answered=state.speciesKey||state.feats.length||state.optFeats.length
     ||Object.values(state.chosen||{}).some(ch=>((ch&&ch.cantrips||[]).length+(ch&&ch.spells||[]).length)>0);
   if(!state.classes.length||!answered){openGuide(false);return;}
-  GUIDE.on=true; GUIDE.choose=true; GUIDE.reverse=false; GUIDE.cur=null; render();
+  GUIDE.on=true; GUIDE.away=false; GUIDE.pane="stage";
+  GUIDE.choose=true; GUIDE.reverse=false; GUIDE.cur=null; render();
 }
 // a pick slot holding a spell its class could not cast where the slot arrives — the
 // rail marks it and the reverse walk resumes at the first one
@@ -1219,94 +1235,224 @@ function guideSync(){
     }
   }
 }
+// the page: header, then either the walk chooser or chain + stage. `away` keeps the
+// walk alive while the character view is on screen — the ⋯ entry, the timeline footer
+// and the header's own Guide tab all come back to exactly this step.
 function renderGuide(){
-  const rail=$("#guideRail"); if(!rail)return;
-  document.body.classList.toggle("guiding",GUIDE.on);
-  if(!GUIDE.on){rail.classList.add("hidden");return;}
-  const steps=(R&&R.gsteps)||guideSteps();
-  rail.classList.remove("hidden");
-  rail.classList.toggle("grexpanded",GUIDE.expanded);
-  // the walk chooser a ready build gets on entry (F3 · D118(f,i))
-  if(GUIDE.choose){
-    $("#grProg").textContent="";
-    $("#grSub").textContent="This build has answers in it already — pick how the guide should walk it.";
-    const box=$("#grList"); box.innerHTML="";
-    const c1=el("div","grinline");
-    const b1=el("button","btn on","Continue building — walk up from here");
-    b1.onclick=()=>openGuide(false,false);
-    c1.append(b1,el("div","grhint","Picks up at the first open decision and walks forward with the full catalog."));
-    const c2=el("div","grinline");
-    c2.append(el("div","grhint","Or reconstruct the level story: walk the levels and place the build's OWN picks where they were acquired. Nothing is deleted — whatever you don't place settles at the top level and stays flagged (soft, as always)."));
-    const b2=el("button","btn","Reconstruct — walk L1 up");
-    b2.onclick=()=>openGuide(false,true);
-    const b3=el("button","btn","Reconstruct — walk L"+topCharLevel()+" down");
-    b3.onclick=()=>openGuide(true,true);
-    c2.append(b2,b3);
-    box.append(c1,c2);
-    ["grBack","grSkip","grNext"].forEach(id=>{$("#"+id).disabled=true;});
-    $("#grNext").textContent="Next →";
-    $("#grClose").onclick=closeGuide;
-    return;
-  }
-  const cur=GUIDE.cur&&steps.find(x=>guideKey(x)===GUIDE.cur)||null;
-  const need=steps.filter(x=>!x.optional);
-  const doneN=need.filter(x=>x.done).length;
-  $("#grProg").textContent=doneN+" / "+need.length+" decided";
-  const top=topCharLevel();
-  $("#grSub").textContent=(GUIDE.reverse
-    ?`Reconstructing over the build's own picks, `+(GUIDE.desc?`L${top} down`:`L1 up`)
-      +" — each slot takes the pick that was acquired there; the rest drift to the top."
-    :(GUIDE.desc?`Walking L${top} down to L1`:`Walking L1 up`)
-      +" — click any step to jump; everything is skippable (open slots stay flagged, never blocked).");
-  const all=$("#grAll"); all.textContent=GUIDE.expanded?"this level":"whole chain";
-  all.onclick=()=>{GUIDE.expanded=!GUIDE.expanded;renderGuide();};
-  const box=$("#grList"); const keep=box.scrollTop; box.innerHTML="";
-  // group under level headers — the chain's visible skeleton (D118(c))
+  const v=$("#guideView"); if(!v)return;
+  const live=GUIDE.on&&!GUIDE.away;
+  document.body.classList.toggle("guiding",live);
+  const tab=$("#tabGuide"); if(tab)tab.classList.toggle("hidden",!(GUIDE.on&&GUIDE.away));
+  v.classList.toggle("hidden",!live);
+  if(!live)return;
+  const steps=(R&&R.gsteps&&R.gsteps.length)?R.gsteps:guideSteps();
+  const cur=(!GUIDE.choose&&GUIDE.cur&&steps.find(x=>guideKey(x)===GUIDE.cur))||null;
+  renderGuideHead(steps);
+  v.classList.toggle("gvchoose",!!GUIDE.choose);
+  v.classList.toggle("gvchain",!GUIDE.choose&&GUIDE.pane==="chain");
+  if(GUIDE.choose){$("#gChain").innerHTML=""; renderGuideChooser(); return;}
+  renderGuideChain(steps,cur);
+  renderGuideStage(steps,cur,new Map(state.classes.map(r=>[r.id,r])));
+}
+// build · level · progress · the two ways out. The pane toggle is the phone's one tap
+// between the decision and the chain (D126(c)); at desktop widths both are on screen
+// and it is hidden by CSS, so it never becomes a second navigation model.
+function renderGuideHead(steps){
+  const b=activeBuild();
+  $("#ghName").textContent=(b&&b.meta.character)||"New build";
+  const ver=$("#ghVer"); ver.textContent=(b&&b.meta.name)||"";
+  ver.classList.toggle("hidden",!ver.textContent);
+  const total=state.classes.reduce((a,r)=>a+(r.level||0),0);
+  const view=PREVIEW.level==null?total:PREVIEW.level;
+  $("#ghLvl").textContent=total?`L${view} / ${total}`:"no levels yet";
+  const need=steps.filter(x=>!x.optional), doneN=need.filter(x=>x.done).length;
+  const prog=$("#ghProg");
+  prog.classList.toggle("hidden",!!GUIDE.choose);
+  $("#ghProgN").textContent=doneN+" / "+need.length+" decided";
+  $("#ghBar").style.width=(need.length?Math.round(doneN/need.length*100):0)+"%";
+  const tg=$("#ghToggle"), chainOn=GUIDE.pane==="chain";
+  tg.innerHTML=""; tg.classList.toggle("hidden",!!GUIDE.choose);
+  const l=el("span","lbl-ico");
+  l.append(icoEl(chainOn?"compass":"order"),document.createTextNode(chainOn?"Decision":"Chain"));
+  tg.append(l);
+  tg.onclick=()=>{GUIDE.pane=chainOn?"stage":"chain";renderGuide();};
+  // the switch is not an exit: the build IS the state (D118(j)), so the walk waits
+  $("#ghSwap").onclick=()=>{GUIDE.away=true;render();};
+  $("#ghClose").onclick=closeGuide;
+}
+// the walk chooser a ready build gets on entry (D118(f,i)) — a centered card on the
+// page now that there is no rail to host it
+function renderGuideChooser(){
+  const st=$("#gStage"); if(!st)return; st.innerHTML="";
+  const wrap=el("div","gchoose");
+  wrap.append(el("h2","gsh","How should the guide walk this build?"));
+  wrap.append(el("p","gsub","This build has answers in it already — pick how the guide should walk it."));
+  const c1=el("div","gcard");
+  const b1=el("button","btn on","Continue building — walk up from here");
+  b1.onclick=()=>openGuide(false,false);
+  c1.append(b1,el("div","grhint","Picks up at the first open decision and walks forward with the full catalog."));
+  const c2=el("div","gcard");
+  c2.append(el("div","grhint","Or reconstruct the level story: walk the levels and place the build's OWN picks where they were acquired. Nothing is deleted — whatever you don't place settles at the top level and stays flagged (soft, as always)."));
+  const rowb=el("div","gbtnrow");
+  const b2=el("button","btn","Reconstruct — walk L1 up");
+  b2.onclick=()=>openGuide(false,true);
+  const b3=el("button","btn","Reconstruct — walk L"+topCharLevel()+" down");
+  b3.onclick=()=>openGuide(true,true);
+  rowb.append(b2,b3); c2.append(rowb);
+  wrap.append(c1,c2);
+  st.append(wrap);
+}
+// the CHAIN COLUMN (D126(b)) — "a lean variant of the timeline modal, with also the
+// ability to change order". One card per character level, carrying the timeline's own
+// language: the per-class coloured rail, run grouping (2px joins inside a run), the run
+// divider label, the level's E4 flag — and the chain's steps inside it. Clicking a step
+// jumps the walk there (guideGo); dragging a level card reorders the plan through the
+// SAME code path the timeline modal uses (wireRowDrag), so the two surfaces can never
+// disagree. Always ascending, whichever way the walk runs: a surface you reorder by
+// dragging must not flip its axis depending on the direction you are walking.
+let GC={drag:null};
+function renderGuideChain(steps,cur){
+  const box=$("#gChain"); if(!box)return;
+  const keep=box.scrollTop; box.innerHTML="";
+  const plan=classLevelPlan(), total=plan.length;
+  const rowOf=new Map(state.classes.map(r=>[r.id,r]));
+  const health=(R&&R.health)||buildHealth();
+  const multi=state.classes.length>1;
+  const view=PREVIEW.level==null?total:PREVIEW.level;
+  const runColor=new Map(); plan.forEach(id=>{if(!runColor.has(id))runColor.set(id,runColor.size%4);});
+  const runs=[]; plan.forEach((id,j)=>{
+    if(j===0||plan[j-1]!==id)runs.push({id,from:j+1,to:j+1});
+    else runs[runs.length-1].to=j+1;});
+  const runAt=new Map(runs.map(r=>[r.from,r]));
   const byLv=new Map();
   steps.forEach(s=>{const a=byLv.get(s.lv)||[];a.push(s);byLv.set(s.lv,a);});
-  const lvs=[...byLv.keys()].sort((a,b)=>GUIDE.desc?b-a:a-b);
-  const rowOf=new Map(state.classes.map(r=>[r.id,r]));
-  lvs.forEach(lv=>{
-    const group=byLv.get(lv), g=el("div","grlv");
-    const cls=group.find(x=>x.kind==="class");
-    const h=el("div","grlvh"); h.append(el("b",null,"L"+lv));
-    if(cls&&cls.value)h.append(el("span",null,cls.value));
-    g.append(h);
-    if(cur&&cur.lv===lv)g.classList.add("grcur");
+  const perClass=new Map(); let curEl=null;
+  [...byLv.keys()].sort((a,b)=>a-b).forEach(lv=>{
+    const group=byLv.get(lv);
+    const id=lv<=total?plan[lv-1]:null, row=id!=null?rowOf.get(id):null, c=row&&CLS_BY[row.clsKey];
+    let cl=0; if(row){cl=(perClass.get(id)||0)+1; perClass.set(id,cl);}
+    if(row&&multi&&runAt.has(lv)){const r2=runAt.get(lv);
+      const dv=el("div","tlrundiv");
+      dv.append(el("span","rdot c"+runColor.get(id)));
+      dv.append(document.createTextNode((c?c.name:"?")+" · "
+        +(r2.from===r2.to?"L"+r2.from:"L"+r2.from+"–L"+r2.to)));
+      box.append(dv);}
+    const card=el("div","locard gclv"+(row?"":" gcnext")+(row&&lv===view?" here":"")
+      +(multi&&row?" runc"+runColor.get(id)+(lv>1&&plan[lv-2]===id?" runjoin":""):""));
+    card.dataset.lv=String(lv);
+    if(multi&&row){card.append(icoEl("grip","logrip")); card.draggable=true;}
+    const body=el("div","lobody");
+    const head=el("div","lotop");
+    head.append(el("span","lolv","L"+lv));
+    head.append(el("b","locls",row?((c?c.name:"?")+" "+cl):"next level"));
+    const flags=health.byLevel.get(lv);
+    if(flags){const wI=el("span","tlwarn"); wI.append(icoEl("warn"));
+      head.append(wI);
+      attachTip(wI,tipBlock(`Level ${lv}: ${issueCount(flags.length)}`,
+        flags.map(f=>f.text).join(" ")));}
+    body.append(head);
+    const list=el("div","gcsteps");
     group.forEach(s=>{
       const isCur=cur&&guideKey(s)===GUIDE.cur;
-      const b=el("button","grstep "+s.status+(s.optional?" optional":"")+(isCur?" cur":""));
-      const k=el("span","gs-k");
-      k.append(el("span","gs-lbl",s.label));
-      k.append(el("span","gs-val",s.value||(s.status==="skipped"?"skipped — still open":"to decide")));
-      b.append(k);
-      const st=el("span","gs-st");
       const ill=guideSlotIllegal(s);          // a filled slot whose spell can't sit there
-      if(ill)b.classList.add("gsill");
-      st.append(icoEl(ill?"warn":s.done?"check":s.status==="skipped"?"warn":"dot"));
-      b.append(st);
-      b.onclick=()=>{guideGo(s);};
-      g.append(b);
-      if(isCur){const inl=guideInline(s,rowOf);if(inl)g.append(inl);}
+      const b=el("button","gcstep "+s.status+(s.optional?" optional":"")
+        +(isCur?" cur":"")+(ill?" gcill":""));
+      const k=el("span","gck");
+      k.append(el("span","gcl",s.label));
+      k.append(el("span","gcv",s.value||(s.status==="skipped"?"skipped — still open":"to decide")));
+      b.append(k);
+      const stx=el("span","gcs");
+      stx.append(icoEl(ill?"warn":s.done?"check":s.status==="skipped"?"warn":"dot"));
+      b.append(stx);
+      // a nested action stops its click: the jump re-renders this very column, and a
+      // bubbling event would land on the freshly-attached card handler
+      b.onclick=e=>{e.stopPropagation(); GUIDE.pane="stage"; guideGo(s);};
+      list.append(b);
+      if(isCur)curEl=b;
     });
-    box.append(g);
+    body.append(list);
+    card.append(body);
+    // the level header itself jumps the walk to that level's first step
+    card.onclick=e=>{ if(e.target.closest(".gcstep,button"))return;
+      e.stopPropagation(); GUIDE.pane="stage"; guideGo(group[0]); };
+    wireRowDrag(card,lv-1,plan,GC,box,{enabled:multi&&!!row});
+    box.append(card);
   });
   box.scrollTop=keep;
-  // Back · Skip · Next walk the chain; Next seeks the next open decision
-  const back=$("#grBack"),skip=$("#grSkip"),next=$("#grNext");
-  const prev=cur&&(()=>{const list=guideWalk(steps);
+  // keep the current step in view without touching the page's own scroll
+  if(curEl){const r=curEl.getBoundingClientRect(), br=box.getBoundingClientRect();
+    if(r.top<br.top+4||r.bottom>br.bottom-4)box.scrollTop+=r.top-br.top-60;}
+}
+// ── G2 rebuilds this stage ─────────────────────────────────────────────────
+// G1 ports the minimum that keeps a walk usable: what the step is, the F2 inline answer
+// block, and Back · Skip · Next. The done-state cards (D126(e)), the class quick-pick
+// (D126(d)), the choices/optional-feature steps (D126(g)) and the trade cards (D126(h))
+// are G2/G3 — nothing here is meant to survive them.
+function renderGuideStage(steps,cur,rowOf){
+  const st=$("#gStage"); if(!st)return; st.innerHTML="";
+  const top=topCharLevel();
+  const need=steps.filter(x=>!x.optional), doneN=need.filter(x=>x.done).length;
+  st.append(el("p","gsnote",GUIDE.reverse
+    ?"Reconstructing over the build's own picks, "+(GUIDE.desc?`L${top} down`:"L1 up")
+      +" — each slot takes the pick that was acquired there; the rest drift to the top."
+    :(GUIDE.desc?`Walking L${top} down to L1`:"Walking L1 up")
+      +" — click any step in the chain to jump; everything is skippable (open slots stay flagged, never blocked)."));
+  if(!cur){
+    const card=el("div","gcard gdone");
+    card.append(el("div","goptlab","nothing open"));
+    card.append(el("div","gval",doneN>=need.length?"Every decision is answered."
+      :"No step is current — click one in the chain to pick the walk up."));
+    st.append(card); return;
+  }
+  const h=el("div","gsh"); h.append(document.createTextNode(cur.label));
+  st.append(h);
+  const rw=cur.row!=null?rowOf.get(cur.row):null, rc=rw&&CLS_BY[rw.clsKey];
+  st.append(el("p","gsub","L"+cur.lv+(rc?" · "+rc.name:"")
+    +(cur.optional?" · optional — passing on it is an answer":"")));
+  const card=el("div","gcard"+(cur.done?" gdone":""));
+  if(cur.done){
+    card.append(el("div","goptlab","answered"));
+    card.append(el("div","gval",cur.value||"—"));
+    // a filled slot whose spell the class could not cast when the slot arrived: the
+    // chain marks it red, and the stage says why rather than reading as settled
+    if(guideSlotIllegal(cur))card.append(el("div","grhint",
+      "This spell is above what the class could cast when this slot arrived — the chain marks it. "
+      +"Placing the pick that really was learned here is what clears it."));
+    // reverse mode answers on the page too: its list is narrowed to the build's OWN
+    // picks and a click PLACES one at this slot (D118(f,g))
+    if(GUIDE.reverse&&(cur.kind==="spell"||cur.kind==="cantrip")){
+      card.append(el("div","grhint","Reconstructing: the character view lists this build's own picks — click the one that was learned here and it takes this slot."));
+      card.append(guidePageBtn("Open the spell list","#secSpells"));
+    }
+    else card.append(el("div","grhint","Next moves on. To change it, open this step's own control on the character view — G2 brings the answered card here."));
+  } else {
+    const inl=guideInline(cur,rowOf);
+    if(inl)card.append(inl);
+    else card.append(el("div","grhint","Nothing to answer here — Skip or Next moves the walk along."));
+  }
+  st.append(card);
+  // Back · Skip · Next walk the chain; Next seeks the next open decision. Back is
+  // HIDDEN where there is nowhere to go back to (D126(i)) — a dead control is worse
+  // than an absent one.
+  const nav=el("div","gnav");
+  const prev=(()=>{const list=guideWalk(steps);
     const i=list.findIndex(x=>guideKey(x)===GUIDE.cur);return i>0?list[i-1]:null;})();
-  back.disabled=!prev; back.onclick=()=>prev&&guideGo(prev);
-  const nxAny=cur&&guideStepAfter(steps,GUIDE.cur,null);
+  if(prev){const back=el("button","btn","← Back");
+    back.onclick=()=>guideGo(prev); nav.append(back);}
+  const nxAny=guideStepAfter(steps,GUIDE.cur,null);
+  const skip=el("button","btn","Skip");
   skip.disabled=!nxAny; skip.onclick=()=>nxAny&&guideGo(nxAny);
+  nav.append(skip);
   // reverse walks EVERY slot (they are all `done` — review is the point); forward
   // seeks the next open decision
   const nxOpen=GUIDE.reverse?nxAny
-    :cur?(guideStepAfter(steps,GUIDE.cur,x=>x.status!=="done"&&!x.optional)
-          ||(cur.status!=="done"?null:guideResume(steps,GUIDE.desc))):null;
-  next.textContent=nxOpen?"Next →":(GUIDE.reverse?"End of the walk":doneN>=need.length?"All decided ✓":"Next →");
+    :(guideStepAfter(steps,GUIDE.cur,x=>x.status!=="done"&&!x.optional)
+      ||(cur.status!=="done"?null:guideResume(steps,GUIDE.desc)));
+  const next=el("button","btn on",nxOpen?"Next →"
+    :(GUIDE.reverse?"End of the walk":doneN>=need.length?"All decided ✓":"Next →"));
   next.disabled=!nxOpen; next.onclick=()=>nxOpen&&guideGo(nxOpen);
-  $("#grClose").onclick=closeGuide;
+  nav.append(next);
+  st.append(nav);
 }
 // the inline answer block under the current row — structural choices only (D118(k));
 // pick steps answer on the page, so their block is just the hint
@@ -1374,6 +1520,7 @@ function guideInline(s,rowOf){
     const b=el("button","btn","Arm the swap");
     b.onclick=()=>{const v=sel.value;if(!v)return;
       SWAPARM={row:s.row,kind,out:v,level:s.lv,label:name(v)};
+      GUIDE.away=true;                       // the replacement is taken on the page
       setPreview(s.lv>=topCharLevel()?null:s.lv);jumpTo($("#secSpells"));};
     box.append(b);
     box.append(el("div","grhint","The next "+kind+" you take for this class records the trade. Passing on it is the other honest answer — just move on."));
@@ -1384,17 +1531,30 @@ function guideInline(s,rowOf){
     b.onclick=()=>openEntityPicker("species");
     box.append(b); return box;
   }
+  // until G3 puts these in a modal (D126(f)), a pick step is still answered on the
+  // page's pre-filtered list — so the stage hands you over to it rather than describing
+  // a list that isn't on this screen
   if((s.kind==="spell"||s.kind==="cantrip")&&!s.done){
-    box.append(el("div","grhint","The spell list below is filtered to what "
+    box.append(el("div","grhint","The character view's spell list is filtered to what "
       +(((rowOf.get(s.row)||{}).clsKey&&CLS_BY[rowOf.get(s.row).clsKey])||{name:"this class"}).name
-      +" can legally take at L"+s.lv+" — pick from it."));
+      +" can legally take at L"+s.lv+" — pick from it there, and the walk keeps your place."));
+    box.append(guidePageBtn("Open the spell list","#secSpells"));
     return box;
   }
   if(s.kind==="optfeat"&&!s.done){
-    box.append(el("div","grhint","Pick it in the Optional features block on the page — jumped there for you."));
+    box.append(el("div","grhint","Pick it in the Optional features block on the character view."));
+    box.append(guidePageBtn("Open optional features","#optFeatBlock"));
     return box;
   }
   return null;
+}
+// the hand-off to the page (D118(b)) while the guide holds the viewport: step aside,
+// then scroll to the block that answers the step. The walk is untouched — `away` is a
+// view switch, not an exit.
+function guidePageBtn(label,sel){
+  const b=el("button","btn on",label);
+  b.onclick=()=>{GUIDE.away=true; render(); const n=$(sel); if(n)jumpTo(n);};
+  return b;
 }
 
 // ── custom spell sources (D55) ─────────────────────────────────────────────
@@ -4905,6 +5065,42 @@ function dropChipOnLevel(chip,L){
   }
   state[arrName]=base; return false;
 }
+// ── the level-plan row drag, shared (D122(e) · D126(b)) ────────────────────
+// Reordering WHICH class each character level was taken in. The timeline modal and the
+// guide's chain column both wire it, so the two surfaces cannot drift apart: one set of
+// rules, one write path. The rules: a drop whose resulting plan is IDENTICAL (any move
+// inside a same-class run, including onto its own boundary) is NOT a drop target at all
+// — no highlight, no pretend-move — and every commit goes through classLevelPlan() and
+// an assignment to state.levelOrder, the only plan-write idiom there is.
+// `st` is the caller's own drag state ({drag}); `box` is the list the cleanup sweeps;
+// `opt.enabled` is "this list can be reordered at all" (single-class plans cannot);
+// `opt.onChip` is the timeline's own pick-chip drop, which the chain column has not got.
+const planMoved=(plan,from,to)=>{const o=plan.slice(),[mv]=o.splice(from,1);
+  o.splice(from<to?to-1:to,0,mv); return o;};
+const planSame=(a,b)=>a.length===b.length&&a.every((x,k)=>x===b[k]);
+function commitPlan(order){state.levelOrder=order; save(); refreshAll(); render();}
+function wireRowDrag(card,i0,plan,st,box,opt){
+  opt=opt||{};
+  card.ondragstart=e=>{ if(st.drag&&st.drag.type==="chip")return;
+    if(!opt.enabled){e.preventDefault();return;}
+    st.drag={type:"row",i:i0}; e.dataTransfer.effectAllowed="move";
+    try{e.dataTransfer.setData("text/plain",String(i0));}catch(_){}
+    card.classList.add("dragging");};
+  card.ondragend=()=>{st.drag=null;
+    box.querySelectorAll(".locard").forEach(x=>x.classList.remove("dragging","dropinto"));};
+  card.ondragover=e=>{ if(!st.drag)return;
+    if(st.drag.type==="row"&&(st.drag.i===i0||planSame(planMoved(plan,st.drag.i,i0),plan)))return;
+    if(st.drag.type!=="row"&&!opt.onChip)return;
+    e.preventDefault(); e.dataTransfer.dropEffect="move"; card.classList.add("dropinto");};
+  card.ondragleave=()=>card.classList.remove("dropinto");
+  card.ondrop=e=>{ e.preventDefault(); card.classList.remove("dropinto");
+    const d=st.drag; if(!d)return;
+    if(d.type==="row"){ if(d.i===i0)return;
+      const o=planMoved(plan,d.i,i0);
+      if(planSame(o,plan))return;
+      commitPlan(o); return;}
+    if(opt.onChip)opt.onChip(d,card);};
+}
 function renderTimeline(){
   const box=$("#tlList"); if(!box)return;
   const keepScroll=box.scrollTop;
@@ -4927,13 +5123,9 @@ function renderTimeline(){
       attachTip(om,tipBlock("Order matters in this build",
         reasons.map(r=>r[0].toUpperCase()+r.slice(1)).join("; ")
         +". Drag the rows to change which class each level was taken in.")); } }
-  const commit=order=>{state.levelOrder=order; save(); refreshAll(); render();};
   // run aggregation (D122): consecutive levels of one class read as a block — a
   // per-class rail plus a closed gap — because reordering INSIDE a run changes nothing
   const runColor=new Map(); plan.forEach(id=>{if(!runColor.has(id))runColor.set(id,runColor.size%4);});
-  const samePlan=(a,b)=>a.length===b.length&&a.every((x,k)=>x===b[k]);
-  const movedPlan=(from,to)=>{const o=plan.slice(),[mv]=o.splice(from,1);
-    o.splice(from<to?to-1:to,0,mv); return o;};
   // run divider labels (D124): each class block announces itself once, with its span
   const runs=[]; plan.forEach((id2,j)=>{
     if(j===0||plan[j-1]!==id2)runs.push({id:id2,from:j+1,to:j+1});
@@ -5162,30 +5354,14 @@ function renderTimeline(){
     card.onclick=e=>{ if(e.target.closest(".tlchip,.tlswap,.tlretrain,.gopen,.logrip,button"))return;
       e.stopPropagation(); setPreview(i===total?null:i); };
     // row drag (multiclass): reorder WHICH class each level is taken in — the old
-    // Level order panel's whole job, absorbed here (D115(j) retires it)
-    card.ondragstart=e=>{ if(TL.drag&&TL.drag.type==="chip")return;
-      if(!multi){e.preventDefault();return;}
-      TL.drag={type:"row",i:i0}; e.dataTransfer.effectAllowed="move";
-      try{e.dataTransfer.setData("text/plain",String(i0));}catch(_){}
-      card.classList.add("dragging");};
-    card.ondragend=()=>{TL.drag=null;
-      box.querySelectorAll(".locard").forEach(x=>x.classList.remove("dragging","dropinto"));};
-    card.ondragover=e=>{ if(!TL.drag)return;
-      // a row drop that would leave the plan IDENTICAL (any move inside a same-class
-      // run) is not a drop target at all (D122) — no highlight, nothing to pretend
-      if(TL.drag.type==="row"&&(TL.drag.i===i0||samePlan(movedPlan(TL.drag.i,i0),plan)))return;
-      e.preventDefault(); e.dataTransfer.dropEffect="move"; card.classList.add("dropinto");};
-    card.ondragleave=()=>card.classList.remove("dropinto");
-    card.ondrop=e=>{ e.preventDefault(); card.classList.remove("dropinto");
-      const d=TL.drag; if(!d)return;
-      if(d.type==="row"){ if(d.i===i0)return;
-        const o=movedPlan(d.i,i0);
-        if(samePlan(o,plan))return;
-        commit(o); return;}
+    // Level order panel's whole job, absorbed here (D115(j) retires it). The rules and
+    // the write path live in wireRowDrag, shared with the guide's chain column (D126(b));
+    // the pick-chip drop is this surface's alone.
+    wireRowDrag(card,i0,plan,TL,box,{enabled:multi,onChip:d=>{
       // a chip: land its acquisition on this level, or refuse visibly — a silent
       // no-op on a drop is a dead control (the DOM-handler rule)
       if(dropChipOnLevel(d,i)){refreshAll();render();}
-      else{card.classList.add("refuse");setTimeout(()=>card.classList.remove("refuse"),380);}};
+      else{card.classList.add("refuse");setTimeout(()=>card.classList.remove("refuse"),380);}}});
     box.append(card);});
   // the ghost row that ADDS a level, after the last run. One tap continues the class
   // the plan ends on; the last other class sits beside it and the rest live in a compact
@@ -6468,6 +6644,9 @@ $("#pickOnly").onclick=()=>{PICK.onlyPicked=!PICK.onlyPicked;renderPickList();};
 $("#prepOnly").onclick=()=>{PREP.onlyPicked=!PREP.onlyPicked;renderPrepList();};
 $("#tabBuild").onclick=()=>switchTab("build");
 $("#tabTable").onclick=()=>switchTab("table");
+// only on screen while a walk is in progress AND the character view is showing (G1) —
+// the guide page covers the header, so this is the way back, not a third tab
+$("#tabGuide").onclick=()=>{GUIDE.away=false;render();};
 $("#tGroup").onchange=e=>{tableOpts.group=e.target.value;saveTableOpts();renderTable();};
 $("#tColReset").onclick=e=>{e.preventDefault();tableOpts.order=[...COL_ORDER_DEFAULT];tableOpts.hidden=new Set();
   saveTableOpts();renderColMenu();renderTable();};

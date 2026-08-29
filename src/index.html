@@ -24,7 +24,9 @@
     </div>
     <span class="spacer"></span>
     <button class="btn iconbtn ico" id="testBtn" data-ico="dice" title="Populate a random test build (local only)" aria-label="Random test build"></button>
-    <div class="tabs"><button id="tabBuild" class="on"><span class="tl" data-t="Build">Build</span></button><button id="tabTable"><span class="tl full" data-t="Spell table">Spell table</span><span class="tl short" data-t="Table">Table</span></button></div>
+    <!-- G1 · D126(a): while a guided walk is in progress and you have switched to the
+         character view, the way back is one tap — the guide page itself covers the header -->
+    <div class="tabs"><button id="tabBuild" class="on"><span class="tl" data-t="Build">Build</span></button><button id="tabTable"><span class="tl full" data-t="Spell table">Spell table</span><span class="tl short" data-t="Table">Table</span></button><button id="tabGuide" class="hidden"><span class="ico" data-ico="spark"></span><span class="tl" data-t="Guide">Guide</span></button></div>
     <div class="menu">
       <button class="btn iconbtn ico" id="menuBtn" data-ico="dots" title="Settings" aria-label="Settings"></button>
       <div class="menupop hidden" id="menuPop">
@@ -549,23 +551,25 @@
     </div>
   </div>
 </div>
-<!-- F2 · D118(k): the guided builder's coach rail — the whole decision chain grouped
-     under level headers, jump-anywhere, structural choices answered inline, no modals.
-     Desktop: a side rail; phone widths: a bottom sheet showing the current level's group. -->
-<aside class="grail hidden" id="guideRail" aria-label="Guided builder">
-  <div class="grhead">
-    <b>Guided builder</b><span class="grprog" id="grProg"></span>
-    <button class="grshowall" id="grAll" aria-label="Show the whole chain"></button>
-    <button class="x ico" id="grClose" data-ico="x" aria-label="Close the guide"></button>
+<!-- G1 · D126(a,b,c): the guided builder is its own FULL-SIZE PAGE (the F2 rail is gone).
+     Header: which build, which level, how far along, the switch back to the character
+     view and the exit. Body: the chain column (a lean timeline — level rows with class
+     rails, run dividers and drag-to-reorder) beside the decision stage. Phone widths show
+     one of the two at a time, one tap apart. -->
+<div class="gview hidden" id="guideView" role="region" aria-label="Guided builder">
+  <div class="ghead">
+    <b class="gh-name" id="ghName"></b><span class="gh-ver" id="ghVer"></span>
+    <span class="gh-lvl" id="ghLvl"></span>
+    <span class="gh-prog" id="ghProg"><span id="ghProgN"></span><span class="gh-bar"><i id="ghBar"></i></span></span>
+    <button class="btn tiny gh-toggle" id="ghToggle"></button>
+    <button class="btn tiny gh-swap lbl-ico" id="ghSwap" aria-label="Switch to the character view"><span class="ico" data-ico="views"></span><span class="ghs-t">Character view</span></button>
+    <button class="x ico" id="ghClose" data-ico="x" aria-label="Exit the guide"></button>
   </div>
-  <div class="grsub" id="grSub"></div>
-  <div class="grlist" id="grList"></div>
-  <div class="grfoot">
-    <button class="btn" id="grBack">← Back</button>
-    <button class="btn" id="grSkip">Skip</button>
-    <button class="btn on" id="grNext">Next →</button>
+  <div class="gbody">
+    <aside class="gchain" id="gChain" aria-label="The decision chain"></aside>
+    <div class="gstage" id="gStage"></div>
   </div>
-</aside>
+</div>
 <div class="modal hidden" id="prepModal"><div class="box">
   <div class="mh mh-stack">
     <div class="mh-row"><h2 id="prepTitle">Spell preparation</h2><button class="x ico" id="prepClose" data-ico="x" aria-label="Close"></button></div>

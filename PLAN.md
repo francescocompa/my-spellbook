@@ -119,11 +119,17 @@ Ground-up surface redesign over the standing D118(a–j) model — the full desi
 **D126(a–i)**; cite it, don't restate it. Strictly after W1/W2/W4 merge.
 Order: G1 → G2 → G3 → G4.
 
-- [ ] **G1 — page shell + chain column** (fresh session) — the guide as its own view with
-  the header switch; the chain column as a lean timeline variant (level rows, runs, flags,
-  drag-to-reorder); phone one-tap toggle between stage and chain. Done when: the walk of a
-  Bard 5/Fighter 1 fixture reads correctly in both columns at desktop and phone widths, and
-  a chain-column drag reorders the plan exactly as the timeline modal does.
+- [x] **G1 — page shell + chain column** (**merged v1.2.24**, done-when verified: the
+  Bard 5/Fighter 1 walk reads in both columns at 1280 and 375, and a chain drag produced
+  the identical plan as the same drag in the timeline modal) — the guide is a full-size
+  fixed surface UNDER the modal layer (z 45 < 50, so pickers open over it — the D126
+  complaint closed by construction); `body.guiding` hides `.wrap` (print restores it);
+  ⇇ Character view is a SWITCH (`GUIDE.away`, a header Guide tab returns; entries resume
+  instead of re-asking); the chain column reuses the timeline's run/rail/divider classes
+  and the row drag is ONE extracted implementation (`wireRowDrag` + `commitPlan`) that
+  `renderTimeline` now also calls; phone = one-pane toggle. Stage is a minimal F2 port
+  marked `// G2 rebuilds this stage`. Flags carried to G2: auto-advance still fires
+  (D126(e) done-cards are G2's), `#guideNote` copy retires with G3's modals.
 - [ ] **G2 — decision stage + structural/choice steps** — class (current + last-other +
   menu), species/feat/subclass cards, done-state cards, every choices-card entry (Magic
   Initiate etc.) and optional-feature step opening its REAL chooser. Done when: the two
