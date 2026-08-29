@@ -236,8 +236,12 @@
   timeline popover shut itself on every row jump this way. Since D122 the timeline is a MODAL
   and its closer is a strict `e.target===backdrop` equality — a detached target can never equal
   the backdrop, so the trap is closed by construction. Any future document-level closer still
-  needs both guards: the inner handler stops propagation, and the closer treats
-  `!document.contains(e.target)` as inside.
+  needs both guards: the inner handler stops propagation, and the closer must not trust a
+  possibly-detached `e.target` — **prefer `e.composedPath()`** (fixed at dispatch, so it
+  answers truthfully for BOTH a re-rendered inside click and a re-rendering outside click;
+  the older `!document.contains(e.target)`-reads-as-inside guard keeps genuinely-outside
+  clicks from closing whenever the click re-rendered something). The menus' closer does
+  this since the W1 batch.
 - **A fixed popover under a scrolling page re-anchors, it doesn't close** — the rule that kept
   the E5 chip-anchored timeline alive mid-walk (a jump re-renders the page, and that alone
   fires scroll events). **The timeline is a full modal since D122**, so its re-anchor machinery

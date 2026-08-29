@@ -73,9 +73,12 @@ and were the surfaces the gate reviewed against). **The phase is closed.**
 Three parallel Opus agents + one queued behind them; merged, gated and versioned by the
 coordinating session. The guided-builder notes became **phase G below (D126)**.
 
-- [ ] **W1 — general UI fixes** (agent, worktree): no duplicate multiclass rows; feat-picker
-  popover batch (icon centering + app-wide check, stay open across filter clicks, ⋯ toggles
-  closed, no filter count); collapsible level groups in Eligible spells + the spell-pick modal.
+- [x] **W1 — general UI fixes** (**merged v1.2.20**): duplicate multiclass blocked (keyed on
+  class NAME — editions are one class; `refreshAddClass` moved into `renderClassRows`, fixing
+  a stale-select hole); popover batch (badge margin was the off-center cause; closer reads
+  `composedPath()` → Gotcha updated; toggle fixed for every menu; count badge gone);
+  foldable level groups in the eligible list AND the pick modal (which gained grouping —
+  it was flat; revert is one line at the `lvls.length<2` branch if unwanted).
 - [x] **W2 — the swap model, app-wide** (**merged v1.2.19 → D128**): `SWAP_RULES` verified
   from XPHB prose; `state.swaps[lv]={spell?,cantrip?}` with healing migration at all three
   stored-state boundaries; timeline arming per kind; Wizard cantrip 1/LR in the prepare

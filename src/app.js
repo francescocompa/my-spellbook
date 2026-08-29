@@ -1232,7 +1232,12 @@ function guideInline(s,rowOf){
       box.append(b);}
     const sel=el("select");
     sel.append(el("option","",cc?"…or take a level in another class":"choose a class"));
-    DATA.classes.filter(visible).forEach(c=>{const o=el("option",null,c.name);o.value=key(c.name,c.source);sel.append(o);});
+    // a class already in the build levels its own row up, so it stays on offer; a class
+    // that would only DUPLICATE one under another printing does not (one class, one row)
+    const taken=takenClasses();
+    DATA.classes.filter(visible).filter(c=>state.classes.some(r=>r.clsKey===key(c.name,c.source))
+      ||!taken.has(c.name.toLowerCase()))
+      .forEach(c=>{const o=el("option",null,c.name);o.value=key(c.name,c.source);sel.append(o);});
     sel.onchange=()=>{const ck=sel.value;if(!ck)return;
       const plan=classLevelPlan();
       const have=state.classes.find(r=>r.clsKey===ck);
@@ -1780,9 +1785,35 @@ function choiceRow(c){
   return row;
 }
 
+// ── folded level groups (both spell lists) ─────────────────────────────────
+// Module state, per session: a fold is a view of a list, never part of a build, so it must
+// never reach a stored blob. Folding hides the rows with a class rather than re-rendering —
+// a rebuild would detach the click's own target (E5) and throw the scroll position away.
+const FOLDED={spells:new Set(),pick:new Set()};
+// The header IS the control, and it keeps naming what it holds while closed (D94). Its own
+// tools hang off it as SIBLINGS of the fold button: a button may not contain a button.
+function lvlGroup(scope,l,n,tools){
+  const set=FOLDED[scope];
+  const g=el("div","lvlgroup");
+  const h=el("h3");
+  const fold=el("button","lvlfold");fold.type="button";
+  fold.append(el("span",null,l===0?"Cantrips":ROMAN[l]+" level"));
+  fold.append(el("span","n",String(n)));
+  const car=el("span","lvlcar");fold.append(car);
+  const sync=off=>{g.classList.toggle("folded",off);car.classList.toggle("up",!off);
+    fold.setAttribute("aria-expanded",String(!off));
+    fold.title=(off?"Show ":"Hide ")+(l===0?"cantrips":ROMAN[l]+"-level spells");};
+  sync(set.has(l));
+  fold.onclick=()=>{const off=!set.has(l); off?set.add(l):set.delete(l); sync(off);};
+  h.append(fold); if(tools)h.append(tools); g.append(h);
+  return g;}
+
 // ── spell-pick modal ───────────────────────────────────────────────────────
 let PICK=null;
-function openPick(choice){ PICK={...choice,levelSet:new Set(),onlyPicked:false}; $("#pickSearch").value="";
+// every opener starts from an unfolded list: this picker serves a different choice each
+// time, and a level folded in the last one would hide spells with nothing on screen to
+// explain why (the same reason the custom-source disclosures reset on open, D94)
+function openPick(choice){ FOLDED.pick.clear(); PICK={...choice,levelSet:new Set(),onlyPicked:false}; $("#pickSearch").value="";
   $("#pickTitle").textContent="Choose "+choice.count+(choice.count>1?" spells":" spell");
   $("#pickSub").textContent=choice.giver+(choice.desc?" · "+fmtDesc(choice.desc):"");
   $("#pickModal").classList.remove("hidden"); renderPickList(); }
@@ -1790,6 +1821,7 @@ function openPick(choice){ PICK={...choice,levelSet:new Set(),onlyPicked:false};
 // the feature opens up rather than to a spell level (D80).
 function openOffListPick(idx){
   const rec=R.casters.find(r=>r.idx===idx); if(!rec)return;
+  FOLDED.pick.clear();
   PICK={classIdx:idx,maxLevel:rec.maxLvl,offList:true,levelSet:new Set(),onlyPicked:false};
   $("#pickSearch").value="";
   $("#pickTitle").textContent=classLabel(rec)+" — Magical Secrets";
@@ -1798,6 +1830,7 @@ function openOffListPick(idx){
   $("#pickModal").classList.remove("hidden"); renderPickList(); }
 // prepare-by-level: click a level tile → prepare from that class's eligible spells (levels 1..maxLevel)
 function openLevelPick(idx,maxLevel){ const rec=R.casters.find(r=>r.idx===idx); if(!rec)return;
+  FOLDED.pick.clear();
   PICK={classIdx:idx,maxLevel,levelSet:new Set(),onlyPicked:false}; $("#pickSearch").value="";
   // the set being edited is the SPELLBOOK for a wizard and the KNOWN list for a level-swap
   // caster — calling either "prepare" contradicts the D20/D62 vocabulary the cards use
@@ -1835,7 +1868,7 @@ function renderPickList(){
   let items=base.filter(sp=>(!q||sp.name.toLowerCase().includes(q))&&(!PICK.levelSet.size||PICK.levelSet.has(sp.level))
     &&(!PICK.onlyPicked||cur.has(key(sp.name,sp.source))));
   items.sort((a,b)=>a.level-b.level||a.name.localeCompare(b.name));
-  items.slice(0,300).forEach(sp=>{const k=key(sp.name,sp.source);const on=cur.has(k);
+  const pickRow=sp=>{const k=key(sp.name,sp.source);const on=cur.has(k);
     const d=el("div","sp"+(on?" chosen":""));
     const nm=el("div","nm",sp.name); attachSpell(nm,sp); d.append(nm);
     // D39 reaches here too now: the printed book lives in the spell modal's title line, so
@@ -1850,7 +1883,15 @@ function renderPickList(){
       let a=state.choices[PICK.id]||[];
       if(a.includes(k))a=a.filter(v=>v!==k); else if(a.length<PICK.count)a=[...a,k]; else return;
       state.choices[PICK.id]=a; renderPickList(); render();};
-    take.append(b);d.append(take);list.append(d);});
+    take.append(b);d.append(take);return d;};
+  // levels are groups only when there is more than one to separate — the same rule the
+  // level FILTER follows, and a lone header over the whole list names nothing
+  const shown=items.slice(0,300), byLvl={};
+  shown.forEach(sp=>{(byLvl[sp.level]=byLvl[sp.level]||[]).push(sp);});
+  const lvls=Object.keys(byLvl).map(Number).sort((a,b)=>a-b);
+  if(lvls.length<2)shown.forEach(sp=>list.append(pickRow(sp)));
+  else lvls.forEach(l=>{const g=lvlGroup("pick",l,byLvl[l].length);
+    byLvl[l].forEach(sp=>g.append(pickRow(sp)));list.append(g);});
   if(!items.length)list.append(el("div","empty",PICK.onlyPicked?"Nothing picked here yet."
     :isClass?"No eligible spells at this level yet.":"No matching spells for this choice."));
 }
@@ -1905,7 +1946,11 @@ function openEntityPicker(kind,category){
 function entBookCodes(){return new Set(entItems(ALL_SRC).map(i=>i.source));}
 function renderEntBooks(){
   const codes=entBookCodes();
-  const n=renderSourceChecklist($("#entSrcList"),ENT.books,()=>{renderEntityList();},codes);
+  // the checklist IS the scroller, and it is rebuilt on every tick — hold its position or
+  // ticking a book near the bottom throws you back to the top of the list
+  const wrap=$("#entSrcList"), top=wrap.scrollTop;
+  const n=renderSourceChecklist(wrap,ENT.books,()=>{renderEntityList();},codes);
+  wrap.scrollTop=top;
   const on=[...ENT.books].filter(c=>codes.has(c)).length;
   $("#entBooksN").textContent=`${on}/${n}`;
 }
@@ -1930,9 +1975,10 @@ function renderEntityList(){
   $("#entSub").innerHTML=`${items.length} ${noun} · <span class="ico">${ICONS.spark}</span> grants spells`
     +(blocked.length&&!ENT.hideNo?` · ${blocked.length} need something you don’t have`:"")
     +(ENT.note?` · ${esc(ENT.note)}`:"");
+  // the ⋯ button says THAT the list is narrowed, not by how much — a count on an icon
+  // button pushes the icon off centre and names a number nothing acts on
   const nf=[ENT.grantsOnly,ENT.hideNo,!sameSet(ENT.books,SRC)].filter(Boolean).length
     +(ENT.kind==="feat"&&!sameSet(ENT.cats,ENT.presetCats)?1:0);
-  $("#entFiltN").textContent=nf?String(nf):"";
   $("#entMenuBtn").classList.toggle("on",!!nf);
   const curSel = ENT.kind==="species"?state.speciesKey:null;
   if(!items.length){list.append(el("div","empty","Nothing matches those filters."));return;}
@@ -5061,9 +5107,8 @@ function renderSpells(){
   const byLvl={};items.forEach(i=>{(byLvl[i.sp.level]=byLvl[i.sp.level]||[]).push(i);});
   const list=$("#spellList");list.innerHTML="";
   if(!items.length){list.append(mkEmpty());return;}
-  for(let l=0;l<=9;l++){if(!byLvl[l])continue;const g=el("div","lvlgroup");g.id="lg"+l;
-    const h=el("h3");h.append(el("span",null,l===0?"Cantrips":ROMAN[l]+" level"));h.append(el("span","n",byLvl[l].length+""));
-    h.append(lvlTools(l));g.append(h);
+  for(let l=0;l<=9;l++){if(!byLvl[l])continue;
+    const g=lvlGroup("spells",l,byLvl[l].length,lvlTools(l));g.id="lg"+l;
     byLvl[l].forEach(i=>g.append(mkSpell(i,chosenKeys)));list.append(g);}
 }
 // hover toolbar for a spell-level group: tracks picks at that level + quick clear
@@ -5551,10 +5596,22 @@ function buildToggleRow(box,pairs,set,numeric,cb){box.innerHTML="";pairs.forEach
   b.onclick=()=>{set.has(val)?set.delete(val):set.add(val); if(cb)cb(); else {save();render();}};box.append(b);});}
 
 // ── builder UI ───────────────────────────────────────────────────────────
+// One class, one row: multiclassing stacks LEVELS in a class you already have, it never
+// gives you a second track of it. Identity is the lowercased NAME — the same id
+// `collapseEditions` deduplicates classes by (D19) — so 2014 Bard and 2024 Bard are one
+// class even with reprints shown. The name is read off the key, not `CLS_BY`, so a row
+// whose book has gone away still occupies its class.
+const clsIdOf=k=>String(k||"").split("|")[0].toLowerCase();
+// `except` is a class key whose rows don't count — the row being edited must keep its own
+function takenClasses(except){
+  const t=new Set();
+  state.classes.forEach(r=>{if(r.clsKey!==except)t.add(clsIdOf(r.clsKey));});
+  return t;}
 // `keep` is a class key that must stay selectable even if its book is off — otherwise the
 // select silently falls back to its first option and rewrites the row (T2)
 function classOptions(keep){
-  return DATA.classes.filter(c=>visible(c)||key(c.name,c.source)===keep)
+  const taken=takenClasses(keep);
+  return DATA.classes.filter(c=>(visible(c)&&!taken.has(c.name.toLowerCase()))||key(c.name,c.source)===keep)
     .sort((a,b)=>a.name.localeCompare(b.name)||a.source.localeCompare(b.source))
     .map(c=>({v:key(c.name,c.source),t:c.name+(c.source!==CORE?` (${c.source})`:"")+(c.caster?"":" ·")}));}
 function renderClassRows(){
@@ -5593,9 +5650,15 @@ function renderClassRows(){
     const cm=castModLine(row.id); if(cm)div.append(cm);
     wrap.append(div);
   });
+  // what is addable is a function of the rows: adding, removing and swapping a class all
+  // reach here, and none of those handlers calls refreshAll
+  refreshAddClass();
 }
-function refreshAddClass(){const s=$("#addClass");s.innerHTML="";s.append(new Option("+ add a class…",""));
-  classOptions().forEach(o=>s.append(new Option(o.t,o.v)));s.value="";}
+function refreshAddClass(){const s=$("#addClass");s.innerHTML="";
+  const opts=classOptions();
+  s.append(new Option(opts.length?"+ add a class…":"every class is already in this build",""));
+  opts.forEach(o=>s.append(new Option(o.t,o.v)));s.value="";
+  s.disabled=!opts.length;}
 function refreshSpecies(){const r=state.speciesKey?RACE_BY[state.speciesKey]:null;
   // a species whose book is off is KEPT and flagged (T2) — only a species that no longer
   // exists at all is dropped, and that is `pruneState`'s job, not this one
@@ -5956,11 +6019,15 @@ function afterSourceChange(){
   saveSources(); save();               // sources are global; the build records what it saw
   refreshAll();renderLibSources();render();
 }
-function refreshAll(){CASTMODS=activeCastMods();refreshAddClass();refreshSpecies();refreshAddFeat();renderClassRows();renderFeatChips();renderOptFeats();renderCustomSources();}
+function refreshAll(){CASTMODS=activeCastMods();refreshSpecies();refreshAddFeat();renderClassRows();renderFeatChips();renderOptFeats();renderCustomSources();}
 
 // ── events ───────────────────────────────────────────────────────────────
 $("#addClass").onchange=e=>{const clsKey=e.target.value;
-  if(clsKey){state.classes.push({clsKey,subKey:null,level:1,id:state.nextRowId++});e.target.value="";renderClassRows();render();}};
+  // the option list already drops what you have; this is the second lock, in case the
+  // select is a render behind
+  if(clsKey&&!takenClasses().has(clsIdOf(clsKey))){
+    state.classes.push({clsKey,subKey:null,level:1,id:state.nextRowId++});renderClassRows();render();}
+  e.target.value="";};
 $("#speciesBtn").onclick=()=>openEntityPicker("species");
 $("#originBtn").onclick=()=>openEntityPicker("feat","origin");
 $("#generalBtn").onclick=()=>openEntityPicker("feat","general");
@@ -6249,7 +6316,11 @@ $("#themeBtn").onclick=()=>{const r=document.documentElement,cur=r.getAttribute(
 // overflow settings menu
 function closeMenu(except){document.querySelectorAll(".menupop").forEach(p=>{if(p!==except)p.classList.add("hidden");});
   closeBswMenus();}   // the row menus are fixed-position, so they outlive their popover unless told
-function toggleMenu(pop){const el2=$(pop);const open=el2.classList.contains("hidden");closeMenu(open?el2:null);el2.classList.toggle("hidden");}
+// `closeMenu` hides EVERY popover, this one included, so reopening is a SET, not a toggle —
+// toggling after it flipped an open menu straight back open, which is why the button that
+// opened a menu could never close it.
+function toggleMenu(pop){const el2=$(pop);const open=!el2.classList.contains("hidden");
+  closeMenu(); if(!open)el2.classList.remove("hidden");}
 $("#menuBtn").onclick=e=>{e.stopPropagation();toggleMenu("#menuPop");};
 // a fixed-position row menu does not travel with the list under it — close it instead
 $("#bswPop").addEventListener("scroll",closeBswMenus,true);   // capture: the scroller is .bswlist
@@ -6258,7 +6329,15 @@ $("#bswBtn").onclick=e=>{e.stopPropagation();renderBswPop();toggleMenu("#bswPop"
   $("#bswBtn").setAttribute("aria-expanded",String(!$("#bswPop").classList.contains("hidden")));};
 $("#tMenuBtn").onclick=e=>{e.stopPropagation();toggleMenu("#tMenuPop");};
 $("#pickLevelBtn").onclick=e=>{e.stopPropagation();toggleMenu("#pickLevelPop");};
-document.addEventListener("click",e=>{if(!e.target.closest(".menu"))closeMenu();});
+// A handler that re-renders DETACHES the click's target, so a closer asking
+// `e.target.closest(".menu")` afterwards finds nothing and an INSIDE click reads as outside
+// (E5) — every filter control in a picker's ⋯ popover rebuilds its own row, which is how
+// toggling a category shut the popover. `composedPath()` is fixed when the event is
+// DISPATCHED, so it still names the ancestors the click travelled through, detached or not;
+// a real outside click still closes, which `document.contains` alone would have given up.
+document.addEventListener("click",e=>{
+  const path=e.composedPath?e.composedPath():[e.target];
+  if(!path.some(n=>n.classList&&n.classList.contains("menu")))closeMenu();});
 
 // ── print / save as PDF ────────────────────────────────────────────────────
 // Paper always gets the SPELL TABLE, whichever tab is on screen — that is the sheet you
@@ -6555,7 +6634,11 @@ function randomBuild(){
   const casters=DATA.classes.filter(c=>visible(c)&&(c.caster||(SUBS_OF[key(c.name,c.source)]||[]).some(s=>visible(s)&&s.caster)));
   state.classes=[];state.feats=[];state.optFeats=[];state.speciesKey="";state.chosen={};state.choices={};state.nextRowId=1;
   const n=1+Math.floor(Math.random()*2);
-  for(let i=0;i<n;i++){const c=rnd(casters);const lvl=1+Math.floor(Math.random()*20);
+  for(let i=0;i<n;i++){
+    // one class, one row — a sample build must be one the builder itself could produce
+    const left=casters.filter(c=>!takenClasses().has(c.name.toLowerCase()));
+    if(!left.length)break;
+    const c=rnd(left);const lvl=1+Math.floor(Math.random()*20);
     const row={clsKey:key(c.name,c.source),subKey:null,level:lvl,id:state.nextRowId++};
     const subs=(SUBS_OF[key(c.name,c.source)]||[]).filter(visible);
     if(subs.length&&lvl>=(c.subclassLevel||3)){const s=rnd(subs);row.subKey=key(s.name,s.source);}
