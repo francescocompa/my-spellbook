@@ -68,6 +68,53 @@ and were the surfaces the gate reviewed against). **The phase is closed.**
   than the one a take actually fills; `guideSync` now clamps to the row's first open slot).
   **Phase F is DONE.**
 
+## Wave batch (2026-08-29, Francesco's notes — agents in flight)
+
+Three parallel Opus agents + one queued behind them; merged, gated and versioned by the
+coordinating session. The guided-builder notes became **phase G below (D126)**.
+
+- [ ] **W1 — general UI fixes** (agent, worktree): no duplicate multiclass rows; feat-picker
+  popover batch (icon centering + app-wide check, stay open across filter clicks, ⋯ toggles
+  closed, no filter count); collapsible level groups in Eligible spells + the spell-pick modal.
+- [ ] **W2 — the swap model, app-wide** (agent, worktree): per level-up one LEVELED-spell
+  swap (known casters; cantrips never spend it) + one cantrip swap where the 2024 class text
+  grants it (hand table, D123(c) precedent); Wizard cantrip 1/LR in the prepare modal;
+  `state.swaps` two-kind shape with healing migration; timeline arming + guide step + tips.
+- [x] **W3 — sorcerer/edition dedupe investigation** (agent, read-only) — DONE, see the
+  report: `reprintedAs` covers all 58 cross-edition subclass links (0 misses); root cause is
+  unresolved `_copy` records; TWO bigger live bugs found (67 classic subclasses missing from
+  2024 pickers; **73 subclasses resolve to hollow zero-grant records** — every 2014 subclass
+  currently grants no subclass spells). 🔶 fix option A/B/C awaits Francesco.
+- [ ] **W4 — timeline batch** (agent, queued behind W2): "+ spell"/"+ cantrip" ghost labels
+  (supersedes D124(b)'s bare "+" — log on landing); retrain chip = icon + level, click the
+  level to edit it, the replacement pick chip highlighted + counter up; picks-count tile
+  alert tint when over/under; subtle click-to-choose on unchosen options (quick modal);
+  copy scrub (drop "D115" codes, dry phrasing); "+ add level" at the bottom; icons on
+  buttons that want one.
+
+## Phase G — the guided builder as a full-size page (D126, decided 2026-08-29)
+
+Ground-up surface redesign over the standing D118(a–j) model — the full design is
+**D126(a–i)**; cite it, don't restate it. Strictly after W1/W2/W4 merge.
+Order: G1 → G2 → G3 → G4.
+
+- [ ] **G1 — page shell + chain column** (fresh session) — the guide as its own view with
+  the header switch; the chain column as a lean timeline variant (level rows, runs, flags,
+  drag-to-reorder); phone one-tap toggle between stage and chain. Done when: the walk of a
+  Bard 5/Fighter 1 fixture reads correctly in both columns at desktop and phone widths, and
+  a chain-column drag reorders the plan exactly as the timeline modal does.
+- [ ] **G2 — decision stage + structural/choice steps** — class (current + last-other +
+  menu), species/feat/subclass cards, done-state cards, every choices-card entry (Magic
+  Initiate etc.) and optional-feature step opening its REAL chooser. Done when: the two
+  reported gaps (Magic Initiate spells, invocations modal) are answerable inside the walk.
+- [ ] **G3 — pick modals + trade cards + entries** — spell/cantrip steps in a modal
+  (eligible-only, levels DESCENDING, collapsible), direct trade cards per kind on eligible
+  level-ups, the empty-character CTA card, Back reaching the class step and hidden when
+  unavailable. Done when: a forward walk from empty to L6 and a reverse reconstruct both
+  complete without touching the page list, and the D125 cap honesty holds in the modal.
+- [ ] **G4 — 🔍 fresh-eyes gate** (separate session per model-policy) — review the shipped
+  phase against D126(a–i) + the standing D118(a–j).
+
 ## Queue
 - [ ] **Magic-item / reward ingestion** — 🔶 **RESEARCHED 2026-08-27, awaiting Francesco's call.**
   The old note said "items carry no structured uses"; that is **wrong** and the audit corrected it.

@@ -34,11 +34,12 @@
   in the spell details' "Metamagic" row (left the table); and the **Ember palette** shipped —
   terracotta accent, crimson alerts, all five theme blocks (P1 Verdigris was picked once
   then REVERSED — don't re-propose it).
-- **Next action:** none queued — **F4 passed 2026-08-29 and phase F is DONE** (one finding,
-  fixed in-gate → D125: the forward walk now clamps its pick step to the row's first open
-  slot so the pre-filter names the real landing place). The 🔶 **magic-item / reward
-  import** decision remains ungated and awaits Francesco's call; the backlog in PLAN.md
-  is what's left.
+- **Next action:** merge the **wave batch** (W1 general fixes + W2 swap model, agents in
+  flight; W4 timeline batch queued behind W2), then **phase G — the guided builder as a
+  full-size page (D126)**, G1 first in a fresh session. F4 passed earlier today (phase F
+  DONE, D125 fixed in-gate). 🔶 open on Francesco: the edition-dedupe fix option (W3's
+  A/B/C — the investigation found 73 subclasses resolving to hollow zero-grant records)
+  and the standing magic-item / reward import call.
 - **Manual for Francesco:** ⓪ **Refresh your imported data in each browser** — ⋯ → **Refresh
   imported data** (choose the folder once if asked). The v1.2.2 parser fixes live in your
   stored digests only after it: heals the **Savant double-grant** (an Evoker was offered 5

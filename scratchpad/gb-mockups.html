@@ -1,0 +1,211 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Guided builder — full-page mockups</title>
+<style>
+:root{
+  --bg:#17140f; --panel:#211d16; --panel-2:#2a251c; --ink:#ece4d6; --muted:#a99e8d;
+  --line:#3a3225; --line-strong:#4c4130; --accent:#d9915f; --accent-soft:#d9915f1f;
+  --gold:#d4ad5a; --gold-soft:#d4ad5a1c; --good:#7fbb8c; --good-soft:#7fbb8c18;
+  --free:#a6a1e6; --free-soft:#a6a1e618; --bad:#f0616e; --bad-soft:#f0616e1c;
+  --radius:12px; --shadow:0 1px 2px #0000002f,0 8px 24px #00000024;
+  --font:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#0e0c08;color:var(--ink);font:14px/1.45 var(--sans);padding:28px}
+h1{font:600 22px var(--font);margin:0 0 4px}
+.note{color:var(--muted);font-size:12.5px;margin:0 0 26px;max-width:760px}
+.vlabel{font:600 16px var(--font);margin:34px 0 4px;color:var(--accent)}
+.vsub{color:var(--muted);font-size:12px;margin:0 0 12px;max-width:760px}
+.frame{width:980px;background:var(--bg);border:1px solid var(--line-strong);border-radius:14px;overflow:hidden;box-shadow:var(--shadow)}
+.phone{width:375px}
+.row{display:flex;gap:24px;align-items:flex-start}
+
+/* shared app chrome */
+.top{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--panel)}
+.top .name{font:600 16px var(--font)}
+.lvlchip{font-size:11px;border:1px solid var(--line-strong);border-radius:99px;padding:2px 9px;color:var(--muted)}
+.prog{flex:1;display:flex;align-items:center;gap:8px;color:var(--muted);font-size:11.5px}
+.bar{flex:0 1 220px;height:4px;border-radius:2px;background:var(--panel-2);overflow:hidden}
+.bar i{display:block;height:100%;width:62%;background:var(--accent)}
+.swap-view{font-size:12px;border:1px solid var(--line-strong);border-radius:8px;padding:5px 10px;color:var(--ink);background:var(--panel-2)}
+.xbtn{margin-left:4px;width:26px;height:26px;border:1px solid var(--line-strong);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted)}
+
+/* chain skeleton bits */
+.lv-h{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:12px 2px 4px;display:flex;gap:6px;align-items:baseline}
+.lv-h b{color:var(--ink);font-size:11px}
+.step{display:flex;align-items:center;gap:7px;padding:6px 8px;border-radius:8px;font-size:12px;color:var(--ink)}
+.step .lab{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.03em;display:block}
+.step.done .st{color:var(--good)}
+.step.open{color:var(--muted);font-style:italic}
+.step.cur{background:var(--accent-soft);border:1px solid var(--accent);font-style:normal;color:var(--ink)}
+.step .st{margin-left:auto;font-size:11px;color:var(--muted)}
+.step.warn .st{color:var(--bad)}
+
+/* decision stage bits */
+.stage-h{font:600 20px var(--font);margin:0 0 2px}
+.stage-sub{color:var(--muted);font-size:12.5px;margin:0 0 16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px}
+.bigbtn{display:inline-flex;align-items:center;gap:8px;background:var(--panel-2);border:1px solid var(--line-strong);border-radius:10px;padding:10px 16px;font-size:14px;color:var(--ink)}
+.bigbtn.on{border-color:var(--accent);background:var(--accent-soft)}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line-strong);border-radius:99px;padding:4px 12px;font-size:12.5px;background:var(--panel-2)}
+.chip.ghost{border-style:dashed;color:var(--muted);background:none}
+.chip .x{color:var(--muted);font-size:11px}
+.donecard{border-color:var(--good);background:var(--good-soft)}
+.donecard .okline{color:var(--good);font-size:12px;display:flex;gap:6px;align-items:center;margin-top:10px}
+.hint{color:var(--muted);font-size:11.5px;margin-top:10px}
+.optlab{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.navrow{display:flex;gap:8px;margin-top:16px}
+.navrow .b{border:1px solid var(--line-strong);border-radius:9px;padding:8px 14px;font-size:13px;color:var(--ink);background:var(--panel-2)}
+.navrow .b.pri{border-color:var(--accent);background:var(--accent-soft)}
+.navrow .b.dis{opacity:.35}
+.classbtns{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.menu-b{border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--muted);background:none}
+</style>
+
+<h1>Guided builder — full-page redesign</h1>
+<p class="note">Three layouts of the same moment: <b>Bard 5 / Fighter 1</b>, walking forward, standing at <b>L6</b>. The class step was just answered (current + last-other + menu, as decided); the spell step is current. Spells open a modal (mocked at the bottom, grouped highest-level-first). Completed steps highlight instead of auto-jumping. All variants share the header: build name, level, progress, one-click switch to the character view.</p>
+
+<!-- ══════════ VARIANT A ══════════ -->
+<div class="vlabel">A — Ledger · chain column + decision stage</div>
+<p class="vsub">The whole chain stays visible on the left (the rail's strength, given room and real contrast); the current decision gets a big stage. Jump anywhere by clicking; red/gold marks stay glanceable across all 20 levels.</p>
+<div class="frame">
+  <div class="top"><span class="name">Aster — v2</span><span class="lvlchip">L6 / 6</span>
+    <span class="prog">14 / 23 decided <span class="bar"><i></i></span></span>
+    <span class="swap-view">⇄ Character view</span><span class="xbtn">✕</span></div>
+  <div style="display:flex">
+    <div style="flex:0 0 250px;border-right:1px solid var(--line);padding:6px 10px 16px;background:var(--panel)">
+      <div class="lv-h"><b>L4</b> Bard 4</div>
+      <div class="step done">Feat · <b>War Caster</b><span class="st">✓</span></div>
+      <div class="step done">Spell · <b>Hypnotic Pattern</b><span class="st">✓</span></div>
+      <div class="lv-h"><b>L5</b> Bard 5</div>
+      <div class="step done">Spell · <b>Fear</b><span class="st">✓</span></div>
+      <div class="step warn open">Swap · open<span class="st">⚠</span></div>
+      <div class="lv-h"><b>L6</b> Fighter 1</div>
+      <div class="step done">Class · <b>Fighter 1</b><span class="st">✓</span></div>
+      <div class="step cur"><span><span class="lab">Fighting style</span>to decide</span><span class="st">●</span></div>
+      <div class="lv-h"><b>L7</b></div>
+      <div class="step open">Next level<span class="st">·</span></div>
+    </div>
+    <div style="flex:1;padding:22px 26px">
+      <div class="stage-h">Fighting style</div>
+      <p class="stage-sub">Fighter 1 · one style, swappable at later Fighter levels</p>
+      <div class="card">
+        <div class="classbtns">
+          <span class="bigbtn on">Defense</span><span class="bigbtn">Archery</span>
+          <span class="bigbtn">Dueling</span><span class="menu-b">all styles…</span>
+        </div>
+        <div class="hint">Skippable — an open choice stays flagged, never blocked.</div>
+      </div>
+      <div style="height:14px"></div>
+      <div class="card donecard">
+        <div class="optlab">answered · L6 class</div>
+        <div class="classbtns">
+          <span class="bigbtn">Bard → 6</span><span class="bigbtn on">Fighter → 1 ✓</span><span class="menu-b">another class…</span>
+        </div>
+        <div class="okline">✓ Fighter 1 taken — this level's remaining decisions are below.</div>
+      </div>
+      <div class="navrow"><span class="b">← Back</span><span class="b">Skip</span><span class="b pri">Next →</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ VARIANT B ══════════ -->
+<div class="vlabel">B — Milestone · level track + this level's cards</div>
+<p class="vsub">A horizontal level track on top; the stage below shows ALL of the current level's decisions as cards at once — "what do I get at L6" as one screen. Weaker whole-chain glance (the track compresses 20 levels to dots).</p>
+<div class="frame">
+  <div class="top"><span class="name">Aster — v2</span><span class="lvlchip">L6 / 6</span>
+    <span class="prog">14 / 23 decided <span class="bar"><i></i></span></span>
+    <span class="swap-view">⇄ Character view</span><span class="xbtn">✕</span></div>
+  <div style="display:flex;gap:6px;padding:12px 18px;border-bottom:1px solid var(--line);background:var(--panel);align-items:center">
+    <span style="color:var(--muted);font-size:11px">L</span>
+    <span class="chip" style="border-color:var(--good);color:var(--good)">1 ✓</span>
+    <span class="chip" style="border-color:var(--good);color:var(--good)">2 ✓</span>
+    <span class="chip" style="border-color:var(--good);color:var(--good)">3 ✓</span>
+    <span class="chip" style="border-color:var(--good);color:var(--good)">4 ✓</span>
+    <span class="chip" style="border-color:var(--bad);color:var(--bad)">5 ⚠</span>
+    <span class="chip" style="border-color:var(--accent);background:var(--accent-soft)">6 ●</span>
+    <span class="chip ghost">7</span><span class="chip ghost">+</span>
+  </div>
+  <div style="padding:20px 24px">
+    <div class="stage-h">Level 6 — Fighter 1</div>
+    <p class="stage-sub">3 decisions at this level · 1 answered</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="card donecard">
+        <div class="optlab">class</div>
+        <div class="classbtns"><span class="bigbtn">Bard → 6</span><span class="bigbtn on">Fighter → 1 ✓</span><span class="menu-b">another…</span></div>
+      </div>
+      <div class="card" style="border-color:var(--accent)">
+        <div class="optlab">fighting style · to decide</div>
+        <div class="classbtns"><span class="bigbtn">Defense</span><span class="bigbtn">Archery</span><span class="menu-b">all…</span></div>
+      </div>
+      <div class="card">
+        <div class="optlab">second wind</div>
+        <div class="hint" style="margin-top:4px">Granted automatically — nothing to decide.</div>
+      </div>
+    </div>
+    <div class="navrow"><span class="b">← L5</span><span class="b pri">L7 →</span></div>
+  </div>
+</div>
+
+<!-- ══════════ VARIANT C ══════════ -->
+<div class="vlabel">C — Dossier · one column, one decision, chain on demand</div>
+<p class="vsub">A single centered column, one decision at a time, maximum focus; the chain lives behind the progress header (tap to open an overview). The phone layout IS the desktop layout. Least glanceable, most calm.</p>
+<div class="frame">
+  <div class="top"><span class="name">Aster — v2</span><span class="lvlchip">L6 / 6</span>
+    <span class="prog">14 / 23 <span class="bar"><i></i></span></span>
+    <span class="swap-view">⇄ Character view</span><span class="xbtn">✕</span></div>
+  <div style="max-width:560px;margin:0 auto;padding:26px 20px 30px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline">
+      <div class="stage-h">Fighting style</div>
+      <span class="chip" style="font-size:11px">L6 · Fighter 1 · step 2 of 3 ▾</span>
+    </div>
+    <p class="stage-sub">One style; Fighter can swap it at later levels.</p>
+    <div class="card">
+      <div class="classbtns">
+        <span class="bigbtn">Defense</span><span class="bigbtn">Archery</span>
+        <span class="bigbtn">Dueling</span><span class="menu-b">all styles…</span>
+      </div>
+      <div class="hint">Skippable — an open choice stays flagged, never blocked.</div>
+    </div>
+    <div style="height:12px"></div>
+    <div class="card donecard" style="padding:10px 14px">
+      <div class="okline" style="margin:0">✓ L6 class — Fighter 1 <span style="color:var(--muted)">· tap to change</span></div>
+    </div>
+    <div class="navrow"><span class="b dis">← Back</span><span class="b">Skip</span><span class="b pri">Next →</span></div>
+  </div>
+</div>
+
+<!-- ══════════ PHONE + SPELL MODAL ══════════ -->
+<div class="vlabel">Phone (A/B collapse to this) · and the spell modal, highest level first</div>
+<p class="vsub">Left: the phone flow any variant collapses to — full-screen page, chain behind the progress header, no sheet fighting modals. Right: the spell step's modal — eligible spells only, grouped by level DESCENDING with collapsible groups; take marks the chip, the step highlights done and stays put.</p>
+<div class="row">
+  <div class="frame phone">
+    <div class="top" style="padding:10px 12px"><span class="name" style="font-size:14px">Aster</span><span class="lvlchip">L6</span>
+      <span class="prog" style="font-size:10.5px">14/23 <span class="bar" style="flex-basis:70px"><i></i></span></span><span class="xbtn">✕</span></div>
+    <div style="padding:16px 14px 20px">
+      <div class="stage-h" style="font-size:17px">Spells — Bard 6 <span class="chip" style="font-size:10.5px;vertical-align:middle">1 of 2 picked</span></div>
+      <div class="card" style="margin-top:10px">
+        <div class="chip">Fear <span class="x">✕</span></div>
+        <span class="chip ghost">+ choose a spell…</span>
+        <div class="hint">Legal here: up to 3rd level.</div>
+      </div>
+      <div class="navrow"><span class="b">← Back</span><span class="b">Skip</span><span class="b pri">Next →</span></div>
+    </div>
+  </div>
+  <div class="frame phone">
+    <div class="top" style="padding:10px 12px"><span class="name" style="font-size:14px">Choose a spell · Bard L6</span><span class="xbtn">✕</span></div>
+    <div style="padding:12px 14px 18px">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 2px;border-bottom:1px solid var(--line)">
+        <b style="font-size:12.5px;color:var(--accent)">III level</b><span style="color:var(--muted);font-size:11px">9 ▾</span></div>
+      <div class="step" style="font-style:normal">Hypnotic Pattern <span class="st" style="color:var(--good)">✓ known</span></div>
+      <div class="step" style="font-style:normal">Plant Growth <span class="st">+</span></div>
+      <div class="step" style="font-style:normal">Slow <span class="st">+</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 2px;border-bottom:1px solid var(--line);margin-top:6px">
+        <b style="font-size:12.5px;color:var(--accent)">II level</b><span style="color:var(--muted);font-size:11px">14 ▸ collapsed</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 2px;border-bottom:1px solid var(--line)">
+        <b style="font-size:12.5px;color:var(--accent)">I level</b><span style="color:var(--muted);font-size:11px">18 ▸ collapsed</span></div>
+    </div>
+  </div>
+</div>
+</html>

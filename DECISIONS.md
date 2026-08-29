@@ -1083,6 +1083,94 @@ written up in full in `GOTCHAS.md` — that is the copy to trust.
   cap/note text follows `guidePickStep()` so it cannot drift separately. Affects: PLAN.md F4
   (done), STATE.md next-action.
 
+- **D126 (2026-08-29) DECIDED — THE GUIDED BUILDER BECOMES A FULL-SIZE PAGE (phase G):
+  ground-up surface redesign; the D118 model stands, its (k) surface is superseded.**
+  Mechanism: interview, AskUserQuestion × 3 rounds + a mockup round
+  (`scratchpad/gb-mockups.html`, variants Ledger/Milestone/Dossier). Trigger — Francesco's
+  notes, raw: *"the modal has no contrast with the background, especially on mobile. It
+  sometimes partially covers the modals it opens. The guided builder could be either a series
+  of actual modals or probably even better a full size page (with quick switch to the
+  character view). Let's redesign from the ground up through mockup and interview iterations
+  … in general, the overall UI has issues: unclear hierarchy, verbosity, bland layout."*
+  - **(a) Surface: a full-size page** — the guide is its own view (like Build/Table) with a
+    header switch back to the character view. *Rejected:* chained modals (the overview
+    shrinks to a stepper; modal-over-modal is the reported bug); reskinning the rail (the
+    contrast/collision problems are architectural on phone). Supersedes **D118(k)** only —
+    D118(a–j) stand whole.
+  - **(b) Layout: Ledger** — chain column left, decision stage right. Francesco's addition,
+    raw: *"The chain column on the left could be a lean variant of the timeline modal, with
+    also the ability to change order."* So the column speaks the timeline's language (level
+    rows, class runs, flags) lean, and row drag-to-reorder works there too. *Rejected:*
+    Milestone (level track compresses the 20-level glance); Dossier (chain behind a tap).
+  - **(c) Phone: one-tap toggle between the decision view and the chain column** (raw: *"one
+    tap to swap between current choices and the timeline/chain column"*) — a full-screen
+    page, both directions; the bottom sheet and the whole-chain toggle are GONE (raw:
+    *"remove the full chain option, not needed"*).
+  - **(d) Class step: current + last-other prominent, compact menu for the rest** — resolves
+    the "3+ classes to be decided" flag. *Rejected:* a button per owned class (recommended,
+    declined); a chooser modal on every level-up.
+  - **(e) Done state: an answered step stays as a green-tinted card; the walk moves only on
+    Next/Skip or a chain click** (raw: *"do not jump automatically to next step, but
+    highlight the completed state"*) — supersedes F2's auto-advance. *Rejected:* ✓-only
+    subtle state; auto-advance after a beat.
+  - **(f) Spell/cantrip steps pick in a MODAL, not the page** (raw: *"spells should be chosen
+    from a modal, not the page … show a filtered modal with only eligible spells grouped by
+    level, but those groups are sorted from highest to lowest"*) — eligible-only, grouped by
+    castable level DESCENDING, collapsible groups. Supersedes D118(b)'s page pre-filter for
+    pick steps (`#guideNote` retires with it); the D125 first-open-slot honesty carries into
+    the modal's cap.
+  - **(g) Every choice the build carries is a step that opens its REAL chooser** — feat-granted
+    choices (raw: *"magic initiate doesn't let me choose its spells, perhaps all choices to
+    make like this are skipped"*) and optional features (raw: *"some options (ex. invocations)
+    do not open their modal"*) become first-class steps in the chain.
+  - **(h) Swap step: a direct trade card per kind** at each eligible level-up — "Replace a
+    spell?" → tap the pick you lose → the modal opens for the replacement → the card shows
+    "− X + Y" with an undo ×. Rides the two-kind swap model (spell + cantrip). *Rejected:*
+    guided arm-then-take (the two-phase indirection was the complaint); inline out+in
+    dropdowns. (raw: *"swapping system isn't intuitive in the guided builder, rework it"*)
+  - **(i) Entry: a "Start guided" CTA card on an empty character**, gone once anything is
+    answered; the three D118(i) entries stay. *Rejected:* auto-opening the guide (fights the
+    browse-first language); hint text only. Back is hidden/disabled when unavailable and
+    also reaches the class-pick step (raw notes).
+  - **Plan: phase G, strictly after the wave-1/2 merges** (swap model D-batch, general fixes,
+    timeline batch) — G1 page shell + chain column (the lean timeline variant) · G2 decision
+    stage + structural/choice step cards · G3 pick modals + trade cards + entries · G4 🔍
+    fresh-eyes gate. Fresh sessions per model policy. *Rejected:* building today in this
+    session (already coordinating three agents); mockups-only with no scheduled build.
+  Supersedes: D118(k), D118(b) for pick steps, F2's auto-advance. Enforced by: PLAN.md phase
+  G task lines; G4 is the guard once built. Affects: PLAN.md (phase G), STATE.md, src/app.js
+  + src/index.html + src/styles.css when built.
+
+- **D127 (2026-08-29) DECIDED — edition identity: resolve `_copy` in both extractors and
+  carry the reprint pointer (`supersededBy`).** Mechanism: read-only investigation agent +
+  AskUserQuestion. Trigger — Francesco, raw: *"some sorcerer subclasses read as different
+  and not direct upgrades between edition (namely aberrant, clockwork, wild magic). Let's
+  investigate this issue with all data and let's see if there is a way to identify them
+  correctly without hardcoding it."* Findings: `reprintedAs` links all 58 cross-edition
+  subclass pairs with zero misses (11 renamed); the bug is that 5etools ships every classic
+  subclass a second time as an unresolved `_copy` twin on the 2024 chassis, which neither
+  extractor resolves — the hollow twin lands unflagged and (a) 9 duplicate pairs show in
+  2024 pickers, (b) 67 classic subclasses vanish from them (dedupe id lacks `classSource`),
+  and (c) **73 subclasses resolve to hollow zero-grant records — every 2014 subclass
+  granted no subclass spells** (`SUB_BY` keyed without `classSource`, hollow twin wins).
+  The fix (option C): resolve same-file `_copy` (shallow merge honouring `_preserve`; all
+  124 current copies carry no `_mod`) in BOTH extractors; emit `supersededBy` (first
+  `reprintedAs` uid — the field has TWO shapes, string and `{uid,tag}`) on all six record
+  types; app-side, `collapseEditions`' subclass id gains `classSource` and the subclass
+  lookup becomes class-scoped (stored `subKey` untouched); reprint hiding may consult the
+  pointer so a record only hides when its successor is actually installed (D31: unknown
+  never reads as excluded). Prerequisite folded in: `cparity.js` keyed subclasses without
+  `classSource`, so ~124 of 322 records were never diffed — fixed first so the `_copy` work
+  lands tested. Needs ONE re-import of stored digests (D78 precedent) + a data/docs
+  rebuild. *Rejected:* **A** app-side twin merge in `buildIndexes` (no re-import, but a
+  heuristic hiding a data defect, wrong the day a `_copy` carries `_mod`); **B** resolve
+  `_copy` without the pointer (heals the data but the pair still can't read as an upgrade —
+  the thing actually asked for); hardcoding the three sorcerer pairs (the premise of the
+  investigation). Enforced by: cparity (with the widened keying) after any extractor edit.
+  Affects: extract.py, src/extract.js, scratchpad/cparity.js, src/app.js `buildIndexes`/
+  `reprintOk`/subclass lookup; data + docs rebuilds; Francesco's per-browser re-import
+  (Manual list).
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives
