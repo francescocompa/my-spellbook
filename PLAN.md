@@ -68,10 +68,11 @@ and were the surfaces the gate reviewed against). **The phase is closed.**
   than the one a take actually fills; `guideSync` now clamps to the row's first open slot).
   **Phase F is DONE.**
 
-## Wave batch (2026-08-29, Francesco's notes — agents in flight)
+## Wave batch (2026-08-29, Francesco's notes) — ✅ COMPLETE
 
-Three parallel Opus agents + one queued behind them; merged, gated and versioned by the
-coordinating session. The guided-builder notes became **phase G below (D126)**.
+All five merged, gated and tagged (v1.2.19 → v1.2.23) by the coordinating session; two
+became decisions (**D128** per-kind swaps, **D129** Refresh feedback) and W3's investigation
+became **D127**. The guided-builder notes became **phase G below (D126)**.
 
 - [x] **W1 — general UI fixes** (**merged v1.2.20**): duplicate multiclass blocked (keyed on
   class NAME — editions are one class; `refreshAddClass` moved into `renderClassRows`, fixing
@@ -179,7 +180,8 @@ restate it. H1/H2 are in flight as agents; H3 is the big one and waits for H1 to
   proved firing), 6 new cparity checks (48 total), and `listUnknown` now makes the app SAY it
   can't name the list instead of showing an empty picker. Subclasses of casting classes that
   reach another list (Lore, Divine Soul…) correctly keep their own list + expansions.
-- [ ] **H3 — the v2 surfaces** (queued behind H1, same region): D130(a) collapsed rail rows
+- [ ] **H3 — the v2 surfaces** (**AGENT IN FLIGHT** as of 2026-08-30 close, worktree branch
+  `worktree-agent-afa4cdde2296b6f0b` — merge it first next session): D130(a) collapsed rail rows
   with ONE highest-severity icon + aggregated counter rows; (b) chips-only answers with the
   header counter; (c) one step per feature/source with a section per logical group
   (`guideSteps` regrouping — reverses D118(c) in part; reconstruct keeps slot placement
@@ -188,8 +190,8 @@ restate it. H1/H2 are in flight as agents; H3 is the big one and waits for H1 to
   with a persistent bar naming the step you left, which can also END the walk; G1's
   `GUIDE.away` + vanishing Guide tab come out.
 - [ ] **H5 — 🔍 fresh-eyes gate** (separate session) — phase H against D130(a–h).
-- [ ] **H6 — capitalization sweep** (AUDITED 2026-08-30, read-only agent; queued behind H1
-  because a third of the sites are in the guide region). Mechanism decided by the audit:
+- [ ] **H6 — capitalization sweep** (AUDITED 2026-08-30, read-only agent; queued behind **H3**
+  because a third of the sites are in the guide region it is rewriting). Mechanism decided by the audit:
   **one shared display helper + ~20 source-string edits, no CSS work** — `cap`/`cap1` and
   three inline copies already exist and `cap1` is already used this way on filter values, so
   this is consolidation. Highest value: **`sp.time`** renders lowercase ("action") beside
