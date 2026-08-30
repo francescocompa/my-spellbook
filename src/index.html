@@ -591,17 +591,28 @@
     <div class="gstage" id="gStage"></div>
   </div>
 </div>
-<!-- G3 · D126(f) · D130(d): a step's picks are answered HERE, not on the page — all of
-     them in one visit. Standard modal chrome, so it opens OVER the guide like every other
-     picker. One block per pick section, each with its own counter and its own eligible
-     list, grouped by level DESCENDING with the same foldable headers both spell lists use.
-     The footer counts what the step still owes; Done closes it. -->
+<!-- G3 · D126(f) · D130(c) · D131(a,b): a step's picks are answered HERE, not on the page —
+     ONE SECTION per visit. Standard modal chrome, so it opens OVER the guide like every
+     other picker. The section carries its own counter and its own eligible list, grouped by
+     level DESCENDING with the same foldable headers both spell lists use.
+     The footer button IS the proceed nudge: quiet and disabled while picks are owed, accent
+     and advancing the walk once the count is met. No pill — the section header counts.
+     The `?` (D88 · D131(c)) is the only prose in here, and it appears only where the
+     gesture is not self-evident: reconstruct placement and a trade. -->
 <div class="modal hidden" id="gpickModal" role="dialog" aria-label="Choose spells"><div class="box">
   <div class="mh mh-stack">
-    <div class="mh-row"><h2 id="gpTitle">Choose a spell</h2><button class="x ico" id="gpClose" data-ico="x" aria-label="Close"></button></div>
+    <div class="mh-row"><h2 id="gpTitle">Choose a spell</h2><button class="helpbtn hidden" id="gpHelpBtn" data-help="gpHelp" aria-expanded="false" aria-label="How this picker works"></button><button class="x ico" id="gpClose" data-ico="x" aria-label="Close"></button></div>
     <div class="sub" id="gpSub"></div>
   </div>
   <div class="mb">
+    <div class="helpbody hidden" id="gpHelp">
+      <p class="hidden" id="gpHelpPlace">Pick the slot you want to fill, then click one of
+      this build's own spells: it moves to that slot and whatever sat there shifts one later.
+      Nothing is ever removed.</p>
+      <p class="hidden" id="gpHelpTrade">Clicking a spell records the trade. The one you
+      replace keeps its place in the acquisition order, so every earlier level still reads
+      the same.</p>
+    </div>
     <div class="pickbar">
       <input type="search" id="gpSearch" placeholder="filter by name…">
       <span class="gpcount" id="gpCount"></span>
@@ -609,7 +620,6 @@
     <div id="gpList"></div>
   </div>
   <div class="mf">
-    <span class="gppill" id="gpPill"></span>
     <button class="btn on" id="gpDone">Done</button>
   </div>
 </div></div>

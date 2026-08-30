@@ -1913,7 +1913,8 @@ function guideSecBlock(step,sec,rowOf){
     const btn=el("button","btn"+(sec.done?"":" on gbig"),
       GUIDE.reverse&&sec.kind==="pick"?"Place picks here…"
       :sec.done?"Change…":"Choose "+noun+"…");
-    btn.onclick=()=>openGpickStep(step);
+    // each section opens its OWN picker, scoped to its own pool (D131(a))
+    btn.onclick=()=>openGpickSec(step,sec);
     b.append(btn);
     if(sec.ill)b.append(hint("A spell here is above what the class could cast when this slot "
       +"arrived — the chain marks it. Placing the pick that really was learned here is what clears it."));
@@ -2074,12 +2075,15 @@ function guideSecWrap(step,sec,body){
   box.append(h); box.append(body); return box;
 }
 
-// ── the guide's pick modal (G3 · D126(f) · D130(d)) ────────────────────────
+// ── the guide's pick modal (G3 · D126(f) · D131(a,b)) ──────────────────────
 // "Spells should be chosen from a modal, not the page … only eligible spells grouped by
-// level, sorted highest to lowest." D130(d) makes it take EVERY pick of a step in one
-// visit: taking one does not close it, each pick SECTION carries its own "N of M" counter
-// and its own eligibility (a cantrip cannot be taken into the 1st-level-spell group), the
-// footer counts what the step still owes, and Done closes. Three modes, one list:
+// level, sorted highest to lowest." D131(a) scopes it to ONE SECTION per visit, superseding
+// D130(d)'s take-the-whole-step: a Cantrips section and a Spells section of the same step
+// are two pickers, each knowing only its own pool, so the modal has exactly one meaning
+// every time it opens. D130(c)'s one-step-per-feature grouping is untouched — the step
+// still holds its sections on the card, they just each own a picker. Taking one pick does
+// not close the modal; the FOOTER BUTTON is the nudge that does (D131(b), `gpickFoot`), and
+// it moves the walk on rather than only closing. Three modes, one list:
 //   take  — the forward walk. The commit is the app's own `toggle` (or the same
 //           `state.choices` write the Choices card makes for a granted group), so a pick
 //           lands in the row's FIRST open slot and nothing here can lie about where: a
@@ -2143,16 +2147,20 @@ function guideSwapMax(row,lv){
   const clAt=lvls.filter(x=>x<=lv).length;
   return Math.max(1,maxLvlAt(sched.caster,Math.max(1,clAt)));
 }
-// open the modal for a chain step — every pick section of it, in one visit (D130(d)).
+// open the modal for ONE SECTION of a chain step (D131(a), superseding D130(d)'s one visit
+// per step): the modal knows only that section's pool, so a Cantrips section and a Spells
+// section of the same step are two visits and never one list. D130(c)'s grouping is
+// untouched — the step still holds both sections on its card, they just each own a picker.
 // The trade card builds its own spec.
-function openGpickStep(step){
-  openGpick({mode:GUIDE.reverse?"place":"take",stepKey:step.key});
+function openGpickSec(step,sec){
+  openGpick({mode:GUIDE.reverse?"place":"take",stepKey:step.key,secId:sec.id});
 }
 function openGpick(spec){
   // every opener starts unfolded: this modal serves a different question each time, and a
   // level folded shut in the last one would hide spells with nothing on screen saying why
-  // (the same rule `openPick` follows, D94)
+  // (the same rule `openPick` follows, D94). The `?` disclosure resets with them.
   FOLDED.gpick.clear();
+  gpickHelpShut();
   GPICK=spec;
   const s=$("#gpSearch"); if(s)s.value="";
   $("#gpickModal").classList.remove("hidden");
@@ -2168,7 +2176,59 @@ function gpickSync(){
   const g=GPICK; if(!g||g.mode==="trade")return;
   const st=((R&&R.gsteps)||[]).find(x=>x.key===g.stepKey)||null;
   g.step=st;
-  g.secs=st?st.sections.filter(x=>x.kind==="pick"||x.kind==="cpick"):[];
+  // a pick section's id names its array POSITION RANGE and a choice section's is its grants
+  // path id — both stable across re-derivation, which is what lets the modal hold one
+  // section by id instead of an index that a re-derived step could renumber
+  g.sec=st&&st.sections.find(x=>x.id===g.secId&&(x.kind==="pick"||x.kind==="cpick"))||null;
+}
+// the `?` (D88): the only prose left in this modal, and only where the gesture is not
+// self-evident — placing into an addressed slot, and what a trade does to the order. A
+// take needs none: the list is the question and the ✓ is the answer.
+function gpickHelpShut(){
+  const body=$("#gpHelp"), btn=$("#gpHelpBtn");
+  if(body)body.classList.add("hidden");
+  if(btn){btn.classList.remove("on");btn.setAttribute("aria-expanded","false");}
+}
+function gpickHelp(mode){
+  const btn=$("#gpHelpBtn");
+  ["Place","Trade"].forEach(m=>{const p=$("#gpHelp"+m);
+    if(p)p.classList.toggle("hidden",mode!==m.toLowerCase());});
+  const show=mode==="place"||mode==="trade";
+  if(btn)btn.classList.toggle("hidden",!show);
+  if(!show)gpickHelpShut();
+}
+// the footer button, which IS the proceed nudge (D131(b)). Three states, and the third one
+// MOVES THE WALK — the whole point of the clause is that finishing a section should not
+// need a second press on the stage behind the modal.
+//   owed      — quiet, disabled, "Choose N more"
+//   met       — accent, "Done — next step", closes and advances
+//   met, but the step still has another section open — accent, "Done — next section":
+//               the walk must not step over a question the card is still asking, so this
+//               one lands you back on the card the other section lives on (D130(c))
+// A trade closes on the pick it records, so its footer is a plain way out, never a nudge.
+function gpickMore(){
+  const g=GPICK;
+  return !!(g&&g.step&&g.step.sections.some(x=>x!==g.sec&&!x.done&&!x.optional));
+}
+function gpickFoot(){
+  const b=$("#gpDone"), g=GPICK; if(!b||!g)return;
+  if(g.mode==="trade"){
+    b.textContent="Close"; b.disabled=false; b.classList.remove("on"); return;}
+  const sec=g.sec;
+  const owed=g.mode==="take"&&sec?Math.max(0,sec.need-sec.have):0;
+  b.disabled=owed>0;
+  b.classList.toggle("on",!owed);
+  b.textContent=owed?"Choose "+owed+" more"
+    :"Done — "+(gpickMore()?"next section":"next step");
+}
+// the walk's advance, in the shape the stage's Next uses: forward seeks the next open
+// decision, reverse walks every step (review is the point). Nothing new — `guideStepAfter`
+// and `guideGo` are the same two primitives Next presses.
+function guideAdvance(){
+  const steps=(R&&R.gsteps)||[];
+  const go=GUIDE.reverse?guideStepAfter(steps,GUIDE.cur,null)
+    :guideStepAfter(steps,GUIDE.cur,x=>x.status!=="done"&&!x.optional);
+  if(go)guideGo(go); else render();
 }
 function renderGpick(){
   if(!GPICK)return;
@@ -2176,14 +2236,15 @@ function renderGpick(){
   const g=GPICK, list=$("#gpList"); if(!list)return;
   list.innerHTML="";
   const q=(($("#gpSearch")||{}).value||"").toLowerCase();
-  let shown=0, have=0, need=0;
+  let shown=0;
+  gpickHelp(g.mode);
   if(g.mode==="trade"){
     const row=state.classes.find(r=>r.id===g.row), c=row&&CLS_BY[row.clsKey];
     const cname=c?c.name:"this class", kw=g.kind==="cantrip"?"cantrip":"spell";
-    const capTxt=(g.kind==="cantrip"||!g.castMax)?"":" — up to level "+g.castMax;
+    const capTxt=(g.kind==="cantrip"||!g.castMax)?"":" · up to level "+g.castMax;
     $("#gpTitle").textContent="Replace "+g.outName;
-    $("#gpSub").textContent="a "+kw+" for "+cname+" at L"+g.lv+capTxt
-      +" — taking one records the trade, "+g.outName+" keeps its place in the order";
+    // live status only — what a trade DOES to the order moved behind the `?` (D131(c))
+    $("#gpSub").textContent="a "+kw+" for "+cname+" · L"+g.lv+capTxt;
     const mine=new Set((((state.chosen[g.row]||{})[g.kind==="cantrip"?"cantrips":"spells"])||[]));
     const items=[...R.pool.values()].filter(i=>{
       const k=key(i.sp.name,i.sp.source);
@@ -2193,45 +2254,41 @@ function renderGpick(){
     shown=items.length;
     gpickSection(list,null,items,new Set(),"trade",null);
     $("#gpCount").textContent=shown+(shown===1?" spell":" spells");
-    $("#gpPill").textContent="Tap one to record the trade";
-    $("#gpPill").classList.remove("full");
+    gpickFoot();
     return;
   }
-  const st=g.step;
-  if(!st||!g.secs.length){closeGpick();return;}
+  const st=g.step, sec=g.sec;
+  if(!st||!sec){closeGpick();return;}
   const row=st.row!=null?state.classes.find(r=>r.id===st.row):null, c=row&&CLS_BY[row.clsKey];
-  $("#gpTitle").textContent=g.mode==="place"?"Place this build's own picks"
-    :g.secs.length>1?st.label:"Choose "+gpickNoun(g.secs[0]);
-  $("#gpSub").textContent=["L"+st.lv,c?c.name:null,
-    g.mode==="place"?"a click places the pick in the slot you have selected"
-      :"only what is legal here, highest level first"].filter(Boolean).join(" · ");
-  g.secs.forEach(sec=>{
-    have+=sec.have; need+=sec.need;
-    const land=g.mode==="take"?guideLandingSec(sec):sec;
-    const cap=(land||sec).castMax;
-    const wrap=el("div","gpsec");
-    const h=el("div","gpsech");
-    h.append(el("span","gpsecl",sec.label));
-    h.append(el("span","gcnt"+(sec.done?" full":""),sec.have+" of "+sec.need));
-    wrap.append(h);
-    if(g.mode==="take"&&land!==sec)wrap.append(el("div","gphint",land
-      ? "A pick taken here fills the still-open L"+land.lv+" slot first — that is where it lands."
-      : "Every slot of this kind is filled. Click one you hold to drop it first."));
-    if(g.mode==="place"&&sec.kind==="pick")wrap.append(gpickSlots(sec));
-    const all=guideEligible(sec,g.mode,cap);
-    const items=all.filter(sp=>!q||sp.name.toLowerCase().includes(q));
-    shown+=items.length;
-    const held=g.mode==="place"
-      ? new Set([((state.chosen[sec.row]||{})[sec.pick==="cantrip"?"cantrips":"spells"]||[])[guideTarget(sec)]].filter(Boolean))
-      : sec.kind==="cpick" ? new Set(state.choices[sec.cid]||[])
-      : new Set(((state.chosen[sec.row]||{})[sec.pick==="cantrip"?"cantrips":"spells"])||[]);
-    gpickSection(wrap,sec,items,held,g.mode,q);
-    list.append(wrap);});
+  // the modal names the FEATURE it belongs to — the card it opened from ("Spellcasting",
+  // "Magic Initiate") — and the section header below names the group and carries the count.
+  // Neither line says the other's, which is the redundancy D130(b) was raised about;
+  // `multiLabel` is what keeps a two-section cast step from titling itself "Cantrips".
+  $("#gpTitle").textContent=st.multiLabel||st.label||"Choose "+gpickNoun(sec);
+  // live status, nothing else (D131(c)): where in the build you are standing
+  $("#gpSub").textContent=["L"+st.lv,c?c.name:null].filter(Boolean).join(" · ");
+  // cap honesty (D125) survives the scoping: the pool and the note still describe the slot
+  // a take really lands in, not the one whose section you clicked
+  const land=g.mode==="take"?guideLandingSec(sec):sec;
+  const cap=(land||sec).castMax;
+  const h=el("div","gpsech");
+  h.append(el("span","gpsecl",sec.label));
+  h.append(el("span","gcnt"+(sec.done?" full":""),sec.have+" of "+sec.need));
+  list.append(h);
+  if(g.mode==="take"&&land!==sec)list.append(el("div","gphint",land
+    ? "A pick taken here fills the still-open L"+land.lv+" slot first — that is where it lands."
+    : "Every slot of this kind is filled. Click one you hold to drop it first."));
+  if(g.mode==="place"&&sec.kind==="pick")list.append(gpickSlots(sec));
+  const all=guideEligible(sec,g.mode,cap);
+  const items=all.filter(sp=>!q||sp.name.toLowerCase().includes(q));
+  shown=items.length;
+  const held=g.mode==="place"
+    ? new Set([((state.chosen[sec.row]||{})[sec.pick==="cantrip"?"cantrips":"spells"]||[])[guideTarget(sec)]].filter(Boolean))
+    : sec.kind==="cpick" ? new Set(state.choices[sec.cid]||[])
+    : new Set(((state.chosen[sec.row]||{})[sec.pick==="cantrip"?"cantrips":"spells"])||[]);
+  gpickSection(list,sec,items,held,g.mode,q);
   $("#gpCount").textContent=shown+(shown===1?" spell":" spells");
-  const pill=$("#gpPill");
-  pill.textContent=g.mode==="place"?"click a pick to place it in the selected slot"
-    :"Chosen "+have+" of "+need;
-  pill.classList.toggle("full",g.mode!=="place"&&have>=need);
+  gpickFoot();
 }
 // the slots a reconstruct section owns, as the targets a placement lands in (D118(f,g)) —
 // slot-level addressing, inside the modal where D130(c) put it
@@ -2292,9 +2349,10 @@ function gpickRow(sp,held,sec,mode){
   b.onclick=e=>{e.stopPropagation(); gpickCommit(sec,k);};
   take.append(b); d.append(take); return d;
 }
-// the commit. Taking does NOT close the modal (D130(d)) — the step may owe several picks
-// and the footer counts them down; Done, ×, Escape and the backdrop close it. A TRADE is
-// the exception: it is one pick by definition, and its card is what shows the result.
+// the commit. Taking does NOT close the modal (D131(b) re-rejected auto-close: it takes the
+// surface away mid-thought with nothing left to review) — the section may owe several picks
+// and the footer counts them down; the footer button, ×, Escape and the backdrop close it.
+// A TRADE is the exception: it is one pick by definition, and its card shows the result.
 function gpickCommit(sec,k){
   const g=GPICK; if(!g)return;
   if(g.mode==="trade"){ guideTrade(g,k); closeGpick(); return; }
@@ -7467,7 +7525,17 @@ $("#pickSearch").oninput=renderPickList;
 // backdrop node itself — a click that re-renders detaches its own target, and a
 // `closest()` test would then read an inside click as outside (the E5 trap).
 $("#gpClose").onclick=closeGpick;
-$("#gpDone").onclick=closeGpick;     // D130(d): picks commit as they are taken; Done closes
+// D131(b): picks still commit as they are taken, so this button never "saves" anything —
+// what it does is CLOSE and then move the walk on, which is the press it exists to save
+// you. It stays put when the step still has another section asking (`gpickMore`), because
+// stepping over an open question is exactly what the label would be lying about; a trade
+// closes on the pick it records, so there its only job is the way out.
+$("#gpDone").onclick=()=>{
+  const g=GPICK; if(!g)return;
+  const go=g.mode!=="trade"&&!gpickMore();
+  closeGpick();
+  if(go)guideAdvance();
+};
 $("#gpickModal").onclick=e=>{if(e.target===$("#gpickModal"))closeGpick();};
 $("#gpSearch").oninput=renderGpick;
 $("#guideCtaBtn").onclick=()=>openGuide(false);

@@ -1969,10 +1969,9 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
 #gpList{max-height:52vh;overflow:auto;padding-right:10px}
 .gpcount{flex:0 0 auto;font-size:11px;color:var(--muted);white-space:nowrap;
   font-variant-numeric:tabular-nums}
-/* D130(d): one block per pick section, each with its own counter, its own eligible list
-   and — in reconstruct mode — its own slots. A cantrip group and a 1st-level-spell group
-   are different questions and never share a list. */
-.gpsec+.gpsec{margin-top:14px;border-top:1px solid var(--line);padding-top:10px}
+/* D131(a): ONE section per visit — its own counter, its own eligible list and, in
+   reconstruct mode, its own slots. A cantrip group and a 1st-level-spell group are
+   different questions, and since D131(a) they are different pickers too. */
 .gpsech{display:flex;align-items:baseline;gap:10px;margin-bottom:4px}
 .gpsech .gpsecl{font-family:var(--font);font-size:13.5px;font-weight:600}
 .gphint{font-size:11.5px;line-height:1.45;color:var(--gold);margin-bottom:4px}
@@ -1984,17 +1983,19 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
 .gpslot.on{border-color:var(--accent);background:var(--accent-soft)}
 .gpslot.bad .v{color:var(--bad)}
 .gpslot:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-/* the modal's footer: what the step still owes, and the way out (D130(d)). There is no
-   Cancel — every pick commits as it is taken, through the app's own writers, so a button
-   promising to undo them would be lying. */
+/* the modal's footer: ONE button, which is the proceed nudge (D131(b)). Quiet and disabled
+   while the section still owes picks, accent once the count is met — and the accent state
+   moves the walk on, not just closes. There is no Cancel: every pick commits as it is
+   taken, through the app's own writers, so a button promising to undo them would be lying. */
 #gpickModal .mf{display:flex;align-items:center;gap:12px;padding:11px 18px;
   border-top:1px solid var(--line)}
 #gpickModal .mf .btn{margin-left:auto}
+/* the disabled half of the nudge. Scoped, like `.btn.busy` above it — there is still no
+   global `.btn:disabled` look and this batch is not the one to invent one. */
+#gpickModal .mf .btn:disabled{opacity:.5;cursor:default}
 /* a take the group has no room for: dimmed, still there, and its tip says why (D31 —
    nothing is hidden, and no control silently does nothing) */
 #gpList .tk.tkfull{opacity:.4}
-.gppill{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
-.gppill.full{color:var(--good)}
 /* D126(i): the empty-build offer. A card in the panel's own language, leading the column
    — accent-edged so it reads as an invitation rather than a warning. */
 .gcta{border-color:var(--accent)}

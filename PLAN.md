@@ -293,7 +293,10 @@ surfaces are the same ones phase H shipped, and neither phase has been reviewed 
   assumption. **Fallback if the inversion proves larger than it reads** (D132's rejected option,
   kept live for exactly this): leave both columns ascending and express direction as "start
   here" caps at the two ends of the rail.
-- [ ] **I3 — drawer edge + rail alignment** (D131(f,h)): the 14px accent sliver goes and the
+- [x] **I3 — drawer edge + rail alignment** (**merged v1.2.34**, `src/styles.css` only —
+  zero app.js surface; done-when verified at 1280 AND 375: the guide's right edge sits at
+  exactly 0 aside, `elementFromPoint` across the first 20px never lands inside it, the grip
+  delta is 0.00 on every row collapsed and open, and a real drag still reorders): the 14px accent sliver goes and the
   guide slides fully off-canvas (the `body.gaside` offsets key off `--gbh`, not the edge, so
   they stay); the chain rail's drag handle aligns to the level chip and title row on a
   collapsed card without breaking the open card that `align-items:flex-start` exists for.
