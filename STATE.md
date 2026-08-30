@@ -7,14 +7,14 @@
 > |---|---|
 > | `CLAUDE.md` | What this project is, its conventions, build/run, the verify gate, versioning |
 > | `PLAN.md` | The queue — what is next and what is gated |
-> | `DECISIONS.md` | Every decision D7–D124 and what was rejected |
+> | `DECISIONS.md` | Every decision D7–D130 and what was rejected |
 > | `GOTCHAS.md` | Traps that have already cost a session |
 > | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 > | `ARCHIVE.md` | Bodies of consumed phases and old rationale |
 
-## TL;DR (2026-08-30 · **v1.2.27** at `e542e35`, pushed, tags pushed · **LIVE on GitHub Pages**)
-- **State:** tree clean, everything committed and pushed. **Eleven tagged releases across two
-  days (v1.2.17 → v1.2.27)**, most built by parallel Opus agents in worktrees and merged here.
+## TL;DR (2026-08-30 · **v1.2.28**, pushed, tags pushed · **LIVE on GitHub Pages**)
+- **State:** tree clean, everything committed and pushed. **Twelve tagged releases across two
+  days (v1.2.17 → v1.2.28)**, most built by parallel Opus agents in worktrees and merged here.
   ① **F4 passed** → phase F done, with **D125** fixed in-gate (a forward pick step now clamps
   to the row's FIRST open slot, because a take always lands there). ② **The wave batch**:
   **D128** swaps are per KIND (one leveled-spell trade + one cantrip trade per level-up, rules
@@ -29,13 +29,14 @@
   ④ **Phase G**: the guided builder is a **full-size page** (D126) — chain column in the
   timeline's language with shared drag-to-reorder, decision stage, pick modal over it, choice
   steps that open the app's real choosers. ⑤ **Phase H started** (D130, from using it):
-  H1 nav + H2 subclass spell lists merged in v1.2.27.
-- **Next action:** **H3 — the guided builder v2 surfaces** (D130(a–d): collapsed rail with one
-  severity icon, chips-only answers, ONE STEP PER FEATURE with sections, multi-pick modal) —
-  **an agent is IN FLIGHT on it** (worktree branch `worktree-agent-afa4cdde2296b6f0b`); merge
-  it, then **H4** (D130(e) the character drawer), then **H6** (capitalization — audited, the
-  inventory and the do-not-touch key list are in PLAN). **G4 and H5 are 🔍 fresh-eyes gates
-  and both need SEPARATE sessions** — this one coordinated every build in phases G and H.
+  H1 nav + H2 subclass spell lists merged in v1.2.27, and **H3's v2 surfaces in v1.2.28** (the rail collapses to one severity icon per level; a step is one FEATURE with a section per group; one modal takes all of a step's picks).
+- **Next action:** **H4 — the character drawer** (D130(e): "Character" slides the guide aside
+  with a persistent bar naming the step you left, which can also END the walk; G1's
+  `GUIDE.away` + the vanishing Guide tab come out — H3 left all three untouched for exactly
+  this). Then **H6** (capitalization — audited; the inventory and the do-not-touch key list
+  are in PLAN, but re-check its guide-region line numbers against H3's new step/section code).
+  **G4 and H5 are 🔍 fresh-eyes gates and both need SEPARATE sessions** — this one coordinated
+  every build in phases G and H.
 - **Manual for Francesco:** ⓪ **Refresh your imported data in each browser — the top item, and
   it now explains three separate symptoms** — ⋯ → **Refresh imported data** (since v1.2.23 the
   menu button runs inline and SHOWS a green "Re-imported N books" / a red reason, so you can
@@ -74,7 +75,7 @@ https://claude.ai/code/artifact/47dbe945-a18a-4444-af21-c0143faa2eb0
 **Phases E and F are DONE** (E8 and F4 both passed; bodies → `ARCHIVE.md#phase-e` and the
 PLAN's phase F block). **Phase G is BUILT** (D126 — the guided builder is a full-size page,
 G1–G3 shipped v1.2.24 → v1.2.26) and **awaits its G4 gate**. **Phase H is under way** (D130 —
-guided builder v2: H1/H2 merged in v1.2.27, H3 in flight, then H4 and H6, gated by H5).
+guided builder v2: H1/H2/H3 merged through v1.2.28; H4 and H6 remain, gated by H5).
 v7 (saved builds) is complete → `ARCHIVE.md#v7-tasks`. Non-goals as narrowed by D115: no
 **authored** timeline (the level view is derived from the acquisition order; versions are
 alternatives, never levels), no server sync or accounts, no sharing a build as a page or

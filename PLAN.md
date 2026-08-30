@@ -180,18 +180,23 @@ restate it. H1/H2 are in flight as agents; H3 is the big one and waits for H1 to
   proved firing), 6 new cparity checks (48 total), and `listUnknown` now makes the app SAY it
   can't name the list instead of showing an empty picker. Subclasses of casting classes that
   reach another list (Lore, Divine Soul…) correctly keep their own list + expansions.
-- [ ] **H3 — the v2 surfaces** (**AGENT IN FLIGHT** as of 2026-08-30 close, worktree branch
-  `worktree-agent-afa4cdde2296b6f0b` — merge it first next session): D130(a) collapsed rail rows
+- [x] **H3 — the v2 surfaces** (**merged v1.2.28**, verified on the merged tree: 20 level rows,
+  exactly one expanded, exactly ONE severity icon each; a `cast` step holds Cantrips + Spells
+  sections; the modal shows both with their own counters and a "Chosen 4 of 4 · Done" footer;
+  storage byte-identical after the walk): D130(a) collapsed rail rows
   with ONE highest-severity icon + aggregated counter rows; (b) chips-only answers with the
   header counter; (c) one step per feature/source with a section per logical group
   (`guideSteps` regrouping — reverses D118(c) in part; reconstruct keeps slot placement
   inside the modal); (d) the multi-pick modal with per-section counters.
-- [ ] **H4 — the character drawer** (after H3): D130(e) — "Character" slides the guide aside
+- [ ] **H4 — the character drawer** (NEXT — H3 has merged): D130(e) — "Character" slides the guide aside
   with a persistent bar naming the step you left, which can also END the walk; G1's
   `GUIDE.away` + vanishing Guide tab come out.
-- [ ] **H5 — 🔍 fresh-eyes gate** (separate session) — phase H against D130(a–h).
-- [ ] **H6 — capitalization sweep** (AUDITED 2026-08-30, read-only agent; queued behind **H3**
-  because a third of the sites are in the guide region it is rewriting). Mechanism decided by the audit:
+- [ ] **H5 — 🔍 fresh-eyes gate** (separate session) — phase H against D130(a–h). H3's own
+  gate question, carried: in reverse `place` mode the eligible list still applies the slot's
+  cast cap, so a pick that is too HIGH for a slot cannot be placed into it (the repair is to
+  place a legal pick and push the offender later). Is that the intended reading of D118(g)?
+- [ ] **H6 — capitalization sweep** (AUDITED 2026-08-30; H3 has merged, so it is unblocked —
+  re-check the guide-region line numbers against the new step/section code first). Mechanism decided by the audit:
   **one shared display helper + ~20 source-string edits, no CSS work** — `cap`/`cap1` and
   three inline copies already exist and `cap1` is already used this way on filter values, so
   this is consolidation. Highest value: **`sp.time`** renders lowercase ("action") beside

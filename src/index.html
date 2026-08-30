@@ -578,10 +578,12 @@
     <div class="gstage" id="gStage"></div>
   </div>
 </div>
-<!-- G3 · D126(f): a spell or cantrip step answers HERE, not on the page. Standard modal
-     chrome, so it opens OVER the guide like every other picker. Eligible spells only,
-     grouped by level DESCENDING with the same foldable headers both spell lists use. -->
-<div class="modal hidden" id="gpickModal" role="dialog" aria-label="Choose a spell"><div class="box">
+<!-- G3 · D126(f) · D130(d): a step's picks are answered HERE, not on the page — all of
+     them in one visit. Standard modal chrome, so it opens OVER the guide like every other
+     picker. One block per pick section, each with its own counter and its own eligible
+     list, grouped by level DESCENDING with the same foldable headers both spell lists use.
+     The footer counts what the step still owes; Done closes it. -->
+<div class="modal hidden" id="gpickModal" role="dialog" aria-label="Choose spells"><div class="box">
   <div class="mh mh-stack">
     <div class="mh-row"><h2 id="gpTitle">Choose a spell</h2><button class="x ico" id="gpClose" data-ico="x" aria-label="Close"></button></div>
     <div class="sub" id="gpSub"></div>
@@ -592,6 +594,10 @@
       <span class="gpcount" id="gpCount"></span>
     </div>
     <div id="gpList"></div>
+  </div>
+  <div class="mf">
+    <span class="gppill" id="gpPill"></span>
+    <button class="btn on" id="gpDone">Done</button>
   </div>
 </div></div>
 <div class="modal hidden" id="prepModal"><div class="box">
