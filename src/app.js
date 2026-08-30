@@ -624,7 +624,9 @@ function resolveGrants(grants,level,tok,giver,out,sharedStat,giverSrc,owner){
   (grants.fixed||[]).forEach(g=>{ if((g.atLevel||0)>level)return; spellOut(grantRec(g.spell.name),g.kind,g.recharge,g.feature,g.extra,g.note); });
   (grants.expansions||[]).forEach(e=>{ if((e.atLevel||0)<=level)out.expansions.push(Object.assign({},e.filter,{_atLevel:e.atLevel||0})); });
   (grants.picks||[]).forEach((p,j)=>{ if((p.atLevel||0)>level)return; const id=tok+":pk"+j;
-    out.choices.push({id,count:p.count,filter:p.filter,kind:p.kind,recharge:p.recharge,giver:p.feature||giver,giverSrc,desc:p.desc,type:"pick",owner,note:p.note});
+    // `atLevel` rides along (G2): the guided chain has to file a class- or subclass-owned
+    // choice under the character level it actually opens at, not under the row's first
+    out.choices.push({id,count:p.count,filter:p.filter,kind:p.kind,recharge:p.recharge,giver:p.feature||giver,giverSrc,desc:p.desc,type:"pick",owner,note:p.note,atLevel:p.atLevel||0});
     // `extra` (a custom source's own DC/attack, a fixed cast level) was hardcoded null here
     // while fixed grants passed theirs — so a spell you PICKED from a source silently lost the
     // source's numbers. Nothing in the data emitted a pick with `extra` before D96, so it never
@@ -1080,8 +1082,29 @@ function guideSteps(){
       const d=(p.counts[cl-1]||0)-(cl>1?(p.counts[cl-2]||0):0);
       const got=byProg.get(p.name+"|"+lvls[cl-1])||[];
       for(let k=0;k<d;k++){const ok=got[k];
+        // the progression and the class level ride along so the stage can open the app's
+        // OWN optional-feature picker for this slot (D126(g)) — the same descriptor
+        // `openGainChooser` builds for the timeline's quick-choose, never a second picker
         add({lv:lvls[cl-1],ord:6,kind:"optfeat",row:row.id,pos:k,label:p.name,done:!!ok,
-             value:ok?(OPT_BY[ok]||{}).name:null,pool:{kind:"optfeat",types:[...p.types||[]]}});}}});}));
+             value:ok?(OPT_BY[ok]||{}).name:null,
+             pool:{kind:"optfeat",types:[...p.types||[]],prog:p,cl,giver:src.name,giverSrc:src.source}});}}});}));
+  // D126(g): every choice the build carries is a step of its own — the same entries the
+  // Choices card renders (Magic Initiate's cantrip, its spell and its casting ability; a
+  // subclass's option group; a species' pick). They are resolved at FULL level, so the
+  // chain keeps its rows while the character view stands on an earlier slice.
+  const featAcq=featAcqLevels(), optAcq=optAcqLevels();
+  guideChoices().forEach((c,i)=>{
+    const at=guideChoiceAt(c,featAcq,optAcq,clm);
+    const isPick=c.type==="pick";
+    add({lv:Math.max(1,at.lv),ord:at.ord,kind:"choice",cid:c.id,choice:c,pos:i,row:at.row,
+         giver:c.giver,label:guideChoiceLabel(c),value:guideChoiceValue(c),
+         done:isPick?(state.choices[c.id]||[]).length>=c.count:state.choices[c.id]!=null,
+         // an option group and the casting-ability question always HOLD a value (the
+         // default stands until you say otherwise), so leaving one is an answer, not a
+         // hole — the same treatment D121 gave the swap y/n step
+         optional:!isPick||!!c.optional,
+         pool:{kind:"choice"}});
+  });
   // the growth affordance: the next class level is itself the next decision
   if(top<20)add({lv:top+1,ord:0,kind:"class",row:null,label:top?"Next level":"Class",
                  done:false,value:null,pool:{kind:"class",continueOf:top?plan[top-1]:null}});
@@ -1101,6 +1124,49 @@ function guideResume(steps,desc){
   const list=desc?[...steps].reverse():steps;
   return list.find(s=>s.status!=="done"&&!s.optional)||null;
 }
+// ── the build's pending choices, as steps (D126(g)) ────────────────────────
+// The Choices card and the guide read ONE list. `R.choices` already is the whole build's
+// when nothing is previewed, so the common path costs nothing; under a preview the guide
+// re-resolves at full level rather than let the chain shrink to the slice it happens to
+// be looking at (a step that vanishes when you glance back is not a chain).
+function guideChoices(){
+  if(PREVIEW.level==null&&R&&R.choices)return R.choices;
+  const records=state.classes.map(r=>resolveRow(r)).filter(Boolean);
+  const casters=records.filter(r=>r.caster);
+  const abils=[...new Set(casters.map(r=>r.ability).filter(Boolean))];
+  return collectGrants(records,casters,state.classes.reduce((a,r)=>a+(r.level||0),0),
+    state.feats,state.optFeats,abils.length===1?abils[0]:null).gout.choices;
+}
+// where a choice belongs in the chain: at the level its GIVER arrived. The owner token
+// names the kind of giver (`ownerOf` splits it off the path id) and every kind already has
+// an acquisition mapper — a feat's slot level, an optional feature's progression level, a
+// class row's own plan. Nothing is stamped; this derives, like every other step (D118(j)).
+function guideChoiceAt(c,featAcq,optAcq,clm){
+  const oid=(c.owner&&c.owner.id)||String(c.id).split(":")[0], k=oid.slice(1);
+  if(oid==="r")return {lv:1,ord:2.5,row:null};                       // species
+  if(oid[0]==="f"){const a=featAcq.get(k)||{};
+    return {lv:a.lv||1,ord:a.cat==="origin"?3.5:6.5,row:null};}
+  if(oid[0]==="o"){const a=optAcq.get(k)||{}; return {lv:a.lv||1,ord:6.5,row:null};}
+  if(oid[0]==="c"||oid[0]==="s"){
+    const rid=Number(k), row=state.classes.find(r=>r.id===rid), lvls=clm.get(rid)||[];
+    let cl=c.atLevel||0;
+    // a subclass grant with no level of its own opens where the subclass itself does
+    if(!cl&&oid[0]==="s"){const cc=row&&CLS_BY[row.clsKey]; cl=(cc&&cc.subclassLevel)||3;}
+    cl=Math.max(1,Math.min(cl||1,lvls.length||1));
+    return {lv:lvls[cl-1]||lvls[lvls.length-1]||1,ord:1.5,row:rid};}
+  return {lv:1,ord:9,row:null};          // a custom source carries no level (D55)
+}
+// the ask, short enough for a chain row; the giver is the stage's sub-line, never repeated
+const guideChoiceLabel=c=>c.type==="ability"?"Casting ability"
+  :c.type==="option"?(String(c.giver||"Option").split(" · ").pop()||"Option")
+  :(t=>t.charAt(0).toUpperCase()+t.slice(1))(
+     fmtDesc(c.desc)||("choose "+(c.count>1?c.count+" spells":"a spell")));
+function guideChoiceValue(c){
+  if(c.type!=="pick"){const v=state.choices[c.id];
+    return v==null?null:(c.type==="ability"?(ABIL[v]||String(v)):String(v));}
+  const a=state.choices[c.id]||[];
+  return a.length?a.map(k=>(SPELL_BY[k]||{}).name||String(k).split("|")[0]).join(", "):null;
+}
 // ── the guided builder PAGE (G1 · D126(a,b,c) — supersedes F2's rail) ───────
 // The guide is its own full-size view now: a header (which build, which level, how far
 // along, the switch back to the character view, the exit), a CHAIN COLUMN — a lean
@@ -1113,20 +1179,24 @@ function guideResume(steps,desc){
 // Structural choices (class · subclass · feat-or-ASI · swap y/n) answer INLINE on the
 // stage; multi-pick decisions still hand off to the page's pre-filtered list until G3
 // replaces that with a modal (D126(f)).
-// `cur` is a step KEY so it survives every re-render; `autonext` moves it along when
-// the step it points at gets answered on the page. `away` is the character-view switch:
-// the walk stays exactly where it was, the page just steps aside.
+// `cur` is a step KEY so it survives every re-render. It moves ONLY on Next, Skip or a
+// chain click (D126(e), superseding F2's auto-advance): answering a step turns its card
+// green and lights Next, it does not jump you somewhere else mid-thought. The one
+// exception is `stepNext`, the reverse walk's positional placement — an explicit
+// "this slot is answered, move on" gesture, not an automatic hop.
+// `away` is the character-view switch: the walk stays where it was, the page steps aside.
 // `reverse` is D118(f)'s reconstruct mode: the candidate pool narrows to the build's
 // own picks and answering a slot PLACES a pick at that slot's array position — a
 // stateless gesture (the position IS the answer), so leftovers drift to the top slice
 // and take E4 flags exactly as D118(g) requires. `choose` renders the walk chooser
 // that a ready build gets on entry (D118(f) "asks which walk").
 let GUIDE={on:false,away:false,desc:false,reverse:false,choose:false,cur:null,
-           autonext:false,stepNext:false,pane:"stage"};
+           stepNext:false,pane:"stage"};
 // identity that survives re-derivation: picks key on their array POSITION (stable
 // under acquisition moves), everything else on what places it
 function guideKey(s){
   if(s.kind==="spell"||s.kind==="cantrip")return s.kind+"~"+s.row+"~"+s.pos;
+  if(s.kind==="choice")return "choice~"+s.cid;   // the grants path id — stable by design
   if(s.kind==="feat")return "feat~"+s.pos;
   if(s.kind==="optfeat")return "optfeat~"+s.row+"~"+s.label+"~"+s.lv+"~"+s.pos;
   if(s.kind==="subclass")return "subclass~"+s.row;
@@ -1136,7 +1206,7 @@ function guideKey(s){
 }
 function openGuide(desc,reverse){ GUIDE.on=true; GUIDE.away=false; GUIDE.pane="stage";
   GUIDE.desc=!!desc; GUIDE.reverse=!!reverse;
-  GUIDE.choose=false; GUIDE.cur=null; GUIDE.autonext=true; render(); }
+  GUIDE.choose=false; GUIDE.cur=null; render(); }
 function closeGuide(){ if(!GUIDE.on)return; GUIDE.on=false; GUIDE.away=false; GUIDE.choose=false;
   GUIDE.reverse=false; GUIDE.cur=null; render(); }
 // the shared entry for an EXISTING build (F3 · D118(i)): a fresh/empty build walks
@@ -1178,7 +1248,7 @@ function guidePickStep(){
 // jump the walk to a step: point the view at its level (slice editing, D115(d)),
 // focus the page surface that answers it, and remember it as current
 function guideGo(s){
-  GUIDE.cur=guideKey(s); GUIDE.autonext=!s.done;
+  GUIDE.cur=guideKey(s);
   const top=topCharLevel();
   setPreview(s.lv>=top?null:s.lv);      // renders; the rail re-draws with cur set
   if(s.kind==="spell"||s.kind==="cantrip")jumpTo($("#secSpells"));
@@ -1192,9 +1262,10 @@ function guideStepAfter(steps,key,pred){
   return null;
 }
 // resolve cur BEFORE the page renders: renderSpells pre-filters on the current pick
-// step, so the resolution cannot wait for the rail's own draw. Falls back to the
-// walk's resume point; auto-advances off a step the page just answered (the coach's
-// forward motion — never off a review jump, which sets autonext false).
+// step, so the resolution cannot wait for the stage's own draw. It only ever RESOLVES —
+// it picks a step when there is none, and it clamps a forward pick step to the slot the
+// take will really fill (D125). It never advances off an answered step: since D126(e)
+// the walk moves on Next, Skip or a chain click, and nothing else.
 function guideSync(){
   if(!GUIDE.on||GUIDE.choose)return;
   const steps=R.gsteps;
@@ -1213,12 +1284,7 @@ function guideSync(){
     if(GUIDE.reverse){const list=guideWalk(steps);
       cur=list.find(guideSlotIllegal)||list[0]||null;}
     else cur=guideResume(steps,GUIDE.desc);
-    GUIDE.cur=cur?guideKey(cur):null;GUIDE.autonext=true;
-  }
-  else if(cur.done&&GUIDE.autonext&&!GUIDE.reverse){
-    const nx=guideStepAfter(steps,GUIDE.cur,x=>x.status!=="done"&&!x.optional)
-           ||guideResume(steps,GUIDE.desc);
-    if(nx&&guideKey(nx)!==GUIDE.cur)GUIDE.cur=guideKey(nx);
+    GUIDE.cur=cur?guideKey(cur):null;
   }
   // a forward take always lands in the row's FIRST open slot — the pick arrays are
   // dense (D115(b,h)), so a later open slot cannot be answered where it shows (the
@@ -1383,11 +1449,14 @@ function renderGuideChain(steps,cur){
   if(curEl){const r=curEl.getBoundingClientRect(), br=box.getBoundingClientRect();
     if(r.top<br.top+4||r.bottom>br.bottom-4)box.scrollTop+=r.top-br.top-60;}
 }
-// ── G2 rebuilds this stage ─────────────────────────────────────────────────
-// G1 ports the minimum that keeps a walk usable: what the step is, the F2 inline answer
-// block, and Back · Skip · Next. The done-state cards (D126(e)), the class quick-pick
-// (D126(d)), the choices/optional-feature steps (D126(g)) and the trade cards (D126(h))
-// are G2/G3 — nothing here is meant to survive them.
+// ── the decision stage (G2 · D126(d,e,g)) ──────────────────────────────────
+// One card per step, in one visual family: a label row saying what state it is in, the
+// answer control, and a hint only where there is something honest to say. An ANSWERED
+// step keeps its card and turns green (D126(e)) — the walk does not jump, so the card is
+// what tells you the answer landed, and Next is the affordance that moves you on. Every
+// card's control is the app's OWN control: the real pickers, the real choice row, the
+// real optional-feature chooser. A second copy of any of them would be a second set of
+// bugs (D126(g) is the report that this was missing, not that it was ugly).
 function renderGuideStage(steps,cur,rowOf){
   const st=$("#gStage"); if(!st)return; st.innerHTML="";
   const top=topCharLevel();
@@ -1407,12 +1476,15 @@ function renderGuideStage(steps,cur,rowOf){
   const h=el("div","gsh"); h.append(document.createTextNode(cur.label));
   st.append(h);
   const rw=cur.row!=null?rowOf.get(cur.row):null, rc=rw&&CLS_BY[rw.clsKey];
-  st.append(el("p","gsub","L"+cur.lv+(rc?" · "+rc.name:"")
-    +(cur.optional?" · optional — passing on it is an answer":"")));
+  // the context line: which level, whose decision it is, and whether passing counts
+  st.append(el("p","gsub",[ "L"+cur.lv, rc?rc.name:null, cur.kind==="choice"?cur.giver:null,
+      cur.optional?"optional — passing on it is an answer":null ].filter(Boolean).join(" · ")));
   const card=el("div","gcard"+(cur.done?" gdone":""));
   if(cur.done){
     card.append(el("div","goptlab","answered"));
-    card.append(el("div","gval",cur.value||"—"));
+    const ok=el("div","gokline"); ok.append(icoEl("check"));
+    ok.append(el("span","gval",cur.value||"—"));
+    card.append(ok);
     // a filled slot whose spell the class could not cast when the slot arrived: the
     // chain marks it red, and the stage says why rather than reading as settled
     if(guideSlotIllegal(cur))card.append(el("div","grhint",
@@ -1424,7 +1496,7 @@ function renderGuideStage(steps,cur,rowOf){
       card.append(el("div","grhint","Reconstructing: the character view lists this build's own picks — click the one that was learned here and it takes this slot."));
       card.append(guidePageBtn("Open the spell list","#secSpells"));
     }
-    else card.append(el("div","grhint","Next moves on. To change it, open this step's own control on the character view — G2 brings the answered card here."));
+    else{const ch=guideChange(cur,rowOf); if(ch)card.append(ch);}
   } else {
     const inl=guideInline(cur,rowOf);
     if(inl)card.append(inl);
@@ -1454,47 +1526,126 @@ function renderGuideStage(steps,cur,rowOf){
   nav.append(next);
   st.append(nav);
 }
-// the inline answer block under the current row — structural choices only (D118(k));
-// pick steps answer on the page, so their block is just the hint
+// every class level is one write: bump the row's level, then put that row at the END of
+// the acquisition order. A class already in the build LEVELS UP its own row (one class,
+// one row — W1); a new one opens a row. This is the only idiom the guide uses.
+function guideTakeClass(ck){
+  const plan=classLevelPlan();
+  const have=state.classes.find(r=>r.clsKey===ck);
+  if(have){have.level=Math.min(20,(have.level||0)+1);state.levelOrder=plan.concat([have.id]);}
+  else{const nr={clsKey:ck,subKey:null,level:1,id:state.nextRowId++};state.classes.push(nr);
+    state.levelOrder=plan.concat([nr.id]);}
+  save();refreshAll();render();
+}
+// the subclass control, shared by the open card and the answered one. A COMMAND menu, not
+// a bound field: it always shows its prompt and resets after a pick, so it can never
+// silently select option 0 and rewrite the row (the trap `classOptions(keep)` exists for).
+// The ✓ marks the one in the build — `<option>` is the one place a glyph is allowed (D57).
+function guideSubSelect(s,rowOf){
+  const row=rowOf.get(s.row), c=row&&CLS_BY[row.clsKey]; if(!c)return null;
+  const subs=(SUBS_OF[row.clsKey]||[]).filter(visible);
+  if(!subs.length)return null;
+  const sel=el("select","gmenu");
+  sel.append(el("option","",row.subKey?"change the subclass…":"choose a subclass…"));
+  subs.forEach(sc=>{const k2=key(sc.name,sc.source);
+    const o=el("option",null,(sc.shortName||sc.name)+(k2===row.subKey?" ✓":""));
+    o.value=k2;sel.append(o);});
+  sel.onchange=()=>{const v=sel.value; sel.value="";
+    if(!v||v===row.subKey)return; row.subKey=v;save();refreshAll();render();};
+  return sel;
+}
+// the app's OWN optional-feature picker for this progression's slot (D126(g)) — the same
+// call the timeline's quick-choose makes, so there is one invocation picker, not two
+function guideOptBtn(s,label){
+  if(!s.pool||!s.pool.prog)return null;
+  const b=el("button","btn gbig",label);
+  b.onclick=()=>openGainChooser({kind:"opt",prog:s.pool.prog,giver:s.pool.giver,
+    giverSrc:s.pool.giverSrc,cl:s.pool.cl});
+  return b;
+}
+// the answered card's quiet way back into the decision (D126(e)): the SAME control that
+// answered it, never a second one. A step with no chooser of its own — a class level
+// already taken — points at the surface that does own it.
+function guideChange(s,rowOf){
+  const box=el("div","grinline gchange");
+  if(s.kind==="species"){const b=el("button","btn","Change the species…");
+    b.onclick=()=>openEntityPicker("species"); box.append(b); return box;}
+  if(s.kind==="feat"){const b=el("button","btn","Change the feat…");
+    b.onclick=()=>openEntityPicker("feat",s.slot==="epic"?"epic":s.slot==="origin"?"origin":"general");
+    box.append(b); return box;}
+  if(s.kind==="subclass"){const sel=guideSubSelect(s,rowOf);
+    if(!sel)return null; box.append(sel); return box;}
+  if(s.kind==="optfeat"){const b=guideOptBtn(s,"Change it…");
+    if(!b)return null; b.classList.remove("gbig"); box.append(b); return box;}
+  if(s.kind==="choice"){box.append(choiceRow(s.choice)); return box;}
+  if(s.kind==="class"){
+    box.append(el("div","grhint","A level already taken changes on the character view — or drag its card in the chain to move it in the order."));
+    box.append(guidePageBtn("Open the class rows","#secChar")); return box;}
+  if(s.kind==="swap"){
+    box.append(el("div","grhint","Clear the trade's pill in the timeline to undo it."));
+    return box;}
+  // a pick step still answers on the pre-filtered page list until G3's modal (D126(f))
+  if(s.kind==="spell"||s.kind==="cantrip"){
+    box.append(guidePageBtn("Open the spell list","#secSpells")); return box;}
+  return null;
+}
+// the answer control inside the current step's card. Structural choices answer here;
+// pick steps still hand off to the page's pre-filtered list until G3's modal (D126(f)).
 function guideInline(s,rowOf){
   const box=el("div","grinline");
+  // the class step (D126(d)): continue where you are, go back to the other class you were
+  // levelling, or reach for the rest. Two prominent buttons and a compact menu — one
+  // select doing all three jobs is what "3+ classes to be decided" was complaining about.
   if(s.kind==="class"&&!s.done){
     const contId=s.pool.continueOf, cont=contId!=null?rowOf.get(contId):null;
-    const cc=cont&&CLS_BY[cont.clsKey];
-    if(cc){const b=el("button","btn on",`Continue ${cc.name} → level ${(cont.level||0)+1}`);
-      b.onclick=()=>{const plan=classLevelPlan();cont.level=Math.min(20,(cont.level||0)+1);
-        state.levelOrder=plan.concat([cont.id]);save();refreshAll();render();};
-      box.append(b);}
-    const sel=el("select");
-    sel.append(el("option","",cc?"…or take a level in another class":"choose a class"));
-    // a class already in the build levels its own row up, so it stays on offer; a class
-    // that would only DUPLICATE one under another printing does not (one class, one row)
+    const big=(row2,primary)=>{const c2=CLS_BY[row2.clsKey]; if(!c2)return null;
+      const b=el("button","btn gbig"+(primary?" on":""),
+        (primary?"Continue ":"")+c2.name+" → "+Math.min(20,(row2.level||0)+1));
+      b.onclick=()=>guideTakeClass(row2.clsKey); return b;};
+    const row=el("div","gbigrow"); const shown=new Set();
+    if(cont){const b=big(cont,true); if(b){row.append(b);shown.add(cont.clsKey);}}
+    // the OTHER class levelled most recently — the second half of D126(d)
+    const plan0=classLevelPlan(); let otherId=null;
+    for(let i=plan0.length-1;i>=0;i--)if(plan0[i]!==contId){otherId=plan0[i];break;}
+    const other=otherId!=null?rowOf.get(otherId):null;
+    if(other){const b=big(other,false); if(b){row.append(b);shown.add(other.clsKey);}}
+    if(row.children.length)box.append(row);
+    // the rest, as a compact menu. A <select>, deliberately, not a popover: the stage is
+    // an overflow:auto scroller and would clip an absolutely-placed menu (the trap the
+    // build switcher went position:fixed to escape), and this control has one action.
+    // A class already in the build stays on offer — it levels up; one that would only
+    // DUPLICATE a row under another printing does not (one class, one row).
     const taken=takenClasses();
-    DATA.classes.filter(visible).filter(c=>state.classes.some(r=>r.clsKey===key(c.name,c.source))
-      ||!taken.has(c.name.toLowerCase()))
-      .forEach(c=>{const o=el("option",null,c.name);o.value=key(c.name,c.source);sel.append(o);});
-    sel.onchange=()=>{const ck=sel.value;if(!ck)return;
-      const plan=classLevelPlan();
-      const have=state.classes.find(r=>r.clsKey===ck);
-      if(have){have.level=Math.min(20,(have.level||0)+1);state.levelOrder=plan.concat([have.id]);}
-      else{const nr={clsKey:ck,subKey:null,level:1,id:state.nextRowId++};state.classes.push(nr);
-        state.levelOrder=plan.concat([nr.id]);}
-      save();refreshAll();render();};
-    box.append(sel);
+    const rest=DATA.classes.filter(visible)
+      .filter(c=>!shown.has(key(c.name,c.source)))
+      .filter(c=>state.classes.some(r=>r.clsKey===key(c.name,c.source))
+        ||!taken.has(c.name.toLowerCase()))
+      .sort((a,b)=>a.name.localeCompare(b.name)||a.source.localeCompare(b.source));
+    if(rest.length){
+      const sel=el("select","gmenu");
+      sel.append(el("option","",shown.size?"another class…":"choose a class"));
+      rest.forEach(c=>{const o=el("option",null,c.name+(c.source!==CORE?` (${c.source})`:""));
+        o.value=key(c.name,c.source);sel.append(o);});
+      sel.onchange=()=>{const ck=sel.value; sel.value=""; if(ck)guideTakeClass(ck);};
+      box.append(sel);
+    }
     return box;
   }
   if(s.kind==="subclass"&&!s.done){
-    const row=rowOf.get(s.row), c=row&&CLS_BY[row.clsKey]; if(!c)return null;
-    const subs=(SUBS_OF[row.clsKey]||[]).filter(visible);
-    const sel=el("select");
-    sel.append(el("option","","choose a subclass…"));
-    subs.forEach(sc=>{const o=el("option",null,sc.shortName||sc.name);o.value=key(sc.name,sc.source);sel.append(o);});
-    sel.onchange=()=>{if(!sel.value)return;row.subKey=sel.value;save();refreshAll();render();};
-    box.append(sel);
+    const sel=guideSubSelect(s,rowOf); if(!sel)return null;
+    box.append(sel); return box;
+  }
+  // the pending choices the build carries (D126(g)) — Magic Initiate's cantrip and spell,
+  // its casting ability, a subclass's option group. `choiceRow` IS the Choices card's row:
+  // the same "choose N" button opening the same modal, writing the same `state.choices`.
+  if(s.kind==="choice"&&!s.done){
+    box.append(choiceRow(s.choice));
+    if(s.choice.type==="pick")box.append(el("div","grhint",
+      "These belong to the feature that granted them — they don't spend a class slot."));
     return box;
   }
   if(s.kind==="feat"&&!s.done){
-    const b=el("button","btn on","Choose a feat…");
+    const b=el("button","btn on gbig","Choose a feat…");
     b.onclick=()=>openEntityPicker("feat",s.slot==="epic"?"epic":s.slot==="origin"?"origin":"general");
     box.append(b);
     if(s.slot!=="origin")box.append(el("div","grhint",
@@ -1527,7 +1678,7 @@ function guideInline(s,rowOf){
     return box;
   }
   if(s.kind==="species"&&!s.done){
-    const b=el("button","btn on","Choose a species…");
+    const b=el("button","btn on gbig","Choose a species…");
     b.onclick=()=>openEntityPicker("species");
     box.append(b); return box;
   }
@@ -1541,8 +1692,11 @@ function guideInline(s,rowOf){
     box.append(guidePageBtn("Open the spell list","#secSpells"));
     return box;
   }
+  // D126(g): the slot opens its REAL picker here — "some options (ex. invocations) do not
+  // open their modal" was this step handing you a page hint instead of the chooser
   if(s.kind==="optfeat"&&!s.done){
-    box.append(el("div","grhint","Pick it in the Optional features block on the character view."));
+    const b=guideOptBtn(s,"Choose "+String(s.label).replace(/s$/,"").toLowerCase()+"…");
+    if(b){b.classList.add("on"); box.append(b); return box;}
     box.append(guidePageBtn("Open optional features","#optFeatBlock"));
     return box;
   }
@@ -1691,28 +1845,14 @@ function csrcPower(cs){
 }
 
 // ── compute ──────────────────────────────────────────────────────────────
-function compute(){
-  const eff=previewLevels();
-  // a class not yet taken at the preview level simply isn't there — its picks are
-  // kept in state and come back the moment the preview releases
-  const rows=eff?state.classes.map(r=>({...r,level:eff.get(r.id)||0})).filter(r=>r.level>0)
-                :state.classes;
-  const records=rows.map(resolveRow).filter(Boolean);
-  const casters=records.filter(r=>r.caster);
-  const charLevel=eff?PREVIEW.level:state.classes.reduce((a,r)=>a+r.level,0);
-  // multiclass slots
-  const nonPact=casters.filter(r=>!r.isPact);
-  let mcSlots=null,mcLevel=0;
-  if(nonPact.length===1){mcSlots=nonPact[0].ownSlots;mcLevel=ecl(nonPact[0].caster,nonPact[0].level);}
-  else if(nonPact.length>1){let full=0,half=0,third=0;
-    nonPact.forEach(r=>{if(r.caster==="full")full+=r.level;else if(r.caster==="artificer"||r.caster==="1/2")half+=r.level;else if(r.caster==="1/3")third+=r.level;});
-    mcLevel=full+Math.floor(half/2)+Math.floor(third/3); if(mcLevel>0)mcSlots=DATA.fullMc[Math.min(mcLevel,20)-1];}
-  const pactRec=records.find(r=>r.isPact);
-
-  // shared casting stat: default for feats/species that let you choose
-  const classAbils=[...new Set(casters.map(r=>r.ability).filter(Boolean))];
-  const sharedStat=classAbils.length===1?classAbils[0]:null;
-  // resolve every source's grants + choices
+// Every source's grants and choices, in one pass. Lifted out of `compute()` (G2) because
+// the guided page needs the SAME resolver over the FULL build while the character view is
+// previewing a slice — a chain that loses its choice rows when you glance at an earlier
+// level is not a chain. Two callers, one walk: a second hand-rolled copy here is exactly
+// the drift the extractors' "both or neither" rule exists to stop.
+// `feats`/`optFeats` are passed in rather than read from `featsAt()`/`optFeatsAt()` — those
+// read PREVIEW, and that is the one thing the two callers must disagree about.
+function collectGrants(records,casters,charLevel,feats,optFeats,sharedStat){
   const gout={fixed:[],freeCasts:[],expansions:[],choices:[]};
   const recExp={};   // rowId -> [expansion filters] (Magical-Secrets style)
   records.forEach(r=>{
@@ -1740,9 +1880,9 @@ function compute(){
       const oid="c"+r.idx+":bo"+i, id="c"+r.idx+":bc"+i;
       const sel=state.choices[oid]||((state.choices[id]||[]).length?cantripOrder:otherOrder);
       const bowner=ownerOf("c"+r.idx,r.name,r.c.source);
-      o.choices.push({id:oid,type:"option",options:[otherOrder,cantripOrder],value:sel,giver:feat,giverSrc:r.c.source,owner:bowner});
+      o.choices.push({id:oid,type:"option",options:[otherOrder,cantripOrder],value:sel,giver:feat,giverSrc:r.c.source,owner:bowner,atLevel:bc.atLevel||1});
       if(sel===cantripOrder){
-        o.choices.push({id,type:"pick",count:bc.count,filter:bc.filter,kind:"known",recharge:"cantrip",giver:feat+" · "+cantripOrder,giverSrc:r.c.source,desc:"choose a cantrip",optional:bc.optional,owner:bowner});
+        o.choices.push({id,type:"pick",count:bc.count,filter:bc.filter,kind:"known",recharge:"cantrip",giver:feat+" · "+cantripOrder,giverSrc:r.c.source,desc:"choose a cantrip",optional:bc.optional,owner:bowner,atLevel:bc.atLevel||1});
         (state.choices[id]||[]).forEach(k=>{const rec=SPELL_BY[k];if(rec)o.freeCasts.push({name:rec.name,level:rec.level,recharge:"always known",src:feat+" · "+cantripOrder,ability:rAb});});
       }
     });
@@ -1756,7 +1896,7 @@ function compute(){
   });
   // sliced (E2): a feat or optional feature the build only acquires above the view
   // level doesn't exist yet there — its grants, choices and forms come with it
-  featsAt().forEach(fk=>{const f=FEAT_BY[fk];if(f)resolveGrants(f.grants,charLevel,"f"+fk,f.name,gout,sharedStat,f.source);});
+  feats.forEach(fk=>{const f=FEAT_BY[fk];if(f)resolveGrants(f.grants,charLevel,"f"+fk,f.name,gout,sharedStat,f.source);});
   // An optional feature is resolved outside the caster loop (a feat can grant one too), so
   // its owner is found by which class's progression opened the slot it fills — that is what
   // makes a Warlock's invocation spells part of Warlock. Tag by range rather than resolving
@@ -1766,7 +1906,7 @@ function compute(){
     casters.forEach(r=>[r.c,r.sub].filter(Boolean).forEach(sc=>
       (sc.optFeatures||[]).forEach(pr=>{ if(pr.types.some(t=>(o.types||[]).includes(t)))idx=r.idx; })));
     return idx;};
-  optFeatsAt().forEach(ok=>{const o=OPT_BY[ok];if(!o)return;
+  optFeats.forEach(ok=>{const o=OPT_BY[ok];if(!o)return;
     const f0=gout.fixed.length,c0=gout.freeCasts.length;
     resolveGrants(o.grants,charLevel,"o"+ok,o.name,gout,sharedStat,o.source);
     const own=optOwner(o); if(own==null)return;
@@ -1776,6 +1916,31 @@ function compute(){
   (state.customSources||[]).forEach(cs=>{
     if(cs.mode==="list")return;          // not a grant — it widens the eligible pool below
     resolveGrants(customSourceGrants(cs),charLevel,"x"+cs.id,cs.name,gout,sharedStat,null);});
+  return {gout,recExp};
+}
+function compute(){
+  const eff=previewLevels();
+  // a class not yet taken at the preview level simply isn't there — its picks are
+  // kept in state and come back the moment the preview releases
+  const rows=eff?state.classes.map(r=>({...r,level:eff.get(r.id)||0})).filter(r=>r.level>0)
+                :state.classes;
+  const records=rows.map(resolveRow).filter(Boolean);
+  const casters=records.filter(r=>r.caster);
+  const charLevel=eff?PREVIEW.level:state.classes.reduce((a,r)=>a+r.level,0);
+  // multiclass slots
+  const nonPact=casters.filter(r=>!r.isPact);
+  let mcSlots=null,mcLevel=0;
+  if(nonPact.length===1){mcSlots=nonPact[0].ownSlots;mcLevel=ecl(nonPact[0].caster,nonPact[0].level);}
+  else if(nonPact.length>1){let full=0,half=0,third=0;
+    nonPact.forEach(r=>{if(r.caster==="full")full+=r.level;else if(r.caster==="artificer"||r.caster==="1/2")half+=r.level;else if(r.caster==="1/3")third+=r.level;});
+    mcLevel=full+Math.floor(half/2)+Math.floor(third/3); if(mcLevel>0)mcSlots=DATA.fullMc[Math.min(mcLevel,20)-1];}
+  const pactRec=records.find(r=>r.isPact);
+
+  // shared casting stat: default for feats/species that let you choose
+  const classAbils=[...new Set(casters.map(r=>r.ability).filter(Boolean))];
+  const sharedStat=classAbils.length===1?classAbils[0]:null;
+  // resolve every source's grants + choices, at the level the VIEW is standing on
+  const {gout,recExp}=collectGrants(records,casters,charLevel,featsAt(),optFeatsAt(),sharedStat);
 
   // eligible pool = each caster's own list + its active expansions
   const pool=new Map(); // spellKey -> {sp,takers:[{idx,name,cantrip}],grants:[],srcs:Set}

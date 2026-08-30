@@ -130,10 +130,16 @@ Order: G1 → G2 → G3 → G4.
   `renderTimeline` now also calls; phone = one-pane toggle. Stage is a minimal F2 port
   marked `// G2 rebuilds this stage`. Flags carried to G2: auto-advance still fires
   (D126(e) done-cards are G2's), `#guideNote` copy retires with G3's modals.
-- [ ] **G2 — decision stage + structural/choice steps** — class (current + last-other +
-  menu), species/feat/subclass cards, done-state cards, every choices-card entry (Magic
-  Initiate etc.) and optional-feature step opening its REAL chooser. Done when: the two
-  reported gaps (Magic Initiate spells, invocations modal) are answerable inside the walk.
+- [x] **G2 — decision stage + structural/choice steps** (**merged v1.2.25**, done-when
+  verified: Magic Initiate's choice steps and the invocation step both open the app's REAL
+  choosers and picks commit inside the walk) — auto-advance DELETED (`autonext` removed
+  whole; D125 clamp, resume fallback and reverse stepNext kept); green done cards with a
+  change affordance; class card = continue + last-other + menu through one `guideTakeClass`;
+  `kind:"choice"` steps keyed on the stable grants path id, hosting `choiceRow` itself;
+  `collectGrants` lifted out of `compute()` so choice steps derive at BUILD scope, not the
+  preview slice (at preview L1/3 `R.choices` undercounted and steps vanished mid-walk);
+  optfeat cards open `openGainChooser`. Flags to G3: Next wraps from the last answered step;
+  pick steps still hand off to the page (`guidePageBtn`); choice labels read clunky.
 - [ ] **G3 — pick modals + trade cards + entries** — spell/cantrip steps in a modal
   (eligible-only, levels DESCENDING, collapsible), direct trade cards per kind on eligible
   level-ups, the empty-character CTA card, Back reaching the class step and hidden when

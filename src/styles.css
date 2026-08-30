@@ -1807,10 +1807,31 @@ body.guiding .wrap{display:none}
 .gstage .gsub{margin:0 0 14px;font-size:12.5px;color:var(--muted)}
 .gcard{max-width:640px;padding:15px 17px;border:1px solid var(--line);border-radius:var(--radius);
   background:var(--panel);display:flex;flex-direction:column;gap:10px}
-.gcard.gdone{border-color:var(--good);background:color-mix(in srgb,var(--good) 8%,var(--panel))}
+/* an ANSWERED step keeps its card and goes green (G2 · D126(e)); the walk stays put and
+   Next is what moves it, so this tint is the whole confirmation the answer landed */
+.gcard.gdone{border-color:var(--good);background:var(--good-soft)}
 .gcard .goptlab{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
 .gcard .gval{font-size:15px}
+.gokline{display:flex;align-items:baseline;gap:8px;color:var(--good);min-width:0}
+.gokline .ico{flex:0 0 auto;align-self:center;line-height:0}
+.gokline .ico svg{width:14px;height:14px}
+.gokline .gval{color:var(--ink);min-width:0;overflow-wrap:anywhere}
 .gcard .grinline{margin:0;border:none;padding:0}
+/* the quiet way back into an answered decision — present, not competing with the ✓ */
+.gcard .grinline.gchange{margin-top:2px;padding-top:9px;border-top:1px solid var(--line)}
+.gcard .grinline.gchange .btn{font-size:11.5px;color:var(--muted)}
+.gcard .grinline.gchange .btn:hover{color:var(--accent);border-color:var(--accent)}
+/* the prominent answer buttons a card leads with (the class step's two, "choose a feat…") */
+.gbigrow{display:flex;flex-wrap:wrap;gap:8px}
+.grinline .btn.gbig,.gbigrow .btn.gbig{font-size:14px;padding:10px 16px;border-radius:10px}
+/* "another class…" and the subclass list: a compact command menu, never a bound field */
+.grinline select.gmenu{width:auto;max-width:100%;min-width:150px;align-self:flex-start;
+  padding:8px 10px;font-size:12.5px}
+/* a choice step hosts the Choices card's OWN row (D126(g)) — no second picker, so no
+   second set of styles either: it just gets room to breathe inside the card */
+.gcard .choicerow{padding:0;border-bottom:none;gap:12px}
+.gcard .choicerow .cg{font-size:12.5px}
+.gcard .choicerow .pickbtn{font-size:13px;padding:8px 14px}
 .gbtnrow{display:flex;flex-wrap:wrap;gap:8px}
 .gnav{display:flex;gap:8px;margin-top:16px;max-width:640px}
 .gnav .btn{font-size:13px}
