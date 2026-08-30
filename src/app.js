@@ -2713,6 +2713,15 @@ function render(){ maybeOnboard(); renderGapBar(); CASTMODS=activeCastMods(); R=
   R.gsteps=GUIDE.on?guideSteps():[];     // the guided chain follows every change too (F2)
   guideSync();
   renderChoices(); renderSlots(); renderCart(); renderSpells(); renderFeatBudget(); renderJumpBar(); renderBuildSwitch(); renderSwapArm(); renderGuide(); renderGuideCta();
+  // The optional-feature slots are a pure function of class levels, feats and PREVIEW — a
+  // derived view like the ones above, not a control. It used to run only inside refreshAll(),
+  // while the class row's own handlers (swap class, subclass, level stepper, remove) and
+  // #addClass call renderClassRows()+render() instead — so the block kept the PREVIOUS
+  // level's cap: stepping a Warlock 2 → 1 left it reading "0/3" where the truth was 0/1.
+  // It belongs here rather than in those handlers because it holds no <select>, <input> or
+  // disclosure to lose under the user's fingers — which is the whole reason the rest of
+  // refreshAll() is kept OUT of the render pass.
+  renderOptFeats();
   if(GPICK)renderGpick();                // the open pick modal follows every change (G3)
   if(TL.open)renderTimeline();           // the open timeline follows every change (E5)
   if(curTab==="table")renderTable(); save(); }
@@ -5116,7 +5125,7 @@ function renderTable(){
   if(PRINT_MODE)PRINT_ROWS=rows;
 
   const tbl=$("#spellTable");tbl.innerHTML="";
-  $("#tableChip").textContent=rows.length?rows.length+" spells":"";
+  $("#tableChip").textContent=rows.length?rows.length+" spell"+(rows.length===1?"":"s"):"";
   $("#tableEmpty").textContent=rows.length?"":"Nothing selected yet — pick spells in the Build tab (or use Prepare daily); subclass/feat/species grants appear here too.";
   const prepBtn=$("#prepDailyBtn");if(prepBtn)prepBtn.style.display=prepSteps().length?"":"none";
   if(!rows.length)return;
