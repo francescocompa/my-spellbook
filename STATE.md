@@ -12,7 +12,7 @@
 > | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 > | `ARCHIVE.md` | Bodies of consumed phases and old rationale |
 
-## TL;DR (2026-08-31 · **v1.2.40**, committed locally, **NOT pushed** · Pages still serves v1.2.38)
+## TL;DR (2026-08-31 · **v1.2.41**, pushed, tags pushed · **LIVE on GitHub Pages** · app content = v1.2.40 at `4558952`)
 - **State:** **all three gates ran 2026-08-31 and all three PASSED-WITH-FINDINGS** — G4,
   H5 and I5, each by a fresh opus@high agent coordinated by a session that built nothing
   (model policy satisfied). **Phases G, H and I are CLOSED.** The findings shipped as
@@ -28,12 +28,14 @@
   logic is extracted into one `levelColumn` owner — done the moment the gate proved the
   copies byte-identical; Gotcha updated. Plus the small ones (`.spmodal` print leak, cantrip
   noun, one `guideAdvance`, stale comments, chain top margin).
-- **Next action:** **push** — `git push && git push --tags` deploys v1.2.39+v1.2.40 to
-  Pages; deliberately left to Francesco. The three gate questions were asked and answered
-  in-session → **D134** (Q1 cap kept + minimal alert, shipped v1.2.40; Q2 preview-on-exit
-  kept as is, both alternatives rejected; Q3 two-line bar confirmed, D130(e) annotated).
-  Nothing else is open but the standing queue; the fattest small item is still
-  `refreshAddFeat()`'s `#epicRow` staleness.
+- **Next action:** nothing is owed — no phase, no gate, no ⚑ from the gates (the three
+  questions were answered in-session → **D134**: Q1 cap kept + minimal alert, shipped
+  v1.2.40; Q2 preview-on-exit kept as is, both alternatives rejected; Q3 two-line bar
+  confirmed, D130(e) annotated). The next session picks from the standing queue in PLAN —
+  the fattest small item is `refreshAddFeat()`'s `#epicRow` staleness (verify from a fresh
+  load, then fix); the one 🔶 is magic items / rewards, awaiting Francesco. The live docs
+  now carry five finished phases inline — **recommend a full `/clean`** before the next
+  substantive session.
 - **Manual for Francesco:** ⓪ **Refresh your imported data in each browser — still the top
   item** — ⋯ → **Refresh imported data** (since v1.2.23 it runs inline and SHOWS a green
   "Re-imported N books" / a red reason). A pre-**D127** digest still holds the unresolved
@@ -51,10 +53,9 @@
   links come from the browser's own export and some hosts ignore both (D108). ④ **Turn XMM on
   in Sources** for Find Familiar's Monster Manual 2024 forms in the default view (D81).
   ⑤ Optional — ask GitHub Support to gc so the old unreachable commits (SHA 2c8bbb6 etc., held
-  only in `backup/pre-purge-20260826` locally) stop being SHA-addressable. ⑥ **Push to deploy
-  v1.2.40** — the gate fixes and D134 are committed locally only; `git push &&
-  git push --tags` puts them on Pages. ⑦ `dist/`, `data/`, `data-srd.json` are gitignored; public SRD data is
-  inlined in committed `docs/`.
+  only in `backup/pre-purge-20260826` locally) stop being SHA-addressable. ⑥ `dist/`, `data/`, `data-srd.json` are gitignored; public SRD data is
+  inlined in committed `docs/`. To update the live site later: `python3 extract.py` (if
+  data changed) → `python3 build.py` → commit → push.
 
 ## What this is
 Offline single-page D&D 2024 spell planner. Two builds from one source:
@@ -69,15 +70,17 @@ https://claude.ai/code/artifact/47dbe945-a18a-4444-af21-c0143faa2eb0
 
 **Phases E, F, G, H and I are ALL DONE** — every gate has passed (E8, F4, and on
 2026-08-31 G4, H5 and I5, all three PASSED-WITH-FINDINGS with the findings fixed in
-v1.2.39 → D133; the three gate questions answered by Francesco → D134, v1.2.40). No phase
-is open, no gate is owed, no ⚑ from the gates remains. What remains is the push that
-deploys, and the standing queue/backlog items.
+v1.2.39 → D133; the three gate questions answered by Francesco → D134, v1.2.40 — both
+pushed and live). No phase is open, no gate is owed, no ⚑ from the gates remains. What
+remains is the standing queue/backlog in PLAN.
 v7 (saved builds) is complete → `ARCHIVE.md#v7-tasks`. Non-goals as narrowed by D115: no
 **authored** timeline (the level view is derived from the acquisition order; versions are
 alternatives, never levels), no server sync or accounts, no sharing a build as a page or
 URL (D36).
 
 The queue is `PLAN.md`; the next action is named in the TL;DR.
+
+⟳ Rename previous session → "The three gates pass"  · session: resolve by cwd + latest
 
 ## Where things live
 
