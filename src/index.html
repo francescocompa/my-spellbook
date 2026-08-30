@@ -12,6 +12,21 @@
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+<!-- H4 · D130(e): the walk, SET ASIDE. "Character view" neither closes the guide nor hides
+     it — the guide page slides aside and leaves its edge on screen, and this pinned bar is
+     the way back in: it names the step the walk is holding, and carries the one control
+     that ends the walk without going back into it first. It is a sticky FLOW element, so
+     it takes its own band at the top instead of covering the app's header, and it is
+     `hidden` whenever no walk is in progress. (It replaces G1's vanishing Guide tab.) -->
+<div class="gback hidden" id="gBack">
+  <div class="gbk-in">
+    <button class="gbk-ret" id="gbkBack" aria-label="Back to the guided builder">
+      <span class="ico" data-ico="spark"></span>
+      <span class="gbk-t"><b>Back to the guide</b><span class="gbk-step" id="gbkStep"></span></span>
+    </button>
+    <button class="btn tiny gbk-end" id="gbkEnd" aria-label="End the guided walk">Exit builder</button>
+  </div>
+</div>
 <div class="wrap">
   <header class="top">
     <h1>My Spellbook</h1>
@@ -24,9 +39,7 @@
     </div>
     <span class="spacer"></span>
     <button class="btn iconbtn ico" id="testBtn" data-ico="dice" title="Populate a random test build (local only)" aria-label="Random test build"></button>
-    <!-- G1 · D126(a): while a guided walk is in progress and you have switched to the
-         character view, the way back is one tap — the guide page itself covers the header -->
-    <div class="tabs"><button id="tabBuild" class="on"><span class="tl" data-t="Build">Build</span></button><button id="tabTable"><span class="tl full" data-t="Spell table">Spell table</span><span class="tl short" data-t="Table">Table</span></button><button id="tabGuide" class="hidden"><span class="ico" data-ico="spark"></span><span class="tl" data-t="Guide">Guide</span></button></div>
+    <div class="tabs"><button id="tabBuild" class="on"><span class="tl" data-t="Build">Build</span></button><button id="tabTable"><span class="tl full" data-t="Spell table">Spell table</span><span class="tl short" data-t="Table">Table</span></button></div>
     <div class="menu">
       <button class="btn iconbtn ico" id="menuBtn" data-ico="dots" title="Settings" aria-label="Settings"></button>
       <div class="menupop hidden" id="menuPop">

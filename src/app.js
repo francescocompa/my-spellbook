@@ -1317,19 +1317,23 @@ function guideChoiceValue(c){
 // `cur` is a STEP key so it survives every re-render. It moves ONLY on Next, Skip or a
 // chain click (D126(e), superseding F2's auto-advance): answering a step turns its card
 // green and lights Next, it does not jump you somewhere else mid-thought.
-// `away` is the character-view switch: the walk stays where it was, the page steps aside.
+// `aside` is the CHARACTER DRAWER (H4 · D130(e)): "Character view" slides the page out
+// instead of hiding it — the walk keeps its step, the character view underneath is the
+// whole app, and a pinned bar over it (`#gBack`) names the step you left and can end the
+// walk from there. It replaces G1's `away` + vanishing Guide tab, which read as an exit
+// and lost the way back often enough that Francesco reported it as not working.
 // `reverse` is D118(f)'s reconstruct mode: the candidate pool narrows to the build's own
 // picks and answering a slot PLACES a pick at that slot's array position — a stateless
 // gesture (the position IS the answer), so leftovers drift to the top slice and take E4
 // flags exactly as D118(g) requires. `place` remembers which slot of a section the next
 // placement fills; it is module state and resets with the walk.
-let GUIDE={on:false,away:false,desc:false,reverse:false,cur:null,pane:"stage",place:{}};
+let GUIDE={on:false,aside:false,desc:false,reverse:false,cur:null,pane:"stage",place:{}};
 const guideKey=s=>(s&&s.key)||"";
 const guideSecKey=sec=>sec.step+"#"+sec.id;
-function openGuide(desc,reverse){ GUIDE.on=true; GUIDE.away=false; GUIDE.pane="stage";
+function openGuide(desc,reverse){ GUIDE.on=true; GUIDE.aside=false; GUIDE.pane="stage";
   GUIDE.desc=!!desc; GUIDE.reverse=!!reverse;
   GUIDE.cur=null; GUIDE.place={}; GC.open=null; closeGpick(); render(); }
-function closeGuide(){ if(!GUIDE.on)return; GUIDE.on=false; GUIDE.away=false;
+function closeGuide(){ if(!GUIDE.on)return; GUIDE.on=false; GUIDE.aside=false;
   GUIDE.reverse=false; GUIDE.cur=null; GUIDE.place={}; GC.open=null; closeGpick(); render(); }
 // the shared entry for an EXISTING build (F3 · D118(i)): EVERY entry goes straight into
 // the walk, at the step D118(j)'s stateless resume computes — the "which walk?" screen a
@@ -1347,7 +1351,7 @@ function guideAnswered(){
 }
 const guideEmpty=()=>!state.classes.length&&!guideAnswered();
 function guideEntry(){
-  if(GUIDE.on){GUIDE.away=false;render();return;}
+  if(GUIDE.on){GUIDE.aside=false;render();return;}
   openGuide(false,false);
 }
 // which positions of a pick section hold a spell the class could not cast where the slot
@@ -1442,22 +1446,48 @@ function guideSync(){
     if(best)GUIDE.cur=best.key;
   }
 }
-// the page: header, then chain + stage. `away` keeps the walk alive while the character
-// view is on screen — the ⋯ entry, the timeline footer and the header's own Guide tab
-// all come back to exactly this step.
+// the page: header, then chain + stage. `aside` keeps the walk alive while the character
+// view is on screen — the page is still mounted and still holds this step, so the bar,
+// the ⋯ entry and the timeline footer all come back to exactly where you left.
+// A slid-away page is not redrawn: its contents are stale only for as long as nobody can
+// read them, and they rebuild on the way back in (this runs on every render).
 function renderGuide(){
   const v=$("#guideView"); if(!v)return;
-  const live=GUIDE.on&&!GUIDE.away;
-  document.body.classList.toggle("guiding",live);
-  const tab=$("#tabGuide"); if(tab)tab.classList.toggle("hidden",!(GUIDE.on&&GUIDE.away));
-  v.classList.toggle("hidden",!live);
-  if(!live)return;
+  const aside=GUIDE.on&&GUIDE.aside;
+  document.body.classList.toggle("guiding",GUIDE.on&&!aside);
+  document.body.classList.toggle("gaside",aside);
+  v.classList.toggle("hidden",!GUIDE.on);
+  v.classList.toggle("gvaside",aside);
+  v.inert=aside;                    // slid away is out of REACH, not just out of sight
+  if(!GUIDE.on){renderGuideBack(null,null);return;}
   const steps=(R&&R.gsteps&&R.gsteps.length)?R.gsteps:guideSteps();
   const cur=(GUIDE.cur&&steps.find(x=>x.key===GUIDE.cur))||null;
+  renderGuideBack(steps,cur);
+  if(aside)return;
   renderGuideHead(steps);
   v.classList.toggle("gvchain",GUIDE.pane==="chain");
   renderGuideChain(steps,cur);
   renderGuideStage(steps,cur,new Map(state.classes.map(r=>[r.id,r])));
+}
+// the drawer's other half (H4 · D130(e)): the pinned bar the character view carries while
+// a walk is set aside. It says which step the guide is holding — "Step 12 of 23 ·
+// Cantrips" — because a walk you cannot see has to name itself to be worth returning to,
+// and it carries the control that ENDS the walk from here, so leaving does not mean going
+// back in first. The count is the WALK's own order (`guideWalk`, so a descending walk
+// counts down the way it reads) and the label is the step's own, exactly as its card
+// titles it. With no current step the bar says so rather than inventing a number.
+function renderGuideBack(steps,cur){
+  const bar=$("#gBack"); if(!bar)return;
+  const on=GUIDE.on&&GUIDE.aside;
+  bar.classList.toggle("hidden",!on);
+  if(!on)return;
+  const list=guideWalk(steps||[]);
+  const i=list.findIndex(x=>guideKey(x)===GUIDE.cur);
+  const where=i>=0?"Step "+(i+1)+" of "+list.length
+    :list.length?"Nothing open · "+list.length+" steps":"Nothing to decide yet";
+  $("#gbkStep").textContent=where+(i>=0&&cur&&cur.label?" · "+cur.label:"");
+  $("#gbkBack").onclick=()=>{GUIDE.aside=false;render();};
+  $("#gbkEnd").onclick=closeGuide;
 }
 // build · level · progress · the two ways out. The pane toggle is the phone's one tap
 // between the decision and the chain (D126(c)); at desktop widths both are on screen
@@ -1480,8 +1510,9 @@ function renderGuideHead(steps){
   l.append(icoEl(chainOn?"compass":"order"),document.createTextNode(chainOn?"Decision":"Chain"));
   tg.append(l);
   tg.onclick=()=>{GUIDE.pane=chainOn?"stage":"chain";renderGuide();};
-  // the switch is not an exit: the build IS the state (D118(j)), so the walk waits
-  $("#ghSwap").onclick=()=>{GUIDE.away=true;render();};
+  // the switch is not an exit and not a hide: the page SLIDES aside (D130(e)) and the
+  // pinned bar over the character view says which step it is holding
+  $("#ghSwap").onclick=()=>{GUIDE.aside=true;render();};
   $("#ghClose").onclick=closeGuide;
 }
 // WHICH WALK, as a header control rather than a gate on entry. D118(f) mandates both
@@ -7414,9 +7445,6 @@ $("#pickOnly").onclick=()=>{PICK.onlyPicked=!PICK.onlyPicked;renderPickList();};
 $("#prepOnly").onclick=()=>{PREP.onlyPicked=!PREP.onlyPicked;renderPrepList();};
 $("#tabBuild").onclick=()=>switchTab("build");
 $("#tabTable").onclick=()=>switchTab("table");
-// only on screen while a walk is in progress AND the character view is showing (G1) —
-// the guide page covers the header, so this is the way back, not a third tab
-$("#tabGuide").onclick=()=>{GUIDE.away=false;render();};
 $("#tGroup").onchange=e=>{tableOpts.group=e.target.value;saveTableOpts();renderTable();};
 $("#tColReset").onclick=e=>{e.preventDefault();tableOpts.order=[...COL_ORDER_DEFAULT];tableOpts.hidden=new Set();
   saveTableOpts();renderColMenu();renderTable();};
