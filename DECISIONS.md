@@ -1316,6 +1316,101 @@ written up in full in `GOTCHAS.md` — that is the copy to trust.
   reviews phase G as shipped, phase H gets its own. Affects: src/app.js guide section,
   src/index.html, src/styles.css.
 
+- **D131 (2026-08-30) DECIDED — GUIDED BUILDER v3: one picker per section, a proceed button
+  that advances, no explanatory prose, and the walk direction as a switch.** Mechanism:
+  Francesco's notes after using the shipped phase H (v1.2.28–v1.2.31) + AskUserQuestion × 4.
+  The clauses:
+  - **(a) One picker per SECTION, not one per step** — **supersedes D130(d)**. Raw:
+    *"choosing spells and cantrips in the same section should each open the picker only for
+    itself, not including both."* Each section (cantrips, spells, each logical group of a
+    feature) opens its own modal that knows only its own pool; you visit the modal once per
+    section instead of once per step. D130(c)'s one-step-per-feature grouping is UNCHANGED —
+    the step still holds its sections, they just each own their picker. *Rejected:* section
+    buttons opening one shared modal filtered to the clicked section (keeps D130(d)'s single
+    surface, but the modal then has two meanings); keeping both a scoped and a combined path
+    (two routes through one surface, double the gate surface).
+  - **(b) The picker's footer button IS the proceed nudge, in three states.** Raw: *"the
+    pickers should have a button that nudges you to 'proceed' and close them when the choices
+    are all made."* Quiet and disabled reading "Choose N more" while picks are owed; accent
+    and reading "Done — next step" the moment the count is met; the click CLOSES the modal
+    and ADVANCES the walk, rather than only closing. The `#gpPill`'s "Chosen N of M" goes —
+    the section header counter already says it. *Rejected:* auto-closing on the pick that
+    completes the step (takes the surface away mid-thought, nothing to review); leaving Done
+    as close-only with a colour change (the walk would still need a separate Next press).
+  - **(c) The guided builder carries no explanatory prose.** Raw: *"remove the notes and
+    suggestions in the guided builder, if some are necessary, move them to a ? button."*
+    Explanatory strings come out; anything genuinely load-bearing moves behind the project's
+    existing `?` disclosure (**D88** — reference prose behind a disclosure, live state
+    visible). Live status the user acts on and error/empty states are NOT prose and stay.
+  - **(d) The "+N" spell chip goes.** Raw: *"the +x spell chip has an hover state but no
+    click result. Remove it and only show actual spell chips, the pick counter is already
+    present."* A control that looks interactive and does nothing is worse than the count it
+    saved; the header counter carries that number already.
+  - **(e) The walk direction is a two-state SWITCH.** **Refined the same day, before build →
+    the switch lives in the SIDE RAIL, not the guide header, and both level columns invert —
+    see D132.** Original clause, styled like the Build | Spell table tabs:
+    Raw: *"remove altogether the reconstruct dropdown"* → *"turn it into a switch like
+    build/spell table between with only build up or down."* **↑ Up** is the forward walk from
+    L1 (a take fills the next open slot); **↓ Down** starts at the top level and walks down in
+    place mode (the pool narrows to the build's OWN picks, a click places one into the
+    selected slot). Both walks of **D118(f,g)** survive — as the switch's two states — but the
+    word "reconstruct" leaves the UI entirely. **Supersedes D130(f)'s** reconstruct-as-header-
+    command-menu shape. *Rejected:* removing the control and leaving the reverse machinery
+    unreachable in the tree (dead code the gate would flag); **removing the reverse walk
+    outright** (F3 + G3 built it and repair would fall back to the timeline and the sweep);
+    a direction-only switch with take semantics both ways, or one where the app picks
+    take-vs-place itself (the surface would change behaviour under you silently).
+  - **(f) The drawer's left edge goes.** Raw: *"the character view from the builder has a
+    weird highlight vertical bar on the left."* That bar is v1.2.31's 14px accent edge —
+    it reads as a stray highlight, not as an affordance. The guide slides FULLY off-canvas
+    and the pinned return bar is what says the walk is still standing. **Refines D130(e)**;
+    the `body.gaside` offsets that assumed the 14px go with it.
+  - **(g) Pact of the Chain offers a familiar pin, in a modal of its own.** Raw: *"pact of
+    the chain should trigger an optional pin choice for familiar in find familiar."* The
+    feature's **D109** forms reach Find Familiar as an OPTIONAL choice the user can pin —
+    optional, so nothing is fabricated where the character hasn't chosen (D31 advisory).
+    **Refined the same day, mid-build:** *"the pact of the chain familiar choice should live
+    in a dedicated modal (with unique choices and also regular ones, but with lower
+    hierarchy), which then influences which familiar is pinned in the spell."* So: a
+    dedicated modal, not an inline affordance beside the optional-feature block; the eight
+    granted forms lead as the unique tier and Find Familiar's own ~65 forms are offered
+    **subordinate** to them, not as peers; and the modal's choice IS the pin — routed through
+    the existing `toggleFav` so the carousel star, `orderedCreatures` and `printCreatures`
+    keep one writer between them (the D105 marked-forms model is unchanged).
+  - **(h) The side rail aligns its drag handle to the level chip and title row.** Raw:
+    *"align drag handle to level chip and title row in the entries of the side rail."*
+  Supersedes: **D130(d)** in full (a); **D130(f)**'s reconstruct control shape (e);
+  **D130(e)**'s 14px edge (f). Affects: src/app.js guide + gpick sections, src/index.html,
+  src/styles.css; PLAN's phase H (the H5 gate now reviews these too).
+
+- **D132 (2026-08-30) DECIDED — BOTH level columns invert: highest level at the TOP, L1 at the
+  BOTTOM, in the guide's chain rail AND the timeline modal; the walk-direction control moves
+  into the rail.** Mechanism: Francesco's follow-up on D131(e) + AskUserQuestion × 2, mid-build.
+  Raw: *"let's move the up and down build direction into the side rail, in a way that visually
+  conveys how it works"* → then, told that the rail lists L1 at the top so "walk L1 upward"
+  travels visually DOWNWARD and a bare ↑/↓ pair would contradict the screen: *"Could the rail
+  be rearranged to go from highest level at the top to 1st at the bottom, using the same
+  direction but inverting the rows?"* → and, asked whether the timeline inverts with it,
+  **both**. So the contradiction is fixed at the root instead of designed around: with the
+  columns descending, ↑ Up means up on screen and in the fiction, and the control can sit in
+  the rail and show its travel rather than merely label it. **The "+ add level" row moves to
+  the top** — it is the growth end now (D126(d)'s shape, re-anchored).
+  Load-bearing consequence, carried into the build brief: **the row drag is ONE shared
+  implementation** (`wireRowDrag` + `commitPlan`, extracted in G1 and called by both surfaces),
+  so the visual-position → plan-index mapping inverts in one place, and **G1's acceptance test
+  stands unchanged — the same drag in the chain must still produce the identical plan as the
+  same drag in the timeline**. Everything that assumed ascending order gets re-read rather than
+  assumed: the current-level pin and its zone tinting, D122's run dividers and run aggregation,
+  every first/last assumption about level rows.
+  *Rejected:* **inverting the rail only** (cheaper, but the two surfaces would disagree
+  spatially while sharing a drag implementation — exactly the equivalence G1 was gated on);
+  **not inverting at all**, expressing direction as "start here" caps at the column's two ends
+  with a travel tint on the spine (the smallest change, nothing to re-verify in the timeline —
+  and the fallback if the inversion proves larger than it reads); a chevron trail on the spine
+  under a header switch; a segmented switch labelled by origin ("From L1" | "From L8").
+  Supersedes: D131(e)'s placement in the guide header. Affects: src/app.js `renderGuideChain`
+  + `renderTimeline` + the shared row drag, src/styles.css, PLAN's phase I (I2).
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

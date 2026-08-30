@@ -267,6 +267,48 @@ the phase.
   three `refreshAll()` members are clean (`refreshSpecies`, `renderCustomSources`,
   `renderFeatChips` read `state.*`, not class levels).
 
+## Phase I — guided builder v3 (D131, decided 2026-08-30)
+
+Francesco's notes after using the shipped phase H — the full model is **D131(a–h)**; cite it,
+don't restate it. Four parallel builds, then a gate. **Nothing here is gated on H5**: the
+surfaces are the same ones phase H shipped, and neither phase has been reviewed yet.
+
+- [ ] **I1 — the pick modal** (D131(a,b)): one picker per SECTION, not one per step
+  (superseding D130(d) — D130(c)'s step grouping is unchanged); the footer button becomes the
+  proceed nudge in three states ("Choose N more" quiet/disabled → accent "Done — next step"),
+  and its click closes AND advances the walk. The `#gpPill` goes. Cap honesty (D125) and the
+  place-mode slot addressing (D118(f,g)) must both survive. Carries the modal's share of
+  D131(c) — its explanatory `#gpSub`/`#gpPill` prose.
+- [ ] **I2 — the guide's chrome, and both columns invert** (D131(c,d,e) + **D132**): the
+  explanatory prose off the stage and the section blocks (live status and error/empty states
+  stay; anything load-bearing moves behind D88's `?` disclosure — note `wireHelpNotes()` is
+  boot-only and the guide is JS-built, so it needs a re-call); the dead "+ N more" ghost chip
+  removed; the reconstruct dropdown gone with the word "reconstruct" itself. Then **D132**:
+  the chain rail AND the timeline modal invert to highest-level-first, the "+ add level" row
+  moves to the top, and the ↑ Up / ↓ Down control moves into the RAIL where it can show its
+  travel. One agent owns both inversions because **the row drag is one shared implementation**
+  and G1's acceptance test still stands — the same drag in the chain must produce the identical
+  plan as the same drag in the timeline. Everything assuming ascending order gets re-read: the
+  current-level pin and its zone tinting, D122's run dividers and aggregation, every first/last
+  assumption. **Fallback if the inversion proves larger than it reads** (D132's rejected option,
+  kept live for exactly this): leave both columns ascending and express direction as "start
+  here" caps at the two ends of the rail.
+- [ ] **I3 — drawer edge + rail alignment** (D131(f,h)): the 14px accent sliver goes and the
+  guide slides fully off-canvas (the `body.gaside` offsets key off `--gbh`, not the edge, so
+  they stay); the chain rail's drag handle aligns to the level chip and title row on a
+  collapsed card without breaking the open card that `align-items:flex-start` exists for.
+- [ ] **I4 — the familiar pin** (D131(g), refined mid-build): a DEDICATED modal for the
+  familiar choice — the eight Pact of the Chain forms as the unique tier, Find Familiar's own
+  ~65 offered subordinate to them — whose choice IS the pin, routed through `toggleFav` so the
+  carousel star, `orderedCreatures` and `printCreatures` keep one writer. Optional and
+  dismissible; nothing pinned on its own. Carries a real bug found in the survey: `activeFormGrants`
+  matches the exact `name|source` key (app.js:6657) while `grantRec` resolves by NAME only
+  (app.js:592), so a PHB/XPHB split between boon and spell silently drops every granted form —
+  fix it with D127's successor-aware machinery, and prove the failing case.
+- [ ] **I5 — 🔍 fresh-eyes gate** (separate session) — phase I against D131(a–h). **May be run
+  as ONE session with H5**, since the two phases share surfaces and neither has been gated;
+  it must still be a session that built neither.
+
 ## Queue
 - [ ] **Magic-item / reward ingestion** — 🔶 **RESEARCHED 2026-08-27, awaiting Francesco's call.**
   The old note said "items carry no structured uses"; that is **wrong** and the audit corrected it.
