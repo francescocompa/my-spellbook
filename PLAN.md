@@ -158,6 +158,33 @@ Order: G1 → G2 → G3 → G4.
   that coordinated the G1–G3 agents) — review the shipped phase against D126(a–i) + the
   standing D118(a–j), with G3's gate notes above as starting probes.
 
+## Phase H — guided builder v2 (D130, decided 2026-08-30)
+
+Refinements from using the shipped phase G — the full model is **D130(a–h)**; cite it, don't
+restate it. H1/H2 are in flight as agents; H3 is the big one and waits for H1 to merge
+(same code region). The G4 gate reviews phase G as shipped; **phase H gets its own gate (H5)**.
+
+- [ ] **H1 — guide navigation** (agent, in flight): D130(f) no entry chooser (reconstruct
+  becomes an in-guide control), (g) Next commits a shown selection / Skip leaves it open,
+  (h) end-of-walk = "Exit builder" with Skip hidden and the dead button fixed, plus Back
+  reaching class steps.
+- [ ] **H2 — subclass spell lists** (agent, in flight): Arcane Trickster's picker is empty;
+  EK/AT's Wizard list is HARDCODED in both extractors. Derive it instead, sweep every
+  casting subclass that uses another class's list, cparity assertions, and make an
+  underivable list say so rather than showing an empty picker (D31).
+- [ ] **H3 — the v2 surfaces** (queued behind H1, same region): D130(a) collapsed rail rows
+  with ONE highest-severity icon + aggregated counter rows; (b) chips-only answers with the
+  header counter; (c) one step per feature/source with a section per logical group
+  (`guideSteps` regrouping — reverses D118(c) in part; reconstruct keeps slot placement
+  inside the modal); (d) the multi-pick modal with per-section counters.
+- [ ] **H4 — the character drawer** (after H3): D130(e) — "Character" slides the guide aside
+  with a persistent bar naming the step you left, which can also END the walk; G1's
+  `GUIDE.away` + vanishing Guide tab come out.
+- [ ] **H5 — 🔍 fresh-eyes gate** (separate session) — phase H against D130(a–h).
+- [ ] **Capitalization sweep** — audit agent running read-only (Francesco: *"many elements
+  should be capitalize … ex. casting ability in magic initiate"*); its inventory decides
+  whether this is one display helper or per-site edits. ⚑ (owner: Francesco, 2026-08-30)
+
 ## Queue
 - [ ] **Magic-item / reward ingestion** — 🔶 **RESEARCHED 2026-08-27, awaiting Francesco's call.**
   The old note said "items carry no structured uses"; that is **wrong** and the audit corrected it.

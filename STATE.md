@@ -34,12 +34,15 @@
   in the spell details' "Metamagic" row (left the table); and the **Ember palette** shipped —
   terracotta accent, crimson alerts, all five theme blocks (P1 Verdigris was picked once
   then REVERSED — don't re-propose it).
-- **Next action:** **G4 — the phase G 🔍 fresh-eyes gate** (fable, a SEPARATE session —
-  this one coordinated the G1–G3 agents and cannot gate them): review the full-page guided
-  builder against **D126(a–i)** + the standing D118(a–j); start from G3's gate notes in
-  PLAN. Everything else shipped: the whole wave batch (W1/W2/W4/W5 → D128, D129), D127
-  built (needs Francesco's one-click re-import per browser), phase G built G1–G3
-  (v1.2.24 → v1.2.26). 🔶 still open on Francesco: the magic-item / reward import call.
+- **Next action:** **phase H — guided builder v2 (D130)**, from using the shipped phase G:
+  H1 (nav) and H2 (subclass spell lists) are agents IN FLIGHT; **H3** (collapsed rail,
+  chips-only answers, one step per feature with sections, multi-pick modal) waits for H1 to
+  merge — same code region; then H4 (the character drawer). **G4** (phase G's gate) and
+  **H5** (phase H's) both still want SEPARATE sessions — this one coordinated the builds.
+  Shipped today: the wave batch (W1/W2/W4/W5 → D128, D129), D127 built (needs Francesco's
+  one-click re-import per browser), phase G G1–G3 (v1.2.24 → v1.2.26). 🔶 open on
+  Francesco: the magic-item / reward import call, and the capitalization sweep's mechanism
+  once its audit reports.
 - **Manual for Francesco:** ⓪ **Refresh your imported data in each browser** — ⋯ → **Refresh
   imported data** (choose the folder once if asked). Now also required for **D127** (v1.2.21):
   a stored digest keeps the hollow 2014 subclasses (no grants, duplicate pairs, missing

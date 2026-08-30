@@ -859,8 +859,10 @@ written up in full in `GOTCHAS.md` — that is the copy to trust.
     hand off to the real page pre-filtered to what is legal at that acquisition point. *Rejected:*
     self-contained modal steps (clones the pickers into a modal — duplicate surface, duplicate
     bugs); coach-only (tiny structural choices get heavier than needed).
-  - **(c) Granularity: one step per DECISION** — Francesco's call against the per-level
-    recommendation. Consequence, accepted into the design: ~60–80 steps for a level-20 build, so
+  - **(c) Granularity: one step per DECISION** ~~one step per decision~~ **→ REVERSED IN PART
+    BY D130(c) (2026-08-30)**: a step is now one FEATURE/SOURCE with a section per logical
+    group; slot-level addressing lives inside the pick modal. Originally Francesco's call
+    against the per-level recommendation. Consequence, accepted into the design: ~60–80 steps for a level-20 build, so
     level milestones are the chain's visible skeleton (steps grouped under level headers) and
     navigation is jump-anywhere, never a forced march. *Rejected:* one step per character level;
     tier grouping (dissolves "what do I get at level 7").
@@ -1246,6 +1248,58 @@ written up in full in `GOTCHAS.md` — that is the copy to trust.
   isolated origin (real scan/stage/merge/apply over real 5etools files behind a stubbed
   directory handle): both fallback paths, permission refused, wrong folder, the false-success
   guard, double-click, and the happy path end to end.
+
+- **D130 (2026-08-30) DECIDED — GUIDED BUILDER v2: the walk is grouped by feature, the rail
+  collapses, the answer is shown once, and the character is a drawer you always return from.**
+  Mechanism: Francesco's notes after using the shipped phase G + mockup round
+  (`scratchpad/gb-mockups2.html`, sections 1–4b) + AskUserQuestion × 5. The clauses:
+  - **(a) The chain rail collapses to one line per level** — level, class, and **ONE icon
+    naming the worst thing in it** (green ok · gold open/skipped · red illegal), raw:
+    *"no need to show all green-yellow-red indicators on a collapsed row, simply show the
+    highest alert … using their icons."* Only the current level is open; clicking a header
+    opens another. An open level shows **aggregated rows with counters** ("Cantrips 0 of 2")
+    rather than one row per slot. *Rejected:* keeping a row per pick (B — the repetition
+    Francesco flagged, and it fights the multi-pick modal).
+  - **(b) An answered pick step shows its answer ONCE, as chips** — each chip carries its
+    own ✕, the counter sits in the card header and turns green when full; the duplicate ✓
+    sentence goes. Raw: *"the spell picker is currently redundant, showing twice the selected
+    spells both as answered and as chips."* *Rejected:* prose-only (nowhere to drop one pick).
+  - **(c) Granularity: one step per FEATURE/SOURCE, with a section per logical group** —
+    partially superseding **D118(c)**'s one-step-per-decision (Francesco's own earlier call,
+    reversed by use). Raw: *"cantrips and spells appear in a single spellcasting page with two
+    sections, same for other features that have multiple choice groups. However, always
+    separate them by logic groups (ex. magic initiate cantrips separated from the 1st level
+    spell)."* So a level's Bard spellcasting is ONE step holding a Cantrips section and a
+    Spells section; Magic Initiate is ONE step holding list, ability, its cantrips and its
+    1st-level spell as separate sections. Slot-level addressing survives INSIDE the modal,
+    which is what the reverse/reconstruct walk (D118(f,g)) needs. *Rejected:* one step per
+    pick (D118(c) as it stood).
+  - **(d) The pick modal takes every pick of a step in one visit** — multi-select, sections
+    each carrying their own "N of M" counter, groups still level-DESCENDING and collapsible
+    (D126(f) stands), a footer count and Done. Raw: *"let me pick them up all in one modal."*
+  - **(e) Character view = a DRAWER with a persistent return that can also end the walk.**
+    "Character" slides the guide aside (it does not hide it) and an unmissable pinned bar
+    names the step you left ("Back to the guide — step 12 of 23 · Cantrips"), plus a control
+    to CLOSE the walk from that state. Raw: *"F - drawer with a persistent return that can
+    also be closed form the drawer state."* Supersedes G1's `GUIDE.away` + vanishing Guide
+    tab, which Francesco reported as not working. *Rejected:* A read-only peek panel, B a
+    permanent Guide tab, C a third column (all three rejected in round one); D guided-mode
+    banner over the normal app and E split view (round two).
+  - **(f) No walk chooser on entry** — entering goes straight into the walk at its resume
+    point; reconstruct becomes a control INSIDE the guide, so both walks (D118(f)) survive
+    without a gate screen. Raw: *"the current start of the guided builder feels kind of
+    redundant … jump instead directly into the builder."* Supersedes D126's entry chooser.
+  - **(g) Next COMMITS a shown-but-unstored selection; only Skip leaves it open.** Raw:
+    *"If I click 'next' after a preselected option, it should lock that option as chosen.
+    Only skipping it ignores it."* Must never fabricate an answer where nothing is shown,
+    and never fabricate a trade on an optional swap step (D121).
+  - **(h) End of the walk is a terminal state: the primary becomes "Exit builder" and Skip
+    is hidden.** Raw: *"end of the walk button doesn't work. Also rename it exit builder or
+    something cleaner. Skip option also doesn't make sense here."*
+  Supersedes: D118(c) in part (c); D126(f)'s per-slot implication and D126's entry chooser
+  (f); G1's character-view switch (e). Enforced by: PLAN phase H task lines; the G4 gate
+  reviews phase G as shipped, phase H gets its own. Affects: src/app.js guide section,
+  src/index.html, src/styles.css.
 
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
