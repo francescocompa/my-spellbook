@@ -140,13 +140,23 @@ Order: G1 → G2 → G3 → G4.
   preview slice (at preview L1/3 `R.choices` undercounted and steps vanished mid-walk);
   optfeat cards open `openGainChooser`. Flags to G3: Next wraps from the last answered step;
   pick steps still hand off to the page (`guidePageBtn`); choice labels read clunky.
-- [ ] **G3 — pick modals + trade cards + entries** — spell/cantrip steps in a modal
-  (eligible-only, levels DESCENDING, collapsible), direct trade cards per kind on eligible
-  level-ups, the empty-character CTA card, Back reaching the class step and hidden when
-  unavailable. Done when: a forward walk from empty to L6 and a reverse reconstruct both
-  complete without touching the page list, and the D125 cap honesty holds in the modal.
-- [ ] **G4 — 🔍 fresh-eyes gate** (separate session per model-policy) — review the shipped
-  phase against D126(a–i) + the standing D118(a–j).
+- [x] **G3 — pick modals + trade cards + entries** (**merged v1.2.26**, done-when verified:
+  a forward walk from empty and a reverse reconstruct both complete entirely in the modal,
+  cap honesty held) — `#gpickModal` (eligible-only via the MOVED page predicate, groups
+  DESCENDING, W1 folds cleared per open, filter+count; take closes, drop stays); the page
+  handoff RETIRED (`#guideNote`, the renderSpells guided block, `guidePageBtn`, the jumps);
+  trade cards per kind wiring through the timeline's own SWAPARM→`recordSwap` intercept
+  (one writer; undo = `clearSwap`; `guideSwapMax` now shared with `renderSwapArm`); the
+  empty-build "Start guided" CTA; end-of-walk Next disables with honest counts; choice
+  labels composed from the filter (92/99, 7 honest fallbacks). Bug found+fixed:
+  `guideSlotIllegal` read the raw array and painted a lent slot red after a legal trade —
+  it un-applies later trades first, agreeing with the sweep. **The build is done; only the
+  G4 gate remains.** Gate notes from G3: the reverse-placement intercept in `toggle` is
+  reachable from the character view against an unnarrowed list; `guideResume` now serves
+  re-entry only.
+- [ ] **G4 — 🔍 fresh-eyes gate** (separate session per model-policy — NOT the session
+  that coordinated the G1–G3 agents) — review the shipped phase against D126(a–i) + the
+  standing D118(a–j), with G3's gate notes above as starting probes.
 
 ## Queue
 - [ ] **Magic-item / reward ingestion** — 🔶 **RESEARCHED 2026-08-27, awaiting Francesco's call.**

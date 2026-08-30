@@ -373,6 +373,7 @@ function applyState(s){ s=s||blankBuildState();
     ?state.currentLevel:null;
   document.body.classList.toggle("previewing",PREVIEW.level!=null);
   SWAPARM=null;   // an armed swap belongs to the build it was armed in
+  closeGpick();   // …and so does an open pick step (G3): its row id means nothing here
 }
 // derived labels — a build never stores what can be computed from its own picks
 // "Glory Paladin 5 / Abjurer Wizard 3" — each class carries ITS OWN subclass, so the
@@ -1156,11 +1157,48 @@ function guideChoiceAt(c,featAcq,optAcq,clm){
     return {lv:lvls[cl-1]||lvls[lvls.length-1]||1,ord:1.5,row:rid};}
   return {lv:1,ord:9,row:null};          // a custom source carries no level (D55)
 }
+// A pick choice's ask, composed from the FILTER the choice actually carries (G3) — the
+// extractor's `desc` is a filter read aloud ("choose level 1, Cleric list") and reads as
+// machinery. The parts are all we may say: the levels, the schools, the classes. Anything
+// the parts can't express honestly — a level set with a hole in it, no filter at all —
+// returns null and the raw desc stands. Nothing is invented to make a sentence.
+function guidePickAsk(c){
+  const f=c&&c.filter; if(!f)return null;
+  // keys are 5etools' own and their case is not stable ("Components & Miscellaneous")
+  const F={}; Object.keys(f).forEach(k=>{F[k.toLowerCase()]=f[k];});
+  const nums=F.level!=null?String(F.level).split(";").map(Number).filter(n=>!isNaN(n)).sort((a,b)=>a-b):[];
+  if(F.level!=null&&!nums.length)return null;
+  // a set with a gap in it can't be said in a phrase — the raw desc keeps it honest
+  if(nums.length>1&&nums[nums.length-1]-nums[0]!==nums.length-1)return null;
+  const clss=F.class?String(F.class).split(";").map(s=>s.trim()).filter(Boolean)
+    .map(s=>s.charAt(0).toUpperCase()+s.slice(1)).join("/"):"";
+  const schs=F.school?String(F.school).split(";").map(s=>SCHOOL_ABBR[s.trim().toUpperCase()]||s.trim())
+    .filter(Boolean).join("/"):"";
+  // 5etools filters on more than level/class/school. RITUAL is the one extra this may say
+  // in a word, and it is the one that matters (Ritual Caster is the feat that produced
+  // "choose level 1, Cleric list"). Anything else — a `spell attack` code set, say — would
+  // be a guess at what the filter means, so the raw desc stands.
+  const rit=String(F["components & miscellaneous"]||"").trim().toLowerCase()==="ritual";
+  if(Object.keys(F).some(k=>k!=="level"&&k!=="class"&&k!=="school"
+      &&!(k==="components & miscellaneous"&&rit)))return null;
+  const cantripOnly=nums.length===1&&nums[0]===0;
+  if(!clss&&!schs&&!nums.length&&!rit)return null;        // "a spell" — nothing to compose
+  const n=c.count>1?c.count:1;
+  const noun=cantripOnly?(n>1?"cantrips":"cantrip"):(n>1?"spells":"spell");
+  const qual=[schs,clss,rit?"ritual":""].filter(Boolean).join(" ");
+  let lead="";
+  if(!cantripOnly&&nums.length===1)lead="level-"+nums[0]+" ";
+  const head=n>1?n+" ":(/^[aeiou]/i.test(lead||qual||noun)?"an ":"a ");
+  let tail="";
+  if(!cantripOnly&&nums.length>1)tail=nums[0]===0?" up to level "+nums[nums.length-1]
+    :" at level "+nums[0]+"–"+nums[nums.length-1];
+  return head+lead+(qual?qual+" ":"")+noun+tail;
+}
 // the ask, short enough for a chain row; the giver is the stage's sub-line, never repeated
 const guideChoiceLabel=c=>c.type==="ability"?"Casting ability"
   :c.type==="option"?(String(c.giver||"Option").split(" · ").pop()||"Option")
   :(t=>t.charAt(0).toUpperCase()+t.slice(1))(
-     fmtDesc(c.desc)||("choose "+(c.count>1?c.count+" spells":"a spell")));
+     guidePickAsk(c)||fmtDesc(c.desc)||("choose "+(c.count>1?c.count+" spells":"a spell")));
 function guideChoiceValue(c){
   if(c.type!=="pick"){const v=state.choices[c.id];
     return v==null?null:(c.type==="ability"?(ABIL[v]||String(v)):String(v));}
@@ -1176,9 +1214,10 @@ function guideChoiceValue(c){
 // sheet and the whole-chain toggle are gone by decision.
 // The page is ephemeral UI over the stateless derivation above — nothing here is stored
 // (D118(j)), which is exactly why "Character view" can leave and come back for free.
-// Structural choices (class · subclass · feat-or-ASI · swap y/n) answer INLINE on the
-// stage; multi-pick decisions still hand off to the page's pre-filtered list until G3
-// replaces that with a modal (D126(f)).
+// Structural choices (class · subclass · feat-or-ASI) answer INLINE on the stage, a swap
+// answers as a direct trade card (D126(h)), and a spell or cantrip answers in the guide's
+// own modal (D126(f)). Since G3 NOTHING is handed off to the page: the walk is answerable
+// end to end without leaving it, and the character view is a look, not a step.
 // `cur` is a step KEY so it survives every re-render. It moves ONLY on Next, Skip or a
 // chain click (D126(e), superseding F2's auto-advance): answering a step turns its card
 // green and lights Next, it does not jump you somewhere else mid-thought. The one
@@ -1206,19 +1245,25 @@ function guideKey(s){
 }
 function openGuide(desc,reverse){ GUIDE.on=true; GUIDE.away=false; GUIDE.pane="stage";
   GUIDE.desc=!!desc; GUIDE.reverse=!!reverse;
-  GUIDE.choose=false; GUIDE.cur=null; render(); }
+  GUIDE.choose=false; GUIDE.cur=null; closeGpick(); render(); }
 function closeGuide(){ if(!GUIDE.on)return; GUIDE.on=false; GUIDE.away=false; GUIDE.choose=false;
-  GUIDE.reverse=false; GUIDE.cur=null; render(); }
+  GUIDE.reverse=false; GUIDE.cur=null; closeGpick(); render(); }
 // the shared entry for an EXISTING build (F3 · D118(i)): a fresh/empty build walks
 // forward without ceremony; a build that already answered something is asked which
 // walk it wants (continue forward, or reconstruct over its own picks — D118(f)).
 // A walk already in progress is RESUMED rather than re-asked — the entries double as
 // the way back from the character view.
+// has this build answered anything the guide would ask about? Species, a feat, an optional
+// feature or a pick — the entry reads it to decide whether to ASK which walk, and D126(i)'s
+// CTA reads it (with the class rows) to decide whether the build is empty at all.
+function guideAnswered(){
+  return !!(state.speciesKey||state.feats.length||state.optFeats.length
+    ||Object.values(state.chosen||{}).some(ch=>((ch&&ch.cantrips||[]).length+(ch&&ch.spells||[]).length)>0));
+}
+const guideEmpty=()=>!state.classes.length&&!guideAnswered();
 function guideEntry(){
   if(GUIDE.on){GUIDE.away=false;render();return;}
-  const answered=state.speciesKey||state.feats.length||state.optFeats.length
-    ||Object.values(state.chosen||{}).some(ch=>((ch&&ch.cantrips||[]).length+(ch&&ch.spells||[]).length)>0);
-  if(!state.classes.length||!answered){openGuide(false);return;}
+  if(!state.classes.length||!guideAnswered()){openGuide(false);return;}
   GUIDE.on=true; GUIDE.away=false; GUIDE.pane="stage";
   GUIDE.choose=true; GUIDE.reverse=false; GUIDE.cur=null; render();
 }
@@ -1226,7 +1271,15 @@ function guideEntry(){
 // rail marks it and the reverse walk resumes at the first one
 function guideSlotIllegal(s){
   if(s.kind!=="spell"||!s.done||!s.pool.castMax)return false;
-  const ch=state.chosen[s.row]||{}; const sp=SPELL_BY[(ch.spells||[])[s.pos]];
+  const ch=state.chosen[s.row]||{};
+  // A pick traded IN sits at the OUTGOING pick's position (E3 · D119(b)), so the raw
+  // array's occupant is not what this slot held when it arrived — a legal L3 trade into a
+  // 2nd-level spell would read red at the L1 slot that lent it its place. Un-apply the
+  // trades above this level first, exactly as `sliceChosen` does (the copy is deliberate:
+  // `unswap` writes into the list it is handed). Found by the G3 build the moment the
+  // guide could record a trade of its own; the E4 sweep always read it correctly, and a
+  // chain disagreeing with the sweep is the flag lying, not the sweep.
+  const sp=SPELL_BY[unswap([...(ch.spells||[])],s.row,"spell",s.lv)[s.pos]];
   return !!sp&&sp.level>s.pool.castMax;
 }
 // reverse mode's answer (D118(f,g)): put the clicked pick AT this slot's position —
@@ -1239,20 +1292,21 @@ function guidePlace(s,k){
   if(i!==s.pos){ch[arr].splice(i,1);ch[arr].splice(s.pos,0,k);}
   GUIDE.stepNext=true; save(); render();
 }
-// the current pick step, if the page should pre-filter for it (renderSpells asks)
+// the current pick step. Since G3 answered the page hand-off (D126(f)), the only reader
+// left is `toggle`'s reconstruct intercept: while a pick step of THIS row is current, a
+// click on one of the row's own picks — wherever it is clicked — places rather than toggles.
 function guidePickStep(){
   if(!GUIDE.on||!GUIDE.cur)return null;
   const s=(R&&R.gsteps||[]).find(x=>guideKey(x)===GUIDE.cur);
   return s&&(s.kind==="spell"||s.kind==="cantrip")?s:null;
 }
-// jump the walk to a step: point the view at its level (slice editing, D115(d)),
-// focus the page surface that answers it, and remember it as current
+// jump the walk to a step: point the view at its level (slice editing, D115(d)) and
+// remember it as current. It no longer scrolls the page underneath: since G3 every step
+// answers on the stage or in its own modal, so there is nothing back there to reach.
 function guideGo(s){
   GUIDE.cur=guideKey(s);
   const top=topCharLevel();
-  setPreview(s.lv>=top?null:s.lv);      // renders; the rail re-draws with cur set
-  if(s.kind==="spell"||s.kind==="cantrip")jumpTo($("#secSpells"));
-  else if(s.kind==="optfeat")jumpTo($("#optFeatBlock"));
+  setPreview(s.lv>=top?null:s.lv);      // renders; the chain re-draws with cur set
 }
 function guideWalk(steps){ return GUIDE.desc?[...steps].reverse():steps; }
 function guideStepAfter(steps,key,pred){
@@ -1490,13 +1544,7 @@ function renderGuideStage(steps,cur,rowOf){
     if(guideSlotIllegal(cur))card.append(el("div","grhint",
       "This spell is above what the class could cast when this slot arrived — the chain marks it. "
       +"Placing the pick that really was learned here is what clears it."));
-    // reverse mode answers on the page too: its list is narrowed to the build's OWN
-    // picks and a click PLACES one at this slot (D118(f,g))
-    if(GUIDE.reverse&&(cur.kind==="spell"||cur.kind==="cantrip")){
-      card.append(el("div","grhint","Reconstructing: the character view lists this build's own picks — click the one that was learned here and it takes this slot."));
-      card.append(guidePageBtn("Open the spell list","#secSpells"));
-    }
-    else{const ch=guideChange(cur,rowOf); if(ch)card.append(ch);}
+    const ch=guideChange(cur,rowOf); if(ch)card.append(ch);
   } else {
     const inl=guideInline(cur,rowOf);
     if(inl)card.append(inl);
@@ -1515,16 +1563,30 @@ function renderGuideStage(steps,cur,rowOf){
   const skip=el("button","btn","Skip");
   skip.disabled=!nxAny; skip.onclick=()=>nxAny&&guideGo(nxAny);
   nav.append(skip);
-  // reverse walks EVERY slot (they are all `done` — review is the point); forward
-  // seeks the next open decision
+  // reverse walks EVERY slot (they are all `done` — review is the point); forward seeks
+  // the next open decision. Next only ever moves FORWARD in walk order (G3): it used to
+  // fall back to `guideResume`, which WRAPPED to the first open decision anywhere, so the
+  // end of a walk was indistinguishable from its middle and Next quietly sent you
+  // backwards. Nothing open ahead is a real end — the button goes dead and the line under
+  // it names what is still open or skipped behind you. The chain is how you go back.
   const nxOpen=GUIDE.reverse?nxAny
-    :(guideStepAfter(steps,GUIDE.cur,x=>x.status!=="done"&&!x.optional)
-      ||(cur.status!=="done"?null:guideResume(steps,GUIDE.desc)));
-  const next=el("button","btn on",nxOpen?"Next →"
-    :(GUIDE.reverse?"End of the walk":doneN>=need.length?"All decided ✓":"Next →"));
+    :guideStepAfter(steps,GUIDE.cur,x=>x.status!=="done"&&!x.optional);
+  const next=el("button","btn on",nxOpen?"Next →":"End of the walk");
   next.disabled=!nxOpen; next.onclick=()=>nxOpen&&guideGo(nxOpen);
   nav.append(next);
   st.append(nav);
+  if(!nxOpen){
+    // the step you are STANDING on is not "behind you" — counting it there would read as
+    // one more thing to go back for than there is
+    const rest=need.filter(x=>guideKey(x)!==GUIDE.cur);
+    const openN=rest.filter(x=>x.status==="open").length;
+    const skipN=rest.filter(x=>x.status==="skipped").length;
+    const left=[openN?openN+" still open":null,skipN?skipN+" skipped":null].filter(Boolean).join(" and ");
+    st.append(el("p","gend",left
+      ? "That is the end of the walk — nothing open ahead of here. "+left
+        +" behind you: click one in the chain to go back to it."
+      : "That is the end of the walk, and every decision this build carries is answered."));
+  }
 }
 // every class level is one write: bump the row's level, then put that row at the END of
 // the acquisition order. A class already in the build LEVELS UP its own row (one class,
@@ -1580,17 +1642,28 @@ function guideChange(s,rowOf){
   if(s.kind==="choice"){box.append(choiceRow(s.choice)); return box;}
   if(s.kind==="class"){
     box.append(el("div","grhint","A level already taken changes on the character view — or drag its card in the chain to move it in the order."));
-    box.append(guidePageBtn("Open the class rows","#secChar")); return box;}
-  if(s.kind==="swap"){
-    box.append(el("div","grhint","Clear the trade's pill in the timeline to undo it."));
     return box;}
-  // a pick step still answers on the pre-filtered page list until G3's modal (D126(f))
+  // a recorded trade (D126(h)): the value line above already reads "− out + in", so all
+  // this owes you is the way back out. Undoing clears the EVENT and nothing else — the
+  // replacement keeps its position, exactly as clearing the timeline's pill does.
+  if(s.kind==="swap"){
+    const kw=s.swkind==="cantrip"?"cantrip":"spell";
+    const und=el("div","gtundo");
+    const x=xBtn("gtx",()=>{clearSwap(s.lv,s.swkind);refreshAll();render();});
+    attachTip(x,tipBlock("Undo the trade",
+      "Clears this level's "+kw+" trade. The replacement stays where it is and nothing is "
+      +"deleted — the same thing clearing the pill in the timeline does."));
+    und.append(x,el("span","gtul","undo the trade"));
+    box.append(und); return box;}
+  // D126(f): the answer came from the pick modal, so the way back into it is the same modal
   if(s.kind==="spell"||s.kind==="cantrip"){
-    box.append(guidePageBtn("Open the spell list","#secSpells")); return box;}
+    const b=el("button","btn",GUIDE.reverse?"Place another pick here…"
+      :"Change the "+(s.kind==="cantrip"?"cantrip":"spell")+"…");
+    b.onclick=()=>openGpickStep(s); box.append(b); return box;}
   return null;
 }
-// the answer control inside the current step's card. Structural choices answer here;
-// pick steps still hand off to the page's pre-filtered list until G3's modal (D126(f)).
+// the answer control inside the current step's card. Structural choices answer here; a
+// swap is a trade card (D126(h)); a pick step opens the guide's own modal (D126(f)).
 function guideInline(s,rowOf){
   const box=el("div","grinline");
   // the class step (D126(d)): continue where you are, go back to the other class you were
@@ -1652,9 +1725,15 @@ function guideInline(s,rowOf){
       "Or take the Ability Score Improvement instead — ability scores aren't tracked here, so taking the ASI just means skipping this step."));
     return box;
   }
+  // D126(h): a DIRECT trade, one card per kind the class may trade at this level-up.
+  // Tap the pick you are losing → the pick modal opens on its legal replacements → the
+  // card comes back reading "− out + in". No arming, no second phase: the two-step
+  // indirection is what the note asked to be reworked. The write is still the timeline's
+  // (see `guideTrade`), so both surfaces record the same event.
   if(s.kind==="swap"&&!s.done){
     const kind=s.swkind==="cantrip"?"cantrip":"spell";
     const row=rowOf.get(s.row), sched=row&&rowSched(row); if(!sched)return null;
+    const c=row&&CLS_BY[row.clsKey];
     const ch=state.chosen[s.row]||{};
     const name=k2=>{const sp=SPELL_BY[k2];return sp?sp.name:String(k2).split("|")[0];};
     const lvls=charLevelMap().get(s.row)||[];
@@ -1662,19 +1741,25 @@ function guideInline(s,rowOf){
     const opts=[];
     ((kind==="cantrip"?ch.cantrips:ch.spells)||[]).forEach((k2,i)=>{
       if(acqAt(sa,i,lvls)<s.lv)opts.push(unswap([k2],s.row,kind,s.lv-1)[0]);});
-    if(!opts.length){box.append(el("div","grhint","No "+kind+" was learned before this level."));return box;}
-    if(swapAt(s.lv,kind)){box.append(el("div","grhint","This level already carries a "+kind+" swap — clear its pill in the timeline first."));return box;}
-    const sel=el("select");
-    sel.append(el("option","","swap away…"));
-    opts.forEach(k2=>{const e2=el("option",null,name(k2));e2.value=k2;sel.append(e2);});
-    box.append(sel);
-    const b=el("button","btn","Arm the swap");
-    b.onclick=()=>{const v=sel.value;if(!v)return;
-      SWAPARM={row:s.row,kind,out:v,level:s.lv,label:name(v)};
-      GUIDE.away=true;                       // the replacement is taken on the page
-      setPreview(s.lv>=topCharLevel()?null:s.lv);jumpTo($("#secSpells"));};
-    box.append(b);
-    box.append(el("div","grhint","The next "+kind+" you take for this class records the trade. Passing on it is the other honest answer — just move on."));
+    if(!opts.length){box.append(el("div","grhint",
+      "No "+kind+" was learned before this level — there is nothing to trade away yet."));return box;}
+    const cm=guideSwapMax(row,s.lv);
+    box.append(el("div","grhint","Optional. Tap the "+kind+" you are giving up, then pick what replaces it"
+      +(kind==="spell"?" — "+(c?c.name:"this class")+" may trade into "
+        +(cm===1?"level 1":"level 1–"+cm)+" here":"")
+      +". Passing on it is the other honest answer — just move on."));
+    const chips=el("div","gtchips");
+    opts.forEach(k2=>{const sp=SPELL_BY[k2];
+      const b=el("button","gtchip");
+      b.append(el("span","lv",sp?(sp.level===0?"C":String(sp.level)):"?"));
+      b.append(el("span","gtn",name(k2)));
+      b.onclick=()=>openGpick({mode:"trade",kind,row:s.row,lv:s.lv,
+        castMax:kind==="cantrip"?0:cm,out:k2,outName:name(k2)});
+      attachTip(b,tipBlock("Trade "+name(k2)+" away",
+        "Opens the replacement list for "+(c?c.name:"this class")+" at L"+s.lv+". Nothing is written "
+        +"until you pick one, and the trade keeps this pick's place in the acquisition order."));
+      chips.append(b);});
+    box.append(chips);
     return box;
   }
   if(s.kind==="species"&&!s.done){
@@ -1682,14 +1767,17 @@ function guideInline(s,rowOf){
     b.onclick=()=>openEntityPicker("species");
     box.append(b); return box;
   }
-  // until G3 puts these in a modal (D126(f)), a pick step is still answered on the
-  // page's pre-filtered list — so the stage hands you over to it rather than describing
-  // a list that isn't on this screen
+  // D126(f): a pick step answers in the guide's OWN modal now — no hand-off, no page
+  // pre-filter, no leaving the walk to answer it
   if((s.kind==="spell"||s.kind==="cantrip")&&!s.done){
-    box.append(el("div","grhint","The character view's spell list is filtered to what "
-      +(((rowOf.get(s.row)||{}).clsKey&&CLS_BY[rowOf.get(s.row).clsKey])||{name:"this class"}).name
-      +" can legally take at L"+s.lv+" — pick from it there, and the walk keeps your place."));
-    box.append(guidePageBtn("Open the spell list","#secSpells"));
+    const c=(rowOf.get(s.row)||{}).clsKey?CLS_BY[rowOf.get(s.row).clsKey]:null;
+    const b=el("button","btn on gbig",GUIDE.reverse?"Place a pick here…":"Choose "+gpickNoun(s)+"…");
+    b.onclick=()=>openGpickStep(s);
+    box.append(b);
+    box.append(el("div","grhint",GUIDE.reverse
+      ? "Only this build's own picks are listed — click the one that was learned here and it takes this slot."
+      : "Only what "+(c?c.name:"this class")+" can legally take here is listed"
+        +(s.kind==="spell"?", up to level "+(s.pool.castMax||1):"")+", highest level first."));
     return box;
   }
   // D126(g): the slot opens its REAL picker here — "some options (ex. invocations) do not
@@ -1697,18 +1785,191 @@ function guideInline(s,rowOf){
   if(s.kind==="optfeat"&&!s.done){
     const b=guideOptBtn(s,"Choose "+String(s.label).replace(/s$/,"").toLowerCase()+"…");
     if(b){b.classList.add("on"); box.append(b); return box;}
-    box.append(guidePageBtn("Open optional features","#optFeatBlock"));
+    box.append(el("div","grhint","This slot's progression has no chooser of its own — its options are on the character view, under Optional features."));
     return box;
   }
   return null;
 }
-// the hand-off to the page (D118(b)) while the guide holds the viewport: step aside,
-// then scroll to the block that answers the step. The walk is untouched — `away` is a
-// view switch, not an exit.
-function guidePageBtn(label,sel){
-  const b=el("button","btn on",label);
-  b.onclick=()=>{GUIDE.away=true; render(); const n=$(sel); if(n)jumpTo(n);};
-  return b;
+
+// ── the guide's pick modal (G3 · D126(f)) ──────────────────────────────────
+// "Spells should be chosen from a modal, not the page … only eligible spells grouped by
+// level, sorted highest to lowest." One modal, three modes, ONE list and ONE predicate:
+//   take  — the forward walk. The commit is the app's own `toggle`, so the pick lands in
+//           the row's FIRST open slot (D125) and nothing here can lie about where.
+//   place — the reconstruct walk (D118(f,g)). Only the build's own picks; a click PLACES
+//           one at this slot's position through `guidePlace`. Never deletes.
+//   trade — the swap card's replacement (D126(h)). Commits through the timeline's own
+//           arm-then-take write, so the app has exactly one swap-event shape.
+// It is a plain `.modal`, which puts it ABOVE the guide page's layer — the guide is a
+// page, and a page is what modals open over.
+let GPICK=null;
+const gpickNoun=s=>s.kind==="cantrip"?"a cantrip":s.label==="Spellbook spell"?"a spellbook spell":"a spell";
+// What a step may legally take, as pool records. This is the predicate the page
+// pre-filter ran until G3 (D118(b)), moved here whole rather than written again: the
+// step's row has to be a taker, the spell's level has to fit the slot's cap, and
+// reconstruct narrows the pool to the row's OWN picks. A trade adds one constraint the
+// forward walk doesn't have — a replacement the row already holds is not a trade.
+function guideEligible(g){
+  const arr=g.kind==="cantrip"?"cantrips":"spells";
+  const mine=new Set(((state.chosen[g.row]||{})[arr])||[]);
+  const cap=g.castMax||9;
+  return [...R.pool.values()].filter(i=>{
+    const k=key(i.sp.name,i.sp.source);
+    if(g.mode==="place"?!mine.has(k):!i.takers.some(t=>t.idx===g.row))return false;
+    if(g.mode==="trade"&&(mine.has(k)||k===g.out))return false;
+    return g.kind==="cantrip"?i.sp.level===0:(i.sp.level>=1&&i.sp.level<=cap);
+  });
+}
+// where a forward take will really land (D125): the row's FIRST open slot of this kind,
+// because the pick arrays are dense and a take resolves there whichever slot you clicked.
+// `guideSync` already clamps the CURRENT step to it, so opening the modal from the open
+// card these two agree — it is the ANSWERED card's "change…" that needs asking. null =
+// the row's slots of this kind are all filled, and there is nowhere for a take to go.
+function guideLandingStep(s){
+  if(GUIDE.reverse)return s;
+  const arr=s.kind==="cantrip"?"cantrips":"spells";
+  const first=(((state.chosen[s.row]||{})[arr])||[]).length;
+  if(s.pos===first)return s;
+  return (R&&R.gsteps||[]).find(x=>x.kind===s.kind&&x.row===s.row&&x.pos===first)||null;
+}
+// the top spell level a class may trade INTO at a level-up: its own class level there,
+// read through its caster progression. Shared with the timeline's arm-then-take bar so
+// the guide's card and the swapbar can never offer different caps.
+function guideSwapMax(row,lv){
+  const sched=row&&rowSched(row); if(!sched)return 1;
+  const lvls=charLevelMap().get(row.id)||[];
+  const clAt=lvls.filter(x=>x<=lv).length;
+  return Math.max(1,maxLvlAt(sched.caster,Math.max(1,clAt)));
+}
+// open the modal for a chain step (take or place); the trade card builds its own spec
+function openGpickStep(s){
+  openGpick({mode:GUIDE.reverse?"place":"take",kind:s.kind,row:s.row,pos:s.pos,
+             stepKey:guideKey(s),book:s.label==="Spellbook spell",
+             lv:s.lv,castMax:(s.pool&&s.pool.castMax)||0});
+}
+// Re-derive where a take would land, EVERY render — not once at open. Dropping a pick
+// from inside the modal moves the row's first open slot under your feet (that is what a
+// drop is for), and a header still describing the slot it opened on would be exactly the
+// lie D125 was raised about. A trade has no landing slot: its position is the outgoing
+// pick's, fixed when the card was tapped.
+function gpickSync(){
+  const g=GPICK; if(!g||!g.stepKey)return;
+  const s=(R&&R.gsteps||[]).find(x=>guideKey(x)===g.stepKey); if(!s)return;
+  const land=g.mode==="take"?guideLandingStep(s):s;
+  g.full=g.mode==="take"&&!land;
+  const t=land||s;
+  g.lv=t.lv; g.castMax=(t.pool&&t.pool.castMax)||0;
+}
+function openGpick(spec){
+  // every opener starts unfolded: this modal serves a different question each time, and a
+  // level folded shut in the last one would hide spells with nothing on screen saying why
+  // (the same rule `openPick` follows, D94)
+  FOLDED.gpick.clear();
+  GPICK=spec;
+  const s=$("#gpSearch"); if(s)s.value="";
+  $("#gpickModal").classList.remove("hidden");
+  renderGpick();
+}
+function closeGpick(){ if(!GPICK)return; GPICK=null;
+  const m=$("#gpickModal"); if(m)m.classList.add("hidden"); }
+function renderGpick(){
+  if(!GPICK)return;
+  gpickSync();
+  const g=GPICK, list=$("#gpList"); if(!list)return;
+  const row=state.classes.find(r=>r.id===g.row), c=row&&CLS_BY[row.clsKey];
+  const cname=c?c.name:"this class";
+  const kw=g.kind==="cantrip"?"cantrip":"spell";
+  const arr=g.kind==="cantrip"?"cantrips":"spells";
+  const cur=((state.chosen[g.row]||{})[arr])||[];
+  // what reads as already-answered on a row. In place mode that is the ONE pick sitting
+  // in this slot right now; in take mode, everything the row holds; a trade lists neither.
+  const held=g.mode==="place"?new Set(cur[g.pos]?[cur[g.pos]]:[])
+    :g.mode==="take"?new Set(cur):new Set();
+  // the cap, worded exactly as the page note it replaces did: which slot, whose, how high
+  const cap=g.castMax||0;
+  const capTxt=(g.kind==="cantrip"||!cap)?"":" — up to level "+cap;
+  $("#gpTitle").textContent=g.mode==="trade"?"Replace "+g.outName
+    :g.mode==="place"?"Which pick was learned here?"
+    :"Choose "+gpickNoun({kind:g.kind,label:g.book?"Spellbook spell":""});
+  $("#gpSub").textContent=g.mode==="trade"
+    ? "a "+kw+" for "+cname+" at L"+g.lv+capTxt+" — taking one records the trade, "
+      +g.outName+" keeps its place in the order"
+    : g.mode==="place"
+    ? "the L"+g.lv+" "+kw+" slot for "+cname+" — only this build's own picks, and a click places one here"
+    : "a "+kw+" for "+cname+" at L"+g.lv+capTxt
+      +(g.full?" · every slot of this kind is filled — click one you hold to drop it first":"");
+  const q=(($("#gpSearch")||{}).value||"").toLowerCase();
+  const all=guideEligible(g);
+  const items=all.filter(i=>!q||i.sp.name.toLowerCase().includes(q));
+  $("#gpCount").textContent=items.length+(items.length===1?" spell":" spells")
+    +(q&&all.length!==items.length?" of "+all.length:"");
+  list.innerHTML="";
+  if(!items.length){list.append(el("div","empty",q?"No eligible spell matches that name."
+    :g.mode==="place"?"This class holds no pick that could sit in this slot."
+    :"Nothing legal is left to take here — widen your books in Sources, or skip the step."));
+    return;}
+  const byLvl={}; items.forEach(i=>{(byLvl[i.sp.level]=byLvl[i.sp.level]||[]).push(i);});
+  // DESCENDING (D126(f)): the level you most want is the one you just unlocked
+  const lvls=Object.keys(byLvl).map(Number).sort((a,b)=>b-a);
+  const rows=l=>byLvl[l].sort((a,b)=>a.sp.name.localeCompare(b.sp.name)).map(i=>gpickRow(i,held));
+  if(lvls.length<2)rows(lvls[0]).forEach(r=>list.append(r));
+  else lvls.forEach(l=>{const grp=lvlGroup("gpick",l,byLvl[l].length);
+    rows(l).forEach(r=>grp.append(r)); list.append(grp);});
+}
+function gpickRow(i,held){
+  const g=GPICK, sp=i.sp, k=key(sp.name,sp.source), on=held.has(k);
+  const d=el("div","sp"+(on?" chosen":""));
+  const nm=el("div","nm",sp.name); attachSpell(nm,sp); d.append(nm);
+  const meta=el("div","meta");
+  [ROMAN[sp.level],sp.school,sp.time,sp.range].filter(Boolean).forEach(x=>meta.append(el("span",null,x)));
+  d.append(meta);
+  const take=el("div","take"), b=el("button","tk ico-only"+(on?" on":""));
+  b.append(icoEl(on?"check":"plus"));
+  const lbl=g.mode==="trade"?"Trade "+g.outName+" away for it"
+    :g.mode==="place"?(on?"Already in this slot":"Place it in this slot")
+    :on?"Picked — click to drop it":"Take it";
+  b.title=lbl; b.setAttribute("aria-label",lbl);
+  // a nested action stops its click: the commit re-renders this list, and a bubbling
+  // event would land on the freshly-attached row
+  b.onclick=e=>{e.stopPropagation(); gpickCommit(k);};
+  take.append(b); d.append(take); return d;
+}
+function gpickCommit(k){
+  const g=GPICK; if(!g)return;
+  if(g.mode==="place"){
+    const s=(R&&R.gsteps||[]).find(x=>guideKey(x)===g.stepKey);
+    if(s)guidePlace(s,k);            // saves + renders; the slot's position IS the answer
+    closeGpick(); return;
+  }
+  if(g.mode==="trade"){ guideTrade(g,k); closeGpick(); return; }
+  const arr=g.kind==="cantrip"?"cantrips":"spells";
+  const had=(((state.chosen[g.row]||{})[arr])||[]).includes(k);
+  toggle(g.row,k,g.kind==="cantrip");   // the app's own take — and it re-renders this modal
+  // an answer landed, so the stage's card is what says so (D126(e): no auto-advance). A
+  // DROP is not an answer — it leaves the modal open on the list you dropped it from.
+  if(!had)closeGpick();
+}
+// D126(i): the empty-character entry. One card at the head of the character panel — the
+// app's own card language, not a banner — offering the walk to a build that has nothing
+// in it yet. It is gone the moment ANY answer lands, which is why it derives (`guideEmpty`)
+// rather than carrying a dismissed bit: a build you emptied out gets the offer back.
+function renderGuideCta(){
+  const card=$("#guideCta"); if(!card)return;
+  card.classList.toggle("hidden",!guideEmpty()||GUIDE.on);
+}
+// Record a trade through the timeline's OWN write (E3 · D119(b)): arm, then take.
+// `toggle`'s intercept puts the replacement at the outgoing pick's POSITION — the
+// acquisition history is preserved — and calls `recordSwap` for the event. One swap write
+// path in the app, so the guide's card and the timeline's pill can never record different
+// shapes, and neither one deletes anything.
+function guideTrade(g,inKey){
+  const arr=g.kind==="cantrip"?"cantrips":"spells";
+  const cur=((state.chosen[g.row]||{})[arr])||[];
+  if(inKey===g.out||!cur.includes(g.out)||cur.includes(inKey))return;
+  if(swapAt(g.lv,g.kind))return;              // one event per kind per level (D128)
+  SWAPARM={row:g.row,kind:g.kind,out:g.out,level:g.lv,label:g.outName};
+  toggle(g.row,inKey,g.kind==="cantrip");     // records the swap, disarms, saves, renders
+  if(SWAPARM){SWAPARM=null;render();}         // the intercept always fires here; belt and braces
 }
 
 // ── custom spell sources (D55) ─────────────────────────────────────────────
@@ -2118,7 +2379,8 @@ let R=null, curTab="build";
 function render(){ maybeOnboard(); renderGapBar(); CASTMODS=activeCastMods(); R=compute(); R.health=buildHealth();
   R.gsteps=GUIDE.on?guideSteps():[];     // the guided chain follows every change too (F2)
   guideSync();
-  renderChoices(); renderSlots(); renderCart(); renderSpells(); renderFeatBudget(); renderJumpBar(); renderBuildSwitch(); renderSwapArm(); renderGuide();
+  renderChoices(); renderSlots(); renderCart(); renderSpells(); renderFeatBudget(); renderJumpBar(); renderBuildSwitch(); renderSwapArm(); renderGuide(); renderGuideCta();
+  if(GPICK)renderGpick();                // the open pick modal follows every change (G3)
   if(TL.open)renderTimeline();           // the open timeline follows every change (E5)
   if(curTab==="table")renderTable(); save(); }
 
@@ -2203,7 +2465,7 @@ function choiceRow(c){
 // Module state, per session: a fold is a view of a list, never part of a build, so it must
 // never reach a stored blob. Folding hides the rows with a class rather than re-rendering —
 // a rebuild would detach the click's own target (E5) and throw the scroll position away.
-const FOLDED={spells:new Set(),pick:new Set()};
+const FOLDED={spells:new Set(),pick:new Set(),gpick:new Set()};
 // The header IS the control, and it keeps naming what it holds while closed (D94). Its own
 // tools hang off it as SIBLINGS of the fold button: a button may not contain a button.
 function lvlGroup(scope,l,n,tools){
@@ -5095,10 +5357,10 @@ function renderSwapArm(){
     const b=el("button","btn");
     const bl=el("span","lbl-ico");bl.append(icoEl("retrain"),document.createTextNode("Choose replacement…"));
     b.append(bl);
+    // the cap is `guideSwapMax`'s, shared with the guide's trade card (G3) so the two
+    // replacement surfaces can never offer different levels for the same trade
     b.onclick=()=>{const rec=R.casters.find(r=>r.idx===SWAPARM.row); if(!rec)return;
-      const clm=charLevelMap(), lvls=clm.get(SWAPARM.row)||[];
-      const clAt=lvls.filter(x=>x<=SWAPARM.level).length;
-      openLevelPick(SWAPARM.row,Math.max(1,maxLvlAt(rowSched(row).caster,Math.max(1,clAt))));};
+      openLevelPick(SWAPARM.row,guideSwapMax(row,SWAPARM.level));};
     bar.append(b);}
   bar.append(xBtn("anx",()=>{SWAPARM=null;render();}));
 }
@@ -5804,15 +6066,10 @@ function renderSpells(){
   const wantAll=F.cls===ALL_SPELLS;
   const byClass=i=>wantAll||!F.cls||i.takers.some(t=>t.name===F.cls)||i.srcs.has(F.cls);
   const poolKeys=new Set(items.map(i=>key(i.sp.name,i.sp.source)));
-  // the guided pre-filter (F2 · D118(b)): while a pick step is current, only what is
-  // legal at that acquisition point — this class's takers, at a castable level
-  const gp=guidePickStep();
-  // reconstruct mode narrows further, to the row's OWN picks (F3 · D118(f))
-  const own=gp&&GUIDE.reverse
-    ?new Set(((state.chosen[gp.row]||{})[gp.kind==="cantrip"?"cantrips":"spells"])||[]):null;
-  const guideOk=i=>!gp||((own?own.has(key(i.sp.name,i.sp.source)):i.takers.some(t=>t.idx===gp.row))
-    &&(gp.kind==="cantrip"?i.sp.level===0:i.sp.level>=1&&i.sp.level<=(gp.pool.castMax||9)));
-  const eligible=items.filter(i=>qmatch(i.sp)&&passesSp(i.sp)&&byClass(i)&&guideOk(i));
+  // The guided PRE-FILTER lived here until G3 (F2 · D118(b)). D126(f) moved that job into
+  // the guide's own modal, predicate and all (`guideEligible`), so this list is the
+  // character view's list again in every mode — one surface, one meaning.
+  const eligible=items.filter(i=>qmatch(i.sp)&&passesSp(i.sp)&&byClass(i));
   // Two ways a spell you can't take still shows up, always DIMMED and never pickable:
   // the explicit "every spell" option, and any search — a name you typed and can't find
   // is worse than one shown greyed with the reason (D40).
@@ -5837,20 +6094,6 @@ function renderSpells(){
   const dimNote=(extra.length&&!F.q)?` · ${extra.length} dimmed`:"";
   $("#spCount").textContent=eligible.length?nsp(eligible.length)+dimNote
     :(dimNote?`${extra.length} dimmed`:nsp(0));
-  // the guided note names WHY the list is narrowed, and for whom (F2)
-  const gn=$("#guideNote");
-  if(gn){ if(!gp)gn.classList.add("hidden");
-    else{ gn.classList.remove("hidden");
-      const row=state.classes.find(r=>r.id===gp.row), c=row&&CLS_BY[row.clsKey];
-      const cm=gp.pool.castMax||9;
-      gn.textContent=GUIDE.reverse
-        ?`Guided (reconstruct): which pick did ${c?c.name:"this class"} have in this L${gp.lv} slot? `
-          +`Only the build's own picks are listed — click one to place it there. `
-          +`${eligible.length} candidate${eligible.length===1?"":"s"} below.`
-        :`Guided: choose a ${gp.kind==="cantrip"?"cantrip":"spell"} for `
-          +`${c?c.name:"this class"} at L${gp.lv}`
-          +(gp.kind==="spell"?(cm===1?` — only level 1 is legal there`:` — level 1–${cm} is legal there`):"")
-          +`. ${eligible.length} candidate${eligible.length===1?"":"s"} below; the guide's × lifts the filter.`; } }
   const byLvl={};items.forEach(i=>{(byLvl[i.sp.level]=byLvl[i.sp.level]||[]).push(i);});
   const list=$("#spellList");list.innerHTML="";
   if(!items.length){list.append(mkEmpty());return;}
@@ -5880,7 +6123,12 @@ function mkEmpty(){const e=el("div","empty");
 const SPTIP=el("div","sptip");document.body.appendChild(SPTIP);
 const SPMODAL=el("div","spmodal hidden");document.body.appendChild(SPMODAL);
 SPMODAL.onclick=e=>{if(e.target===SPMODAL||e.target.classList.contains("x"))SPMODAL.classList.add("hidden");};
-document.addEventListener("keydown",e=>{if(e.key==="Escape"){SPMODAL.classList.add("hidden");hideTip();closeBswMenus();closeTimeline();}});
+document.addEventListener("keydown",e=>{if(e.key!=="Escape")return;
+  // the guide's pick modal is the topmost layer while it is open, so Escape belongs to
+  // it alone — closing what sits UNDER a modal is the trap D120 logged against the
+  // timeline, and there is no reason to repeat it here
+  if(GPICK){closeGpick();return;}
+  SPMODAL.classList.add("hidden");hideTip();closeBswMenus();closeTimeline();});
 document.addEventListener("click",()=>hideTip(),true);   // a tap elsewhere dismisses a tapped tip
 function esc(s){return (s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));}
 // ── spell text highlighting (monster-forge cc-* convention, read-only) ──────
@@ -6830,6 +7078,13 @@ $("#prepLevelBtn").onclick=e=>{e.stopPropagation();toggleMenu("#prepLevelPop");}
 $("#pickClose").onclick=()=>$("#pickModal").classList.add("hidden");
 $("#pickModal").onclick=e=>{if(e.target.id==="pickModal")$("#pickModal").classList.add("hidden");};
 $("#pickSearch").oninput=renderPickList;
+// the guide's pick modal (G3 · D126(f)). The backdrop closer is a STRICT equality on the
+// backdrop node itself — a click that re-renders detaches its own target, and a
+// `closest()` test would then read an inside click as outside (the E5 trap).
+$("#gpClose").onclick=closeGpick;
+$("#gpickModal").onclick=e=>{if(e.target===$("#gpickModal"))closeGpick();};
+$("#gpSearch").oninput=renderGpick;
+$("#guideCtaBtn").onclick=()=>openGuide(false);
 $("#customBtn").onclick=()=>{closeMenu();openCustom();};
 $("#hbBtn").onclick=openHb;
 $("#hbClose").onclick=()=>$("#hbModal").classList.add("hidden");

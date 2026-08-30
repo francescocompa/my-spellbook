@@ -34,12 +34,12 @@
   in the spell details' "Metamagic" row (left the table); and the **Ember palette** shipped —
   terracotta accent, crimson alerts, all five theme blocks (P1 Verdigris was picked once
   then REVERSED — don't re-propose it).
-- **Next action:** merge the **wave batch** (W1 general fixes + W2 swap model, agents in
-  flight; W4 timeline batch queued behind W2), then **phase G — the guided builder as a
-  full-size page (D126)**, G1 first in a fresh session. F4 passed earlier today (phase F
-  DONE, D125 fixed in-gate). 🔶 open on Francesco: the edition-dedupe fix option (W3's
-  A/B/C — the investigation found 73 subclasses resolving to hollow zero-grant records)
-  and the standing magic-item / reward import call.
+- **Next action:** **G4 — the phase G 🔍 fresh-eyes gate** (fable, a SEPARATE session —
+  this one coordinated the G1–G3 agents and cannot gate them): review the full-page guided
+  builder against **D126(a–i)** + the standing D118(a–j); start from G3's gate notes in
+  PLAN. Everything else shipped: the whole wave batch (W1/W2/W4/W5 → D128, D129), D127
+  built (needs Francesco's one-click re-import per browser), phase G built G1–G3
+  (v1.2.24 → v1.2.26). 🔶 still open on Francesco: the magic-item / reward import call.
 - **Manual for Francesco:** ⓪ **Refresh your imported data in each browser** — ⋯ → **Refresh
   imported data** (choose the folder once if asked). Now also required for **D127** (v1.2.21):
   a stored digest keeps the hollow 2014 subclasses (no grants, duplicate pairs, missing

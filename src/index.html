@@ -59,6 +59,16 @@
       <!-- E3 · D115(g): an armed level-up swap, waiting for its replacement pick -->
       <div class="swapbar hidden" id="swapBar"></div>
 
+      <!-- D126(i): the empty-character entry. One card leading the panel — not a banner —
+           and it is gone the moment anything is answered. -->
+      <div class="card gcta hidden" id="guideCta">
+        <h2>Start guided</h2>
+        <div class="body">
+          <p class="gctap">A level-by-level walk through every decision this build carries — class, species, feats, spells and the choices they open. Nothing is forced: skip anything, jump anywhere, leave whenever.</p>
+          <button class="btn on lbl-ico gctab" id="guideCtaBtn"><span class="ico" data-ico="spark"></span>Start guided</button>
+        </div>
+      </div>
+
       <!-- CHARACTER -->
       <div class="card" id="secChar">
         <!-- the chip reads "L7 / 20" (+ ⚠ when the sweep found something) and opens the timeline -->
@@ -119,9 +129,6 @@
       <div class="card" id="secSpells">
         <h2>Eligible spells <span class="count" id="spCount"></span></h2>
         <div class="body">
-          <!-- F2 · D118(b): while a guided pick step is current, the list is pre-filtered
-               to what is legal at that acquisition point and this line says so -->
-          <div class="guidenote hidden" id="guideNote"></div>
           <div class="filters">
             <input type="search" id="fq" placeholder="filter by name…">
             <button class="btn" id="filterBtn">Filters</button>
@@ -570,6 +577,22 @@
     <div class="gstage" id="gStage"></div>
   </div>
 </div>
+<!-- G3 · D126(f): a spell or cantrip step answers HERE, not on the page. Standard modal
+     chrome, so it opens OVER the guide like every other picker. Eligible spells only,
+     grouped by level DESCENDING with the same foldable headers both spell lists use. -->
+<div class="modal hidden" id="gpickModal" role="dialog" aria-label="Choose a spell"><div class="box">
+  <div class="mh mh-stack">
+    <div class="mh-row"><h2 id="gpTitle">Choose a spell</h2><button class="x ico" id="gpClose" data-ico="x" aria-label="Close"></button></div>
+    <div class="sub" id="gpSub"></div>
+  </div>
+  <div class="mb">
+    <div class="pickbar">
+      <input type="search" id="gpSearch" placeholder="filter by name…">
+      <span class="gpcount" id="gpCount"></span>
+    </div>
+    <div id="gpList"></div>
+  </div>
+</div></div>
 <div class="modal hidden" id="prepModal"><div class="box">
   <div class="mh mh-stack">
     <div class="mh-row"><h2 id="prepTitle">Spell preparation</h2><button class="x ico" id="prepClose" data-ico="x" aria-label="Close"></button></div>

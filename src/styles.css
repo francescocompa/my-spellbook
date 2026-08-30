@@ -1849,10 +1849,37 @@ body.guiding .wrap{display:none}
 .grinline select{width:100%;max-width:320px;font-size:12px;padding:5px 6px;border-radius:7px;
   border:1px solid var(--line-strong);background:var(--panel);color:var(--ink)}
 .grhint{font-size:11.5px;color:var(--muted);line-height:1.45}
-/* the pre-filter note above the spell list while a pick step is current */
-.guidenote{margin:0 0 10px;padding:7px 10px;border:1px solid var(--accent);
-  border-radius:9px;background:var(--accent-soft);font-size:11.5px;line-height:1.45}
-.guidenote.hidden{display:none}
+/* ── G3 · D126(f,h,i) ──────────────────────────────────────────────────────
+   The end of a walk, said out loud: Next has gone dead above this line, so the
+   line owes you the reason and what is left behind you. */
+.gend{max-width:640px;margin:10px 0 0;font-size:11.5px;line-height:1.5;color:var(--muted)}
+/* D126(h): the trade card's losing side — the picks you may give up at this level-up,
+   as chips you tap. Neutral until hovered: it is an OPTIONAL step, not a prompt. */
+.gtchips{display:flex;flex-wrap:wrap;gap:6px}
+.gtchip{font:inherit;font-size:12px;padding:4px 11px;border-radius:14px;cursor:pointer;
+  background:var(--panel);border:1px solid var(--line-strong);color:var(--ink);
+  display:inline-flex;gap:6px;align-items:center;transition:border-color .12s,color .12s}
+.gtchip .lv{color:var(--muted);font-size:10px;font-variant-numeric:tabular-nums}
+.gtchip:hover{border-color:var(--free);color:var(--free)}
+.gtchip:hover .lv{color:var(--free)}
+.gtchip:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+/* the recorded trade's way out. The card's own value line already reads "− out + in";
+   this is only the undo, kept quiet so it can't be mistaken for the answer. */
+.gtundo{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted)}
+.gtundo .gtx{color:var(--muted);cursor:pointer;border:none;background:none;padding:2px;line-height:0}
+.gtundo .gtx:hover{color:var(--bad)}
+.gtundo .gtx svg{width:12px;height:12px}
+/* the guide's pick modal: the same list the pickers use, with its own count in the bar */
+#gpList{max-height:56vh;overflow:auto;padding-right:10px}
+.gpcount{flex:0 0 auto;font-size:11px;color:var(--muted);white-space:nowrap;
+  font-variant-numeric:tabular-nums}
+/* D126(i): the empty-build offer. A card in the panel's own language, leading the column
+   — accent-edged so it reads as an invitation rather than a warning. */
+.gcta{border-color:var(--accent)}
+.gcta h2{color:var(--accent)}
+.gcta.hidden{display:none}
+.gctap{margin:0 0 12px;font-size:12.5px;line-height:1.5;color:var(--muted)}
+.gctab{font-size:13.5px;padding:9px 15px}
 /* phone widths: ONE pane at a time, one tap apart (D126(c)) — no sheet, no drawer */
 @media (max-width:820px){
   .gbody{display:block;overflow:hidden}
