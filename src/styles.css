@@ -1746,14 +1746,18 @@ body.guiding .wrap{display:none}
 
 /* ── H4 · D130(e): the CHARACTER DRAWER ─────────────────────────────────────
    "Character view" slides the guide aside; it does not close it and does not hide it.
-   The page stays mounted (it keeps its step, its scroll and its open level), slides out
-   to the left and leaves its edge on screen, and the character view underneath is the
-   real app — no `body.guiding`, so the wrap, its scroll and its jump bar all come back.
+   The page stays mounted (it keeps its step, its scroll and its open level), slides
+   FULLY off to the left, and the character view underneath is the real app — no
+   `body.guiding`, so the wrap, its scroll and its jump bar all come back.
+   D131(f): the walk leaves NOTHING on screen — the 14px accent edge this used to keep
+   read as a stray highlight rather than an affordance, and the pinned return bar
+   (`.gback` below) is the one thing that says the walk is still standing. The border and
+   the drop shadow go with it: at `-100%` the border sits off-canvas anyway, and the
+   shadow would still bleed a dark band down the left of the character view.
    The slid-away page is INERT (set in `renderGuide`) so it is out of the tab order too;
    `pointer-events` says the same thing to a browser that does not know the attribute,
-   and it keeps a click on the edge from reaching a card nobody can see. */
-.gview.gvaside{transform:translateX(calc(-100% + 14px));pointer-events:none;
-  border-right:2px solid var(--accent);box-shadow:3px 0 16px #0005}
+   and it keeps a stray click during the slide from reaching a card nobody can see. */
+.gview.gvaside{transform:translateX(-100%);pointer-events:none}
 @media (prefers-reduced-motion:reduce){.gview{transition:none}}
 /* The pinned return, and the walk's only visible presence over the character view. It is
    sticky rather than fixed — it takes its own band, so nothing of the app hides under it —
@@ -1825,6 +1829,17 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
 /* D130(a): a collapsed level is ONE line. The open one gets the accent edge so the
    column always says which level you are standing in without reading the rows. */
 .gclv .lotop{align-items:center}
+/* D131(h): the drag handle is a child of the CARD, not of the header row, so `.gclv`'s
+   `flex-start` above starts its 14px icon box at the content top — 2.75px above the
+   centre `.lotop` gives the level chip and the title. Neither obvious fix is right:
+   centring the CARD would float the handle to the middle of an open one (which is why
+   `flex-start` is there at all), and a top margin would be a magic number. So the grip
+   takes the header row's own LINE BOX as its height — `.locls`'s 13px against the
+   inherited `line-height:1.5` — and `.ico`'s own `align-items:center` centres the icon
+   inside it. Collapsed, handle and row share a centre; open, the handle stays on that
+   first band instead of drifting down the card. `.locard.tlrow` never had the offset
+   (it keeps `align-items:center`), so the timeline is untouched. */
+.gclv .logrip{height:calc(13px * 1.5)}
 /* the label part gives way, the controls never wrap (the header-with-controls rule) */
 .gclv .locls{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .gclv.gcopen{border-color:var(--accent)}
