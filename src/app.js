@@ -1269,7 +1269,7 @@ function guidePickAsk(c){
   // a set with a gap in it can't be said in a phrase — the raw desc keeps it honest
   if(nums.length>1&&nums[nums.length-1]-nums[0]!==nums.length-1)return null;
   const clss=F.class?String(F.class).split(";").map(s=>s.trim()).filter(Boolean)
-    .map(s=>s.charAt(0).toUpperCase()+s.slice(1)).join("/"):"";
+    .map(s=>cap1(s)).join("/"):"";
   const schs=F.school?String(F.school).split(";").map(s=>SCHOOL_ABBR[s.trim().toUpperCase()]||s.trim())
     .filter(Boolean).join("/"):"";
   // 5etools filters on more than level/class/school. RITUAL is the one extra this may say
@@ -1295,8 +1295,7 @@ function guidePickAsk(c){
 // the ask, short enough for a chain row; the giver is the card's sub-line, never repeated
 const guideChoiceLabel=c=>c.type==="ability"?"Casting ability"
   :c.type==="option"?(String(c.giver||"Option").split(" · ").pop()||"Option")
-  :(t=>t.charAt(0).toUpperCase()+t.slice(1))(
-     guidePickAsk(c)||fmtDesc(c.desc)||("choose "+(c.count>1?c.count+" spells":"a spell")));
+  :cap1(guidePickAsk(c)||fmtDesc(c.desc)||("choose "+(c.count>1?c.count+" spells":"a spell")));
 function guideChoiceValue(c){
   if(c.type!=="pick"){const v=state.choices[c.id];
     return v==null?null:(c.type==="ability"?(ABIL[v]||String(v)):String(v));}
@@ -1990,7 +1989,7 @@ function guideSecBlock(step,sec,rowOf){
       attachTip(x,tipBlock("Undo the trade",
         "Clears this level's "+kind+" trade. The replacement stays where it is and nothing is "
         +"deleted — the same thing clearing the pill in the timeline does."));
-      und.append(x,el("span","gtul","undo the trade"));
+      und.append(x,el("span","gtul","Undo the trade"));
       b.append(und);
       return guideSecWrap(step,sec,b);
     }
@@ -2040,7 +2039,7 @@ function guideSecWrap(step,sec,body){
   h.append(el("span","gsecl",sec.label));
   if(sec.kind==="pick"||sec.kind==="cpick")
     h.append(el("span","gcnt"+(sec.done?" full":""),sec.have+" of "+sec.need));
-  else if(sec.optional)h.append(el("span","gcnt","optional"));
+  else if(sec.optional)h.append(el("span","gcnt","Optional"));
   box.append(h); box.append(body); return box;
 }
 
@@ -2163,7 +2162,7 @@ function renderGpick(){
     shown=items.length;
     gpickSection(list,null,items,new Set(),"trade",null);
     $("#gpCount").textContent=shown+(shown===1?" spell":" spells");
-    $("#gpPill").textContent="tap one to record the trade";
+    $("#gpPill").textContent="Tap one to record the trade";
     $("#gpPill").classList.remove("full");
     return;
   }
@@ -2244,7 +2243,7 @@ function gpickRow(sp,held,sec,mode){
   const d=el("div","sp"+(on?" chosen":""));
   const nm=el("div","nm",sp.name); attachSpell(nm,sp); d.append(nm);
   const meta=el("div","meta");
-  [ROMAN[sp.level],sp.school,sp.time,sp.range].filter(Boolean).forEach(x=>meta.append(el("span",null,x)));
+  [ROMAN[sp.level],sp.school,cap1(sp.time),sp.range].filter(Boolean).forEach(x=>meta.append(el("span",null,x)));
   d.append(meta);
   const take=el("div","take"), b=el("button","tk ico-only"+(on?" on":""));
   b.append(icoEl(on?"check":"plus"));
@@ -2783,13 +2782,13 @@ function choiceRow(c){
   if(c.type==="option"||c.type==="ability"){
     const isAb=c.type==="ability";
     const cg=el("div","cg");
-    cg.append(el("span","cwhat",isAb?"casting ability":"choose one"));row.append(cg);
+    cg.append(el("span","cwhat",isAb?"Casting ability":"Choose one"));row.append(cg);
     const sel=el("select"); c.options.forEach(o=>sel.append(new Option(isAb?ABIL[o]||o:o,o)));
     sel.value=c.value; sel.onchange=()=>{state.choices[c.id]=sel.value; render();}; row.append(sel);
   } else { // pick
     const have=(state.choices[c.id]||[]).length;
     const cg=el("div","cg");
-    const what=el("span","cwhat");what.append(document.createTextNode((fmtDesc(c.desc)||"choose")+" "));
+    const what=el("span","cwhat");what.append(document.createTextNode(cap1(guidePickAsk(c)||fmtDesc(c.desc)||"choose")+" "));
     what.append(el("span","need",`${have}/${c.count}`));cg.append(what);row.append(cg);
     const picks=el("div","picks");
     (state.choices[c.id]||[]).forEach(k=>{const sp=SPELL_BY[k];if(!sp)return;
@@ -2797,7 +2796,7 @@ function choiceRow(c){
       const nm=el("span",null,sp.name);attachSpell(nm,sp);chip.append(nm);
       const x=xBtn(null,()=>{state.choices[c.id]=(state.choices[c.id]||[]).filter(v=>v!==k);render();});
       chip.append(x);picks.append(chip);});
-    const btn=el("button","pickbtn"+(have>=c.count?" done":" needclr"), have>=c.count?"edit":`choose ${c.count-have}`);
+    const btn=el("button","pickbtn"+(have>=c.count?" done":" needclr"), have>=c.count?"Edit":`Choose ${c.count-have}`);
     btn.onclick=()=>openPick(c); picks.append(btn); row.append(picks);
   }
   return row;
@@ -2836,7 +2835,8 @@ let PICK=null;
 // explain why (the same reason the custom-source disclosures reset on open, D94)
 function openPick(choice){ FOLDED.pick.clear(); PICK={...choice,levelSet:new Set(),onlyPicked:false}; $("#pickSearch").value="";
   $("#pickTitle").textContent="Choose "+choice.count+(choice.count>1?" spells":" spell");
-  $("#pickSub").textContent=choice.giver+(choice.desc?" · "+fmtDesc(choice.desc):"");
+  const ask=guidePickAsk(choice)||fmtDesc(choice.desc);
+  $("#pickSub").textContent=choice.giver+(ask?" · "+cap1(ask):"");
   $("#pickModal").classList.remove("hidden"); renderPickList(); }
 // Magical Secrets: the same one-click add the wizard's spellbook has, scoped to the lists
 // the feature opens up rather than to a spell level (D80).
@@ -2857,15 +2857,15 @@ function openLevelPick(idx,maxLevel){ const rec=R.casters.find(r=>r.idx===idx); 
   // caster — calling either "prepare" contradicts the D20/D62 vocabulary the cards use
   const v=pickVerbs(idx,rec);
   $("#pickTitle").textContent=classLabel(rec)+" — "+v.title;
-  $("#pickSub").textContent=`level 1–${ROMAN[maxLevel]} · ${v.sub}`;
+  $("#pickSub").textContent=`Level 1–${ROMAN[maxLevel]} · ${v.sub}`;
   $("#pickModal").classList.remove("hidden"); renderPickList(); }
 // one vocabulary per caster kind, everywhere the by-level picker speaks (D20/D62)
 function pickVerbs(idx,rec){ const c=R.cart[idx];
-  return c&&c.known?{title:"spellbook",sub:"click to add or remove from your book",n:"In your book",
+  return c&&c.known?{title:"Spellbook",sub:"click to add or remove from your book",n:"In your book",
       on:"In your book — click to remove",off:"Add it to your spellbook"}
-    :(rec||{}).static?{title:"known spells",sub:"click to learn or drop",n:"Known",
+    :(rec||{}).static?{title:"Known spells",sub:"click to learn or drop",n:"Known",
       on:"Known — click to drop",off:"Learn it"}
-    :{title:"prepare spells",sub:"click to prepare or unprepare",n:"Prepared",
+    :{title:"Prepare spells",sub:"click to prepare or unprepare",n:"Prepared",
       on:"Prepared — click to unprepare",off:"Prepare it"};}
 function renderPickList(){
   const list=$("#pickList"); list.innerHTML="";
@@ -2894,7 +2894,7 @@ function renderPickList(){
     const nm=el("div","nm",sp.name); attachSpell(nm,sp); d.append(nm);
     // D39 reaches here too now: the printed book lives in the spell modal's title line, so
     // both spell lists behave the same and neither carries it on the row
-    const meta=el("div","meta");[ROMAN[sp.level],sp.school,sp.time,sp.range].filter(Boolean).forEach(x=>meta.append(el("span",null,x)));d.append(meta);
+    const meta=el("div","meta");[ROMAN[sp.level],sp.school,cap1(sp.time),sp.range].filter(Boolean).forEach(x=>meta.append(el("span",null,x)));d.append(meta);
     const take=el("div","take");const b=el("button","tk ico-only"+(on?" on":""));
     b.append(icoEl(on?"check":"plus"));
     const tlbl=on?(isClass?pv.on:"Picked — click to remove")
@@ -2931,8 +2931,11 @@ function grantPreview(grants){
   // a fixed entry with no source is an extract artifact (innate cadence key misparsed
   // as a spell name, e.g. "Daily"/"Rest") — skip it here.
   (grants.fixed||[]).forEach(g=>{const nm=g.spell&&g.spell.name;if(nm&&g.spell.source&&!p.includes(nm))p.push(nm);});
-  (grants.picks||[]).forEach(pk=>p.push((pk.count>1?pk.count+"× ":"")+(fmtDesc(pk.desc)||"a spell")));
-  (grants.expansions||[]).forEach(()=>p.push("expanded spell list"));
+  // the same ask the guide and the Choices card compose (G3) — it already says the count,
+  // so the raw "2× " prefix is only needed on the descs it can't compose
+  (grants.picks||[]).forEach(pk=>p.push(cap1(guidePickAsk(pk)
+    ||((pk.count>1?pk.count+"× ":"")+(fmtDesc(pk.desc)||"a spell")))));
+  (grants.expansions||[]).forEach(()=>p.push("Expanded spell list"));
   (grants.optionGroups||[]).forEach(og=>p.push(og.options.map(o=>o.name).join(" / ")));
   return p.filter(Boolean).join(" · ");
 }
@@ -3215,7 +3218,7 @@ function armConfirm(btn,label,doIt){
   const disarm=()=>{clearTimeout(t);btn.classList.remove("armed");btn.innerHTML=rest;};
   btn.onclick=e=>{e.stopPropagation();
     if(!btn.classList.contains("armed")){
-      btn.classList.add("armed");btn.textContent="confirm?";
+      btn.classList.add("armed");btn.textContent="Confirm?";
       clearTimeout(t);t=setTimeout(disarm,4000);return;}
     disarm();doIt();};
   btn.onmouseleave=disarm;
@@ -3565,7 +3568,7 @@ let CSRC_ROW_OPEN=new Set();              // which spell rows show their rare pe
 // it must never describe a shape the spells below contradict.
 function csrcRuleText(){
   const mode=(CSRC_MODES.find(m=>m[0]===CSRC.mode)||[])[1]||CSRC.mode;
-  const head=`<b>${esc(cap(mode))}</b>`;
+  const head=`<b>${esc(cap1(mode))}</b>`;
   if(CSRC.mode!=="innate")return head;
   const spells=CSRC.spells||[];
   const onPool=spells.filter(e=>csrcPay(CSRC,e)==="pool").length;
@@ -3581,7 +3584,6 @@ function csrcRuleText(){
   if(!bits.length)bits.push(spells.length?`each spell on its own uses`:`<i>no charge pool</i>`);
   return head+" · "+bits.join(" · ");
 }
-const cap=s=>String(s||"").charAt(0).toUpperCase()+String(s||"").slice(1);
 function csrcSyncRule(){
   const t=$("#csrcRuleTxt"); if(t)t.innerHTML=csrcRuleText();
   const box=$("#csrcRules"),btn=$("#csrcRuleEdit");
@@ -3657,7 +3659,7 @@ function csrcSummary(){
   const num=[]; if(dc)num.push(`saves are <b>DC ${esc(dc)}</b>`);
   if(atk)num.push(`attacks <b>${esc(atk)}</b>`);
   if(ab)num.push(`it casts with <b>${esc(ABIL[ab]||ab)}</b>`);
-  return `<b>${esc(name)}</b> — ${how}.`+(num.length?" "+cap(num.join(", "))+".":"");
+  return `<b>${esc(name)}</b> — ${how}.`+(num.length?" "+cap1(num.join(", "))+".":"");
 }
 function csrcSyncSummary(){const b=$("#csrcSummary"); if(!b)return;
   b.innerHTML=csrcSummary();
@@ -3686,7 +3688,7 @@ function renderCsrcRows(){
     const row=el("div","csrow");
     // a pick names a RULE, not a spell, so it reads as its own description rather than a title
     const nm=el("span","csnm"+(isPick?" cspick":""),
-      isPick?cap(csrcPickDesc(e)):(sp?sp.name:e.key.split("|")[0]));
+      isPick?cap1(csrcPickDesc(e)):(sp?sp.name:e.key.split("|")[0]));
     if(sp)attachSpell(nm,sp);
     row.append(nm);
     // D95: the inline control follows THIS spell's payment, not a source-wide mode. That also
@@ -3792,7 +3794,7 @@ function csrcFilterEditor(e){
   take.append(el("span","csflbl","Take"));
   const n=el("input");n.type="number";n.min=1;n.max=9;n.value=Math.max(1,p.take||1);n.className="csn2";
   n.oninput=()=>{p.take=Math.max(1,+n.value||1);csrcSyncSummary();
-    const t=box.parentNode&&box.parentNode.querySelector(".csnm"); if(t)t.textContent=cap(csrcPickDesc(e));};
+    const t=box.parentNode&&box.parentNode.querySelector(".csnm"); if(t)t.textContent=cap1(csrcPickDesc(e));};
   take.append(n); take.append(el("span","csfnote","spell(s) — nothing ticked below means ANY"));
   box.append(take);
   const swrow=el("div","csfrow");
@@ -4073,7 +4075,7 @@ function renderPrepSwap(){
   const box=el("div","prepgrp");
   const h=el("div","cghead");
   h.append(el("b",null,"Cantrip swap"));
-  h.append(el("span","cgn","one per long rest"));
+  h.append(el("span","cgn","One per long rest"));
   h.append(Object.assign(el("div","cgcat"),
     {textContent:`Recorded at L${lv} — below that level the cantrip you traded away is still yours.`}));
   box.append(h);
@@ -4145,7 +4147,7 @@ function renderGrantedList(){
     h.append(el("b",null,c.giver||"Granted"));
     if(c.giverSrc)h.append(bookChip(c.giverSrc,ownerPage(c.owner)));
     h.append(el("span","cgn",`${cur.length}/${c.count}`));
-    h.append(Object.assign(el("div","cgcat"),{textContent:fmtDesc(c.desc)||"choose a spell"}));
+    h.append(Object.assign(el("div","cgcat"),{textContent:cap1(guidePickAsk(c)||fmtDesc(c.desc)||"choose a spell")}));
     box.append(h);
     let pool=filterSpells(c.filter).filter(sp=>(!q||sp.name.toLowerCase().includes(q))
       &&(!PREP.levelSet.size||PREP.levelSet.has(sp.level))
@@ -4287,7 +4289,7 @@ function customSpellObj(){const f=CFORM;
 function customPreview(){const sp=customSpellObj();const box=el("div","cpreview");
   box.append(el("div","cpv-h",sp.name||"Untitled spell"));
   box.append(el("div","cpv-sub",metaLine(sp)+(sp.cls.length?" · "+sp.cls.map(c=>c[0]).join(", "):"")));
-  const line=el("div","cpv-meta");[sp.time,sp.range,sp.durTxt,compText(sp)].forEach(x=>line.append(el("span",null,x)));box.append(line);
+  const line=el("div","cpv-meta");[cap1(sp.time),sp.range,sp.durTxt,compText(sp)].forEach(x=>line.append(el("span",null,x)));box.append(line);
   const dfn=defenceHTML(sp);if(dfn!=="—"){const d=el("div","cpv-def");d.innerHTML="Defence — "+dfn;box.append(d);}
   if(sp.desc.length){const p=el("div","cpv-desc");p.innerHTML=ccText(sp.desc[0].slice(0,220))+(sp.desc[0].length>220?"…":"");box.append(p);}
   return box;}
@@ -5302,7 +5304,7 @@ function cellFor(k,row){
     return td;}
   if(k==="save"){const td=el("td","savecell");td.innerHTML=defenceHTML(sp);return td;}
   if(k==="school")return shortCell(shortSchool(sp.school),sp.school,"School");
-  if(k==="time")return shortCell(shortTime(sp.time),sp.time,"Casting time");
+  if(k==="time")return shortCell(shortTime(sp.time),cap1(sp.time),"Casting time");
   if(k==="range")return shortCell(shortRange(sp.range),sp.range,"Range");
   if(k==="comp")return compCell(sp,row);
   if(k==="dur")return shortCell(shortDuration(sp.durTxt),
@@ -5580,7 +5582,7 @@ function levelGains(row,cl,charLv,open){
   const g=[], push=(t,pick)=>g.push(pick?{t,pick}:{t});
   (c.features||[]).forEach(f=>{if(f.level===cl)push(f.name);});
   if(sub&&cl>=(c.subclassLevel||3))(sub.features||[]).forEach(f=>{if(f.level===cl)push(f.name);});
-  if(c.subclassLevel===cl&&!sub)push("subclass — not chosen",{kind:"subclass",row:row.id});
+  if(c.subclassLevel===cl&&!sub)push("Subclass — not chosen",{kind:"subclass",row:row.id});
   // a feat slot at this CHARACTER level is open when no non-origin feat maps to it —
   // asked of featAcqLevels, the same mapper the chips and the sweep read (D114)
   const slotOpen=!open||!(open.featAt.get(charLv)>0);
@@ -5898,7 +5900,7 @@ function renderTimeline(){
     if(!reasons)om.classList.add("hidden");
     else{ om.classList.remove("hidden"); om.append(icoEl("warn"));
       attachTip(om,tipBlock("Order matters in this build",
-        reasons.map(r=>r[0].toUpperCase()+r.slice(1)).join("; ")
+        reasons.map(r=>cap1(r)).join("; ")
         +". Drag the rows to change which class each level was taken in.")); } }
   // run aggregation (D122): consecutive levels of one class read as a block — a
   // per-class rail plus a closed gap — because reordering INSIDE a run changes nothing
@@ -5959,7 +5961,7 @@ function renderTimeline(){
         gl.append(a);});
       body.append(gl);
     }
-    else body.append(Object.assign(el("div","logains dim"),{textContent:"no new features"}));
+    else body.append(Object.assign(el("div","logains dim"),{textContent:"No new features"}));
     card.append(body);
     // only the level that MOVED a clock states it (D122) — a quiet note, not a control;
     // every unchanged level stays clean and the column reads as "what rose where".
@@ -6356,7 +6358,7 @@ function renderCart(){
   const granted=[...R.pool.values()].filter(e=>e.grants.length);
   if(granted.length){const g=el("div","budget");const gbh=el("div","bh");
     gbh.append(el("span","nm","Always prepared"));
-    gbh.append(el("span","ml","granted — they don’t use your prepared slots"));g.append(gbh);
+    gbh.append(el("span","ml","Granted — they don’t use your prepared slots"));g.append(gbh);
     const cc=el("div","cartchips");granted.sort((a,b)=>a.sp.level-b.sp.level||a.sp.name.localeCompare(b.sp.name)).forEach(e=>{
       const chip=el("span","cartchip gr");chip.append(el("span","lv",e.sp.level===0?"C":ROMAN[e.sp.level].replace(/\D/g,"")));
       const nm=el("span",null,e.sp.name);attachSpell(nm,e.sp);chip.append(nm);cc.append(chip);});
@@ -6537,7 +6539,7 @@ const bookTip=(src,page)=>`<h4>${esc(bookName(src))}</h4>`
   +(page?`<div class="line"><b>Page</b><span>${esc(String(page))}</span></div>`:"")
   +`<div class="line"><b>Code</b><span>${esc(src)}</span></div>`;
 function tipHTML(sp){return `<h4>${esc(sp.name)}</h4><div class="sub">${metaLine(sp)}</div>`
-  +`<div class="line"><b>Time</b> ${esc(sp.time)}</div><div class="line"><b>Range</b> ${esc(sp.range)}</div>`
+  +`<div class="line"><b>Time</b> ${esc(cap1(sp.time))}</div><div class="line"><b>Range</b> ${esc(sp.range)}</div>`
   +`<div class="line"><b>Duration</b> ${sp.conc?"Concentration, ":""}${esc(sp.durTxt)}</div>`
   +((sp.desc||[]).length?`<p>${ccText(sp.desc[0].slice(0,240))}${sp.desc[0].length>240?"…":""}</p>`:"")+`<p style="color:var(--muted);font-size:11px">click for full details</p>`;}
 function posTip(ev){const pad=14,w=SPTIP.offsetWidth,h=SPTIP.offsetHeight;let x=ev.clientX+pad,y=ev.clientY+pad;
@@ -6765,7 +6767,7 @@ function modalHTML(sp){
   // the Components row marks what your own build removes (D85) — struck through when the
   // feature always applies, merely marked when it depends on something we can't check
   const eff=compEffect(sp,modsForSpell(sp,null));
-  const grid=[["Casting time",esc(sp.time)],["Range",esc(sp.range)],["Components",compModalHTML(sp,eff)],
+  const grid=[["Casting time",esc(cap1(sp.time))],["Range",esc(sp.range)],["Components",compModalHTML(sp,eff)],
               ["Duration",(sp.conc?"Concentration, up to ":"")+esc(sp.durTxt)]];
   const bk=sp.source!==CORE?` <span class="bchip" data-book="${esc(sp.source)}"${sp.page?` data-page="${esc(String(sp.page))}"`:""}>${esc(sp.source)}</span>`:"";
   return `<div class="box"><button class="x ico" type="button" title="Close" aria-label="Close">${ICONS.x}</button>`
@@ -6901,7 +6903,7 @@ function mkSpell(i,chosenKeys){
   d.append(nm);
   const meta=el("div","meta");
   // the printed book lives in the detail modal now — this row is for what you scan on (D39)
-  [sp.school,sp.time,sp.range,sp.conc?"conc.":""].filter(Boolean).forEach(x=>meta.append(el("span",null,x)));
+  [sp.school,cap1(sp.time),sp.range,sp.conc?"conc.":""].filter(Boolean).forEach(x=>meta.append(el("span",null,x)));
   d.append(meta);
   const take=el("div","take");
   if(i.dim){d.classList.add("dim");
@@ -6932,7 +6934,9 @@ function mkSpell(i,chosenKeys){
     attachTip(b,tipBlock("Always prepared","Free from "+g.src+" — it doesn’t count against your prepared list."));take.append(b);});
   d.append(take);return d;
 }
-function cap1(s){return s?s[0].toUpperCase()+s.slice(1):s;}
+// the one display capitaliser (H6): first letter up, the rest untouched — never applied to a
+// stored value, only to what is about to be shown. Hoisted, so it serves the whole file.
+function cap1(s){s=s==null?"":String(s);return s?s[0].toUpperCase()+s.slice(1):s;}
 function syncOpt(sel,pairs,cur,allLabel){
   const want=[["",allLabel]].concat(pairs);
   const same=sel.options.length===want.length&&[...sel.options].every((o,i)=>o.value===want[i][0]);
@@ -6980,7 +6984,7 @@ function renderClassRows(){
     if(locked)sl.append(lockChip(subLvl,"The subclass"));
     sc.append(sl);
     const ss=el("select",needsSub?"alert":"");ss.dataset.sub=String(row.id);
-    // the timeline's "subclass — not chosen" affordance focuses THIS select (never a
+    // the timeline's "Subclass — not chosen" affordance focuses THIS select (never a
     // second chooser of its own), so the row has to be findable from outside
     ss.append(new Option(locked?"— locked —":"— none —",""));
     (SUBS_OF[key(c.name,c.source)]||[]).filter(x=>visible(x)||key(x.name,x.source)===row.subKey)
@@ -7879,7 +7883,7 @@ const cardId=sp=>"sp-"+key(sp.name,sp.source).toLowerCase().replace(/[^a-z0-9]+/
 let PRINT_ROWS=[];      // what renderTable last put on the sheet — the cards follow it
 function printCardHTML(sp){
   const eff=compEffect(sp,modsForSpell(sp,null));
-  const grid=[["Casting time",esc(sp.time)],["Range",esc(sp.range)],["Components",compModalHTML(sp,eff)],
+  const grid=[["Casting time",esc(cap1(sp.time))],["Range",esc(sp.range)],["Components",compModalHTML(sp,eff)],
               ["Duration",(sp.conc?"Concentration, up to ":"")+esc(sp.durTxt)]];
   const bk=sp.source+(sp.page?" p."+sp.page:"");
   // only the forms this character marked (or the single form a summon has) — Find Familiar
