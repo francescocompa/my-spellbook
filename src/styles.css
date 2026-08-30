@@ -1768,6 +1768,14 @@ body.guiding .wrap{display:none}
 #tabGuide .ico svg{width:12px;height:12px}
 .gh-toggle{display:none}                 /* phone only — see the media block */
 .gh-toggle.hidden,.gh-swap.hidden{display:none}
+/* D118(f)'s second walk is a MODE you switch into from here, not a screen you pass
+   through on entry: a compact command menu that keeps showing its prompt, with the ✓
+   on the walk you are in. Hidden on a build with no picks to reconstruct. */
+.ghead select.gh-mode{flex:0 0 auto;max-width:200px;font-size:11.5px;padding:5px 8px;
+  border-radius:8px;border:1px solid var(--line-strong);background:var(--panel);
+  color:var(--ink);cursor:pointer}
+.ghead select.gh-mode:hover{border-color:var(--accent)}
+.ghead select.gh-mode.hidden{display:none}
 .gbody{flex:1;min-height:0;display:flex}
 /* the chain column: a lean timeline (rails, runs, dividers) that also reorders */
 .gchain{flex:0 0 272px;min-width:0;overflow-y:auto;scrollbar-width:thin;
@@ -1832,15 +1840,9 @@ body.guiding .wrap{display:none}
 .gcard .choicerow{padding:0;border-bottom:none;gap:12px}
 .gcard .choicerow .cg{font-size:12.5px}
 .gcard .choicerow .pickbtn{font-size:13px;padding:8px 14px}
-.gbtnrow{display:flex;flex-wrap:wrap;gap:8px}
 .gnav{display:flex;gap:8px;margin-top:16px;max-width:640px}
 .gnav .btn{font-size:13px}
-/* the chooser owns the whole page — there is no walk to draw a chain for yet */
-.gview.gvchoose .gchain{display:none}
 .gcard>.btn{align-self:flex-start}
-.gchoose{max-width:560px;margin:6vh auto 0;display:flex;flex-direction:column;gap:12px}
-.gchoose .gsh{font-family:var(--font);font-size:20px;font-weight:600;margin:0}
-.gchoose .gsub{margin:0;font-size:12.5px;color:var(--muted)}
 /* inline structural answers (class · subclass · swap) — the block F2 authored, now
    living inside the stage's card rather than a rail row */
 .grinline{margin:2px 0 6px;padding:7px 8px;border:1px dashed var(--line-strong);
@@ -1896,5 +1898,5 @@ body.guiding .wrap{display:none}
   .gh-bar{flex:1 1 auto}
   .gh-swap .ghs-t{display:none}          /* the icon carries it; aria-label names it */
   .gstage .gsh{font-size:19px}
-  .gchoose{margin-top:2vh}
+  .ghead select.gh-mode{max-width:44vw}
 }

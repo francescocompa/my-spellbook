@@ -164,14 +164,21 @@ Refinements from using the shipped phase G — the full model is **D130(a–h)**
 restate it. H1/H2 are in flight as agents; H3 is the big one and waits for H1 to merge
 (same code region). The G4 gate reviews phase G as shipped; **phase H gets its own gate (H5)**.
 
-- [ ] **H1 — guide navigation** (agent, in flight): D130(f) no entry chooser (reconstruct
-  becomes an in-guide control), (g) Next commits a shown selection / Skip leaves it open,
-  (h) end-of-walk = "Exit builder" with Skip hidden and the dead button fixed, plus Back
-  reaching class steps.
-- [ ] **H2 — subclass spell lists** (agent, in flight): Arcane Trickster's picker is empty;
-  EK/AT's Wizard list is HARDCODED in both extractors. Derive it instead, sweep every
-  casting subclass that uses another class's list, cparity assertions, and make an
-  underivable list say so rather than showing an empty picker (D31).
+- [x] **H1 — guide navigation** (**merged v1.2.27**): the dead end-of-walk button was the
+  trailing "Next level" step — always open, always last, so `nxOpen` was null there; two
+  terminal states now (open steps behind → "Go to the first open step"; nothing open →
+  "Exit builder"), Skip hidden in both, and the previously control-less "nothing open" card
+  fixed. Entry chooser gone (reconstruct is a header command menu). Next commits option-group
+  and casting-ability defaults; the growth class step was EXEMPTED at merge (D130(g) refined
+  — it was levelling the character once per press). Back already reached class steps.
+- [x] **H2 — subclass spell lists** (**merged v1.2.27**): the empty Arcane Trickster picker
+  is a **pre-D127 stored digest** (hollow `_copy` twin → `nonCaster` → pool 0, silently) —
+  fresh data gives AT/EK 61 spells. Fixed anyway: the EK/AT Wizard hardcode is replaced by a
+  rule derived from the subclass's own `expanded` filters (100% coverage — `casterProgression`
+  exists on exactly those two subclasses; 0 or >1 class name → `spellList=null` + a tripwire
+  proved firing), 6 new cparity checks (48 total), and `listUnknown` now makes the app SAY it
+  can't name the list instead of showing an empty picker. Subclasses of casting classes that
+  reach another list (Lore, Divine Soul…) correctly keep their own list + expansions.
 - [ ] **H3 — the v2 surfaces** (queued behind H1, same region): D130(a) collapsed rail rows
   with ONE highest-severity icon + aggregated counter rows; (b) chips-only answers with the
   header counter; (c) one step per feature/source with a section per logical group
@@ -197,6 +204,13 @@ restate it. H1/H2 are in flight as agents; H3 is the big one and waits for H1 to
   `rechargeShort()` output (regex-matched by the printed tracker), and every `[0]` element of
   the CSRC/SAVE/CT option tables. ~30 strings are already uppercased by CSS — leave those.
   The `…`-placeholder family ("+ add a class…") is deliberate and needs its own call.
+- [ ] **Third-caster max spell level is one tier low from class level 7** (H2 agent, flagged
+  not fixed): `maxLvlAt("1/3",L)` uses `ecl=floor(L/3)`, so an Arcane Trickster / Eldritch
+  Knight gets 2nd-level spells at class level 9 when the mirror's own
+  `subclassTableGroups.rowsSpellProgression` says **7** (3rd at 13, 4th at 19 — `ceil(L/3)`).
+  This is D68's two clocks: `floor` is right for multiclass slot pooling, `ceil` for the
+  class's own max spell level, and `ecl` currently serves both. Neither extractor reads
+  `subclassTableGroups`. Touches multiclass slot maths. ⚑ (owner: Francesco, 2026-08-30)
 - [ ] **`renderOptFeats()` goes stale after a class or level change** (spotted by the
   capitalization audit, HIGH SUSPICION not proven): it runs only inside `refreshAll()`, but
   the class-row `onchange` (app.js:6621) and the level stepper (6642) call

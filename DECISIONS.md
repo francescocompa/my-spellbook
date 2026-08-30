@@ -1292,7 +1292,14 @@ written up in full in `GOTCHAS.md` — that is the copy to trust.
   - **(g) Next COMMITS a shown-but-unstored selection; only Skip leaves it open.** Raw:
     *"If I click 'next' after a preselected option, it should lock that option as chosen.
     Only skipping it ignores it."* Must never fabricate an answer where nothing is shown,
-    and never fabricate a trade on an optional swap step (D121).
+    and never fabricate a trade on an optional swap step (D121). **Refined at merge
+    (2026-08-30):** the trailing "Next level" CLASS step is EXCLUDED. Its "Continue X → N"
+    is an action that grows the build, not a selection waiting to be stored — committing it
+    on Next made the primary control add a character level per press, so the walk could
+    never reach the terminal state (h) exists to give it (measured: plan 2 → 3 on one
+    press). Levelling stays the card's own button. *Rejected:* keeping the commit and
+    treating level 20 as the only true end (the end-of-walk complaint would return in a new
+    form).
   - **(h) End of the walk is a terminal state: the primary becomes "Exit builder" and Skip
     is hidden.** Raw: *"end of the walk button doesn't work. Also rename it exit builder or
     something cleaner. Skip option also doesn't make sense here."*

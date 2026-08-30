@@ -175,5 +175,48 @@ const gkey={classes:e=>e.name+"|"+e.source,
   cmp("unresolved _copy records (js)",mods.length,0);
   if(mods.length)mods.slice(0,5).forEach(m=>console.log("     ",m));
 }
+// ── D130: the spell list a subclass-provided spellcasting draws from ───────
+// A subclass with its own `casterProgression` supplies the WHOLE of a character's
+// spellcasting, so it has to name a class list. Both extractors derive it from the
+// subclass's own `grants.expansions` filters instead of the old hardcoded
+// ["Wizard","XPHB"]. Three checks:
+//   • the per-record census matches between the two extractors (drift guard);
+//   • the census matches a PINNED literal — a mirror update that adds a casting subclass,
+//     renames one, or stops naming its list fails HERE rather than silently reaching a
+//     Wizard default in the app;
+//   • nothing derived to null, on either side (the tripwire's resting state).
+{
+  const census=d=>(d.subclasses||[]).filter(s=>"spellList"in s)
+    .map(s=>s.className+"|"+(s.classSource||"")+"::"+(s.shortName||s.name)+"|"+s.source
+          +"="+(s.spellList?s.spellList[0]+"|"+s.spellList[1]:"NULL"))
+    .sort().join("; ");
+  const jc=census(digest), pc=census(py);
+  cmp("subclass spell lists (js vs py)",jc,pc);
+  // 5etools v2.33.3: Eldritch Knight + Arcane Trickster, 2014 + 2024, 6 records after
+  // `_copy` resolution, all Wizard. Update this literal ONLY with the census extract.py
+  // prints, and only after checking the new record really does cast from that list.
+  const PINNED=[
+    "Fighter|PHB::Eldritch Knight|PHB=Wizard|PHB",
+    "Fighter|XPHB::Eldritch Knight|PHB=Wizard|XPHB",
+    "Fighter|XPHB::Eldritch Knight|XPHB=Wizard|XPHB",
+    "Rogue|PHB::Arcane Trickster|PHB=Wizard|PHB",
+    "Rogue|XPHB::Arcane Trickster|PHB=Wizard|XPHB",
+    "Rogue|XPHB::Arcane Trickster|XPHB=Wizard|XPHB",
+  ].join("; ");
+  cmp("subclass spell lists (pinned census)",jc,PINNED);
+  if(jc!==PINNED)console.log("     mirror coverage changed — extract.py prints the new census");
+  const nulls=d=>(d.subclasses||[]).filter(s=>"spellList"in s&&!s.spellList).length;
+  cmp("subclasses that cast but derive NO list",nulls(digest)+nulls(py),0);
+  const noList=(report.errors||[]).filter(e=>/names no class list/.test(e));
+  cmp("D130 unresolved-list reports (js)",noList.length,0);
+  if(noList.length)noList.slice(0,5).forEach(m=>console.log("     ",m));
+  // every caster subclass must HAVE the field: the field's absence is what used to make a
+  // row silently read as a non-caster, and the app now branches on it
+  const casters=d=>(d.subclasses||[]).filter(s=>s.caster).length;
+  const fielded=d=>(d.subclasses||[]).filter(s=>"spellList"in s).length;
+  cmp("caster subclasses carry a spellList field",casters(digest)+"/"+fielded(digest),
+      casters(py)+"/"+fielded(py));
+  cmp("caster subclasses (pinned count)",casters(digest),6);
+}
 console.log("report:",JSON.stringify(report).slice(0,160));
 process.exit(fail?1:0);

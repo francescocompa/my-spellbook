@@ -717,7 +717,8 @@ function buildDigest(files){
                              sc.shortName||"")};
         if(sc.casterProgression){rec.caster=sc.casterProgression;rec.ability=sc.spellcastingAbility;
           rec.cantrips=sc.cantripProgression;rec.prepared=sc.preparedSpellsProgression||sc.spellsKnownProgression;
-          rec.static=(sc.preparedSpellsChange==="level");rec.spellList=["Wizard","XPHB"];}
+          rec.static=(sc.preparedSpellsChange==="level");
+          rec.spellList=null;}      // derived once every subclass is read, below (D130)
         const _sid=sc.shortName||sc.name||"";
         mergeProseGrants(rec,"subclass",_sid); attachCastMods(rec,"subclass",_sid); subclasses.push(rec);});
       const featCats=(j._meta&&j._meta.featCategories)||null;   // a brew may name its own
@@ -853,6 +854,37 @@ function buildDigest(files){
     if(fg.length){rec.forms=fg;fg.forEach(g=>g.creatures.forEach(k=>{referenced[k]=1;}));}
     delete rec._raw;});
   const monsters={};Object.keys(referenced).sort().forEach(k=>{monsters[k]=statblock(monPool[k]);});
+
+  // ---- which class list a subclass-provided spellcasting draws from (D130) ----
+  // A subclass carrying its own `casterProgression` IS the whole of that character's
+  // spellcasting — its class has no list of its own, so the subclass has to name one.
+  // 5etools says which, structurally, in the subclass's own `additionalSpells`: one
+  // `expanded` block per spell-level tier whose filter names the class
+  // ("level=0|class=Wizard", "level=1|class=Wizard", …). Those are already parsed into
+  // `grants.expansions`, so the rule reads the parse BOTH extractors share rather than
+  // the raw JSON — a casting subclass added to the mirror later derives its own list.
+  // Exactly ONE class name may come out; zero or several means the data does not say, so
+  // we emit null and NAME the record in the import report rather than guessing (D31, the
+  // same tripwire shape D127's `_mod` check has). **Keep identical to extract.py's
+  // `sub_list_class` / `spell_list_for`.**
+  const subListClass=rec=>{const names=new Set();
+    ((rec.grants||{}).expansions||[]).forEach(e=>
+      String(((e.filter||{}).class)||"").split(";").forEach(cn=>{cn=cn.trim();if(cn)names.add(cn);}));
+    return names.size===1?[...names][0]:null;};
+  const spellListFor=(rec,printings)=>{
+    const name=subListClass(rec); if(!name)return null;
+    const bySrc=printings[name.toLowerCase()]; if(!bySrc)return [name,null];
+    for(const want of [rec.classSource,rec.source])if(want&&bySrc[want])return [bySrc[want],want];
+    const first=Object.keys(bySrc).sort()[0];
+    return [bySrc[first],first];};
+  const printings={};
+  classes.forEach(c=>{const k=String(c.name).toLowerCase();
+    (printings[k]=printings[k]||{})[c.source]=c.name;});
+  subclasses.forEach(s=>{ if(!("spellList" in s))return;   // only subclasses that cast
+    s.spellList=spellListFor(s,printings);
+    if(!s.spellList)report.errors.push(
+      s.className+"|"+(s.classSource||"")+" :: "+(s.shortName||s.name)+"|"+s.source
+      +" casts on its own progression but its data names no class list — spellList=null (D130)");});
 
   const digest={meta:{spellCount:Object.keys(spells).length,imported:true},sources,
     spells:Object.values(spells),classes,subclasses,feats,races,optfeats,monsters};

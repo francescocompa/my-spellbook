@@ -975,7 +975,7 @@ for f in glob.glob(os.path.join(MIRROR, "class", "class-*.json")):
             rec["cantrips"] = sc.get("cantripProgression")
             rec["prepared"] = sc.get("preparedSpellsProgression") or sc.get("spellsKnownProgression")
             rec["static"] = (sc.get("preparedSpellsChange") == "level")
-            rec["spellList"] = ["Wizard", "XPHB"]   # EK / AT use the Wizard list
+            rec["spellList"] = None    # derived once every subclass is read, below (D130)
         subclasses.append(rec)
 
 # ---- prose-only grants (D79) ----------------------------------------------
@@ -1143,6 +1143,67 @@ for _c in classes:
 for _s in subclasses:
     _id = _s.get("shortName") or _s["name"]
     merge_prose_grants(_s, "subclass", _id); attach_cast_mods(_s, "subclass", _id)
+
+# ---- which class list a subclass-provided spellcasting draws from (D130) ---
+# A subclass carrying its own `casterProgression` IS the whole of that character's
+# spellcasting — its class has no list of its own, so the subclass has to name one.
+# 5etools says which, structurally, in the subclass's own `additionalSpells`: one
+# `expanded` block per spell-level tier whose filter names the class
+# ("level=0|class=Wizard", "level=1|class=Wizard", "level=2|class=Wizard", …). Those are
+# already parsed into `grants.expansions`, so the rule reads the parse BOTH extractors
+# share rather than the raw JSON — a casting subclass added to the mirror later derives
+# its own list, with no table to update and nothing to remember.
+#
+# Exactly ONE class name may come out. Zero (it casts but never says from what) or several
+# (a mix nothing can collapse) means the data does not say: emit `spellList = None` and
+# NAME the record, rather than guessing. The app then tells you it can't work the list out
+# instead of showing an empty picker with no reason (D31) — the same tripwire shape D127's
+# `_mod` check has, and the reason there is no per-subclass name table here.
+#
+# Sweep, 5etools v2.33.3: `casterProgression` appears on exactly 2 subclasses (Eldritch
+# Knight, Arcane Trickster) across 2014 + 2024 = 4 raw records, 6 after `_copy` resolution.
+# All 6 derive Wizard; 0 unresolved. Subclasses of CASTING classes that reach another
+# list — Arcana Cleric, Divine Soul Sorcerer, Nature Cleric, Lore/Moon Bard — are NOT
+# this: they keep their own class's list and the extra access rides `grants.expansions`
+# exactly as it always has. Only a subclass that supplies the WHOLE spellcasting is here.
+def sub_list_class(rec):
+    """The single class name this subclass's expansions open, or None if not exactly one."""
+    names = set()
+    for e in ((rec.get("grants") or {}).get("expansions") or []):
+        for cn in str((e.get("filter") or {}).get("class") or "").split(";"):
+            cn = cn.strip()
+            if cn: names.add(cn)
+    return names.pop() if len(names) == 1 else None
+
+def spell_list_for(rec, printings):
+    """[class name, source] for a caster subclass's list, or None when undecidable.
+       Source = that class's printing on the subclass's own chassis, else in its own book,
+       else the first by code. A class that isn't loaded at all still yields the NAME with
+       a null source: the app matches the list by name, and unknown must never narrow the
+       pool (D31)."""
+    name = sub_list_class(rec)
+    if not name: return None
+    by_src = printings.get(name.lower())
+    if not by_src: return [name, None]
+    for want in (rec.get("classSource"), rec.get("source")):
+        if want and want in by_src: return [by_src[want], want]
+    first = sorted(by_src)[0]
+    return [by_src[first], first]
+
+_printings = {}
+for _c in classes:
+    _printings.setdefault(_c["name"].lower(), {})[_c["source"]] = _c["name"]
+_list_census, _list_unresolved = [], []
+for _s in subclasses:
+    if "spellList" not in _s: continue      # only subclasses that cast on their own
+    _s["spellList"] = spell_list_for(_s, _printings)
+    _lbl = (f"{_s['className']}|{_s.get('classSource', '')}::"
+            f"{_s.get('shortName') or _s['name']}|{_s['source']}")
+    if _s["spellList"]:
+        _list_census.append(f"{_lbl}={_s['spellList'][0]}|{_s['spellList'][1]}")
+    else:
+        _list_unresolved.append(_lbl)
+_list_census.sort(); _list_unresolved.sort()
 
 # Prerequisites, for feats AND optional features. Each entry in `prerequisite` is an
 # alternative (OR), so we emit one record per alternative: a display string plus the
@@ -1431,6 +1492,14 @@ if COPY_UNRESOLVED:
     # NOT speak, and half-merging it silently would be worse than leaving it hollow.
     print(f"UNRESOLVED _copy records: {len(COPY_UNRESOLVED)}")
     for _lbl, _why in COPY_UNRESOLVED[:20]: print(f"  {_lbl} — {_why}")
+# the D130 census: how many subclasses supply their own spellcasting, and which class list
+# each one derived. A mirror update that adds one, or that stops naming a list, shows here
+# (and fails cparity's pinned census) instead of quietly reaching a Wizard default.
+print(f"subclass spell lists: {len(_list_census)} derived, "
+      f"{len(_list_unresolved)} unresolved — " + "; ".join(_list_census))
+for _lbl in _list_unresolved:
+    print(f"  UNRESOLVED spell list: {_lbl} casts on its own progression but its data "
+          f"names no class list — spellList=null (D130)")
 print(f"spells={len(spells)} classes={len(classes)} (casters="
       f"{sum(1 for c in classes if c['caster'])}) subclasses={len(subclasses)} "
       f"feats={len(feats)} species={len(races)} sources={len(sources)}")

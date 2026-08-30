@@ -538,7 +538,13 @@ function resolveRow(row,idx){
   const c=CLS_BY[row.clsKey]; if(!c)return null;
   const sub=subOfRow(row);
   let caster=c.caster,ability=c.ability,prepArr=c.prepared,cantArr=c.cantrips,stat=c.static,listClass=[c.name,c.source],viaSub=null;
-  if(!caster&&sub&&sub.caster){caster=sub.caster;ability=sub.ability;prepArr=sub.prepared;cantArr=sub.cantrips;stat=sub.static;listClass=sub.spellList||["Wizard","XPHB"];viaSub=sub;}
+  // A non-casting class whose SUBCLASS casts draws on a list the class doesn't have, so
+  // the record has to name one. `spellList` is DERIVED by both extractors from the
+  // subclass's own expansions (D130) — it used to be hardcoded here as well, and
+  // `|| ["Wizard","XPHB"]` silently made every future casting subclass a Wizard. There is
+  // no guess left: null means the data doesn't say, `listUnknown` carries that to the
+  // surfaces, and they say it rather than showing an empty picker (D31).
+  if(!caster&&sub&&sub.caster){caster=sub.caster;ability=sub.ability;prepArr=sub.prepared;cantArr=sub.cantrips;stat=sub.static;listClass=sub.spellList||null;viaSub=sub;}
   const base={idx:row.id,row,c,sub,name:c.name,level:row.level};
   if(!caster)return {...base,caster:null,nonCaster:true};
   const lvl=row.level, isPact=caster==="pact";
@@ -550,8 +556,23 @@ function resolveRow(row,idx){
   let ownSlots=null,pact=null;
   if(isPact){const p=DATA.pact[Math.min(lvl,20)-1];pact={num:p[0],lvl:p[1]};}
   else ownSlots=(c.slots&&c.slots[lvl-1])||DATA.fullMc[Math.min(ecl(caster,lvl),20)-1];
-  return {...base,caster,ability,static:!!stat,isPact,pact,maxLvl,ownSlots,prepared,cantrips,spellbook,prepArr,listClass,viaSub};
+  return {...base,caster,ability,static:!!stat,isPact,pact,maxLvl,ownSlots,prepared,cantrips,spellbook,prepArr,listClass,listUnknown:!listClass,viaSub};
 }
+// A record with `listUnknown` casts but has no list to cast FROM — the one honest answer
+// when the data doesn't name one (D130). Every surface that would otherwise show an empty
+// picker says this instead: an empty pool with a stated reason beats a silent one (D31).
+function listUnknownWho(r){return (r.viaSub&&(r.viaSub.shortName||r.viaSub.name))||r.name;}
+function listUnknownWhy(r){
+  return `${listUnknownWho(r)} casts on its own progression, but your books don't name the class list it draws from.`;}
+function listUnknownNote(r){
+  const n=el("div","note"); n.style.margin="2px 0 4px";
+  // the record may still reach spells its OWN features name (an expansion filter), so the
+  // card says what is missing without claiming the list is empty — the picker, which knows
+  // whether anything came through, is the one that says "nothing to offer"
+  n.innerHTML=`<b style="color:var(--bad)">No spell list.</b> ${esc(listUnknownWhy(r))} `
+    +`Only what its own features name can be offered. Re-import your books; if it still `
+    +`reads this, the subclass needs its list added.`;
+  return n;}
 function capsFor(rec){
   if(!rec.caster||!rec.prepArr)return null;
   const cl=rec.level,total=rec.prepared,maxL=rec.maxLvl,cap={},dist={};
@@ -1227,9 +1248,12 @@ function guideChoiceValue(c){
 // `reverse` is D118(f)'s reconstruct mode: the candidate pool narrows to the build's
 // own picks and answering a slot PLACES a pick at that slot's array position — a
 // stateless gesture (the position IS the answer), so leftovers drift to the top slice
-// and take E4 flags exactly as D118(g) requires. `choose` renders the walk chooser
-// that a ready build gets on entry (D118(f) "asks which walk").
-let GUIDE={on:false,away:false,desc:false,reverse:false,choose:false,cur:null,
+// and take E4 flags exactly as D118(g) requires. It is a MODE the header switches into
+// now, never a gate on entry: the walk chooser is gone (Francesco, raw: *"the current
+// start of the guided builder feels kind of redundant, we can easily access it from the
+// side rail, jump instead directly into the builder"*), so every entry lands in the walk
+// itself at D118(j)'s resume point.
+let GUIDE={on:false,away:false,desc:false,reverse:false,cur:null,
            stepNext:false,pane:"stage"};
 // identity that survives re-derivation: picks key on their array POSITION (stable
 // under acquisition moves), everything else on what places it
@@ -1245,17 +1269,19 @@ function guideKey(s){
 }
 function openGuide(desc,reverse){ GUIDE.on=true; GUIDE.away=false; GUIDE.pane="stage";
   GUIDE.desc=!!desc; GUIDE.reverse=!!reverse;
-  GUIDE.choose=false; GUIDE.cur=null; closeGpick(); render(); }
-function closeGuide(){ if(!GUIDE.on)return; GUIDE.on=false; GUIDE.away=false; GUIDE.choose=false;
+  GUIDE.cur=null; closeGpick(); render(); }
+function closeGuide(){ if(!GUIDE.on)return; GUIDE.on=false; GUIDE.away=false;
   GUIDE.reverse=false; GUIDE.cur=null; closeGpick(); render(); }
-// the shared entry for an EXISTING build (F3 · D118(i)): a fresh/empty build walks
-// forward without ceremony; a build that already answered something is asked which
-// walk it wants (continue forward, or reconstruct over its own picks — D118(f)).
-// A walk already in progress is RESUMED rather than re-asked — the entries double as
-// the way back from the character view.
+// the shared entry for an EXISTING build (F3 · D118(i)): EVERY entry goes straight into
+// the walk, at the step D118(j)'s stateless resume computes — the "which walk?" screen a
+// ready build used to hit is gone (an entry is not a decision). Reconstruct is still one
+// click away, from the header's own mode menu, so D118(f)'s two walks both stand.
+// A walk already in progress is RESUMED where it stood — the entries double as the way
+// back from the character view.
 // has this build answered anything the guide would ask about? Species, a feat, an optional
-// feature or a pick — the entry reads it to decide whether to ASK which walk, and D126(i)'s
-// CTA reads it (with the class rows) to decide whether the build is empty at all.
+// feature or a pick — the header's mode menu reads it to decide whether there is anything
+// to RECONSTRUCT, and D126(i)'s CTA reads it (with the class rows) to decide whether the
+// build is empty at all.
 function guideAnswered(){
   return !!(state.speciesKey||state.feats.length||state.optFeats.length
     ||Object.values(state.chosen||{}).some(ch=>((ch&&ch.cantrips||[]).length+(ch&&ch.spells||[]).length)>0));
@@ -1263,9 +1289,7 @@ function guideAnswered(){
 const guideEmpty=()=>!state.classes.length&&!guideAnswered();
 function guideEntry(){
   if(GUIDE.on){GUIDE.away=false;render();return;}
-  if(!state.classes.length||!guideAnswered()){openGuide(false);return;}
-  GUIDE.on=true; GUIDE.away=false; GUIDE.pane="stage";
-  GUIDE.choose=true; GUIDE.reverse=false; GUIDE.cur=null; render();
+  openGuide(false,false);
 }
 // a pick slot holding a spell its class could not cast where the slot arrives — the
 // rail marks it and the reverse walk resumes at the first one
@@ -1321,7 +1345,7 @@ function guideStepAfter(steps,key,pred){
 // take will really fill (D125). It never advances off an answered step: since D126(e)
 // the walk moves on Next, Skip or a chain click, and nothing else.
 function guideSync(){
-  if(!GUIDE.on||GUIDE.choose)return;
+  if(!GUIDE.on)return;
   const steps=R.gsteps;
   let cur=GUIDE.cur&&steps.find(x=>guideKey(x)===GUIDE.cur)||null;
   // an explicit "this step is answered, move on" (reverse placements use it — their
@@ -1355,9 +1379,9 @@ function guideSync(){
     }
   }
 }
-// the page: header, then either the walk chooser or chain + stage. `away` keeps the
-// walk alive while the character view is on screen — the ⋯ entry, the timeline footer
-// and the header's own Guide tab all come back to exactly this step.
+// the page: header, then chain + stage. `away` keeps the walk alive while the character
+// view is on screen — the ⋯ entry, the timeline footer and the header's own Guide tab
+// all come back to exactly this step.
 function renderGuide(){
   const v=$("#guideView"); if(!v)return;
   const live=GUIDE.on&&!GUIDE.away;
@@ -1366,11 +1390,9 @@ function renderGuide(){
   v.classList.toggle("hidden",!live);
   if(!live)return;
   const steps=(R&&R.gsteps&&R.gsteps.length)?R.gsteps:guideSteps();
-  const cur=(!GUIDE.choose&&GUIDE.cur&&steps.find(x=>guideKey(x)===GUIDE.cur))||null;
+  const cur=(GUIDE.cur&&steps.find(x=>guideKey(x)===GUIDE.cur))||null;
   renderGuideHead(steps);
-  v.classList.toggle("gvchoose",!!GUIDE.choose);
-  v.classList.toggle("gvchain",!GUIDE.choose&&GUIDE.pane==="chain");
-  if(GUIDE.choose){$("#gChain").innerHTML=""; renderGuideChooser(); return;}
+  v.classList.toggle("gvchain",GUIDE.pane==="chain");
   renderGuideChain(steps,cur);
   renderGuideStage(steps,cur,new Map(state.classes.map(r=>[r.id,r])));
 }
@@ -1386,12 +1408,11 @@ function renderGuideHead(steps){
   const view=PREVIEW.level==null?total:PREVIEW.level;
   $("#ghLvl").textContent=total?`L${view} / ${total}`:"no levels yet";
   const need=steps.filter(x=>!x.optional), doneN=need.filter(x=>x.done).length;
-  const prog=$("#ghProg");
-  prog.classList.toggle("hidden",!!GUIDE.choose);
   $("#ghProgN").textContent=doneN+" / "+need.length+" decided";
   $("#ghBar").style.width=(need.length?Math.round(doneN/need.length*100):0)+"%";
+  renderGuideMode();
   const tg=$("#ghToggle"), chainOn=GUIDE.pane==="chain";
-  tg.innerHTML=""; tg.classList.toggle("hidden",!!GUIDE.choose);
+  tg.innerHTML="";
   const l=el("span","lbl-ico");
   l.append(icoEl(chainOn?"compass":"order"),document.createTextNode(chainOn?"Decision":"Chain"));
   tg.append(l);
@@ -1400,27 +1421,42 @@ function renderGuideHead(steps){
   $("#ghSwap").onclick=()=>{GUIDE.away=true;render();};
   $("#ghClose").onclick=closeGuide;
 }
-// the walk chooser a ready build gets on entry (D118(f,i)) — a centered card on the
-// page now that there is no rail to host it
-function renderGuideChooser(){
-  const st=$("#gStage"); if(!st)return; st.innerHTML="";
-  const wrap=el("div","gchoose");
-  wrap.append(el("h2","gsh","How should the guide walk this build?"));
-  wrap.append(el("p","gsub","This build has answers in it already — pick how the guide should walk it."));
-  const c1=el("div","gcard");
-  const b1=el("button","btn on","Continue building — walk up from here");
-  b1.onclick=()=>openGuide(false,false);
-  c1.append(b1,el("div","grhint","Picks up at the first open decision and walks forward with the full catalog."));
-  const c2=el("div","gcard");
-  c2.append(el("div","grhint","Or reconstruct the level story: walk the levels and place the build's OWN picks where they were acquired. Nothing is deleted — whatever you don't place settles at the top level and stays flagged (soft, as always)."));
-  const rowb=el("div","gbtnrow");
-  const b2=el("button","btn","Reconstruct — walk L1 up");
-  b2.onclick=()=>openGuide(false,true);
-  const b3=el("button","btn","Reconstruct — walk L"+topCharLevel()+" down");
-  b3.onclick=()=>openGuide(true,true);
-  rowb.append(b2,b3); c2.append(rowb);
-  wrap.append(c1,c2);
-  st.append(wrap);
+// WHICH WALK, as a header control rather than a gate on entry. D118(f) mandates both
+// directions and that stands; what changed is where you answer it — the chooser screen
+// every ready build used to hit on entry is gone, so the guide opens IN the walk and
+// reconstruct is a mode you switch into mid-flight.
+// A command menu, deliberately a `<select>`: it always shows its prompt, resets after a
+// pick and marks the walk you are in with a ✓ (the one place a glyph is allowed, D57), so
+// it can never silently select option 0 and flip the walk under you. A popover here would
+// be an absolutely-placed menu in a flex header over a page that hides the app's own
+// scroller — one more thing to place, clip and close, for one action.
+// It is hidden on a build with nothing to reconstruct: reverse narrows the pool to the
+// build's OWN picks, so with no picks it would be an empty walk offered as a choice.
+function renderGuideMode(){
+  const md=$("#ghMode"); if(!md)return;
+  const canRev=guideAnswered()||GUIDE.reverse;
+  md.classList.toggle("hidden",!canRev);
+  if(!canRev){md.dataset.sig=""; return;}
+  const top=topCharLevel();
+  const mode=GUIDE.reverse?(GUIDE.desc?"down":"up"):"fwd";
+  const sig=mode+"|"+top;
+  // rebuilt only when it would really change — an options list replaced under an open
+  // menu closes it, and the header re-renders on every state change
+  if(md.dataset.sig!==sig){
+    md.dataset.sig=sig; md.innerHTML="";
+    // the prompt needs an EXPLICIT empty value: an <option> with no value attribute
+    // takes its TEXT as the value, so the `md.value=""` reset below would match nothing
+    // and leave the control blank instead of showing what it is
+    const p=el("option","",GUIDE.reverse?"Reconstructing — switch walk…":"Reconstruct…");
+    p.value=""; md.append(p);
+    [["fwd","Build forward"],["up","Reconstruct — walk L1 up"],
+     ["down","Reconstruct — walk L"+Math.max(1,top)+" down"]].forEach(([v,t])=>{
+      const o=el("option",null,t+(v===mode?" ✓":"")); o.value=v; md.append(o);});
+  }
+  md.value="";
+  md.onchange=()=>{const v=md.value; md.value="";
+    if(!v||v===mode)return;
+    openGuide(v==="down",v!=="fwd");};      // a mode switch resumes that walk's own step
 }
 // the CHAIN COLUMN (D126(b)) — "a lean variant of the timeline modal, with also the
 // ability to change order". One card per character level, carrying the timeline's own
@@ -1525,7 +1561,16 @@ function renderGuideStage(steps,cur,rowOf){
     card.append(el("div","goptlab","nothing open"));
     card.append(el("div","gval",doneN>=need.length?"Every decision is answered."
       :"No step is current — click one in the chain to pick the walk up."));
-    st.append(card); return;
+    st.append(card);
+    // this card used to carry no control at all, which is a terminal state with no way
+    // out of it but the header's × — the same complaint the dead end-of-walk button drew
+    const nav=el("div","gnav");
+    const first=steps.find(x=>!x.optional&&x.status!=="done");
+    if(first){const b=el("button","btn","Go to the first open step");
+      b.onclick=()=>guideGo(first); nav.append(b);}
+    const ex=el("button","btn"+(first?"":" on"),"Exit builder");
+    ex.onclick=closeGuide; nav.append(ex);
+    st.append(nav); return;
   }
   const h=el("div","gsh"); h.append(document.createTextNode(cur.label));
   st.append(h);
@@ -1553,29 +1598,63 @@ function renderGuideStage(steps,cur,rowOf){
   st.append(card);
   // Back · Skip · Next walk the chain; Next seeks the next open decision. Back is
   // HIDDEN where there is nowhere to go back to (D126(i)) — a dead control is worse
-  // than an absent one.
+  // than an absent one. Back walks the FULL list, class steps included, so a level's
+  // "which class" answer is always one press behind the picks it opened.
   const nav=el("div","gnav");
   const prev=(()=>{const list=guideWalk(steps);
     const i=list.findIndex(x=>guideKey(x)===GUIDE.cur);return i>0?list[i-1]:null;})();
   if(prev){const back=el("button","btn","← Back");
     back.onclick=()=>guideGo(prev); nav.append(back);}
   const nxAny=guideStepAfter(steps,GUIDE.cur,null);
-  const skip=el("button","btn","Skip");
-  skip.disabled=!nxAny; skip.onclick=()=>nxAny&&guideGo(nxAny);
-  nav.append(skip);
   // reverse walks EVERY slot (they are all `done` — review is the point); forward seeks
   // the next open decision. Next only ever moves FORWARD in walk order (G3): it used to
   // fall back to `guideResume`, which WRAPPED to the first open decision anywhere, so the
   // end of a walk was indistinguishable from its middle and Next quietly sent you
-  // backwards. Nothing open ahead is a real end — the button goes dead and the line under
-  // it names what is still open or skipped behind you. The chain is how you go back.
+  // backwards.
   const nxOpen=GUIDE.reverse?nxAny
     :guideStepAfter(steps,GUIDE.cur,x=>x.status!=="done"&&!x.optional);
-  const next=el("button","btn on",nxOpen?"Next →":"End of the walk");
-  next.disabled=!nxOpen; next.onclick=()=>nxOpen&&guideGo(nxOpen);
+  // what Next would LOCK on this step before it moves (see `guidePending`)
+  const pend=guidePending(cur,rowOf);
+  // THE END OF THE WALK IS A TERMINAL STATE, not a dead Next (Francesco, raw: *"end of
+  // the walk button doesn't work. Also rename it exit builder or something cleaner. Skip
+  // option also doesn't make sense here"*). G3 left the button disabled and still labelled
+  // like a step control, which is what "doesn't work" was reporting. Two ends exist and
+  // they are NOT the same: nothing open ahead while decisions are still open BEHIND you
+  // (you skipped or jumped past them) — the primary takes you to the first of them; and
+  // nothing open anywhere — the primary leaves. Skip is gone from both: there is nothing
+  // ahead to skip to, and a disabled control is worse than an absent one.
+  const term=!nxOpen&&!pend;
+  const behind=term?steps.find(x=>!x.optional&&x.status!=="done"&&guideKey(x)!==GUIDE.cur):null;
+  if(nxAny&&!term){
+    const skip=el("button","btn","Skip");
+    // Skip is the honest pass: it moves on WITHOUT committing what the card is showing,
+    // which is exactly what leaves the step open (and flagged) behind you
+    skip.onclick=()=>guideGo(nxAny);
+    nav.append(skip);
+  }
+  if(term&&behind){
+    const ex=el("button","btn","Exit builder"); ex.onclick=closeGuide; nav.append(ex);
+  }
+  const next=el("button","btn on",
+    term?(behind?"Go to the first open step":"Exit builder"):"Next →");
+  next.onclick=term
+    ? (behind?()=>guideGo(behind):()=>closeGuide())
+    : ()=>{
+        // Next COMMITS what this step is showing, then advances. The commit re-derives
+        // the chain (it writes through the app's own paths), so the target is recomputed
+        // from the FRESH steps — a class level taken here opens slots that did not exist
+        // when this button was drawn.
+        if(pend)pend.run();
+        const list=(pend&&R&&R.gsteps&&R.gsteps.length)?R.gsteps:steps;
+        const go=GUIDE.reverse?guideStepAfter(list,GUIDE.cur,null)
+          :guideStepAfter(list,GUIDE.cur,x=>x.status!=="done"&&!x.optional);
+        if(go)guideGo(go);
+      };
   nav.append(next);
   st.append(nav);
-  if(!nxOpen){
+  if(pend)st.append(el("p","gend","Next locks "+pend.what+" as the answer here. Skip moves on "
+    +"without it and leaves the step open."));
+  if(term){
     // the step you are STANDING on is not "behind you" — counting it there would read as
     // one more thing to go back for than there is
     const rest=need.filter(x=>guideKey(x)!==GUIDE.cur);
@@ -1584,9 +1663,37 @@ function renderGuideStage(steps,cur,rowOf){
     const left=[openN?openN+" still open":null,skipN?skipN+" skipped":null].filter(Boolean).join(" and ");
     st.append(el("p","gend",left
       ? "That is the end of the walk — nothing open ahead of here. "+left
-        +" behind you: click one in the chain to go back to it."
-      : "That is the end of the walk, and every decision this build carries is answered."));
+        +" behind you: the button takes you to the first, or click any step in the chain."
+      : doneN>=need.length
+      ? "That is the end of the walk, and every decision this build carries is answered."
+      : "That is the end of the walk — this step is the last one still open, and its answer is on the card above."));
   }
+}
+// What Next would LOCK before it advances — Francesco, raw: *"If I click 'next' after a
+// preselected option, it should lock that option as chosen. Only skipping it ignores it"*.
+// Some steps arrive with an answer already SHOWING that the build does not hold:
+//   · an option group or the casting-ability question renders a DEFAULT in its select
+//     (`resolveGrants`: `value` = the stored answer OR the first option), so the step reads
+//     answered on screen while `state.choices` is empty and the chain calls it open;
+// Next commits that and moves on; Skip moves on without writing, which is what leaves the
+// step honestly open. NOTHING is invented where the control shows no value: the subclass
+// menu, the species/feat buttons and the pick steps' modal openers all show a prompt, not
+// a selection, and a SWAP is never fabricated — "no trade" is the legitimate answer D121
+// protects, so passing on one has to stay a pass.
+// The trailing "Next level" CLASS step is deliberately excluded (D130(g), refined): its
+// "Continue X → N" is an action that GROWS the build, not a selection already on screen
+// waiting to be stored. Committing it on Next made the primary control add a character
+// level per press, so the walk could not reach its end below level 20 — which is the very
+// terminal state D130(h) exists to give it. Levelling stays the card's own button.
+function guidePending(s,rowOf){
+  if(!s||s.done)return null;
+  if(s.kind==="choice"&&s.choice&&(s.choice.type==="option"||s.choice.type==="ability")){
+    const c=s.choice, v=c.value;
+    if(v==null||state.choices[c.id]!=null)return null;   // nothing shown, or already stored
+    return {what:'"'+(c.type==="ability"?(ABIL[v]||String(v)):String(v))+'"',
+            run:()=>{state.choices[c.id]=v;render();}};   // render() saves (D116(d)/D120)
+  }
+  return null;
 }
 // every class level is one write: bump the row's level, then put that row at the END of
 // the acquisition order. A class already in the build LEVELS UP its own row (one class,
@@ -1904,7 +2011,11 @@ function renderGpick(){
   $("#gpCount").textContent=items.length+(items.length===1?" spell":" spells")
     +(q&&all.length!==items.length?" of "+all.length:"");
   list.innerHTML="";
+  // a caster whose list the data never named has nothing to offer, and saying "nothing is
+  // left" would blame the books for a gap in the record (D31 — name the real reason)
+  const noList=(R.casters.find(r=>r.idx===g.row)||{}).listUnknown;
   if(!items.length){list.append(el("div","empty",q?"No eligible spell matches that name."
+    :noList?listUnknownWhy(R.casters.find(r=>r.idx===g.row))+" There is nothing to offer here."
     :g.mode==="place"?"This class holds no pick that could sit in this slot."
     :"Nothing legal is left to take here — widen your books in Sources, or skip the step."));
     return;}
@@ -2207,10 +2318,13 @@ function compute(){
   const pool=new Map(); // spellKey -> {sp,takers:[{idx,name,cantrip}],grants:[],srcs:Set}
   const want=sp=>{const k=key(sp.name,sp.source);let e=pool.get(k);if(!e){e={sp,takers:[],grants:[],srcs:new Set(),always:new Set()};pool.set(k,e);}return e;};
   casters.forEach(r=>{
-    const ownCls=r.listClass[0].toLowerCase();
-    const access=[{cls:ownCls,levels:null,off:false}];
+    // no own list (D130: the data doesn't name one) → no own-list access, and nothing can
+    // be "off" a list you haven't got: whatever the record's own expansions DO name is
+    // the whole of its access, and the budget card says the list is unknown
+    const ownCls=r.listClass?r.listClass[0].toLowerCase():null;
+    const access=ownCls?[{cls:ownCls,levels:null,off:false}]:[];
     (recExp[r.idx]||[]).forEach(f=>{const lv=f.level!=null?new Set(String(f.level).split(";").map(Number)):null;
-      (f.class?f.class.split(";"):[]).forEach(cn=>{const c=cn.trim().toLowerCase();access.push({cls:c,levels:lv,off:c!==ownCls});});});
+      (f.class?f.class.split(";"):[]).forEach(cn=>{const c=cn.trim().toLowerCase();access.push({cls:c,levels:lv,off:!!ownCls&&c!==ownCls});});});
     DATA.spells.forEach(sp=>{ if(!visible(sp))return; if(sp.level>r.maxLvl)return;
       for(const a of access){ if(a.levels&&!a.levels.has(sp.level))continue;
         if(sp.cls.some(([cn,cs])=>cn.toLowerCase()===a.cls&&srcOn(cs))){ const e=want(sp); e.takers.push({idx:r.idx,name:r.name,cantrip:sp.level===0}); if(a.off)e.srcs.add("Magical Secrets"); break; } }
@@ -2271,9 +2385,11 @@ function compute(){
     // Magical-Secrets style expansion: spells drawn from OTHER lists are capped
     // at (prepared gained since the feature) + (retrains since the feature).
     // Only genuine other-list expansions count — a subclass whose expansion is
-    // its own list (e.g. Eldritch Knight → Wizard) is NOT Magical Secrets.
-    const ownCls=r.listClass[0].toLowerCase();
-    const offExps=(recExp[r.idx]||[]).filter(f=>String(f.class||"").split(";").some(cn=>{const c=cn.trim().toLowerCase();return c&&c!==ownCls;}));
+    // its own list (e.g. Eldritch Knight → Wizard) is NOT Magical Secrets. With no own
+    // list at all (D130) there is nothing to be off, so the analysis is skipped whole —
+    // calling every expansion "off-list" would cap a record against a budget it hasn't got.
+    const ownCls=r.listClass?r.listClass[0].toLowerCase():null;
+    const offExps=!ownCls?[]:(recExp[r.idx]||[]).filter(f=>String(f.class||"").split(";").some(cn=>{const c=cn.trim().toLowerCase();return c&&c!==ownCls;}));
     let ms=null,capAdj=null;
     if(offExps.length && r.prepArr){
       const offItems=spItems.filter(sp=>!sp.cls.some(([cn,cs])=>cn.toLowerCase()===ownCls&&srcOn(cs)));
@@ -2530,7 +2646,7 @@ function renderPickList(){
     : filterSpells(PICK.filter);
   // Magical Secrets draws from the OTHER lists the feature opened, not the class's own
   if(PICK.offList){const rec=R.casters.find(r=>r.idx===PICK.classIdx);
-    const own=rec?rec.listClass[0].toLowerCase():"";
+    const own=rec&&rec.listClass?rec.listClass[0].toLowerCase():"";
     base=base.filter(sp=>!sp.cls.some(([cn,cs])=>cn.toLowerCase()===own&&srcOn(cs)));}
   // quick level filters (present levels only)
   const presentLevels=[...new Set(base.map(s=>s.level))].sort((a,b)=>a-b);
@@ -2568,8 +2684,13 @@ function renderPickList(){
   if(lvls.length<2)shown.forEach(sp=>list.append(pickRow(sp)));
   else lvls.forEach(l=>{const g=lvlGroup("pick",l,byLvl[l].length);
     byLvl[l].forEach(sp=>g.append(pickRow(sp)));list.append(g);});
-  if(!items.length)list.append(el("div","empty",PICK.onlyPicked?"Nothing picked here yet."
-    :isClass?"No eligible spells at this level yet.":"No matching spells for this choice."));
+  if(!items.length){
+    // an empty picker must always say WHY (D31) — "no eligible spells" reads as "none
+    // exist", which is the wrong answer when the record has no list to draw on (D130)
+    const noList=isClass&&(R.casters.find(r=>r.idx===PICK.classIdx)||{}).listUnknown;
+    list.append(el("div","empty",PICK.onlyPicked?"Nothing picked here yet."
+      :noList?listUnknownWhy(R.casters.find(r=>r.idx===PICK.classIdx))+" There is nothing to offer here."
+      :isClass?"No eligible spells at this level yet.":"No matching spells for this choice."));}
 }
 
 // ── species / feat picker modal (search + source filter + grant preview) ─────
@@ -5908,6 +6029,9 @@ function renderCart(){
     const bh=el("div","bh");const nm=el("div","nm");nm.innerHTML=esc(r.name)+(r.viaSub?` <small>· ${esc(r.viaSub.shortName)}</small>`:"")+` <small>· L${r.level}</small>`;bh.append(nm);
     const kchip=el("span","kind"+(kn?" wiz":r.static?"":" daily"),kindLabel);kchip.title=kindTip;bh.append(kchip);
     b.append(bh);
+    // D130 · D31: a subclass that supplies the casting must NAME the list it draws on. When
+    // the data doesn't, say so here rather than letting the picker read as "no spells exist".
+    if(r.listUnknown)b.append(listUnknownNote(r));
     b.append(meter("Cantrips",c.cantrips.length,r.cantrips));
     const wiz=kn&&kn.book;
     if(wiz){
