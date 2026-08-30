@@ -181,9 +181,29 @@ restate it. H1/H2 are in flight as agents; H3 is the big one and waits for H1 to
   with a persistent bar naming the step you left, which can also END the walk; G1's
   `GUIDE.away` + vanishing Guide tab come out.
 - [ ] **H5 — 🔍 fresh-eyes gate** (separate session) — phase H against D130(a–h).
-- [ ] **Capitalization sweep** — audit agent running read-only (Francesco: *"many elements
-  should be capitalize … ex. casting ability in magic initiate"*); its inventory decides
-  whether this is one display helper or per-site edits. ⚑ (owner: Francesco, 2026-08-30)
+- [ ] **H6 — capitalization sweep** (AUDITED 2026-08-30, read-only agent; queued behind H1
+  because a third of the sites are in the guide region). Mechanism decided by the audit:
+  **one shared display helper + ~20 source-string edits, no CSS work** — `cap`/`cap1` and
+  three inline copies already exist and `cap1` is already used this way on filter values, so
+  this is consolidation. Highest value: **`sp.time`** renders lowercase ("action") beside
+  capitalized `range`/`durTxt` in EVERY spell meta row, the spell modal and the PRINT card;
+  and Francesco's own example, `"casting ability"`/`"choose one"` (app.js:2444), which
+  renders twice — Choices card and the guide stage, directly under an H2 saying the same
+  thing. Grant descs should route through the existing `guidePickAsk(c) ?? cap1(fmtDesc())`,
+  which also fixes 5etools' lowercase class names and "a Artificer". **Do NOT capitalize
+  (would be a bug, not a copy fix):** `OWNER_KIND` values (keys into `OWNER_POOL`), `"— none —"`
+  (a persisted value in saved builds), `choiceRow`'s option labels (they ARE the stored
+  values), `sp.tcat`/`CT_OPTS[i][0]` (filter keys + stored custom-spell values),
+  `rechargeShort()` output (regex-matched by the printed tracker), and every `[0]` element of
+  the CSRC/SAVE/CT option tables. ~30 strings are already uppercased by CSS — leave those.
+  The `…`-placeholder family ("+ add a class…") is deliberate and needs its own call.
+- [ ] **`renderOptFeats()` goes stale after a class or level change** (spotted by the
+  capitalization audit, HIGH SUSPICION not proven): it runs only inside `refreshAll()`, but
+  the class-row `onchange` (app.js:6621) and the level stepper (6642) call
+  `renderClassRows(); render();` instead — so the optional-features block can show the wrong
+  slots until something else forces a full refresh. Verify from a fresh load, then fix.
+- [ ] **`#tableChip` has no singular case** — reads "1 spells" (app.js:4778); every sibling
+  count in the file guards this (`nsp()`, `"pick"+(n===1?"":"s")`).
 
 ## Queue
 - [ ] **Magic-item / reward ingestion** — 🔶 **RESEARCHED 2026-08-27, awaiting Francesco's call.**
