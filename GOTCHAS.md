@@ -430,10 +430,13 @@
   plan index, stop — you are re-deriving something the call already has. What DID have to
   change is anything that read order off the screen: a run's header keys on its **highest**
   level (`runAt` on `r.to`), `runjoin` reaches upward, rows `prepend` instead of append, and
-  the "+ add level" row heads the column. **`renderGuideChain` and `renderTimeline` carry
-  four near-identical copies of that logic** — they were left duplicated because three agents
-  were in the file at once, so **a change to one is a change to both**; they were verified
-  equal by dragging the same row on each surface and diffing the resulting plan.
+  the "+ add level" row heads the column. Those four pieces lived as near-identical copies
+  in `renderGuideChain` and `renderTimeline` until v1.2.39 extracted them into **one owner,
+  `levelColumn`** (the I5 gate proved the copies byte-identical first — the only moment
+  extraction is cheap). The card BODY stays per-surface and `wireRowDrag` stays separate,
+  on plan indices. If a column-shape change ever tempts you to edit one renderer, it
+  belongs in `levelColumn`; the acceptance test is still the same drag on both surfaces
+  diffing to the identical plan, no-op refusals included.
 - **A HIDDEN browser pane does not composite — the page looks broken when the code is fine.**
   While the pane is hidden, `innerWidth`/`innerHeight` read **0**, every
   `getBoundingClientRect()` collapses to `0,0` (so coordinate clicks are refused as

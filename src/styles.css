@@ -1537,7 +1537,7 @@ label.fld .fldt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-wi
 
   /* every control, popover and browsing surface. `#secSpells` is the spell FINDER —
      a search box and 900 rows you did not pick — so it never belongs on paper. */
-  header.top,.jumpbar,.modal,.sptip,.prqpop,.menu,.menupop,#secSpells,
+  header.top,.jumpbar,.modal,.spmodal,.sptip,.prqpop,.menu,.menupop,#secSpells,
   #filterPanel,#addClass,.pk-caret,.btn,.pickbtn,button.x,.xsm,.ico-only,
   .csaddrow,.picksel.ph{display:none!important}
   /* the sheet is the spell table, whatever tab is on screen: the Build tab is a set of
@@ -1821,7 +1821,11 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
 .gchain{flex:0 0 272px;min-width:0;overflow-y:auto;scrollbar-width:thin;
   padding:8px 10px 24px;background:var(--panel);border-right:1px solid var(--line)}
 .gchain .locard{margin-top:6px}
-.gchain .locard:first-child{margin-top:0}
+/* the column's TOP ROW carries no top margin. `:first-child` alone stopped naming it the
+   day the walk strip shipped — the strip is prepended above every row, so it is the first
+   child now, and a multiclass column opens on a run divider rather than a card. */
+.gchain .locard:first-child,.gchain .tlrundiv:first-child,
+.gchain .gwalk+.locard,.gchain .gwalk+.tlrundiv{margin-top:0}
 .gchain .locard.runjoin{margin-top:2px}
 /* same as the timeline's add row: the level that isn't taken yet heads the column */
 .gchain .locard.gcnext{margin-bottom:8px}

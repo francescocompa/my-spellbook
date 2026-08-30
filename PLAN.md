@@ -155,17 +155,24 @@ Order: G1 → G2 → G3 → G4.
   G4 gate remains.** Gate notes from G3: the reverse-placement intercept in `toggle` is
   reachable from the character view against an unnarrowed list; `guideResume` now serves
   re-entry only.
-- [ ] **G4 — 🔍 fresh-eyes gate** (separate session per model-policy — NOT the session
-  that coordinated the G1–G3 agents) — review the shipped phase against D126(a–i) + the
-  standing D118(a–j), with G3's gate notes above as starting probes.
+- [x] **G4 — 🔍 fresh-eyes gate** (**PASSED-WITH-FINDINGS 2026-08-31**, opus@high fresh
+  agent, coordinated by a session that built nothing) — every D126(a–i) clause and every
+  surviving D118 clause verified in-browser at 1280+375; D118(b,c,k) are legitimate
+  supersessions (D126/D130). One structural finding with four faces, **all fixed v1.2.39
+  (D133)**: `toggle`'s ambient reverse-placement intercept hijacked every surface sharing
+  the one take/drop writer — worst case the prepare modal's unprepare silently REORDERED
+  the wizard spellbook (`arr==="prep"` read as "spell"); also a "Drop" chip that reordered,
+  a dead ✓, and a dead place-mode cpick picker. Placement is now explicit at the call site
+  (`guidePlace` has one caller — the guide's own modal), and cpick sections always open
+  take-mode. Both G3 probes confirmed: the intercept WAS reachable from three foreign
+  surfaces; `guideResume` re-entry behaviour is correct on all four entries.
 
 ## Phase H — guided builder v2 (D130, decided 2026-08-30)
 
 Refinements from using the shipped phase G — the full model is **D130(a–h)**; cite it, don't
-restate it. **The build is COMPLETE — H1/H2 (v1.2.27), H3 (v1.2.28), H4 (v1.2.31) and H6
-(v1.2.30) have all merged; only the H5 gate remains.** The G4 gate reviews phase G as
-shipped; **phase H gets its own gate (H5)**, and neither may be run by a session that built
-the phase.
+restate it. **The phase is CLOSED — H1/H2 (v1.2.27), H3 (v1.2.28), H4 (v1.2.31) and H6
+(v1.2.30) all merged, and the H5 gate passed 2026-08-31** (findings fixed v1.2.39; three
+⚑ calls for Francesco remain in the H5 block below).
 
 - [x] **H1 — guide navigation** (**merged v1.2.27**): the dead end-of-walk button was the
   trailing "Next level" step — always open, always last, so `nxOpen` was null there; two
@@ -203,18 +210,22 @@ the phase.
   dash became the line break. Open choices it settled, for the H5 gate to confirm: the guide
   slides LEFT (its chain column's own side); the bar is pinned at the TOP (the bottom belongs
   to the phone jump bar) as a sticky flow element.
-- [ ] **H5 — 🔍 fresh-eyes gate** (**the only open task in phase H** — separate session; NOT
-  the session that coordinated H1–H4/H6) — phase H against D130(a–h). Three questions carried
-  by the builds:
-  - **H3:** in reverse `place` mode the eligible list still applies the slot's cast cap, so a
-    pick that is too HIGH for a slot cannot be placed into it (the repair is to place a legal
-    pick and push the offender later). Is that the intended reading of D118(g)?
-  - **H4:** `PREVIEW.level` survives `closeGuide` — jumping to a step sets the level preview
-    (D115(d)) and exiting leaves `body.previewing` on, so the character view stands at that
-    level. Pre-existing, not H4's, but ending the walk from the drawer now lands you looking
-    straight at it. Intended, or should the exit clear the preview?
-  - **H4:** the pinned bar renders on two lines instead of D130(e)'s single em-dash string
-    (a 375px fit). Accepted at merge — confirm or reject.
+- [x] **H5 — 🔍 fresh-eyes gate** (**PASSED-WITH-FINDINGS 2026-08-31**, opus@high fresh
+  agent, run as one session with I5) — D130(a–h) verified clause-by-clause in-browser on a
+  Bard 6 / Wizard 2 / Warlock 3 fixture; D130(d) judged under its D131(a) supersession.
+  Nothing in phase H blocked. The three carried questions were tested and answered with
+  recommendations; **the calls are Francesco's**:
+  - **Q1 (place-mode cast cap):** gate recommends **keep** — it IS the right reading of
+    D118(g) (placing a too-high pick would manufacture an illegal state the sweep would
+    immediately flag). Suggested addition only: one line of status copy when the cap
+    excludes some of the section's own picks. ⚑ (owner: Francesco, 2026-08-31)
+  - **Q2 (`PREVIEW.level` survives `closeGuide`):** reproduced; not silent (level chip
+    shows `.prevon`). Gate recommends **snapshot on `openGuide`, restore on `closeGuide`**
+    — exit becomes the exact inverse of entry, no new persisted state (D118(j) intact).
+    Second choice: clear unconditionally. ⚑ (owner: Francesco, 2026-08-31)
+  - **Q3 (two-line pinned bar):** gate recommends **confirm** — measured at both widths;
+    the one-line form needs ~430px of content in a 375px bar and would ellipsise the step
+    label, the half worth returning for. ⚑ (owner: Francesco, 2026-08-31)
 - [x] **H6 — capitalization sweep** (**merged v1.2.30**, done-when verified in-browser
   including a print lift). The audit's mechanism held: **one shared display helper + ~25
   source-string edits, no CSS work.** `cap1` is now the file's ONLY display capitaliser — the
@@ -270,8 +281,8 @@ the phase.
 ## Phase I — guided builder v3 (D131, decided 2026-08-30)
 
 Francesco's notes after using the shipped phase H — the full model is **D131(a–h)**; cite it,
-don't restate it. Four parallel builds, then a gate. **Nothing here is gated on H5**: the
-surfaces are the same ones phase H shipped, and neither phase has been reviewed yet.
+don't restate it. Four parallel builds, then a gate. **The phase is CLOSED — I1–I4 merged
+(v1.2.34 → v1.2.37) and the I5 gate passed 2026-08-31** (findings fixed v1.2.39).
 
 - [x] **I1 — the pick modal** (**merged v1.2.35**, done-when verified in-browser: a
   spellcasting step opens two scoped pickers and Magic Initiate four; the three footer states
@@ -319,38 +330,48 @@ surfaces are the same ones phase H shipped, and neither phase has been reviewed 
   matches the exact `name|source` key (app.js:6657) while `grantRec` resolves by NAME only
   (app.js:592), so a PHB/XPHB split between boon and spell silently drops every granted form —
   fix it with D127's successor-aware machinery, and prove the failing case.
-- [ ] **Next duplicates `guideAdvance()`'s expression** (I1, flagged not fixed): the stage's
-  Next inlines the same `guideStepAfter`/`guideGo` pair the modal's footer now calls
-  (app.js:1786-1789 pre-merge — re-check after I2). One writer, one line. Do it after the
-  phase I merges settle.
-- [ ] **The guide's pre-filter is capped by `PREVIEW`, not only by the landing slot** (I1,
-  flagged, PRE-EXISTING): standing at L1 with the L3 slot open, the hint honestly says a take
-  lands in the L3 slot (cap 2) but `R.pool` offers only levels ≤ 1, because `guideGo` set the
-  preview to L1. It UNDER-offers, so it can never produce an illegal pick — but it is a
-  D118(b) honesty gap. Look at it during the H5/I5 gate.
-- [ ] **`.spmodal` is missing from the print `display:none` list** (I4, flagged not fixed,
-  PRE-EXISTING): `src/styles.css:1537-1539` lists `.modal`, but the spell detail overlay is
-  `.spmodal` — printing with a spell modal open puts the overlay on the sheet. One token.
+- [x] **Next duplicates `guideAdvance()`'s expression** (**fixed v1.2.39**): the stage's
+  Next now calls `guideAdvance()` — one function, two callers, verified to land exactly
+  where `guideStepAfter` predicts.
+- [x] **The guide's pre-filter is capped by `PREVIEW`, not only by the landing slot**
+  (**fixed v1.2.39, D133**): opening a section's picker now stands the view on that
+  section's LANDING level — per SECTION, not per step (two sections of one step can land
+  at two levels), decided in `openGpickSec`, not `guideGo`. The fix also closed a second
+  lie the gate hadn't measured: the take used to INSERT at the previewed slice point, not
+  the promised slot. Pool, cap, hint and insert position now derive from one number —
+  the Bard-5 "Change…" repro went from 26 offered/insert-at-4 to 76 offered/insert-at-7
+  with 0 illegal flags.
+- [x] **`.spmodal` is missing from the print `display:none` list** (**fixed v1.2.39**):
+  one token added at styles.css:1540, verified through CSSOM.
 - [ ] **`favKey` is per PRINTING, so a mark is stored under one edition** (I4, flagged): a
   mark lives under `Find Familiar|XPHB`; if `grantRec` later resolves the other printing (the
   reprint filter set to `all`, or a book toggled) the mark is not seen. Deterministic and
   consistent under the default filter — every surface goes through `grantRec` — but making
   `sbFav` itself edition-tolerant is a storage-shape change. ⚑ (owner: Francesco, 2026-08-30)
-- [ ] **The Down walk resumes on the "next level" growth step** (I2, flagged not fixed,
-  PRE-EXISTING D121/D118(j)): `guideSync`'s reverse re-entry takes `guideWalk(steps)[0]`,
-  which descending is the `top+1` growth affordance — so Down's first screen is a levelling
-  card rather than a placement, on a build with no illegal slots.
-- [ ] **`guideCanWalkDown()` is looser than "has something to place"** (I2, flagged): it reads
-  `guideAnswered()`, which counts species, feats and optional features — none of which the
-  Down walk can place. Kept deliberately at merge (it is the old `<select>`'s own predicate,
-  so no build changed behaviour); tightening it to "has any spell/cantrip pick" is one line.
-- [ ] **`renderGuideChain` and `renderTimeline` now duplicate four pieces of inversion logic**
-  (I2, flagged): runs/`runAt` keyed on `to`, the per-level fragment, `runjoin` reaching
-  upward, and the `prepend`. Left duplicated rather than extracting a helper mid-wave with
-  three agents in the file — but they must be kept in step. → now a Gotcha.
-- [ ] **I5 — 🔍 fresh-eyes gate** (separate session) — phase I against D131(a–h). **May be run
-  as ONE session with H5**, since the two phases share surfaces and neither has been gated;
-  it must still be a session that built neither.
+- [x] **The Down-walk trio** (**fixed v1.2.39, D133** — the gate showed findings 3/4/5 were
+  one defect seen three times): a single `guideDownPlaceable(steps)` predicate now decides
+  whether the Down control is offered (`guideCanWalkDown`, OR-ed with `GUIDE.reverse` so an
+  in-flight walk never hides its own way back), which step reverse re-entry opens on
+  (`guideSync` — a placement step, never the growth card), and which level the rail's
+  "from L{n}" names (`guideWalkStrip` — was off by one against the actual landing).
+- [x] **`renderGuideChain` and `renderTimeline` duplicated four pieces of inversion logic**
+  (**extracted v1.2.39**): the I5 gate first PROVED the copies in step (4 real drags
+  byte-identical on both surfaces, 5 no-op drags refused identically — D122 guard held),
+  then the extraction rode that proof: one `levelColumn` owner (runs keyed on `to`,
+  divider, `runjoin`, prepend), card bodies stay per-surface, `wireRowDrag` untouched on
+  plan indices. Rendered columns byte-identical pre/post; drag battery re-run clean.
+  Gotcha entry updated.
+- [x] **I5 — 🔍 fresh-eyes gate** (**PASSED-WITH-FINDINGS 2026-08-31**, opus@high fresh
+  agent, one session with H5) — D131(a–h) + D132 verified clause-by-clause: prose sweep
+  over 41 steps × both directions clean, "reconstruct" absent from every user-visible
+  string and aria-label, drawer edge at exactly 0, grip delta 0.00, the I4 familiar
+  modal's edition-split fix proven in BOTH directions at unit level, D132 inversion
+  correct on pins/zones/dividers/joins. One real defect — the chain's growth ghost was a
+  silent drop target (the one crack in G1's drag-equivalence) — **fixed v1.2.39**:
+  `wireRowDrag`'s row branch now gates BOTH ends on `opt.enabled` (chip branch untouched;
+  timeline add row stays unwired). Residual minors deliberately not taken: the place-mode
+  footer opens accent (I5-8, defensible), an answered chain row names its picks (I5-11,
+  comment aligned to the behaviour instead).
 
 ## Queue
 - [ ] **Magic-item / reward ingestion** — 🔶 **RESEARCHED 2026-08-27, awaiting Francesco's call.**

@@ -1403,16 +1403,17 @@ function guidePlace(sec,k,at){
   GUIDE.place[guideSecKey(sec)]=Math.min(pos+1,sec.to-1);
   save(); render();
 }
-// the current step's pick section for a row and kind. Since G3 answered the page hand-off
-// (D126(f)), the only reader left is `toggle`'s reconstruct intercept: while a pick
-// section of THIS row is current, a click on one of the row's own picks — wherever it is
-// clicked — places at that section's target slot rather than toggling.
-function guidePickSec(idx,arr){
-  if(!GUIDE.on||!GUIDE.cur)return null;
-  const s=(R&&R.gsteps||[]).find(x=>x.key===GUIDE.cur); if(!s)return null;
-  const kind=arr==="cantrips"?"cantrip":"spell";
-  return s.sections.find(x=>x.kind==="pick"&&x.row===idx&&x.pick===kind)||null;
-}
+// PLACEMENT IS A PROPERTY OF THE CALL SITE, NEVER OF THE WALK (G4 · F1/F2/F4).
+// `guidePlace` has exactly one caller — `gpickCommit` in place mode, i.e. the guide's own
+// pick modal opened on a pick section of a Down walk. `toggle` used to intercept on the
+// AMBIENT `GUIDE.reverse` flag instead, so every other surface that shares the app's one
+// take/drop writer was hijacked by a walk it knew nothing about: the prepare-daily modal's
+// unprepare (`arr==="prep"`, which the intercept's arr→kind map read as "spell") silently
+// REORDERED the wizard's spellbook — the order IS the level assignment, so that was data
+// corruption with a dead control in front of it; the character view's ✓ reordered instead
+// of toggling with the guide off-canvas and nothing on screen saying so; and the chip ✕,
+// whose tip promises "takes it back out of this group", reordered instead of dropping.
+// The rule now: the shared `toggle` behaves the same inside a walk as outside it.
 // jump the walk to a step: point the view at its level (slice editing, D115(d)), remember
 // it as current, and let the chain fall back to opening the CURRENT level (D130(a)).
 function guideGo(s){
@@ -1439,7 +1440,8 @@ function guideSync(){
     // reverse re-entry: the first slot whose occupant is illegal where it sits — the
     // exact place reconstruction is needed — else the walk's first step (D118(j))
     if(GUIDE.reverse){const list=guideWalk(steps);
-      cur=list.find(s=>s.sections.some(x=>x.ill))||list[0]||null;}
+      cur=list.find(s=>s.sections.some(x=>x.ill))
+        ||guideDownPlaceable(list)||list[0]||null;}
     else cur=guideResume(steps,GUIDE.desc);
     GUIDE.cur=cur?cur.key:null;
   }
@@ -1540,10 +1542,27 @@ function renderGuideHead(steps){
 // The old menu's third state (reverse + ascending) had no place in a two-state control
 // and is unreachable by design — the two remaining ones are the two walks D118(f) names.
 const guideWalkDown=()=>GUIDE.reverse&&GUIDE.desc;
-// DOWN narrows the candidate pool to the build's OWN picks, so on a build with nothing
-// to place it would be an empty walk offered as a choice. Same predicate the old menu
-// hid itself on, so a build that could reconstruct before still can.
-const guideCanWalkDown=()=>guideAnswered()||GUIDE.reverse;
+// DOWN narrows the candidate pool to the build's OWN picks and answers a step by PLACING
+// one into a slot — so the only step it can answer is a pick section that holds picks.
+// ONE predicate answers all three questions the walk asks (I5 · 3/4/5, one defect seen
+// three times): whether the control has anything to offer, which step the walk opens on,
+// and which level the rail's "from L{n}" names. It replaces `guideAnswered()`, which
+// counted species, feats and optional features — none of which Down can place, so the
+// control was offered on builds whose Down walk was empty — and it replaces the
+// `guideWalk(steps)[0]` landing, which descending is the trailing "next level" GROWTH
+// card, so Down opened on a levelling affordance instead of a placement.
+function guideDownPlaceable(list){
+  return (list||[]).find(s=>(s.sections||[]).some(sec=>{
+    if(sec.kind!=="pick")return false;
+    const arr=sec.pick==="cantrip"?"cantrips":"spells";
+    // a slot that exists AND holds something to place: `guidePlace` refuses a position
+    // past the array's end (D118(g) — never a delete), which is a step with no answer
+    return sec.from<(((state.chosen[sec.row]||{})[arr])||[]).length;
+  }))||null;
+}
+// an in-flight Down walk never hides its own control — the way back up is on it
+const guideCanWalkDown=steps=>GUIDE.reverse
+  ||!!guideDownPlaceable(steps||(R&&R.gsteps)||[]);
 // flipping the direction RESUMES that walk's own step: `openGuide` re-resolves `cur` from
 // scratch (and clears `place`, which is per-walk), which is what made the old menu safe
 // to use mid-flight and keeps this one safe too. A no-op flip stays a no-op.
@@ -1565,9 +1584,13 @@ function guideSetWalk(down){
 // Sticky, so scrolling the rail never takes the direction off screen. Hidden entirely
 // where Down would be an empty walk — the same predicate, and the same choice, the old
 // "Reconstruct…" command menu made.
-function guideWalkStrip(total){
+function guideWalkStrip(total,steps){
   const down=guideWalkDown();
-  const at=down?Math.max(1,total):1;
+  // the level the walk really STARTS from — Down's first placeable step, which is the
+  // one `guideSync` opens on, and Up's L1. It used to read `total` while the walk landed
+  // on the growth card above it, so the note named a level the walk never opened on.
+  const first=down?guideDownPlaceable(guideWalk(steps||[])):null;
+  const at=down?(first?first.lv:Math.max(1,total)):1;
   const wrap=el("div","gwalk");
   const b=el("button","gwalkbtn");
   b.append(icoEl(down?"walkdn":"walkup"));
@@ -1595,8 +1618,10 @@ function guideWalkStrip(total){
 // rows — one per section, with its counter ("Cantrips 0 of 2") — never one row per slot.
 // Clicking a row jumps the walk to its step (guideGo); dragging a level card reorders the
 // plan through the SAME code path the timeline modal uses (wireRowDrag), so the two
-// surfaces can never disagree. Always ascending, whichever way the walk runs: a surface
-// you reorder by dragging must not flip its axis with the direction you are walking.
+// surfaces can never disagree. The column reads DESCENDING since D132 — top level at the
+// head, L1 at the foot, the same way the timeline does — and that cost the drag nothing:
+// `wireRowDrag` is handed PLAN INDICES, never screen positions, so the axis flip never
+// reaches it. The walk's own direction does not move the column either; only D132 did.
 let GC={drag:null,open:null};
 // the worst thing in a level, as ONE icon (D130(a)) — the E4 sweep's findings included,
 // so a collapsed row never carries two warnings that have to be told apart. Red is a
@@ -1621,8 +1646,11 @@ function guideSeverity(group,flags){
           (ill||(flags&&flags.length))?"gcbad":(skip||open)?"gcgold":"gcgood",
           why.join(" ")];
 }
-// what a chain row says on its one line: the counter for a group of picks, the answer for
-// a single one — and never a name where a count is the honest summary
+// what a chain row says on its one line. A DONE section NAMES its answer, however many
+// picks it holds — a finished group's names are the honest summary of it (D130(a,b), the
+// same reading the card's chips give). An unfinished group counts instead ("1 of 2
+// chosen"): a partial list of names reads as the whole of it. A single pick still open
+// says what it is waiting for, or that it was skipped.
 const guideSecText=sec=>(sec.done&&sec.value)?sec.value
   :sec.need>1?(sec.have+" of "+sec.need+" chosen")
   :(sec.value||(sec.status==="skipped"?"skipped — still open":"to decide"));
@@ -1634,13 +1662,10 @@ function renderGuideChain(steps,cur){
   const health=(R&&R.health)||buildHealth();
   const multi=state.classes.length>1;
   const view=PREVIEW.level==null?total:PREVIEW.level;
-  const runColor=new Map(); plan.forEach(id=>{if(!runColor.has(id))runColor.set(id,runColor.size%4);});
-  const runs=[]; plan.forEach((id,j)=>{
-    if(j===0||plan[j-1]!==id)runs.push({id,from:j+1,to:j+1});
-    else runs[runs.length-1].to=j+1;});
-  // a run's header is its HIGHEST level — the column reads downward from the top level
-  // (D132), so `to` is where the block starts on screen (same change the timeline made)
-  const runAt=new Map(runs.map(r=>[r.to,r]));
+  // the descending column's four pieces — runs keyed on their highest level, the divider,
+  // `runjoin` reaching upward, the prepend — belong to `levelColumn`, shared with the
+  // timeline modal so the two can never drift (D132)
+  const col=levelColumn(plan,box,multi);
   const byLv=new Map();
   steps.forEach(s=>{const a=byLv.get(s.lv)||[];a.push(s);byLv.set(s.lv,a);});
   const curLv=cur?cur.lv:null;
@@ -1651,20 +1676,12 @@ function renderGuideChain(steps,cur){
   // is prepended last and lands at the head of the column, where growth belongs.
   [...byLv.keys()].sort((a,b)=>a-b).forEach(lv=>{
     const group=byLv.get(lv);
-    const into=document.createDocumentFragment();
-    const id=lv<=total?plan[lv-1]:null, row=id!=null?rowOf.get(id):null, c=row&&CLS_BY[row.clsKey];
+    const id0=lv<=total?plan[lv-1]:null, row=id0!=null?rowOf.get(id0):null;
+    const id=row?id0:null, c=row&&CLS_BY[row.clsKey];
     let cl=0; if(row){cl=(perClass.get(id)||0)+1; perClass.set(id,cl);}
-    if(row&&multi&&runAt.has(lv)){const r2=runAt.get(lv);
-      const dv=el("div","tlrundiv");
-      dv.append(el("span","rdot c"+runColor.get(id)));
-      dv.append(document.createTextNode((c?c.name:"?")+" · "
-        +(r2.from===r2.to?"L"+r2.from:"L"+r2.from+"–L"+r2.to)));
-      into.append(dv);}
     const open=GC.open==null?(lv===curLv):(GC.open===lv);
-    // `runjoin` closes the gap against the card ABOVE on screen — the level ABOVE, now
     const card=el("div","locard gclv"+(row?"":" gcnext")+(open?" gcopen":"")
-      +(row&&lv===view?" here":"")
-      +(multi&&row?" runc"+runColor.get(id)+(lv<plan.length&&plan[lv]===id?" runjoin":""):""));
+      +(row&&lv===view?" here":"")+col.railCls(lv,id));
     card.dataset.lv=String(lv);
     if(multi&&row){card.append(icoEl("grip","logrip")); card.draggable=true;}
     const body=el("div","lobody");
@@ -1712,12 +1729,11 @@ function renderGuideChain(steps,cur){
     // which is precisely why inverting the display leaves `wireRowDrag` untouched and the
     // two surfaces still produce the identical plan from the identical drop (G1)
     wireRowDrag(card,lv-1,plan,GC,box,{enabled:multi&&!!row});
-    into.append(card);
-    box.prepend(into);
+    col.emit(lv,id,card);
   });
   // last prepend wins the top: the direction sits above every level, including the
   // growth affordance, because it governs the whole column
-  if(guideCanWalkDown())box.prepend(guideWalkStrip(total));
+  if(guideCanWalkDown(steps))col.top(guideWalkStrip(total,steps));
   box.scrollTop=keep;
   // keep the current step in view without touching the page's own scroll
   if(curEl){const r=curEl.getBoundingClientRect(), br=box.getBoundingClientRect();
@@ -1826,15 +1842,13 @@ function renderGuideStage(steps,cur,rowOf){
   next.onclick=term
     ? (behind?()=>guideGo(behind):()=>closeGuide())
     : ()=>{
-        // Next COMMITS what this step is showing, then advances. The commit re-derives
-        // the chain (it writes through the app's own paths), so the target is recomputed
-        // from the FRESH steps — a class level taken here opens slots that did not exist
-        // when this button was drawn.
+        // Next COMMITS what this step is showing, then advances. The advance is
+        // `guideAdvance`, the same call the modal's footer button makes (D131(b)) — one
+        // function, two callers, so the two ways forward can never diverge. It reads the
+        // FRESH `R.gsteps`, which is what a commit above it just re-derived: a class
+        // level taken here opens slots that did not exist when this button was drawn.
         if(pend)pend.run();
-        const list=(pend&&R&&R.gsteps&&R.gsteps.length)?R.gsteps:steps;
-        const go=GUIDE.reverse?guideStepAfter(list,GUIDE.cur,null)
-          :guideStepAfter(list,GUIDE.cur,x=>x.status!=="done"&&!x.optional);
-        if(go)guideGo(go);
+        guideAdvance();
       };
   nav.append(next);
   st.append(nav);
@@ -1932,6 +1946,23 @@ function guideDrop(sec,k){
     state.choices[sec.cid]=(state.choices[sec.cid]||[]).filter(v=>v!==k); render(); return;}
   toggle(sec.row,k,sec.pick==="cantrip");
 }
+// What a section is asking for, in a word — one owner for both surfaces that name it
+// (the card's button and the modal's fallback title). A class pick section says which
+// kind it is; a GRANTED group's kind is only in its own filter, so the button read
+// "Choose spells…" over Magic Initiate's cantrip group until this branched. Same reading
+// `guidePickAsk` does: `filterSpells`' grammar joins values with ";", 5etools' key case
+// is not stable, and an absent key is unconstrained (D96) — a group whose level list is
+// 0 and nothing else is a cantrip group.
+function secIsCantrip(sec){
+  if(sec.kind!=="cpick")return sec.pick==="cantrip";
+  const f=(sec.choice&&sec.choice.filter)||null; if(!f)return false;
+  const F={}; Object.keys(f).forEach(k=>{F[k.toLowerCase()]=f[k];});
+  if(F.level==null)return false;
+  const nums=String(F.level).split(";").map(Number).filter(n=>!isNaN(n));
+  return !!nums.length&&nums.every(n=>n===0);
+}
+const guideNoun=sec=>secIsCantrip(sec)?(sec.need>1?"cantrips":"a cantrip")
+  :sec.need>1?"spells":"a spell";
 // one SECTION of the current step's card: what it asks, what it holds, and the control
 // that answers it. Returns null when the section has nothing to draw.
 function guideSecBlock(step,sec,rowOf){
@@ -1961,9 +1992,7 @@ function guideSecBlock(step,sec,rowOf){
     // is not appended at all: `.gsecb` is a gapped column, so an empty flex child would
     // leave a hole where the chips used to be.
     if(chips.children.length)b.append(chips);
-    const noun=sec.kind==="cpick"?"spells"
-      :sec.pick==="cantrip"?(sec.need>1?"cantrips":"a cantrip")
-      :sec.need>1?"spells":"a spell";
+    const noun=guideNoun(sec);
     const btn=el("button","btn"+(sec.done?"":" on gbig"),
       GUIDE.reverse&&sec.kind==="pick"?"Place picks here…"
       :sec.done?"Change…":"Choose "+noun+"…");
@@ -2152,10 +2181,8 @@ function guideSecWrap(step,sec,body){
 // It is a plain `.modal`, which puts it ABOVE the guide page's layer — the guide is a
 // page, and a page is what modals open over.
 let GPICK=null;
-const gpickNoun=sec=>sec.kind==="cpick"?"spells"
-  :sec.pick==="cantrip"?(sec.need>1?"cantrips":"a cantrip")
-  :/^Spellbook/.test(sec.label)?(sec.need>1?"spellbook spells":"a spellbook spell")
-  :sec.need>1?"spells":"a spell";
+const gpickNoun=sec=>sec.kind!=="cpick"&&!secIsCantrip(sec)&&/^Spellbook/.test(sec.label)
+  ?(sec.need>1?"spellbook spells":"a spellbook spell"):guideNoun(sec);
 // What a section may legally take, as spell records. This is the predicate the page
 // pre-filter ran until G3 (D118(b)), moved here whole rather than written again: the
 // section's row has to be a taker, the spell's level has to fit the cap, and reconstruct
@@ -2207,8 +2234,30 @@ function guideSwapMax(row,lv){
 // section of the same step are two visits and never one list. D130(c)'s grouping is
 // untouched — the step still holds both sections on its card, they just each own a picker.
 // The trade card builds its own spec.
+// TWO THINGS ARE DECIDED HERE, and both are the call site's job, not an ambient mode:
+//  · WHICH MODE. Only a class pick section can be PLACED into: placement addresses an
+//    array position of `state.chosen[row]`, and a granted choice (`cpick`) has no
+//    acquisition order to reconstruct — it is a set. Reading the mode off `GUIDE.reverse`
+//    alone opened a cpick picker in place mode, where the commit routed into a writer
+//    written for pick arrays and did nothing at all (G4 · F4).
+//  · WHERE THE VIEW STANDS. A forward take lands at `sliceInsertAt(row,arr,PREVIEW.level)`
+//    — the previewed level's slice point — while the modal's cap, pool and hint all
+//    describe `guideLandingSec`, the first slot of this kind still open. On an ANSWERED
+//    section those two are different slots (the walk's own clamp only aligns OPEN ones),
+//    so the modal claimed "fills the still-open L5 slot (cap 3)" while offering the L1
+//    pool and inserting at the L1 slice point (G4-F3 / I5-2, a D118(b) gap). Standing the
+//    view on the landing section's level makes all four agree — the pool is the class's
+//    reach there, the cap is that section's, and `sliceInsertAt` resolves to that very
+//    slot. Per SECTION, not per step: two sections of one step can land at two levels,
+//    and moving the view for one of them would misplace the other's take.
 function openGpickSec(step,sec){
-  openGpick({mode:GUIDE.reverse?"place":"take",stepKey:step.key,secId:sec.id});
+  const place=GUIDE.reverse&&sec.kind==="pick";
+  if(!place){
+    const land=guideLandingSec(sec), top=topCharLevel();
+    const at=land?land.lv:null;      // null = every slot of this kind is filled: stay put
+    if(at!=null&&at!==(PREVIEW.level==null?top:PREVIEW.level))setPreview(at);
+  }
+  openGpick({mode:place?"place":"take",stepKey:step.key,secId:sec.id});
 }
 function openGpick(spec){
   // every opener starts unfolded: this modal serves a different question each time, and a
@@ -2821,11 +2870,10 @@ function toggle(idx,spellKey,cantrip,which){
     }
     SWAPARM=null;   // the outgoing pick vanished meanwhile — disarm, fall through to a plain take
   }
-  // reconstruct placement (F3 · D118(f)): while the guide's current step holds a pick
-  // section for this row and kind, a click on one of the row's own picks ANSWERS its
-  // target slot — position, not toggle — so review clicks can never delete a pick (D118(g))
-  if(GUIDE.on&&GUIDE.reverse){const gs=guidePickSec(idx,arr);
-    if(gs&&ch[arr].includes(spellKey)){guidePlace(gs,spellKey);return;}}
+  // NO WALK INTERCEPT HERE (G4 · F1/F2/F4). Reverse placement (D118(f,g)) is written by
+  // `guidePlace`, called explicitly from the guide's own pick modal — see the note above
+  // it. An ambient `GUIDE.reverse` test in this shared writer hijacked every other surface
+  // that takes or drops a pick, the prepare-daily modal's `arr==="prep"` included.
   const L=PREVIEW.level;
   // standing at a previewed level, the order is load-bearing (E2 · D115(d)): an add
   // inserts at L's slice point (the earliest open schedule slot — best case, D18); a
@@ -5991,6 +6039,50 @@ function dropChipOnLevel(chip,L){
   }
   state[arrName]=base; return false;
 }
+// ── the descending level column, shared (D132) ─────────────────────────────
+// Both level surfaces — the timeline modal and the guide's chain column — read HIGHEST
+// LEVEL AT THE TOP, and both build that the same way: walk the plan ASCENDING (every
+// per-level number is incremental and would be wrong backwards) and PREPEND each level's
+// fragment. Four pieces come with that inversion and were carried in two near-identical
+// copies until this: the run map keyed on a run's HIGHEST level (`to`, where the block
+// starts on screen), the divider that opens a class block, `runjoin` reaching UPWARD to
+// close the gap against the level above, and the prepend itself. They are one owner now —
+// a change to the column is a change to both surfaces by construction, which is what the
+// duplication could only promise by hand.
+// What is NOT here is the card body: each surface builds its own and hands it over. And
+// the row drag stays where it is (`wireRowDrag`, below) — it is handed PLAN INDICES, so
+// the axis flip never reaches it, and that is why the same drag on either surface still
+// produces the identical plan (G1's acceptance test).
+function levelColumn(plan,box,multi){
+  const runColor=new Map(); plan.forEach(id=>{if(!runColor.has(id))runColor.set(id,runColor.size%4);});
+  const runs=[]; plan.forEach((id,j)=>{
+    if(j===0||plan[j-1]!==id)runs.push({id,from:j+1,to:j+1});
+    else runs[runs.length-1].to=j+1;});
+  const runAt=new Map(runs.map(r=>[r.to,r]));
+  return {
+    // the class rail + join classes a level's card wears. `runjoin` asks about the level
+    // ABOVE (lv+1 in plan terms, the card above it on screen)
+    railCls:(lv,id)=>!multi||id==null?"":" runc"+runColor.get(id)
+      +(lv<plan.length&&plan[lv]===id?" runjoin":""),
+    // one level, inserted at the head of the column: its divider (when a class block
+    // starts here) and its card go in TOGETHER, or prepending them one at a time would
+    // put the card above its own divider
+    emit(lv,id,card){
+      const into=document.createDocumentFragment();
+      if(multi&&id!=null&&runAt.has(lv)){const r=runAt.get(lv);
+        const row=state.classes.find(x=>x.id===id), c=row&&CLS_BY[row.clsKey];
+        const dv=el("div","tlrundiv");
+        dv.append(el("span","rdot c"+runColor.get(id)));
+        dv.append(document.createTextNode((c?c.name:"?")+" · "
+          +(r.from===r.to?"L"+r.from:"L"+r.from+"–L"+r.to)));
+        into.append(dv);}
+      into.append(card); box.prepend(into);
+    },
+    // the growth end of the column, and anything that governs the whole of it: last
+    // prepend wins the top
+    top(node){box.prepend(node);}
+  };
+}
 // ── the level-plan row drag, shared (D122(e) · D126(b)) ────────────────────
 // Reordering WHICH class each character level was taken in. The timeline modal and the
 // guide's chain column both wire it, so the two surfaces cannot drift apart: one set of
@@ -5999,7 +6091,14 @@ function dropChipOnLevel(chip,L){
 // — no highlight, no pretend-move — and every commit goes through classLevelPlan() and
 // an assignment to state.levelOrder, the only plan-write idiom there is.
 // `st` is the caller's own drag state ({drag}); `box` is the list the cleanup sweeps;
-// `opt.enabled` is "this list can be reordered at all" (single-class plans cannot);
+// `opt.enabled` is "this card is a draggable row of the plan" — false on a single-class
+// plan (nothing to reorder) and on the chain's trailing growth ghost, which is not a
+// level yet. It gates the ROW half of the drag at BOTH ends: a card you cannot drag is
+// not a drop target either. It used to gate `ondragstart` alone, so the chain's "next
+// level" ghost still ACCEPTED a row drop and committed a plan the timeline (whose add
+// row is wired for nothing) would never produce — the one crack in the equivalence G1
+// was gated on (I5 · 1). The CHIP half is independent: a timeline chip can be dropped on
+// a row of a single-class plan, so `opt.onChip` is what gates that branch, not `enabled`.
 // `opt.onChip` is the timeline's own pick-chip drop, which the chain column has not got.
 const planMoved=(plan,from,to)=>{const o=plan.slice(),[mv]=o.splice(from,1);
   o.splice(from<to?to-1:to,0,mv); return o;};
@@ -6015,13 +6114,15 @@ function wireRowDrag(card,i0,plan,st,box,opt){
   card.ondragend=()=>{st.drag=null;
     box.querySelectorAll(".locard").forEach(x=>x.classList.remove("dragging","dropinto"));};
   card.ondragover=e=>{ if(!st.drag)return;
-    if(st.drag.type==="row"&&(st.drag.i===i0||planSame(planMoved(plan,st.drag.i,i0),plan)))return;
-    if(st.drag.type!=="row"&&!opt.onChip)return;
+    if(st.drag.type==="row"){
+      if(!opt.enabled)return;      // not draggable, not droppable-on — the same rule
+      if(st.drag.i===i0||planSame(planMoved(plan,st.drag.i,i0),plan))return;
+    } else if(!opt.onChip)return;
     e.preventDefault(); e.dataTransfer.dropEffect="move"; card.classList.add("dropinto");};
   card.ondragleave=()=>card.classList.remove("dropinto");
   card.ondrop=e=>{ e.preventDefault(); card.classList.remove("dropinto");
     const d=st.drag; if(!d)return;
-    if(d.type==="row"){ if(d.i===i0)return;
+    if(d.type==="row"){ if(!opt.enabled||d.i===i0)return;
       const o=planMoved(plan,d.i,i0);
       if(planSame(o,plan))return;
       commitPlan(o); return;}
@@ -6049,17 +6150,11 @@ function renderTimeline(){
       attachTip(om,tipBlock("Order matters in this build",
         reasons.map(r=>cap1(r)).join("; ")
         +". Drag the rows to change which class each level was taken in.")); } }
-  // run aggregation (D122): consecutive levels of one class read as a block — a
-  // per-class rail plus a closed gap — because reordering INSIDE a run changes nothing
-  const runColor=new Map(); plan.forEach(id=>{if(!runColor.has(id))runColor.set(id,runColor.size%4);});
-  // run divider labels (D124): each class block announces itself once, with its span.
-  // THE COLUMN READS DOWNWARD FROM THE TOP LEVEL (D132), so a run's header is its
-  // HIGHEST level, not its lowest — keyed on `to`, which is where the block starts on
-  // screen. The label itself ("Bard · L2–L5") is a span and reads the same either way.
-  const runs=[]; plan.forEach((id2,j)=>{
-    if(j===0||plan[j-1]!==id2)runs.push({id:id2,from:j+1,to:j+1});
-    else runs[runs.length-1].to=j+1;});
-  const runAt=new Map(runs.map(r2=>[r2.to,r2]));
+  // run aggregation (D122) and the descending column itself (D132) — the run map keyed
+  // on each block's HIGHEST level, its divider label (D124), `runjoin` reaching upward
+  // and the prepend — all belong to `levelColumn`, shared with the guide's chain so the
+  // two surfaces cannot drift. The label ("Bard · L2–L5") reads the same either way.
+  const col=levelColumn(plan,box,multi);
   // The LOOP still walks the plan ASCENDING and only the INSERTION is reversed
   // (`box.prepend` of a per-level fragment). Everything this loop computes is
   // incremental — the running class level, and `planSlots(perClass)` read once before
@@ -6068,21 +6163,10 @@ function renderTimeline(){
   // order of display are two different things, and only the second one inverted.
   plan.forEach((id,i0)=>{
     const i=i0+1, row=rowOf.get(id); if(!row)return;
-    const into=document.createDocumentFragment();
     const cl=(perClass.get(id)||0)+1;      // advanced below, between the two slot reads
     const c=CLS_BY[row.clsKey];
-    // a new class block opens with its divider label (D124)
-    if(multi&&runAt.has(i)){const r2=runAt.get(i);
-      const dv=el("div","tlrundiv");
-      dv.append(el("span","rdot c"+runColor.get(id)));
-      dv.append(document.createTextNode((c?c.name:"?")+" · "
-        +(r2.from===r2.to?"L"+r2.from:"L"+r2.from+"–L"+r2.to)));
-      into.append(dv);}
-    // `runjoin` closes the gap against the card ABOVE this one on screen. Descending,
-    // that is the level ABOVE (i0+1) — inverting the column without inverting this
-    // leaves every block's tight edge on the wrong side of its own divider.
     const card=el("div","locard tlrow"+(i>cur?" zplan":"")+(i===cur?" zpin":"")+(i===view?" here":"")
-      +(multi?" runc"+runColor.get(id)+(i0+1<plan.length&&plan[i0+1]===id?" runjoin":""):""));
+      +col.railCls(i,id));
     card.dataset.lv=String(i);
     if(multi){const g=icoEl("grip","logrip");card.append(g);card.draggable=true;}
     const body=el("div","lobody");
@@ -6301,17 +6385,15 @@ function renderTimeline(){
       // no-op on a drop is a dead control (the DOM-handler rule)
       if(dropChipOnLevel(d,i)){refreshAll();render();}
       else{card.classList.add("refuse");setTimeout(()=>card.classList.remove("refuse"),380);}}});
-    into.append(card);
-    // the level's divider and card go in TOGETHER, at the top: prepending them one at a
-    // time would put the card above its own divider
-    box.prepend(into);});
+    col.emit(i,id,card);});
   // the ghost row that ADDS a level. It sits at the TOP now (D132) — the growth end
   // of an inverted column is its head, and it is the row you reach for most. One tap
   // continues the class the plan ends on; the last other class sits beside it and the
   // rest live in a compact menu (D126(d)'s shape). Every path writes through
   // classLevelPlan() + an append to state.levelOrder — the same idiom the guide's class
-  // step uses, and the only one.
-  if(total<20)box.prepend(tlAddRow(plan,rowOf,total));
+  // step uses, and the only one. It is NOT a drop target, and the chain's growth ghost
+  // is not one either since I5 — see `wireRowDrag`'s `opt.enabled`.
+  if(total<20)col.top(tlAddRow(plan,rowOf,total));
   // footer: fork a variant · set the current level · start the guide (D115(i,e), D118(i))
   const fork=$("#tlFork"),pin=$("#tlPin"),guide=$("#tlGuide");
   const icoBtn=(b,ico,txt)=>{b.innerHTML="";const l=el("span","lbl-ico");

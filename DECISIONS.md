@@ -1422,6 +1422,43 @@ written up in full in `GOTCHAS.md` — that is the copy to trust.
   Supersedes: D131(e)'s placement in the guide header. Affects: src/app.js `renderGuideChain`
   + `renderTimeline` + the shared row drag, src/styles.css, PLAN's phase I (I2).
 
+- **D133 (2026-08-31) DECIDED — GATE-FIX MECHANISMS (G4 + H5/I5, all three passed with
+  findings; fixes shipped v1.2.39).** Raw: coordinated session, from the two opus gate
+  reports — mechanism choices made while fixing, logged so they aren't re-litigated.
+  - **(a) Placement is a property of the CALL SITE, never of the walk.** `toggle`'s ambient
+    `GUIDE.reverse` intercept is deleted; `guidePlace` has exactly one caller — `gpickCommit`
+    in place mode, the guide's own pick modal. The shared take/drop writer behaves the same
+    inside a walk as outside it, `arr==="prep"` can never be read as a placement, `guideDrop`
+    drops. *Rejected:* keeping the intercept and gating it on `!GUIDE.aside` + refusing
+    `prep` (still ambient — the next surface that shares the writer inherits the bug);
+    a second placement writer beside `toggle` (forks the one-writer discipline).
+  - **(b) A `cpick` section always opens its picker in `take` mode** — a granted choice is
+    a SET with no acquisition order to reconstruct; mode derives from section kind, not
+    from the walk's direction alone.
+  - **(c) The pick modal's honesty clock is the LANDING section's level, set per SECTION in
+    `openGpickSec`** — pool, cap, hint and `sliceInsertAt` insert position all derive from
+    that one number. *Rejected:* shifting the preview in `guideGo` (the gate's own first
+    suggestion — wrong at step granularity: one step's two sections can land at two levels,
+    and a step-level shift would misplace the other section's take); widening
+    `guideEligible` to ignore `R.pool` (decouples the picker from the view — bigger, kept
+    as fallback, not needed).
+  - **(d) One `guideDownPlaceable` predicate answers all three Down-walk questions** —
+    whether the control is offered, where reverse re-entry lands (never the growth card),
+    what "from L{n}" names. Replaces `guideAnswered()` there, which counted things Down
+    cannot place.
+  - **(e) A row that cannot be dragged is not a drop target** — `wireRowDrag`'s row branch
+    gates over/drop on `opt.enabled` at both ends; the chip branch stays on `opt.onChip`
+    (a chip must still drop on a single-class row). *Rejected:* wiring the timeline's add
+    row to match the ghost (adds a gesture nobody asked for).
+  - **(f) The four duplicated inversion pieces are one owner, `levelColumn`** — extracted
+    the moment the I5 gate proved the copies byte-identical; card bodies stay per-surface,
+    `wireRowDrag` stays separate on plan indices. Supersedes the keep-in-step-by-hand rule
+    the I2 merge left (its Gotcha entry updated).
+  Three gate questions stay **OPEN**, Francesco's: Q1 place-mode cap copy line, Q2 preview
+  snapshot/restore on exit, Q3 the two-line pinned bar — see PLAN's H5 block, each ⚑.
+  Affects: src/app.js (guide + timeline + `wireRowDrag`), src/styles.css (print list,
+  chain top margin), GOTCHAS (D132 entry), PLAN (G4/H5/I5 closed).
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives
