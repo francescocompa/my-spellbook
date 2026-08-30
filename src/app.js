@@ -50,6 +50,11 @@ const ICONS={
   // the character page itself — its two columns. The guide's "switch back" (D126(a)):
   // deliberately NOT the ⇄ trade icon, which in this app means a swap, not a view
   views:_I('<rect x="2.2" y="3.2" width="11.6" height="9.6" rx="1.8"/><path d="M6.4 3.2v9.6"/>'),
+  // the two walks (D131(e)) — a SHAFT with the head at the end it travels to, not a bare
+  // chevron: the rail is a column of levels and these say which way you move along it.
+  // Never a typed ↑/↓: a glyph sits wherever its font puts it (the drawn-caret rule).
+  walkup:_I('<path d="M8 13.6V3.2"/><path d="M4.5 6.7 8 3.1l3.5 3.6"/>'),
+  walkdn:_I('<path d="M8 2.4v10.4"/><path d="M4.5 9.3 8 12.9l3.5-3.6"/>'),
 };
 // the small × remove button used inside chips and rows
 function xBtn(cls,onClick){const b=el("button",(cls||"")+" ico xsm");b.innerHTML=ICONS.x;
@@ -1330,11 +1335,12 @@ function guideChoiceValue(c){
 // whole app, and a pinned bar over it (`#gBack`) names the step you left and can end the
 // walk from there. It replaces G1's `away` + vanishing Guide tab, which read as an exit
 // and lost the way back often enough that Francesco reported it as not working.
-// `reverse` is D118(f)'s reconstruct mode: the candidate pool narrows to the build's own
-// picks and answering a slot PLACES a pick at that slot's array position — a stateless
-// gesture (the position IS the answer), so leftovers drift to the top slice and take E4
-// flags exactly as D118(g) requires. `place` remembers which slot of a section the next
-// placement fills; it is module state and resets with the walk.
+// `reverse`+`desc` are D118(f)'s second walk, the one the rail calls **Down** (D131(e)
+// retired the old name and the word with it): the candidate pool narrows to the build's
+// own picks and answering a slot PLACES a pick at that slot's array position — a
+// stateless gesture (the position IS the answer), so leftovers drift to the top slice
+// and take E4 flags exactly as D118(g) requires. `place` remembers which slot of a
+// section the next placement fills; it is module state and resets with the walk.
 let GUIDE={on:false,aside:false,desc:false,reverse:false,cur:null,pane:"stage",place:{}};
 const guideKey=s=>(s&&s.key)||"";
 const guideSecKey=sec=>sec.step+"#"+sec.id;
@@ -1345,14 +1351,14 @@ function closeGuide(){ if(!GUIDE.on)return; GUIDE.on=false; GUIDE.aside=false;
   GUIDE.reverse=false; GUIDE.cur=null; GUIDE.place={}; GC.open=null; closeGpick(); render(); }
 // the shared entry for an EXISTING build (F3 · D118(i)): EVERY entry goes straight into
 // the walk, at the step D118(j)'s stateless resume computes — the "which walk?" screen a
-// ready build used to hit is gone (an entry is not a decision). Reconstruct is still one
-// click away, from the header's own mode menu, so D118(f)'s two walks both stand.
+// ready build used to hit is gone (an entry is not a decision). The DOWN walk is still
+// one click away, from the chain column's own arrow, so D118(f)'s two walks both stand.
 // A walk already in progress is RESUMED where it stood — the entries double as the way
 // back from the character view.
 // has this build answered anything the guide would ask about? Species, a feat, an optional
-// feature or a pick — the header's mode menu reads it to decide whether there is anything
-// to RECONSTRUCT, and D126(i)'s CTA reads it (with the class rows) to decide whether the
-// build is empty at all.
+// feature or a pick — `guideCanWalkDown` reads it to decide whether the DOWN walk has
+// anything to place, and D126(i)'s CTA reads it (with the class rows) to decide whether
+// the build is empty at all.
 function guideAnswered(){
   return !!(state.speciesKey||state.feats.length||state.optFeats.length
     ||Object.values(state.chosen||{}).some(ch=>((ch&&ch.cantrips||[]).length+(ch&&ch.spells||[]).length)>0));
@@ -1511,7 +1517,6 @@ function renderGuideHead(steps){
   const need=steps.filter(x=>!x.optional), doneN=need.filter(x=>x.done).length;
   $("#ghProgN").textContent=doneN+" / "+need.length+" decided";
   $("#ghBar").style.width=(need.length?Math.round(doneN/need.length*100):0)+"%";
-  renderGuideMode();
   const tg=$("#ghToggle"), chainOn=GUIDE.pane==="chain";
   tg.innerHTML="";
   const l=el("span","lbl-ico");
@@ -1523,42 +1528,61 @@ function renderGuideHead(steps){
   $("#ghSwap").onclick=()=>{GUIDE.aside=true;render();};
   $("#ghClose").onclick=closeGuide;
 }
-// WHICH WALK, as a header control rather than a gate on entry. D118(f) mandates both
-// directions and that stands; what changed is where you answer it — the chooser screen
-// every ready build used to hit on entry is gone, so the guide opens IN the walk and
-// reconstruct is a mode you switch into mid-flight.
-// A command menu, deliberately a `<select>`: it always shows its prompt, resets after a
-// pick and marks the walk you are in with a ✓ (the one place a glyph is allowed, D57), so
-// it can never silently select option 0 and flip the walk under you. A popover here would
-// be an absolutely-placed menu in a flex header over a page that hides the app's own
-// scroller — one more thing to place, clip and close, for one action.
-// It is hidden on a build with nothing to reconstruct: reverse narrows the pool to the
-// build's OWN picks, so with no picks it would be an empty walk offered as a choice.
-function renderGuideMode(){
-  const md=$("#ghMode"); if(!md)return;
-  const canRev=guideAnswered()||GUIDE.reverse;
-  md.classList.toggle("hidden",!canRev);
-  if(!canRev){md.dataset.sig=""; return;}
-  const top=topCharLevel();
-  const mode=GUIDE.reverse?(GUIDE.desc?"down":"up"):"fwd";
-  const sig=mode+"|"+top;
-  // rebuilt only when it would really change — an options list replaced under an open
-  // menu closes it, and the header re-renders on every state change
-  if(md.dataset.sig!==sig){
-    md.dataset.sig=sig; md.innerHTML="";
-    // the prompt needs an EXPLICIT empty value: an <option> with no value attribute
-    // takes its TEXT as the value, so the `md.value=""` reset below would match nothing
-    // and leave the control blank instead of showing what it is
-    const p=el("option","",GUIDE.reverse?"Reconstructing — switch walk…":"Reconstruct…");
-    p.value=""; md.append(p);
-    [["fwd","Build forward"],["up","Reconstruct — walk L1 up"],
-     ["down","Reconstruct — walk L"+Math.max(1,top)+" down"]].forEach(([v,t])=>{
-      const o=el("option",null,t+(v===mode?" ✓":"")); o.value=v; md.append(o);});
-  }
-  md.value="";
-  md.onchange=()=>{const v=md.value; md.value="";
-    if(!v||v===mode)return;
-    openGuide(v==="down",v!=="fwd");};      // a mode switch resumes that walk's own step
+// WHICH WALK — D131(e). The header's "Reconstruct…" command menu is gone, and so is the
+// word: the direction is a TWO-STATE toggle now, and the state pair behind it is
+// unchanged, so both walks of D118(f,g) survive as the two states.
+//   UP   — the forward walk from L1: a take fills the next open slot.
+//          (GUIDE.reverse=false, GUIDE.desc=false)
+//   DOWN — starts at the top level in PLACE mode: the pool narrows to the build's own
+//          picks and a click places one into the selected slot; whatever is never placed
+//          drifts to the top slice and takes E4 flags, never a delete (D118(g)).
+//          (GUIDE.reverse=true, GUIDE.desc=true)
+// The old menu's third state (reverse + ascending) had no place in a two-state control
+// and is unreachable by design — the two remaining ones are the two walks D118(f) names.
+const guideWalkDown=()=>GUIDE.reverse&&GUIDE.desc;
+// DOWN narrows the candidate pool to the build's OWN picks, so on a build with nothing
+// to place it would be an empty walk offered as a choice. Same predicate the old menu
+// hid itself on, so a build that could reconstruct before still can.
+const guideCanWalkDown=()=>guideAnswered()||GUIDE.reverse;
+// flipping the direction RESUMES that walk's own step: `openGuide` re-resolves `cur` from
+// scratch (and clears `place`, which is per-walk), which is what made the old menu safe
+// to use mid-flight and keeps this one safe too. A no-op flip stays a no-op.
+function guideSetWalk(down){
+  down=!!down;
+  if(down===guideWalkDown())return;
+  if(down&&!guideCanWalkDown())return;
+  openGuide(down,down);
+}
+// The control lives at the HEAD OF THE CHAIN COLUMN, not in the page header — it
+// describes that column, and since D132 inverted both level columns (top level at the
+// top, L1 at the bottom) it can be READ against it: the arrow now points the way the walk
+// really travels on screen. **Up** starts at the bottom row and climbs; **Down** starts at
+// the head and descends. That is what carries the meaning, so the button needs no label —
+// one quiet ghost arrow beside the line naming the level the walk starts from, and a tip
+// that says in one line what this direction does.
+// The arrows are DRAWN (`walkup`/`walkdn` in ICONS), never typed: a ↑ glyph sits wherever
+// its font puts it, which is why this app draws its carets (D57).
+// Sticky, so scrolling the rail never takes the direction off screen. Hidden entirely
+// where Down would be an empty walk — the same predicate, and the same choice, the old
+// "Reconstruct…" command menu made.
+function guideWalkStrip(total){
+  const down=guideWalkDown();
+  const at=down?Math.max(1,total):1;
+  const wrap=el("div","gwalk");
+  const b=el("button","gwalkbtn");
+  b.append(icoEl(down?"walkdn":"walkup"));
+  b.setAttribute("aria-label","Walking "+(down?"down":"up")+" from L"+at
+    +" — switch the direction");
+  // THE CLICK GOES ON BEFORE attachTip. It preserves an existing handler now, but the
+  // order is the rule (it once ate the preview's "order…" button outright), and a tip
+  // that swallowed this click would leave the walk with no way to turn around.
+  b.onclick=e=>{e.stopPropagation(); guideSetWalk(!down);};
+  attachTip(b,tipBlock(down?"Walking down, from L"+at:"Walking up, from L1",
+    down?"Only this build's own picks are offered, and a click places one into the slot you selected. Click to turn the walk around."
+        :"A pick you take fills the next open slot. Click to turn the walk around."));
+  wrap.append(b);
+  wrap.append(el("span","gwalkat","from L"+at));
+  return wrap;
 }
 // ── the chain column (D126(b) · D130(a)) ───────────────────────────────────
 // "A lean variant of the timeline modal, with also the ability to change order." One card
@@ -1614,13 +1638,20 @@ function renderGuideChain(steps,cur){
   const runs=[]; plan.forEach((id,j)=>{
     if(j===0||plan[j-1]!==id)runs.push({id,from:j+1,to:j+1});
     else runs[runs.length-1].to=j+1;});
-  const runAt=new Map(runs.map(r=>[r.from,r]));
+  // a run's header is its HIGHEST level — the column reads downward from the top level
+  // (D132), so `to` is where the block starts on screen (same change the timeline made)
+  const runAt=new Map(runs.map(r=>[r.to,r]));
   const byLv=new Map();
   steps.forEach(s=>{const a=byLv.get(s.lv)||[];a.push(s);byLv.set(s.lv,a);});
   const curLv=cur?cur.lv:null;
   const perClass=new Map(); let curEl=null;
+  // ASCENDING iteration, DESCENDING insertion (`box.prepend`) — `perClass` counts each
+  // class's own level as it walks, so the walk cannot be reversed without every row
+  // naming the wrong class level. The "next level" affordance is the highest key, so it
+  // is prepended last and lands at the head of the column, where growth belongs.
   [...byLv.keys()].sort((a,b)=>a-b).forEach(lv=>{
     const group=byLv.get(lv);
+    const into=document.createDocumentFragment();
     const id=lv<=total?plan[lv-1]:null, row=id!=null?rowOf.get(id):null, c=row&&CLS_BY[row.clsKey];
     let cl=0; if(row){cl=(perClass.get(id)||0)+1; perClass.set(id,cl);}
     if(row&&multi&&runAt.has(lv)){const r2=runAt.get(lv);
@@ -1628,11 +1659,12 @@ function renderGuideChain(steps,cur){
       dv.append(el("span","rdot c"+runColor.get(id)));
       dv.append(document.createTextNode((c?c.name:"?")+" · "
         +(r2.from===r2.to?"L"+r2.from:"L"+r2.from+"–L"+r2.to)));
-      box.append(dv);}
+      into.append(dv);}
     const open=GC.open==null?(lv===curLv):(GC.open===lv);
+    // `runjoin` closes the gap against the card ABOVE on screen — the level ABOVE, now
     const card=el("div","locard gclv"+(row?"":" gcnext")+(open?" gcopen":"")
       +(row&&lv===view?" here":"")
-      +(multi&&row?" runc"+runColor.get(id)+(lv>1&&plan[lv-2]===id?" runjoin":""):""));
+      +(multi&&row?" runc"+runColor.get(id)+(lv<plan.length&&plan[lv]===id?" runjoin":""):""));
     card.dataset.lv=String(lv);
     if(multi&&row){card.append(icoEl("grip","logrip")); card.draggable=true;}
     const body=el("div","lobody");
@@ -1676,9 +1708,16 @@ function renderGuideChain(steps,cur){
     // walk itself moves only from a row, so expanding is never an answer
     card.onclick=e=>{ if(e.target.closest(".gcstep"))return;
       e.stopPropagation(); GC.open=open?-1:lv; renderGuide(); };
+    // the drag is wired with the level's PLAN INDEX, never its position in the column —
+    // which is precisely why inverting the display leaves `wireRowDrag` untouched and the
+    // two surfaces still produce the identical plan from the identical drop (G1)
     wireRowDrag(card,lv-1,plan,GC,box,{enabled:multi&&!!row});
-    box.append(card);
+    into.append(card);
+    box.prepend(into);
   });
+  // last prepend wins the top: the direction sits above every level, including the
+  // growth affordance, because it governs the whole column
+  if(guideCanWalkDown())box.prepend(guideWalkStrip(total));
   box.scrollTop=keep;
   // keep the current step in view without touching the page's own scroll
   if(curEl){const r=curEl.getBoundingClientRect(), br=box.getBoundingClientRect();
@@ -1705,13 +1744,10 @@ function guideStepCount(st){
 }
 function renderGuideStage(steps,cur,rowOf){
   const st=$("#gStage"); if(!st)return; st.innerHTML="";
-  const top=topCharLevel();
   const need=steps.filter(x=>!x.optional), doneN=need.filter(x=>x.done).length;
-  st.append(el("p","gsnote",GUIDE.reverse
-    ?"Reconstructing over the build's own picks, "+(GUIDE.desc?`L${top} down`:"L1 up")
-      +" — each slot takes the pick that was acquired there; the rest drift to the top."
-    :(GUIDE.desc?`Walking L${top} down to L1`:"Walking L1 up")
-      +" — click any step in the chain to jump; everything is skippable (open slots stay flagged, never blocked)."));
+  // D131(c): the walk banner is gone. It named the walk (the direction control says that
+  // now), then spent a line explaining jumping and skipping — reference prose, which
+  // belongs behind the header's `?` (D88), not above every card on every visit.
   if(!cur){
     const card=el("div","gcard gdone");
     card.append(el("div","goptlab","nothing open"));
@@ -1738,9 +1774,13 @@ function renderGuideStage(steps,cur,rowOf){
   const cnt=guideStepCount(cur);
   if(cnt)hd.append(el("span","gcnt"+(cnt.full?" full":""),cnt.text));
   card.append(hd);
-  // the context line: which level, whose decision it is, and whether passing counts
+  // the context line: which level, whose decision it is, and whether this one is optional.
+  // "optional" STAYS — on a single-section step it is the only place that says so
+  // (`guideSecWrap` only labels sections when there are two or more to tell apart), and
+  // whether an unanswered step counts against you is status, not prose. Its old tail,
+  // "— passing on it is an answer", was the explanation, and went with D131(c).
   card.append(el("p","ghsub",["L"+cur.lv, rc?rc.name:null, cur.sub||null,
-      cur.optional?"optional — passing on it is an answer":null].filter(Boolean).join(" · ")));
+      cur.optional?"optional":null].filter(Boolean).join(" · ")));
   let any=false;
   cur.sections.forEach(sec=>{const bl=guideSecBlock(cur,sec,rowOf);
     if(bl){card.append(bl);any=true;}});
@@ -1798,8 +1838,11 @@ function renderGuideStage(steps,cur,rowOf){
       };
   nav.append(next);
   st.append(nav);
-  if(pend)st.append(el("p","gend","Next locks "+pend.what+" as the answer here. Skip moves on "
-    +"without it and leaves the step open."));
+  // What Next is about to WRITE is not prose — it warns about the action in front of you
+  // (D88 keeps exactly that), and it names the specific value, which no other surface
+  // does. Trimmed to that: the "Skip moves on without it" half was the rule, and the rule
+  // is in the header's `?` now (D131(c)).
+  if(pend)st.append(el("p","gend","Next locks "+pend.what+"."));
   if(term){
     // the step you are STANDING on is not "behind you" — counting it there would read as
     // one more thing to go back for than there is
@@ -1860,7 +1903,7 @@ function guideSubSelect(rowId,rowOf){
   // the prompt needs an EXPLICIT empty value: an <option> with no value attribute takes
   // its TEXT as the value, so the reset below would match nothing (the control goes
   // blank) and re-selecting the prompt would hand the handler a sentence to act on —
-  // the same trap `renderGuideMode`'s own prompt is written around
+  // the same trap the class step's "another class…" prompt below is written around
   const p=el("option",null,row.subKey?"change the subclass…":"choose a subclass…");
   p.value=""; sel.append(p);
   subs.forEach(sc=>{const k2=key(sc.name,sc.source);
@@ -1911,10 +1954,13 @@ function guideSecBlock(step,sec,rowOf){
       attachTip(x,tipBlock("Drop "+(sp?sp.name:"this pick"),
         "Takes it back out of this group. Nothing else moves, and it can be taken again."));
       chip.append(x); chips.append(chip);});
-    if(sec.have<sec.need)chips.append(el("span","cartchip ghost",
-      "+ "+(sec.need-sec.have)+" more"));
-    b.append(chips);
-    const c=sec.row!=null&&rowOf.get(sec.row)?CLS_BY[rowOf.get(sec.row).clsKey]:null;
+    // ONLY REAL PICKS ARE CHIPS (D131(d)). The "+N more" ghost took the shared
+    // `.cartchip:hover` accent border and answered no click — a control that looks
+    // interactive and does nothing is worse than the count it saved, and the counter in
+    // the card header (and in `guideSecWrap`) already carries that number. An empty row
+    // is not appended at all: `.gsecb` is a gapped column, so an empty flex child would
+    // leave a hole where the chips used to be.
+    if(chips.children.length)b.append(chips);
     const noun=sec.kind==="cpick"?"spells"
       :sec.pick==="cantrip"?(sec.need>1?"cantrips":"a cantrip")
       :sec.need>1?"spells":"a spell";
@@ -1924,17 +1970,13 @@ function guideSecBlock(step,sec,rowOf){
     // each section opens its OWN picker, scoped to its own pool (D131(a))
     btn.onclick=()=>openGpickSec(step,sec);
     b.append(btn);
+    // the ILLEGAL-slot line stays: it is an error about the pick in front of you, and it
+    // is the only place that says which way out there is (D131(c) keeps error states).
+    // What went with D131(c) are the two notes that described the PICKER rather than the
+    // build — "only what <class> can legally take here is listed…" and "these belong to
+    // the feature that granted them" — reference prose, now behind the header's `?`.
     if(sec.ill)b.append(hint("A spell here is above what the class could cast when this slot "
       +"arrived — the chain marks it. Placing the pick that really was learned here is what clears it."));
-    else if(!sec.done&&sec.kind==="pick")b.append(hint(GUIDE.reverse
-      ? "Only this build's own picks are listed — the modal places one at the slot you select."
-      : "Only what "+(c?c.name:"this class")+" can legally take here is listed"
-        +(sec.pick==="spell"?", up to level "+(sec.castMax||1):"")+", highest level first."));
-    // said once per card, on the first granted group — repeating it under every group of
-    // a feature that grants several is the verbosity D126 was raised about
-    else if(!sec.done&&sec.kind==="cpick"
-      &&step.sections.findIndex(x=>x.kind==="cpick")===step.sections.indexOf(sec))
-      b.append(hint("These belong to the feature that granted them — they don't spend a class slot."));
     return guideSecWrap(step,sec,b);
   }
   if(sec.kind==="choice"){ b.append(choiceRow(sec.choice)); return guideSecWrap(step,sec,b); }
@@ -1952,8 +1994,8 @@ function guideSecBlock(step,sec,rowOf){
     btn.onclick=()=>openEntityPicker("feat",
       sec.slot==="epic"?"epic":sec.slot==="origin"?"origin":"general");
     b.append(btn);
-    if(!sec.done&&sec.slot!=="origin")b.append(hint(
-      "Or take the Ability Score Improvement instead — ability scores aren't tracked here, so taking the ASI just means skipping this step."));
+    // the ASI note is reference — how to express a choice this app deliberately does not
+    // model — so it moved behind the header's `?` (D131(c) · D88)
     return guideSecWrap(step,sec,b);
   }
   if(sec.kind==="subclass"){
@@ -1973,8 +2015,10 @@ function guideSecBlock(step,sec,rowOf){
   }
   if(sec.kind==="class"){
     if(sec.done){
+      // a class step never hosts a merged choice, so it is always single-section and the
+      // value line always draws — which is the whole card: a level already taken is an
+      // answer, and where to CHANGE one is reference (the header's `?`, D131(c))
       if(!multi)b.append(val(sec.value));
-      b.append(hint("A level already taken changes on the character view — or drag its card in the chain to move it in the order."));
       return guideSecWrap(step,sec,b);
     }
     // D126(d): continue where you are, go back to the other class you were levelling, or
@@ -2050,10 +2094,13 @@ function guideSecBlock(step,sec,rowOf){
       "No "+kind+" was learned before this level — there is nothing to trade away yet."));
       return guideSecWrap(step,sec,b);}
     const cm=guideSwapMax(row,sec.lv);
-    b.append(hint("Optional. Tap the "+kind+" you are giving up, then pick what replaces it"
-      +(kind==="spell"?" — "+(c?c.name:"this class")+" may trade into "
-        +(cm===1?"level 1":"level 1–"+cm)+" here":"")
-      +". Passing on it is the other honest answer — just move on."));
+    // what is LEFT of the old paragraph is the only half that was state: the cap this
+    // class may trade into at THIS level, which nothing else on the card says. The
+    // instructions ("tap the one you are giving up… passing on it is the other honest
+    // answer") went with D131(c) — the step is already titled "Swap a spell", every chip
+    // carries its own hover tip, and "optional" is on the card's own context line.
+    if(kind==="spell")b.append(hint((c?c.name:"This class")+" trades into "
+      +(cm===1?"level 1":"level 1–"+cm)+" here."));
     const chips=el("div","gtchips");
     opts.forEach(k2=>{const sp=SPELL_BY[k2];
       const btn=el("button","gtchip");
@@ -6005,13 +6052,23 @@ function renderTimeline(){
   // run aggregation (D122): consecutive levels of one class read as a block — a
   // per-class rail plus a closed gap — because reordering INSIDE a run changes nothing
   const runColor=new Map(); plan.forEach(id=>{if(!runColor.has(id))runColor.set(id,runColor.size%4);});
-  // run divider labels (D124): each class block announces itself once, with its span
+  // run divider labels (D124): each class block announces itself once, with its span.
+  // THE COLUMN READS DOWNWARD FROM THE TOP LEVEL (D132), so a run's header is its
+  // HIGHEST level, not its lowest — keyed on `to`, which is where the block starts on
+  // screen. The label itself ("Bard · L2–L5") is a span and reads the same either way.
   const runs=[]; plan.forEach((id2,j)=>{
     if(j===0||plan[j-1]!==id2)runs.push({id:id2,from:j+1,to:j+1});
     else runs[runs.length-1].to=j+1;});
-  const runAt=new Map(runs.map(r2=>[r2.from,r2]));
+  const runAt=new Map(runs.map(r2=>[r2.to,r2]));
+  // The LOOP still walks the plan ASCENDING and only the INSERTION is reversed
+  // (`box.prepend` of a per-level fragment). Everything this loop computes is
+  // incremental — the running class level, and `planSlots(perClass)` read once before
+  // and once after each level — so walking it backwards would report the wrong class
+  // level on every row and the wrong slot table on all of them. Order of computation and
+  // order of display are two different things, and only the second one inverted.
   plan.forEach((id,i0)=>{
     const i=i0+1, row=rowOf.get(id); if(!row)return;
+    const into=document.createDocumentFragment();
     const cl=(perClass.get(id)||0)+1;      // advanced below, between the two slot reads
     const c=CLS_BY[row.clsKey];
     // a new class block opens with its divider label (D124)
@@ -6020,9 +6077,12 @@ function renderTimeline(){
       dv.append(el("span","rdot c"+runColor.get(id)));
       dv.append(document.createTextNode((c?c.name:"?")+" · "
         +(r2.from===r2.to?"L"+r2.from:"L"+r2.from+"–L"+r2.to)));
-      box.append(dv);}
+      into.append(dv);}
+    // `runjoin` closes the gap against the card ABOVE this one on screen. Descending,
+    // that is the level ABOVE (i0+1) — inverting the column without inverting this
+    // leaves every block's tight edge on the wrong side of its own divider.
     const card=el("div","locard tlrow"+(i>cur?" zplan":"")+(i===cur?" zpin":"")+(i===view?" here":"")
-      +(multi?" runc"+runColor.get(id)+(i0>0&&plan[i0-1]===id?" runjoin":""):""));
+      +(multi?" runc"+runColor.get(id)+(i0+1<plan.length&&plan[i0+1]===id?" runjoin":""):""));
     card.dataset.lv=String(i);
     if(multi){const g=icoEl("grip","logrip");card.append(g);card.draggable=true;}
     const body=el("div","lobody");
@@ -6241,12 +6301,17 @@ function renderTimeline(){
       // no-op on a drop is a dead control (the DOM-handler rule)
       if(dropChipOnLevel(d,i)){refreshAll();render();}
       else{card.classList.add("refuse");setTimeout(()=>card.classList.remove("refuse"),380);}}});
-    box.append(card);});
-  // the ghost row that ADDS a level, after the last run. One tap continues the class
-  // the plan ends on; the last other class sits beside it and the rest live in a compact
-  // menu (D126(d)'s shape). Every path writes through classLevelPlan() + an append to
-  // state.levelOrder — the same idiom the guide's class step uses, and the only one.
-  if(total<20)box.append(tlAddRow(plan,rowOf,total));
+    into.append(card);
+    // the level's divider and card go in TOGETHER, at the top: prepending them one at a
+    // time would put the card above its own divider
+    box.prepend(into);});
+  // the ghost row that ADDS a level. It sits at the TOP now (D132) — the growth end
+  // of an inverted column is its head, and it is the row you reach for most. One tap
+  // continues the class the plan ends on; the last other class sits beside it and the
+  // rest live in a compact menu (D126(d)'s shape). Every path writes through
+  // classLevelPlan() + an append to state.levelOrder — the same idiom the guide's class
+  // step uses, and the only one.
+  if(total<20)box.prepend(tlAddRow(plan,rowOf,total));
   // footer: fork a variant · set the current level · start the guide (D115(i,e), D118(i))
   const fork=$("#tlFork"),pin=$("#tlPin"),guide=$("#tlGuide");
   const icoBtn=(b,ico,txt)=>{b.innerHTML="";const l=el("span","lbl-ico");

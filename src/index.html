@@ -584,10 +584,30 @@
     <b class="gh-name" id="ghName"></b><span class="gh-ver" id="ghVer"></span>
     <span class="gh-lvl" id="ghLvl"></span>
     <span class="gh-prog" id="ghProg"><span id="ghProgN"></span><span class="gh-bar"><i id="ghBar"></i></span></span>
-    <select class="gh-mode hidden" id="ghMode" aria-label="Which walk"></select>
+    <button class="helpbtn" data-help="guideHelp" aria-expanded="false" aria-label="About the guided builder"></button>
     <button class="btn tiny gh-toggle" id="ghToggle"></button>
     <button class="btn tiny gh-swap lbl-ico" id="ghSwap" aria-label="Switch to the character view"><span class="ico" data-ico="views"></span><span class="ghs-t">Character view</span></button>
     <button class="x ico" id="ghClose" data-ico="x" aria-label="Exit the guide"></button>
+  </div>
+  <!-- D131(c): the guide carries no explanatory prose. Everything that was genuinely
+       load-bearing about HOW the walk behaves is here, behind the header's `?` — a
+       disclosure (D88), wired once at boot by wireHelpNotes() like every other one.
+       Live status and error states stayed on the cards where they belong. -->
+  <div class="helpbody ghelp hidden" id="guideHelp">
+    <p><b>Up</b> walks the build from level 1 and a pick you take fills the next open slot.
+    <b>Down</b> starts at the top level and narrows the pool to this build's own picks: a
+    click places one into the slot you selected, and anything never placed stays at the top
+    level, flagged rather than moved or deleted.</p>
+    <p>Click any step in the chain to jump to it. <b>Next</b> locks the answer the card is
+    showing and moves on; <b>Skip</b> moves on without it and leaves the step open. Nothing
+    here blocks you — an open slot is flagged on its level and never enforced.</p>
+    <p>A picker lists only what the class could legally take at that slot, highest level
+    first. Spells a <b>feature</b> grants get their own section: they don't spend one of the
+    class's own slots.</p>
+    <p><b>Ability scores aren't tracked here</b>, so taking the Ability Score Improvement
+    instead of a feat just means skipping that step.</p>
+    <p>A level already taken changes on the <b>character view</b>. Drag a level card in the
+    chain to move it in the acquisition order.</p>
   </div>
   <div class="gbody">
     <aside class="gchain" id="gChain" aria-label="The decision chain"></aside>
