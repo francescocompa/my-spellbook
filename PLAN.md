@@ -213,19 +213,15 @@ restate it. **The phase is CLOSED — H1/H2 (v1.2.27), H3 (v1.2.28), H4 (v1.2.31
 - [x] **H5 — 🔍 fresh-eyes gate** (**PASSED-WITH-FINDINGS 2026-08-31**, opus@high fresh
   agent, run as one session with I5) — D130(a–h) verified clause-by-clause in-browser on a
   Bard 6 / Wizard 2 / Warlock 3 fixture; D130(d) judged under its D131(a) supersession.
-  Nothing in phase H blocked. The three carried questions were tested and answered with
-  recommendations; **the calls are Francesco's**:
-  - **Q1 (place-mode cast cap):** gate recommends **keep** — it IS the right reading of
-    D118(g) (placing a too-high pick would manufacture an illegal state the sweep would
-    immediately flag). Suggested addition only: one line of status copy when the cap
-    excludes some of the section's own picks. ⚑ (owner: Francesco, 2026-08-31)
-  - **Q2 (`PREVIEW.level` survives `closeGuide`):** reproduced; not silent (level chip
-    shows `.prevon`). Gate recommends **snapshot on `openGuide`, restore on `closeGuide`**
-    — exit becomes the exact inverse of entry, no new persisted state (D118(j) intact).
-    Second choice: clear unconditionally. ⚑ (owner: Francesco, 2026-08-31)
-  - **Q3 (two-line pinned bar):** gate recommends **confirm** — measured at both widths;
-    the one-line form needs ~430px of content in a 375px bar and would ellipsise the step
-    label, the half worth returning for. ⚑ (owner: Francesco, 2026-08-31)
+  Nothing in phase H blocked. The three carried questions were tested, recommended on,
+  and **answered by Francesco 2026-08-31 → D134** (all three resolved, none open):
+  - **Q1** place-mode cast cap **kept** + one minimal `gphint` when the cap hides some of
+    the section's own picks (shipped v1.2.40, verified in-browser: "2 picks are above this
+    slot's cap — they fit a later slot.").
+  - **Q2** `PREVIEW.level` surviving `closeGuide` is **decided behaviour, kept as is** —
+    the gate's snapshot/restore and the unconditional clear are both rejected, don't
+    re-propose them.
+  - **Q3** the two-line pinned bar is **confirmed**; D130(e) annotated in place.
 - [x] **H6 — capitalization sweep** (**merged v1.2.30**, done-when verified in-browser
   including a print lift). The audit's mechanism held: **one shared display helper + ~25
   source-string edits, no CSS work.** `cap1` is now the file's ONLY display capitaliser — the

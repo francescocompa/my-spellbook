@@ -1285,7 +1285,9 @@ written up in full in `GOTCHAS.md` — that is the copy to trust.
     tab, which Francesco reported as not working. **Refined at merge (2026-08-30, v1.2.31):**
     the bar renders the line on TWO lines — "Back to the guide" over "Step N of M · <label>"
     — because at 375px the single em-dash-joined string ellipsised the step label, which is
-    the half that makes the bar unmissable; the em dash became the line break. Three choices
+    the half that makes the bar unmissable; the em dash became the line break. **CONFIRMED
+    by Francesco 2026-08-31 (D134(c))** on the H5 gate's measurement — the two-line form is
+    the decided one; the single string was the sketch. Three choices
     the clause left open, settled at build: the guide slides LEFT (its chain column's own
     side) to a 14px accent edge and stays mounted `inert` + `pointer-events:none`; the bar is
     pinned at the TOP as a sticky flow element (the bottom belongs to the phone jump bar, and
@@ -1454,10 +1456,31 @@ written up in full in `GOTCHAS.md` — that is the copy to trust.
     the moment the I5 gate proved the copies byte-identical; card bodies stay per-surface,
     `wireRowDrag` stays separate on plan indices. Supersedes the keep-in-step-by-hand rule
     the I2 merge left (its Gotcha entry updated).
-  Three gate questions stay **OPEN**, Francesco's: Q1 place-mode cap copy line, Q2 preview
-  snapshot/restore on exit, Q3 the two-line pinned bar — see PLAN's H5 block, each ⚑.
   Affects: src/app.js (guide + timeline + `wireRowDrag`), src/styles.css (print list,
   chain top margin), GOTCHAS (D132 entry), PLAN (G4/H5/I5 closed).
+
+- **D134 (2026-08-31) DECIDED — the three gate questions, answered by Francesco**
+  (AskUserQuestion round at the gate session's close; shipped v1.2.40).
+  - **(a) The place-mode cast cap STAYS, plus one minimal alert.** Raw: *"Keep + add a
+    subtle alert, let's try to keep the copy and notes text to a minimum."* The H5 gate's
+    reading of D118(g) is confirmed: a too-high pick is never placeable into a low slot —
+    the repair is placing a legal pick and letting the offender drift later. What was
+    missing was one quiet line when the cap hides some of the section's own picks, now in
+    `renderGpick`: "N picks are above this slot's cap — they fit a later slot." (a
+    `gphint`, spells only — cantrips have no cap). *Rejected:* allowing over-cap placement
+    (manufactures the violation the walk exists to repair); keeping the list silent (the
+    short list reads as the whole of it).
+  - **(b) `PREVIEW.level` KEEPS surviving `closeGuide`.** Raw: *"Keep as is."* Exiting the
+    walk leaves the character view at the last-visited step's level; the level chip's
+    `.prevon` state makes it visible and one click clears it. *Rejected:* the gate's
+    snapshot-on-open/restore-on-close (exit as the exact inverse of entry); clearing
+    unconditionally. Neither may be re-proposed as a "fix" — this is decided behaviour.
+  - **(c) The pinned bar's TWO-LINE form is confirmed** — D130(e) annotated in place. The
+    measured case: one line needs ~430px of content in a 375px bar and would ellipsise the
+    step label, the half worth returning for. *Rejected:* one line everywhere; a
+    desktop-only one-line variant (two forms of one bar).
+  Affects: src/app.js `renderGpick` (the (a) alert), DECISIONS D130(e) annotation,
+  PLAN's H5 block (three ⚑ resolved).
 
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for

@@ -2383,6 +2383,15 @@ function renderGpick(){
     ? "A pick taken here fills the still-open L"+land.lv+" slot first — that is where it lands."
     : "Every slot of this kind is filled. Click one you hold to drop it first."));
   if(g.mode==="place"&&sec.kind==="pick")list.append(gpickSlots(sec));
+  // D134(a): in place mode the cap can hide some of the build's OWN picks — without one
+  // quiet line the short list reads as the whole of it. The rule itself stands (D118(g)):
+  // a too-high pick is never placeable here, it belongs in a later slot and drifts there.
+  if(g.mode==="place"&&sec.kind==="pick"&&sec.pick!=="cantrip"&&cap){
+    const over=(((state.chosen[sec.row]||{}).spells)||[])
+      .map(k=>SPELL_BY[k]).filter(sp=>sp&&sp.level>cap).length;
+    if(over)list.append(el("div","gphint",over+(over===1?" pick is":" picks are")
+      +" above this slot's cap — they fit a later slot."));
+  }
   const all=guideEligible(sec,g.mode,cap);
   const items=all.filter(sp=>!q||sp.name.toLowerCase().includes(q));
   shown=items.length;

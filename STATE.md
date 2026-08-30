@@ -12,7 +12,7 @@
 > | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 > | `ARCHIVE.md` | Bodies of consumed phases and old rationale |
 
-## TL;DR (2026-08-31 · **v1.2.39**, committed locally, **NOT pushed** · Pages still serves v1.2.38)
+## TL;DR (2026-08-31 · **v1.2.40**, committed locally, **NOT pushed** · Pages still serves v1.2.38)
 - **State:** **all three gates ran 2026-08-31 and all three PASSED-WITH-FINDINGS** — G4,
   H5 and I5, each by a fresh opus@high agent coordinated by a session that built nothing
   (model policy satisfied). **Phases G, H and I are CLOSED.** The findings shipped as
@@ -28,12 +28,12 @@
   logic is extracted into one `levelColumn` owner — done the moment the gate proved the
   copies byte-identical; Gotcha updated. Plus the small ones (`.spmodal` print leak, cantrip
   noun, one `guideAdvance`, stale comments, chain top margin).
-- **Next action:** **three calls are Francesco's** (asked at session close, ⚑ in PLAN's H5
-  block): **Q1** keep the place-mode cast cap + add one status line (gate recommends keep);
-  **Q2** preview on exit — gate recommends snapshot-on-open/restore-on-close; **Q3** confirm
-  the two-line pinned bar (gate recommends confirm, measured). Then **push** to deploy
-  v1.2.39 to Pages — deliberately left to Francesco. The queue keeps its standing items;
-  the fattest small one is still `refreshAddFeat()`'s `#epicRow` staleness.
+- **Next action:** **push** — `git push && git push --tags` deploys v1.2.39+v1.2.40 to
+  Pages; deliberately left to Francesco. The three gate questions were asked and answered
+  in-session → **D134** (Q1 cap kept + minimal alert, shipped v1.2.40; Q2 preview-on-exit
+  kept as is, both alternatives rejected; Q3 two-line bar confirmed, D130(e) annotated).
+  Nothing else is open but the standing queue; the fattest small item is still
+  `refreshAddFeat()`'s `#epicRow` staleness.
 - **Manual for Francesco:** ⓪ **Refresh your imported data in each browser — still the top
   item** — ⋯ → **Refresh imported data** (since v1.2.23 it runs inline and SHOWS a green
   "Re-imported N books" / a red reason). A pre-**D127** digest still holds the unresolved
@@ -52,8 +52,8 @@
   in Sources** for Find Familiar's Monster Manual 2024 forms in the default view (D81).
   ⑤ Optional — ask GitHub Support to gc so the old unreachable commits (SHA 2c8bbb6 etc., held
   only in `backup/pre-purge-20260826` locally) stop being SHA-addressable. ⑥ **Push to deploy
-  v1.2.39** — the gate fixes are committed locally only; `git push && git push --tags` puts
-  them on Pages. ⑦ `dist/`, `data/`, `data-srd.json` are gitignored; public SRD data is
+  v1.2.40** — the gate fixes and D134 are committed locally only; `git push &&
+  git push --tags` puts them on Pages. ⑦ `dist/`, `data/`, `data-srd.json` are gitignored; public SRD data is
   inlined in committed `docs/`.
 
 ## What this is
@@ -69,9 +69,9 @@ https://claude.ai/code/artifact/47dbe945-a18a-4444-af21-c0143faa2eb0
 
 **Phases E, F, G, H and I are ALL DONE** — every gate has passed (E8, F4, and on
 2026-08-31 G4, H5 and I5, all three PASSED-WITH-FINDINGS with the findings fixed in
-v1.2.39 → D133). No phase is open and no gate is owed. What remains is Francesco's three
-⚑ calls in PLAN's H5 block (Q1/Q2/Q3), the push that deploys v1.2.39, and the standing
-queue/backlog items.
+v1.2.39 → D133; the three gate questions answered by Francesco → D134, v1.2.40). No phase
+is open, no gate is owed, no ⚑ from the gates remains. What remains is the push that
+deploys, and the standing queue/backlog items.
 v7 (saved builds) is complete → `ARCHIVE.md#v7-tasks`. Non-goals as narrowed by D115: no
 **authored** timeline (the level view is derived from the acquisition order; versions are
 alternatives, never levels), no server sync or accounts, no sharing a build as a page or
