@@ -273,13 +273,21 @@ Francesco's notes after using the shipped phase H — the full model is **D131(a
 don't restate it. Four parallel builds, then a gate. **Nothing here is gated on H5**: the
 surfaces are the same ones phase H shipped, and neither phase has been reviewed yet.
 
-- [ ] **I1 — the pick modal** (D131(a,b)): one picker per SECTION, not one per step
+- [x] **I1 — the pick modal** (**merged v1.2.35**, done-when verified in-browser: a
+  spellcasting step opens two scoped pickers and Magic Initiate four; the three footer states
+  measured with transitions forced off; the click closes and advances to the same target Next
+  computes; cap honesty and place-mode slot addressing both intact; trade still records): one picker per SECTION, not one per step
   (superseding D130(d) — D130(c)'s step grouping is unchanged); the footer button becomes the
   proceed nudge in three states ("Choose N more" quiet/disabled → accent "Done — next step"),
   and its click closes AND advances the walk. The `#gpPill` goes. Cap honesty (D125) and the
   place-mode slot addressing (D118(f,g)) must both survive. Carries the modal's share of
   D131(c) — its explanatory `#gpSub`/`#gpPill` prose.
-- [ ] **I2 — the guide's chrome, and both columns invert** (D131(c,d,e) + **D132**): the
+- [x] **I2 — the guide's chrome, and both columns invert** (**merged v1.2.37**, done-when
+  verified in-browser and again on the merged tree: the chain reads L6→L1 and the timeline
+  L5→L1 with its add row on top; the same drag on either surface produced the identical plan
+  and the D122 no-op guard refused identically on both; zero walk banners, zero ghost chips;
+  the arrow toggles "from L1" ↔ "from L5"; "reconstruct" scanned to zero hits across 36 step
+  visits and the timeline, in text and in every aria-label/title): the
   explanatory prose off the stage and the section blocks (live status and error/empty states
   stay; anything load-bearing moves behind D88's `?` disclosure — note `wireHelpNotes()` is
   boot-only and the guide is JS-built, so it needs a re-call); the dead "+ N more" ghost chip
@@ -300,7 +308,10 @@ surfaces are the same ones phase H shipped, and neither phase has been reviewed 
   guide slides fully off-canvas (the `body.gaside` offsets key off `--gbh`, not the edge, so
   they stay); the chain rail's drag handle aligns to the level chip and title row on a
   collapsed card without breaking the open card that `align-items:flex-start` exists for.
-- [ ] **I4 — the familiar pin** (D131(g), refined mid-build): a DEDICATED modal for the
+- [x] **I4 — the familiar pin** (**merged v1.2.36**, done-when verified in-browser incl. print:
+  the offer appears the instant the boon is taken, the two tiers differ by order, elevation,
+  colour, opacity AND disclosure, marks and dismissal survive a reload, dismissal pins nothing,
+  a marked form prints and the nudge goes): a DEDICATED modal for the
   familiar choice — the eight Pact of the Chain forms as the unique tier, Find Familiar's own
   ~65 offered subordinate to them — whose choice IS the pin, routed through `toggleFav` so the
   carousel star, `orderedCreatures` and `printCreatures` keep one writer. Optional and
@@ -308,6 +319,35 @@ surfaces are the same ones phase H shipped, and neither phase has been reviewed 
   matches the exact `name|source` key (app.js:6657) while `grantRec` resolves by NAME only
   (app.js:592), so a PHB/XPHB split between boon and spell silently drops every granted form —
   fix it with D127's successor-aware machinery, and prove the failing case.
+- [ ] **Next duplicates `guideAdvance()`'s expression** (I1, flagged not fixed): the stage's
+  Next inlines the same `guideStepAfter`/`guideGo` pair the modal's footer now calls
+  (app.js:1786-1789 pre-merge — re-check after I2). One writer, one line. Do it after the
+  phase I merges settle.
+- [ ] **The guide's pre-filter is capped by `PREVIEW`, not only by the landing slot** (I1,
+  flagged, PRE-EXISTING): standing at L1 with the L3 slot open, the hint honestly says a take
+  lands in the L3 slot (cap 2) but `R.pool` offers only levels ≤ 1, because `guideGo` set the
+  preview to L1. It UNDER-offers, so it can never produce an illegal pick — but it is a
+  D118(b) honesty gap. Look at it during the H5/I5 gate.
+- [ ] **`.spmodal` is missing from the print `display:none` list** (I4, flagged not fixed,
+  PRE-EXISTING): `src/styles.css:1537-1539` lists `.modal`, but the spell detail overlay is
+  `.spmodal` — printing with a spell modal open puts the overlay on the sheet. One token.
+- [ ] **`favKey` is per PRINTING, so a mark is stored under one edition** (I4, flagged): a
+  mark lives under `Find Familiar|XPHB`; if `grantRec` later resolves the other printing (the
+  reprint filter set to `all`, or a book toggled) the mark is not seen. Deterministic and
+  consistent under the default filter — every surface goes through `grantRec` — but making
+  `sbFav` itself edition-tolerant is a storage-shape change. ⚑ (owner: Francesco, 2026-08-30)
+- [ ] **The Down walk resumes on the "next level" growth step** (I2, flagged not fixed,
+  PRE-EXISTING D121/D118(j)): `guideSync`'s reverse re-entry takes `guideWalk(steps)[0]`,
+  which descending is the `top+1` growth affordance — so Down's first screen is a levelling
+  card rather than a placement, on a build with no illegal slots.
+- [ ] **`guideCanWalkDown()` is looser than "has something to place"** (I2, flagged): it reads
+  `guideAnswered()`, which counts species, feats and optional features — none of which the
+  Down walk can place. Kept deliberately at merge (it is the old `<select>`'s own predicate,
+  so no build changed behaviour); tightening it to "has any spell/cantrip pick" is one line.
+- [ ] **`renderGuideChain` and `renderTimeline` now duplicate four pieces of inversion logic**
+  (I2, flagged): runs/`runAt` keyed on `to`, the per-level fragment, `runjoin` reaching
+  upward, and the `prepend`. Left duplicated rather than extracting a helper mid-wave with
+  three agents in the file — but they must be kept in step. → now a Gotcha.
 - [ ] **I5 — 🔍 fresh-eyes gate** (separate session) — phase I against D131(a–h). **May be run
   as ONE session with H5**, since the two phases share surfaces and neither has been gated;
   it must still be a session that built neither.

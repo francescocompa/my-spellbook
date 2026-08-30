@@ -1395,6 +1395,17 @@ written up in full in `GOTCHAS.md` — that is the copy to trust.
   columns descending, ↑ Up means up on screen and in the fiction, and the control can sit in
   the rail and show its travel rather than merely label it. **The "+ add level" row moves to
   the top** — it is the growth end now (D126(d)'s shape, re-anchored).
+  **Refined again, same day, mid-build — the control is a GHOST ARROW BUTTON, not a switch.**
+  Raw: *"for the up/down button, make it a simple ghost arrow button next to the from level
+  note (a short popover explains it on hover)."* One quiet ghost button carrying an arrow
+  that points the way the walk travels — with the columns inverted the arrow agrees with the
+  screen, so the glyph carries the meaning and the button needs no label; it sits beside the
+  rail's "from level" note, clicking toggles the direction, and a short `attachTip` popover
+  says what that direction does. (Two standing traps apply: `attachTip` goes AFTER the
+  element's own `onclick` or it swallows the click, and the arrow comes from `ICONS`/`icoEl`
+  per D57, never a typed glyph.) *Rejected on the way here:* a two-state segmented switch in
+  the guide header (D131(e) as first written); the same switch moved into the rail with a
+  travel treatment on the spine.
   Load-bearing consequence, carried into the build brief: **the row drag is ONE shared
   implementation** (`wireRowDrag` + `commitPlan`, extracted in G1 and called by both surfaces),
   so the visual-position → plan-index mapping inverts in one place, and **G1's acceptance test

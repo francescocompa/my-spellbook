@@ -421,6 +421,19 @@
   scratch build was overwritten in place. Any agent that drives the pane must treat browser
   storage as SHARED: snapshot `spellForge.*` (and note IndexedDB) before writing, restore
   byte-identical after, and verify the restore — never trust port isolation.
+- **The level columns display DESCENDING, but nothing computes descending (D132).** Since
+  v1.2.37 the guide's chain rail and the timeline modal both read highest-level-first, and
+  the whole inversion is a rendering concern: `plan` is still ascending, and **`wireRowDrag`
+  takes PLAN indices** (`wireRowDrag(card, lv-1, plan, …)`), which is exactly why the one
+  shared drag implementation needed no change and why the same drag on either surface still
+  yields the identical plan. If you ever find yourself converting a visual position into a
+  plan index, stop — you are re-deriving something the call already has. What DID have to
+  change is anything that read order off the screen: a run's header keys on its **highest**
+  level (`runAt` on `r.to`), `runjoin` reaches upward, rows `prepend` instead of append, and
+  the "+ add level" row heads the column. **`renderGuideChain` and `renderTimeline` carry
+  four near-identical copies of that logic** — they were left duplicated because three agents
+  were in the file at once, so **a change to one is a change to both**; they were verified
+  equal by dragging the same row on each surface and diffing the resulting plan.
 - **A HIDDEN browser pane does not composite — the page looks broken when the code is fine.**
   While the pane is hidden, `innerWidth`/`innerHeight` read **0**, every
   `getBoundingClientRect()` collapses to `0,0` (so coordinate clicks are refused as
