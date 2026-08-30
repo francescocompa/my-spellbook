@@ -162,8 +162,10 @@ Order: G1 → G2 → G3 → G4.
 ## Phase H — guided builder v2 (D130, decided 2026-08-30)
 
 Refinements from using the shipped phase G — the full model is **D130(a–h)**; cite it, don't
-restate it. H1/H2 are in flight as agents; H3 is the big one and waits for H1 to merge
-(same code region). The G4 gate reviews phase G as shipped; **phase H gets its own gate (H5)**.
+restate it. **The build is COMPLETE — H1/H2 (v1.2.27), H3 (v1.2.28), H4 (v1.2.31) and H6
+(v1.2.30) have all merged; only the H5 gate remains.** The G4 gate reviews phase G as
+shipped; **phase H gets its own gate (H5)**, and neither may be run by a session that built
+the phase.
 
 - [x] **H1 — guide navigation** (**merged v1.2.27**): the dead end-of-walk button was the
   trailing "Next level" step — always open, always last, so `nxOpen` was null there; two
@@ -188,29 +190,54 @@ restate it. H1/H2 are in flight as agents; H3 is the big one and waits for H1 to
   header counter; (c) one step per feature/source with a section per logical group
   (`guideSteps` regrouping — reverses D118(c) in part; reconstruct keeps slot placement
   inside the modal); (d) the multi-pick modal with per-section counters.
-- [ ] **H4 — the character drawer** (NEXT — H3 has merged): D130(e) — "Character" slides the guide aside
-  with a persistent bar naming the step you left, which can also END the walk; G1's
-  `GUIDE.away` + vanishing Guide tab come out.
-- [ ] **H5 — 🔍 fresh-eyes gate** (separate session) — phase H against D130(a–h). H3's own
-  gate question, carried: in reverse `place` mode the eligible list still applies the slot's
-  cast cap, so a pick that is too HIGH for a slot cannot be placed into it (the repair is to
-  place a legal pick and push the offender later). Is that the intended reading of D118(g)?
-- [ ] **H6 — capitalization sweep** (AUDITED 2026-08-30; H3 has merged, so it is unblocked —
-  re-check the guide-region line numbers against the new step/section code first). Mechanism decided by the audit:
-  **one shared display helper + ~20 source-string edits, no CSS work** — `cap`/`cap1` and
-  three inline copies already exist and `cap1` is already used this way on filter values, so
-  this is consolidation. Highest value: **`sp.time`** renders lowercase ("action") beside
-  capitalized `range`/`durTxt` in EVERY spell meta row, the spell modal and the PRINT card;
-  and Francesco's own example, `"casting ability"`/`"choose one"` (app.js:2444), which
-  renders twice — Choices card and the guide stage, directly under an H2 saying the same
-  thing. Grant descs should route through the existing `guidePickAsk(c) ?? cap1(fmtDesc())`,
-  which also fixes 5etools' lowercase class names and "a Artificer". **Do NOT capitalize
-  (would be a bug, not a copy fix):** `OWNER_KIND` values (keys into `OWNER_POOL`), `"— none —"`
-  (a persisted value in saved builds), `choiceRow`'s option labels (they ARE the stored
-  values), `sp.tcat`/`CT_OPTS[i][0]` (filter keys + stored custom-spell values),
-  `rechargeShort()` output (regex-matched by the printed tracker), and every `[0]` element of
-  the CSRC/SAVE/CT option tables. ~30 strings are already uppercased by CSS — leave those.
-  The `…`-placeholder family ("+ add a class…") is deliberate and needs its own call.
+- [x] **H4 — the character drawer** (**merged v1.2.31**, done-when verified in-browser at 1280
+  AND 375, and again on the merged tree): D130(e) — the guide slides aside to a 14px accent
+  edge and stays MOUNTED (inert, `pointer-events:none`) rather than being swapped away; a
+  sticky bar names the step you left ("Back to the guide / Step 12 of 16 · Feat / ASI") and
+  carries the **Exit builder** control that ends the walk from that state (D130(h) wording).
+  G1's `GUIDE.away` and the vanishing `#tabGuide` are gone from app.js, index.html and CSS.
+  The bar tracks the walk live (levelling while aside recounted 16 → 18 → 16), entries used
+  while aside resume the same step, print is restored in both states, and exiting leaves
+  storage byte-identical. **Deviation, accepted at merge:** the bar renders as TWO lines, not
+  one em-dash-joined string — at 375px the one-line form ellipsised the step label; the em
+  dash became the line break. Open choices it settled, for the H5 gate to confirm: the guide
+  slides LEFT (its chain column's own side); the bar is pinned at the TOP (the bottom belongs
+  to the phone jump bar) as a sticky flow element.
+- [ ] **H5 — 🔍 fresh-eyes gate** (**the only open task in phase H** — separate session; NOT
+  the session that coordinated H1–H4/H6) — phase H against D130(a–h). Three questions carried
+  by the builds:
+  - **H3:** in reverse `place` mode the eligible list still applies the slot's cast cap, so a
+    pick that is too HIGH for a slot cannot be placed into it (the repair is to place a legal
+    pick and push the offender later). Is that the intended reading of D118(g)?
+  - **H4:** `PREVIEW.level` survives `closeGuide` — jumping to a step sets the level preview
+    (D115(d)) and exiting leaves `body.previewing` on, so the character view stands at that
+    level. Pre-existing, not H4's, but ending the walk from the drawer now lands you looking
+    straight at it. Intended, or should the exit clear the preview?
+  - **H4:** the pinned bar renders on two lines instead of D130(e)'s single em-dash string
+    (a 375px fit). Accepted at merge — confirm or reject.
+- [x] **H6 — capitalization sweep** (**merged v1.2.30**, done-when verified in-browser
+  including a print lift). The audit's mechanism held: **one shared display helper + ~25
+  source-string edits, no CSS work.** `cap1` is now the file's ONLY display capitaliser — the
+  top-level `cap` and three inline copies are gone, and it is never applied to a stored value.
+  `sp.time` capitalised at all 8 render sites (meta rows, spell modal, table restore tip,
+  hover tip, custom-spell preview, PRINT card); `"casting ability"`/`"choose one"` fixed once
+  in `choiceRow` (**app.js:2776, not 2444** — H3 moved it), which the Choices card and the
+  guide stage both reach; grant descs route through `cap1(guidePickAsk(c) || fmtDesc(c.desc))`
+  at 4 sites, which also fixed the lowercase class names and "a Artificer"; 13 label-initial
+  strings follow. The do-not-touch list was verified by round-trip, not assumed: option
+  labels, `— none —`, `sp.tcat`/filter keys, `rechargeShort()` and the CSRC/SAVE/CT tables all
+  still persist and match. Left deliberately: the `…`-placeholder family, the ~30 CSS-uppercased
+  strings, and mid-row fragments in the custom-source editor.
+- [ ] **The `…`-placeholder family needs Francesco's one call** (H6, left as scoped): "+ add a
+  class…", "cantrip leaving…", "its replacement…", "filter books…", "note — e.g. …" — plus the
+  same-shaped "no filter" options the audit had missed, `all schools` / `all classes`
+  (index.html:139-140), `"any save"` / `"any damage"` (app.js:6383-6384) and `#fChosen`'s
+  `picked` (index.html:135). They are internally consistent; one call settles all of them.
+  ⚑ (owner: Francesco, 2026-08-30)
+- [ ] **`.gcstep.optional .gcl::after{content:" · optional"}`** (styles.css:1822) is the
+  CSS-authored twin of the `"Optional"` H6 capitalised at app.js:2042. Different surface
+  (chain rail, appended mid-line after a middot) and the audit said no CSS work — but if the
+  two should match, that is the line. ⚑ (owner: Francesco, 2026-08-30)
 - [ ] **Third-caster max spell level is one tier low from class level 7** (H2 agent, flagged
   not fixed): `maxLvlAt("1/3",L)` uses `ecl=floor(L/3)`, so an Arcane Trickster / Eldritch
   Knight gets 2nd-level spells at class level 9 when the mirror's own
@@ -218,13 +245,27 @@ restate it. H1/H2 are in flight as agents; H3 is the big one and waits for H1 to
   This is D68's two clocks: `floor` is right for multiclass slot pooling, `ceil` for the
   class's own max spell level, and `ecl` currently serves both. Neither extractor reads
   `subclassTableGroups`. Touches multiclass slot maths. ⚑ (owner: Francesco, 2026-08-30)
-- [ ] **`renderOptFeats()` goes stale after a class or level change** (spotted by the
-  capitalization audit, HIGH SUSPICION not proven): it runs only inside `refreshAll()`, but
-  the class-row `onchange` (app.js:6621) and the level stepper (6642) call
-  `renderClassRows(); render();` instead — so the optional-features block can show the wrong
-  slots until something else forces a full refresh. Verify from a fresh load, then fix.
-- [ ] **`#tableChip` has no singular case** — reads "1 spells" (app.js:4778); every sibling
-  count in the file guards this (`nsp()`, `"pick"+(n===1?"":"s")`).
+- [x] **`renderOptFeats()` goes stale after a class or level change** (**fixed v1.2.29** —
+  the suspicion was right and understated). Five handlers, not two, call
+  `renderClassRows(); render();` (class swap, subclass, level stepper, remove row, and
+  `#addClass`), and `render()` never called `renderOptFeats()`. Reproduced from a fresh load:
+  the block did not draw at all on the first add, and once drawn it LIED — a Warlock stepped
+  2 → 1 kept reading "0/3" against `optSlots()`'s 0/1. Fixed by moving the call into
+  `render()` beside `renderFeatBudget()` rather than widening the handlers to `refreshAll()`:
+  it holds no `<select>`, `<input>` or disclosure, which is exactly why the rest of
+  `refreshAll()` is deliberately kept out of the render pass. Also closes the same hole on
+  the feat-chip remove handler.
+- [x] **`#tableChip` has no singular case** (**fixed v1.2.29**) — guards the way every
+  sibling count in the file does; `nsp` was NOT reused (it is a `const` local to
+  `renderSpells()`).
+- [ ] **`refreshAddFeat()` has the identical defect for `#epicRow`** (found while fixing the
+  above, 2026-08-30 — HIGH CONFIDENCE from reading, NOT reproduced in the browser): it
+  toggles `#epicRow` on `featBudget().epic`, which per D114 is a function of
+  `featSlotLevels()` → `classLevelPlan()` → class levels, yet it too runs only inside
+  `refreshAll()`. So stepping a class across the level where an Epic Boon slot arrives should
+  leave the row showing the previous answer. Verify from a fresh load, then fix. The other
+  three `refreshAll()` members are clean (`refreshSpecies`, `renderCustomSources`,
+  `renderFeatChips` read `state.*`, not class levels).
 
 ## Queue
 - [ ] **Magic-item / reward ingestion** — 🔶 **RESEARCHED 2026-08-27, awaiting Francesco's call.**

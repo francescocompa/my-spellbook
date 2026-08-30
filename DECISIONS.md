@@ -1282,9 +1282,17 @@ written up in full in `GOTCHAS.md` — that is the copy to trust.
     names the step you left ("Back to the guide — step 12 of 23 · Cantrips"), plus a control
     to CLOSE the walk from that state. Raw: *"F - drawer with a persistent return that can
     also be closed form the drawer state."* Supersedes G1's `GUIDE.away` + vanishing Guide
-    tab, which Francesco reported as not working. *Rejected:* A read-only peek panel, B a
-    permanent Guide tab, C a third column (all three rejected in round one); D guided-mode
-    banner over the normal app and E split view (round two).
+    tab, which Francesco reported as not working. **Refined at merge (2026-08-30, v1.2.31):**
+    the bar renders the line on TWO lines — "Back to the guide" over "Step N of M · <label>"
+    — because at 375px the single em-dash-joined string ellipsised the step label, which is
+    the half that makes the bar unmissable; the em dash became the line break. Three choices
+    the clause left open, settled at build: the guide slides LEFT (its chain column's own
+    side) to a 14px accent edge and stays mounted `inert` + `pointer-events:none`; the bar is
+    pinned at the TOP as a sticky flow element (the bottom belongs to the phone jump bar, and
+    sticky means nothing hides under it); the end control reads **"Exit builder"**, matching
+    (h). *Rejected:* A read-only peek panel, B a permanent Guide tab, C a third column (all
+    three rejected in round one); D guided-mode banner over the normal app and E split view
+    (round two).
   - **(f) No walk chooser on entry** — entering goes straight into the walk at its resume
     point; reconstruct becomes a control INSIDE the guide, so both walks (D118(f)) survive
     without a gate screen. Raw: *"the current start of the guided builder feels kind of

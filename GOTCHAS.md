@@ -421,5 +421,22 @@
   scratch build was overwritten in place. Any agent that drives the pane must treat browser
   storage as SHARED: snapshot `spellForge.*` (and note IndexedDB) before writing, restore
   byte-identical after, and verify the restore — never trust port isolation.
+- **A HIDDEN browser pane does not composite — the page looks broken when the code is fine.**
+  While the pane is hidden, `innerWidth`/`innerHeight` read **0**, every
+  `getBoundingClientRect()` collapses to `0,0` (so coordinate clicks are refused as
+  "outside the viewport"), `requestAnimationFrame` never fires, and **CSS transitions freeze
+  at `currentTime:0`** — meaning `getComputedStyle(el).transform` reads the IDENTITY matrix
+  on an element that is in fact slid aside. An agent verifying a transition in a hidden pane
+  will conclude the animation "doesn't work" and go hunting a bug that isn't there
+  (2026-08-30, H4's drawer). Drive the DOM with `el.click()` and assert on classes, `inert`,
+  computed `display` and text instead; force an animation's end state with
+  `getAnimations().forEach(a=>a.finish())`; and only trust geometry once
+  `tabs_context` says the pane is displayed.
+- **`pkill -f serve.py` kills EVERY agent's dev server, not yours.** One agent's cleanup took
+  down two sibling agents mid-verification (2026-08-30). And the obvious narrowing does not
+  work either: `pkill -f "PORT=8011"` matches nothing, because `PORT` is an environment
+  variable, not an argv token — it kills only the wrapping shell and leaves the python
+  process serving. Kill by PID captured at launch, or resolve it:
+  `lsof -nP -iTCP -sTCP:LISTEN | grep 8011` then `kill <pid>`.
 - **History purge:** old data-bearing commits are unreachable on origin but GitHub may still serve
   them by exact SHA until it gc's. `backup/pre-purge-20260826` (local) has the original.

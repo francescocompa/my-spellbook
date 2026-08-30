@@ -12,31 +12,25 @@
 > | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 > | `ARCHIVE.md` | Bodies of consumed phases and old rationale |
 
-## TL;DR (2026-08-30 · **v1.2.28**, pushed, tags pushed · **LIVE on GitHub Pages**)
-- **State:** tree clean, everything committed and pushed. **Twelve tagged releases across two
-  days (v1.2.17 → v1.2.28)**, most built by parallel Opus agents in worktrees and merged here.
-  ① **F4 passed** → phase F done, with **D125** fixed in-gate (a forward pick step now clamps
-  to the row's FIRST open slot, because a take always lands there). ② **The wave batch**:
-  **D128** swaps are per KIND (one leveled-spell trade + one cantrip trade per level-up, rules
-  read from XPHB prose class by class; Wizard cantrip 1/LR in the prepare modal);
-  **D129** Refresh imported data runs inline with real progress/outcome feedback and **two
-  false-success holes closed** (a failed folder read used to re-store the unchanged digest
-  under a new parser stamp and report success); plus no-duplicate-multiclass, the picker
-  popover batch (`composedPath` closer), foldable level groups, and the timeline batch
-  (movable retrain trades, per-half count tiles, quiet choosers, copy scrub, add-level row).
-  ③ **D127 built** — 5etools `_copy` twins resolved in both extractors + `supersededBy`,
-  which healed **73 subclasses that granted NOTHING** and 67 missing from 2024 pickers.
-  ④ **Phase G**: the guided builder is a **full-size page** (D126) — chain column in the
-  timeline's language with shared drag-to-reorder, decision stage, pick modal over it, choice
-  steps that open the app's real choosers. ⑤ **Phase H started** (D130, from using it):
-  H1 nav + H2 subclass spell lists merged in v1.2.27, and **H3's v2 surfaces in v1.2.28** (the rail collapses to one severity icon per level; a step is one FEATURE with a section per group; one modal takes all of a step's picks).
-- **Next action:** **H4 — the character drawer** (D130(e): "Character" slides the guide aside
-  with a persistent bar naming the step you left, which can also END the walk; G1's
-  `GUIDE.away` + the vanishing Guide tab come out — H3 left all three untouched for exactly
-  this). Then **H6** (capitalization — audited; the inventory and the do-not-touch key list
-  are in PLAN, but re-check its guide-region line numbers against H3's new step/section code).
-  **G4 and H5 are 🔍 fresh-eyes gates and both need SEPARATE sessions** — this one coordinated
-  every build in phases G and H.
+## TL;DR (2026-08-30 · **v1.2.31**, committed + tagged LOCALLY, **not pushed** · live site still on v1.2.28)
+- **State:** tree clean, three more releases merged from parallel agent worktrees —
+  **v1.2.29** (two queued bugs), **v1.2.30** (H6 capitalization), **v1.2.31** (H4 the
+  character drawer). **Phase H's BUILD IS COMPLETE**: H1/H2 (v1.2.27), H3 (v1.2.28), H6 and
+  H4 have all merged, and **H5, its fresh-eyes gate, is the only open task in the phase**.
+  Phase G is likewise built and owes only **G4**. The bug batch turned out bigger than its
+  line said — `renderOptFeats()` was stale from FIVE handlers, not two, and once drawn it
+  actively lied (a Warlock stepped 2 → 1 kept reading "0/3" against a truth of 0/1); fixed
+  by moving it into `render()`, which is also where the feat-chip remove handler's identical
+  hole closed. H6 left `cap1` as the file's one display capitaliser and never touches a
+  stored value; the do-not-touch list was proved by round-trip, not assumed. H4 removed G1's
+  `GUIDE.away` + vanishing Guide tab from the tree entirely.
+- **Next action:** **H5 — the phase H fresh-eyes gate**, which **must be a SEPARATE session**
+  (model policy; this one coordinated every phase-H build). It carries three questions:
+  H3's reverse-`place` cast-cap reading of D118(g); H4's `PREVIEW.level` surviving
+  `closeGuide`; and H4's two-line bar deviation from D130(e). **G4 is owed too and is also a
+  separate session.** Nothing else in phase H is open. Unblocked backlog work, if you'd
+  rather build than gate: `refreshAddFeat()`'s `#epicRow` has the same staleness defect the
+  v1.2.29 fix just closed (found by reading, not yet reproduced).
 - **Manual for Francesco:** ⓪ **Refresh your imported data in each browser — the top item, and
   it now explains three separate symptoms** — ⋯ → **Refresh imported data** (since v1.2.23 the
   menu button runs inline and SHOWS a green "Re-imported N books" / a red reason, so you can
@@ -45,21 +39,28 @@
   and why the **Arcane Trickster / Eldritch Knight spell picker is EMPTY** (verified: on fresh
   data both offer 61 spells). It also carries the earlier v1.2.2 parser fixes (Savant
   double-grant, tag suffixes, Imp's raw tag, D109 forms, D91 access).
-  ① **Your build "v2" showed a health ⚠ at L1–L4**
-  — it is not a false positive: its Warlock 4 row holds 8 spells where the class knows 5, five
-  of them 3rd-level when a Warlock 4 casts at most 2nd. The app already flagged it as over
-  before E4; the sweep only located it. Looks like a dev scratch build — fix or ignore, your
-  call. ② **Print from Chrome or Safari**, not from an in-app PDF writer: the filename and the
-  clickable spell links come from the browser's own export, and some hosts ignore both (D108).
-  ③ **Turn XMM on in Sources** for Find Familiar's Monster Manual 2024 forms in the default
-  view (D81). ④ Optional — ask GitHub Support to gc so the old unreachable commits (SHA
-  2c8bbb6 etc., held only in `backup/pre-purge-20260826` locally) stop being SHA-addressable.
-  ⑤ To update the live site: `python3 extract.py` (if data changed) → `python3 build.py` →
-  commit → push. ⑥ `dist/`, `data/`, `data-srd.json` are gitignored (local only); public SRD
-  data is inlined in committed `docs/`. ⑦ An old rename note ("Print sheet, PDF options and
-  familiar forms") could not be applied — two candidate sessions both carry meaningful titles
-  ("General feats required zero state", "Importer rework and custom sources"); say which (if
-  either) should take it.
+  ① **v1.2.29–31 are committed and tagged but NOT pushed** — say the word and they go up
+  (that is also what updates the live site). ② **Two copy calls are yours**: the
+  `…`-placeholder family ("+ add a class…", "all schools", "any save", "picked") — one call
+  settles all of them — and whether the chain rail's CSS-authored `· optional` should match
+  the card's now-capitalised "Optional" (styles.css:1822). ③ **Your build "v2" showed a
+  health ⚠ at L1–L4** — it is not a false positive: its Warlock 4 row holds 8 spells where
+  the class knows 5, five of them 3rd-level when a Warlock 4 casts at most 2nd. Looks like a
+  dev scratch build — fix or ignore, your call. ④ **Print from Chrome or Safari**, not from an
+  in-app PDF writer: the filename and the clickable spell links come from the browser's own
+  export, and some hosts ignore both (D108). ⑤ **Turn XMM on in Sources** for Find Familiar's
+  Monster Manual 2024 forms in the default view (D81). ⑥ Optional — ask GitHub Support to gc
+  so the old unreachable commits (SHA 2c8bbb6 etc., held only in
+  `backup/pre-purge-20260826` locally) stop being SHA-addressable. ⑦ To update the live site:
+  `python3 extract.py` (if data changed) → `python3 build.py` → commit → push.
+  ⑧ `dist/`, `data/`, `data-srd.json` are gitignored (local only); public SRD data is inlined
+  in committed `docs/`. ⑨ **14 stale agent worktrees/branches** are sitting in
+  `.claude/worktrees/` (all consumed — the v1.2.19→v1.2.31 builds, plus
+  `claude/zen-rhodes-4b15f8`, whose cadence fix reached main by another path). Prunable on
+  your word: `git worktree remove` + `git branch -D`. ⑩ An old rename note ("Print sheet, PDF
+  options and familiar forms") could not be applied — two candidate sessions both carry
+  meaningful titles ("General feats required zero state", "Importer rework and custom
+  sources"); say which (if either) should take it.
 
 ## What this is
 Offline single-page D&D 2024 spell planner. Two builds from one source:
@@ -74,8 +75,8 @@ https://claude.ai/code/artifact/47dbe945-a18a-4444-af21-c0143faa2eb0
 
 **Phases E and F are DONE** (E8 and F4 both passed; bodies → `ARCHIVE.md#phase-e` and the
 PLAN's phase F block). **Phase G is BUILT** (D126 — the guided builder is a full-size page,
-G1–G3 shipped v1.2.24 → v1.2.26) and **awaits its G4 gate**. **Phase H is under way** (D130 —
-guided builder v2: H1/H2/H3 merged through v1.2.28; H4 and H6 remain, gated by H5).
+G1–G3 shipped v1.2.24 → v1.2.26) and **awaits its G4 gate**. **Phase H is BUILT too** (D130 —
+guided builder v2: H1/H2 v1.2.27, H3 v1.2.28, H6 v1.2.30, H4 v1.2.31) and **awaits H5**.
 v7 (saved builds) is complete → `ARCHIVE.md#v7-tasks`. Non-goals as narrowed by D115: no
 **authored** timeline (the level view is derived from the acquisition order; versions are
 alternatives, never levels), no server sync or accounts, no sharing a build as a page or
@@ -85,6 +86,8 @@ URL (D36).
 policy): **G4** for phase G (start from G3's notes in PLAN) and **H5** for phase H.
 
 The queue is `PLAN.md`; the next action is named in the TL;DR.
+
+⟳ Rename previous session → "Phase H builds merged in parallel"  · session: resolve by cwd + latest
 
 ## Where things live
 
