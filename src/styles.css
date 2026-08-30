@@ -2021,3 +2021,16 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
   .gstage .gsh{font-size:19px}
   .ghead select.gh-mode{max-width:44vw}
 }
+
+/* ── the summon-forms chooser (D131(g)) ─────────────────────────────────────
+   Two tiers, and the hierarchy IS the content: the forms a feature added lead, in the
+   picker's own group box; the spell's regular set follows, folded and a step quieter, so
+   it reads as "also available" rather than as a peer of what your build gave you. */
+#famList{max-height:56vh;overflow:auto;padding-right:10px}
+#famList .entrow{cursor:pointer}
+#famList .entrow:hover{border-color:var(--line-strong)}
+/* the second tier: a muted header instead of the spell list's accent rule, and rows that
+   step back until one of them is marked or hovered */
+#famList .famown h3{color:var(--muted);border-bottom-color:var(--line)}
+#famList .famown .entrow{opacity:.72}
+#famList .famown .entrow:hover,#famList .famown .entrow.on{opacity:1}

@@ -105,6 +105,9 @@
             <div class="chips" id="featChips"></div>
           </div>
           <div class="fieldset hidden" id="optFeatBlock"></div>
+          <!-- D131(g): a feature widened a summon spell (D109) and no form is marked yet —
+               an optional, dismissible offer, right under the feature that made it -->
+          <div class="fieldset hidden" id="formPinBlock"></div>
           <!-- custom spell sources: magic items, boons… (D55) -->
           <div class="fieldset">
             <label class="fld">Spell sources <span class="fldnote">items, boons…</span></label>
@@ -647,6 +650,18 @@
     <button class="btn" id="prepNext">Next →</button>
     <button class="btn on" id="prepDone">Done</button>
   </div>
+</div></div>
+
+<!-- D131(g): the forms a feature added to a summon spell, as an OPTIONAL choice of its own.
+     Two tiers: the feature's own forms lead in a box, the spell's regular set follows folded
+     and a step quieter. Choosing here marks the form (D105) — same writer as the carousel's
+     star, so the print sheet and the carousel order never disagree. -->
+<div class="modal hidden" id="famModal"><div class="box">
+  <div class="mh mh-stack">
+    <div class="mh-row"><h2 id="famTitle">Forms</h2><button class="x ico" id="famClose" data-ico="x" aria-label="Close"></button></div>
+    <div class="sub" id="famSub"></div>
+  </div>
+  <div class="mb"><div id="famList"></div></div>
 </div></div>
 <script src="../data/data.js"></script>
 <script src="extract.js"></script>

@@ -219,6 +219,9 @@ function raceDedupeId(r){
     if(b&&lin.endsWith(" "+b))lin=lin.slice(0,-(b.length+1)).trim(); }
   return base+"|"+lin;
 }
+// The collapse key for SPELLS, named once: `buildIndexes` folds printings on it, and the
+// D109 forms match (activeFormGrants) asks the same question of a grant's own spell ref.
+const spellDedupeId=s=>String(s.name).toLowerCase();
 function collapseEditions(list,idOf){
   const best={};
   list.forEach(o=>{ if(o.source===HB_SRC)return; const id=idOf(o);
@@ -236,7 +239,7 @@ function buildIndexes(){
   collapseEditions(DATA.subclasses, s=>(s.className+"|"+(s.classSource||"")+"|"+(s.shortName||s.name)).toLowerCase());
   collapseEditions(DATA.feats, f=>f.name.toLowerCase());
   collapseEditions(DATA.races, raceDedupeId);
-  collapseEditions(DATA.spells, s=>s.name.toLowerCase());
+  collapseEditions(DATA.spells, spellDedupeId);
   collapseEditions(DATA.optfeats, o=>o.name.toLowerCase());
   CLS_BY={}; DATA.classes.forEach(c=>CLS_BY[key(c.name,c.source)]=c);
   // SUB_BY is keyed name|source and 124 subclass records SHARE that key with their
@@ -298,7 +301,7 @@ const LS="spellForge.v2";                      // legacy single-build blob (kept
 // build can never carry them by accident. Each build only records the list it was seen under.
 let SRC=new Set(Object.keys(DATA.sources));    // all on by default
 const state={
-  classes:[], speciesKey:"", feats:[], optFeats:[], featSlots:{}, sbFav:{},
+  classes:[], speciesKey:"", feats:[], optFeats:[], featSlots:{}, sbFav:{}, sbFavSkip:[],
   filters:{q:"",levels:new Set(),school:"",cls:"",time:new Set(),comp:new Set(),tags:new Set(),save:"",dmg:"",books:null,reprint:"dedupe",chosen:false},
   chosen:{},   // rowId -> {cantrips:[], spells:[]}
   choices:{},  // choiceId -> option name | [spellKey,…]
@@ -325,7 +328,7 @@ const activeBuild=()=>BUILDS.builds[BUILDS.activeId];
 
 const blankBuildState=()=>({classes:[],speciesKey:"",feats:[],optFeats:[],featSlots:{},levelOrder:[],
   customSources:[],chosen:{},choices:{},sbFav:{},nextRowId:1,filters:null,
-  currentLevel:null,swaps:{}});
+  currentLevel:null,swaps:{},sbFavSkip:[]});
 // the live `state` <-> the plain object stored in a build.
 // The ARRAYS ARE THE ACQUISITION ORDER (E1 · D115(b,h)): `feats`, `optFeats` and each
 // row's `chosen[id].cantrips`/`.spells` list picks in the order they were acquired.
@@ -343,6 +346,7 @@ function serializeState(){ const f=state.filters; return {
            books:f.books?[...f.books]:null},
   currentLevel:state.currentLevel==null?null:state.currentLevel,  // null = at top (D115(e))
   swaps:state.swaps||{},                  // charLevel -> {spell?,cantrip?} events (D115(g))
+  sbFavSkip:state.sbFavSkip||[],          // form offers dismissed in this build (D131(g))
 };}
 function applyState(s){ s=s||blankBuildState();
   // the live state must never share sub-objects with the stored build (see save()) —
@@ -352,6 +356,7 @@ function applyState(s){ s=s||blankBuildState();
     optFeats:s.optFeats||[],featSlots:s.featSlots||{},chosen:s.chosen||{},choices:s.choices||{},
     nextRowId:s.nextRowId||1,levelOrder:s.levelOrder||[],customSources:s.customSources||[],
     sbFav:s.sbFav||{},
+    sbFavSkip:Array.isArray(s.sbFavSkip)?s.sbFavSkip:[],
     currentLevel:typeof s.currentLevel==="number"?s.currentLevel:null,
     // swapsNorm heals as well as reads: a stored map from before swaps split by kind
     // arrives as one event per level and comes out in the two-slot shape
@@ -478,7 +483,10 @@ function loadBuilds(){
       // and a build stored while a level carried ONE event gains the per-kind shape,
       // its old `kind` deciding which slot it lands in — nothing is dropped
       else{const n=swapsNorm(st.swaps);
-        if(JSON.stringify(n)!==JSON.stringify(st.swaps)){st.swaps=n;migrated=true;}}});
+        if(JSON.stringify(n)!==JSON.stringify(st.swaps)){st.swaps=n;migrated=true;}}
+      // D131(g): the dismissed form offers. LAST, because serializeState puts it last and
+      // the identical-write skip compares stringified forms — key order and all.
+      if(st.sbFavSkip===undefined){st.sbFavSkip=[];migrated=true;}});
     if(migrated)persistBuilds();
     return "loaded";
   }
@@ -3587,6 +3595,9 @@ function applyImportedState(st){
       const row=idMap.get(+e.row); if(!row)return;
       m[kind]={row,out:e.out,in:e.in};});
     if(SWAP_KINDS.some(kind=>m[kind]))out.swaps[lvl]=m;});
+  // dismissed form offers (D131(g)) — keyed by spell like sbFav, so no renumbering.
+  // Strings only: a dismissal it can't read just brings the offer back, which is safe.
+  out.sbFavSkip=[...new Set((Array.isArray(st.sbFavSkip)?st.sbFavSkip:[]).map(String).filter(Boolean))];
   return out;
 }
 
@@ -6572,6 +6583,8 @@ document.addEventListener("keydown",e=>{if(e.key!=="Escape")return;
   // it alone — closing what sits UNDER a modal is the trap D120 logged against the
   // timeline, and there is no reason to repeat it here
   if(GPICK){closeGpick();return;}
+  // the forms chooser is the topmost layer while it is open, for the same reason
+  if(FAM){closeFam();return;}
   SPMODAL.classList.add("hidden");hideTip();closeBswMenus();closeTimeline();});
 document.addEventListener("click",()=>hideTip(),true);   // a tap elsewhere dismisses a tapped tip
 function esc(s){return (s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));}
@@ -6708,11 +6721,35 @@ function spellCreatures(sp){
 // Pact of the Chain's Imp is not Find Familiar's form — it is YOURS, and only while you
 // have the feature. The extractors emit `forms` on the feat / optional feature; the build
 // decides which of them are live.
+// A `forms` grant names ONE PRINTING of the spell ("find familiar|PHB"), but the record the
+// build holds comes from `grantRec()`, which resolves by NAME and hands back the first
+// VISIBLE printing — so the 2014 boon's grant lands on the 2024 Find Familiar, and the old
+// exact `name|source` compare returned NOTHING: all eight granted forms disappeared into
+// Find Familiar's own 65, with no `_from` badge and nothing on screen saying why. Two
+// printings answer for each other, decided by the machinery that already collapses them:
+// D127's reprint pointer in either direction, or D19's edition collapse key.
+const sameSpellLine=(a,b)=>!!a&&!!b&&(a===b||spellDedupeId(a)===spellDedupeId(b)
+  ||supersededRec(a.supersededBy)===b||supersededRec(b.supersededBy)===a);
+// The printing a ref names, or null. `key()` is case-sensitive and the 2014 refs arrive
+// lowercased ("find familiar|PHB"), so the name index is what can answer.
+function refPrinting(ref){
+  const p=String(ref||"").split("|"), nm=(p[0]||"").trim().toLowerCase(), src=(p[1]||"").trim();
+  if(!nm||!src)return null;
+  return (SPELL_BY_NAME[nm]||[]).find(s=>String(s.source).toUpperCase()===src.toUpperCase())||null;
+}
+function formRefMatches(sp,ref){
+  if(!sp)return false;
+  const named=refPrinting(ref);
+  if(named)return sameSpellLine(named,sp);
+  // a bookless ref, or a printing this library doesn't hold: the name is the collapse key,
+  // and unknown must never read as excluded (D31)
+  return String(ref||"").split("|")[0].trim().toLowerCase()===spellDedupeId(sp);
+}
 function activeFormGrants(sp){
   if(!sp)return [];
-  const want=key(sp.name,sp.source).toLowerCase(), out=[];
+  const out=[];
   const take=(rec)=>((rec&&rec.forms)||[]).forEach(g=>{
-    if(String(g.spell||"").toLowerCase()!==want)return;
+    if(!formRefMatches(sp,g.spell))return;
     out.push({giver:rec.name,mode:g.mode||"add",creatures:g.creatures||[]});});
   featsAt().forEach(fk=>take(FEAT_BY[fk]));
   optFeatsAt().forEach(ok=>take(OPT_BY[ok]));
@@ -6757,6 +6794,137 @@ function toggleFav(sp,ck){
   cur.has(ck)?cur.delete(ck):cur.add(ck);
   if(cur.size)state.sbFav[k]=[...cur]; else delete state.sbFav[k];
   save();
+  renderFormPins();      // marking a form answers the offer, so the offer goes
+}
+// ── the forms a feature opened up (D131(g)) ────────────────────────────────
+// Taking Pact of the Chain adds eight forms to Find Familiar — and the star that records
+// which one you took lives inside the spell's own modal, a surface there is no reason to
+// open. So the character view carries the control, beside the feature that made it, and it
+// opens a chooser of its own (`openFam`).
+// It is OPTIONAL throughout: it marks nothing on its own (D31 — the app never states a
+// choice the character hasn't made), and while nothing is marked the row is an OFFER the ×
+// puts away for good in this build. Mark a form and the row becomes an ordinary field
+// showing its value, because there is now something to show and to change.
+function formPinOffers(){
+  const skip=new Set(state.sbFavSkip||[]), by=new Map();
+  const take=rec=>((rec&&rec.forms)||[]).forEach(g=>{
+    const nm=String(g.spell||"").split("|")[0].trim(); if(!nm)return;
+    // grantRec() is the resolution the GRANT itself takes, so a mark made from here is
+    // stored against the printing this build holds — and prints from it
+    const sp=grantRec(nm); if(!sp||!formRefMatches(sp,g.spell))return;
+    const k=favKey(sp);
+    // dismissed AND unanswered: the offer is gone. A build that HAS marked a form keeps
+    // the field, whichever surface marked it — a value is not a nudge.
+    if(skip.has(k)&&!favsFor(sp).length)return;
+    if(buildCreatures(sp).length<2)return;        // one form is not a choice (D105)
+    let o=by.get(k); if(!o){o={sp,key:k,givers:[]};by.set(k,o);}
+    if(!o.givers.includes(rec.name))o.givers.push(rec.name);});
+  featsAt().forEach(fk=>take(FEAT_BY[fk]));
+  optFeatsAt().forEach(ok=>take(OPT_BY[ok]));
+  return [...by.values()].map(o=>({...o,n:grantedCreatures(o.sp).length,
+    marked:buildCreatures(o.sp).filter(c=>favsFor(o.sp).includes(c._ck))}));
+}
+function renderFormPins(){
+  const box=$("#formPinBlock"); if(!box)return;
+  const offers=formPinOffers();
+  box.classList.toggle("hidden",!offers.length);
+  box.innerHTML=""; if(!offers.length)return;
+  box.append(el("label","fld","Summon forms"));
+  offers.forEach(o=>{
+    const row=el("div","fldrow");
+    const btn=el("button","picksel"+(o.marked.length?"":" ph"));
+    const bl=el("span","lbl-ico");
+    bl.append(icoEl("star"),document.createTextNode(
+      o.marked.length?o.marked.map(c=>c.name).join(", "):`choose a ${o.sp.name} form…`));
+    btn.append(bl); btn.append(el("span","pk-caret","⌄"));
+    btn.title=`Choose which ${o.sp.name} forms this character uses`;
+    btn.onclick=()=>openFam(o.sp);
+    row.append(btn);
+    // the × answers an OFFER, so it is only there while there is nothing to show
+    if(!o.marked.length){
+      const x=xBtn(null,()=>{
+        state.sbFavSkip=[...new Set([...(state.sbFavSkip||[]),o.key])];
+        save(); renderFormPins();});
+      x.setAttribute("aria-label","Dismiss");
+      x.title="Dismiss — you can still mark forms in the spell's own details";
+      row.append(x);}
+    box.append(row);
+    if(!o.marked.length)box.append(el("div","note",
+      `${o.givers.join(" and ")} adds ${o.n} form${o.n===1?"":"s"}. Only marked forms print.`));
+  });
+}
+// ── the summon-forms chooser (D131(g)) ─────────────────────────────────────
+// One surface for "which forms does this character use", in two tiers. The forms a FEATURE
+// added lead — they are the reason this modal exists — in the picker's own group box, above
+// the spell's regular set, which is offered folded and a step quieter. Both write through
+// `toggleFav`, the same call the carousel's star makes, so the marks, the carousel order
+// (`orderedCreatures`) and the printed appendix (`printCreatures`) can never disagree.
+let FAM=null;      // {sp, own:boolean} — `own` is the fold state of the second tier
+function openFam(sp){
+  if(!sp)return;
+  // the spell's own set opens folded UNLESS a form from it is already marked — a fold that
+  // hides a value you set is a trap (D94)
+  const marked=new Set(favsFor(sp));
+  const ownMarked=spellCreatures(sp).some(c=>marked.has(c._ck));
+  FAM={sp,own:ownMarked};
+  $("#famModal").classList.remove("hidden");
+  renderFam();
+}
+function closeFam(){ FAM=null; $("#famModal").classList.add("hidden"); }
+function famRow(sp,c,marked){
+  const on=marked.has(c._ck);
+  const row=el("div","entrow"+(on?" on":""));
+  const main=el("div","entmain");
+  const nm=el("div","entname");nm.append(document.createTextNode(c.name));
+  if(c.source)nm.append(bookChip(c.source,c.page));
+  main.append(nm);
+  const meta=[c.kind,c.cr!=null&&c.cr!==""?"CR "+c.cr:""].filter(Boolean).join(" · ");
+  if(meta)main.append(Object.assign(el("div","entprev"),{textContent:meta,title:meta}));
+  row.append(main);
+  const btn=el("button","tk ico-only"+(on?" on":""));
+  btn.append(icoEl(on?"check":"plus"));
+  const lbl=on?"Marked — click to unmark":"Mark this form";
+  btn.setAttribute("aria-label",lbl); btn.title=lbl+" · only marked forms print";
+  // the whole row is the target; the button stops its own click so one tap is one toggle
+  const hit=e=>{e.stopPropagation(); toggleFav(sp,c._ck); renderFam();};
+  btn.onclick=hit; row.onclick=hit;
+  row.append(btn);
+  return row;
+}
+function renderFam(){
+  const list=$("#famList"); if(!list||!FAM)return;
+  const sp=FAM.sp, all=buildCreatures(sp), marked=new Set(favsFor(sp));
+  const granted=all.filter(c=>c._from), own=all.filter(c=>!c._from);
+  const givers=[...new Set(granted.map(c=>c._from))];
+  $("#famTitle").textContent=`${sp.name} forms`;
+  $("#famSub").textContent=(givers.length
+    ? `${givers.join(" and ")} adds ${granted.length} of these. `:"")
+    +"Only marked forms print, and a marked form leads the carousel.";
+  list.innerHTML="";
+  if(granted.length){
+    const g=el("div","entgroup");
+    const h=el("div","eghead");
+    h.append(el("b",null,givers.join(" and ")));
+    h.append(el("span","cgn",`${granted.length} form${granted.length===1?"":"s"}`));
+    g.append(h);
+    granted.forEach(c=>g.append(famRow(sp,c,marked)));
+    list.append(g);
+  }
+  if(own.length){
+    // the fold header keeps naming what it holds while closed (D94)
+    const box=el("div","lvlgroup famown"+(FAM.own?"":" folded"));
+    const h=el("h3");
+    const fold=el("button","lvlfold");fold.type="button";
+    fold.append(el("span",null,`${sp.name}'s own forms`));
+    fold.append(el("span","n",String(own.length)));
+    const car=el("span","lvlcar");if(FAM.own)car.classList.add("up");fold.append(car);
+    fold.setAttribute("aria-expanded",String(FAM.own));
+    fold.onclick=e=>{e.stopPropagation();FAM.own=!FAM.own;renderFam();};
+    h.append(fold);box.append(h);
+    own.forEach(c=>box.append(famRow(sp,c,marked)));
+    list.append(box);
+  }
+  if(!all.length)list.append(el("div","empty","This spell carries no stat blocks."));
 }
 // favourites first, then the forms a feature granted, then the rest — original order
 // within each band. A form your build adds is the one you came here to look at.
@@ -7463,7 +7631,7 @@ function afterSourceChange(){
   saveSources(); save();               // sources are global; the build records what it saw
   refreshAll();renderLibSources();render();
 }
-function refreshAll(){CASTMODS=activeCastMods();refreshSpecies();refreshAddFeat();renderClassRows();renderFeatChips();renderOptFeats();renderCustomSources();}
+function refreshAll(){CASTMODS=activeCastMods();refreshSpecies();refreshAddFeat();renderClassRows();renderFeatChips();renderOptFeats();renderFormPins();renderCustomSources();}
 
 // ── events ───────────────────────────────────────────────────────────────
 $("#addClass").onchange=e=>{const clsKey=e.target.value;
@@ -7514,6 +7682,11 @@ $("#prepDailyBtn").onclick=openPrepDaily;
 $("#prepClose").onclick=()=>$("#prepModal").classList.add("hidden");
 $("#prepDone").onclick=()=>$("#prepModal").classList.add("hidden");
 $("#prepModal").onclick=e=>{if(e.target.id==="prepModal")$("#prepModal").classList.add("hidden");};
+// the forms chooser (D131(g)). The backdrop closer is a strict identity test on the
+// BACKDROP, not `closest()`: marking a form re-renders the list under the click, and a
+// detached target can never equal the backdrop (the D122 shape from GOTCHAS).
+$("#famClose").onclick=closeFam;
+$("#famModal").onclick=e=>{if(e.target===$("#famModal"))closeFam();};
 $("#prepPrev").onclick=()=>{if(PREP&&PREP.step>0){PREP.step--;PREP.search="";renderPrepStep();}};
 $("#prepNext").onclick=()=>{if(PREP&&PREP.step<PREP.steps.length-1){PREP.step++;PREP.search="";renderPrepStep();}};
 $("#prepSearch").oninput=e=>{if(PREP){PREP.search=e.target.value;renderPrepList();}};
