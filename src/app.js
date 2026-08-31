@@ -937,6 +937,58 @@ function rowSched(row){
   else if(stat)spells=prepArr||null;
   return {cant:cantArr||null,spells,caster,book:!!c.spellbook};
 }
+// ── empty slots (D146) ─────────────────────────────────────────────────────
+// A pick array's POSITION is the acquisition slot (D64 · D115(b,h)), so splicing a pick
+// out of the middle re-dated every pick below it: one drop at L1 on a Sorcerer 5 moved
+// five of the eight survivors to an earlier level and made two of them illegal, and the
+// slot you emptied opened at the TOP instead of where you emptied it. A drop writes an
+// EMPTY SLOT at that position instead. The slot still exists, it is simply unanswered.
+//
+// The sentinel is a STRING, so the four pick arrays stay homogeneous — the exporter's
+// `map(String)`, `includes`, `new Set` and JSON all keep working — and no real key can
+// collide with it: a content key is `Name|SOURCE`, and a name is never empty. Its tag
+// carries what a POSITION cannot say for itself: a feat's slot category, an optional
+// feature's progression. A spell or cantrip slot needs no tag — the schedule owns it.
+//
+// Where holes may live IS the containment, and it is the whole reason this is not a
+// 169-site sweep:
+//   · the RAW arrays carry them — `state.chosen[row].cantrips`/`.spells`, `state.feats`,
+//     `state.optFeats`. Positions are the model; a hole is a position.
+//   · every VIEW strips them — `sliceChosen`, `featsAt`, `optFeatsAt` — so nothing
+//     downstream of `R.cart` or a sliced reader ever meets one. A hole is a QUESTION,
+//     never a pick: it is never known, never prepared, never printed, never exported as
+//     content and never counted as spent.
+//   · the ACQUISITION WALKS consume them (`featAcqLevels`, `optAcqLevels`, and for spells
+//     the position arithmetic itself). That consumption is what holds the picks below in
+//     place — it is the entire point.
+//   · a TRAILING hole is not a slot. The schedule already says that slot is unfilled, so
+//     dropping the LAST pick shrinks the array exactly as it always did: nothing follows
+//     it to move, and a stored trailing hole would be a second way to say the same thing.
+const HOLE="\u2205|";
+const isHole=k=>typeof k==="string"&&k.slice(0,2)===HOLE;
+const hole=tag=>HOLE+(tag||"");
+const holeTag=k=>isHole(k)?k.slice(2):"";
+const noHoles=a=>(a||[]).filter(k=>!isHole(k));
+const hasHole=a=>(a||[]).some(isHole);
+const nFilled=a=>{let n=0;(a||[]).forEach(k=>{if(!isHole(k))n++;});return n;};
+const trimHoles=a=>{while(a.length&&isHole(a[a.length-1]))a.pop();return a;};
+// drop ONE position: an empty slot in the middle, a shrink at the end
+function dropSlot(arr,i,tag){
+  if(!arr||i<0||i>=arr.length)return arr;
+  if(i===arr.length-1)arr.pop(); else arr[i]=hole(tag);
+  return trimHoles(arr);
+}
+// the first slot of an array still standing open: the earliest EMPTY SLOT, or the array's
+// end when there is none. `.length` WAS that answer, for exactly as long as a drop could
+// only ever shorten the array from the top.
+const firstOpen=a=>{for(let i=0;i<(a||[]).length;i++)if(isHole(a[i]))return i;return (a||[]).length;};
+// drop every position matching `hit`, as one pass — a bulk clear leaves slots behind
+// exactly as a single drop does, or "clear all level-3 spells" would re-date the rest
+function dropWhere(arr,hit,tag){
+  if(!arr)return arr;
+  for(let i=arr.length-1;i>=0;i--)if(!isHole(arr[i])&&hit(arr[i],i))dropSlot(arr,i,tag);
+  return trimHoles(arr);
+}
 // the CLASS-level index (0-based) at which position i of a scheduled array arrives.
 // -1 means the schedule never admits it: a wizard copy, or a pick past the budget.
 function acqIdx(sched,i,lvls){
@@ -964,12 +1016,23 @@ function unswap(list,rowId,kind,L){
 // previewing, so the un-previewed path keeps its live references and costs nothing
 function sliceChosen(row){
   const ch=state.chosen[row.id]||{cantrips:[],spells:[]};
-  const L=PREVIEW.level; if(L==null)return ch;
+  const L=PREVIEW.level;
+  // an EMPTY SLOT is a question, not a pick (D146) — no view may show one. The raw object
+  // still comes back untouched when there is nothing to strip, which is what keeps the
+  // un-previewed path free of a copy.
+  if(L==null){
+    if(!hasHole(ch.cantrips)&&!hasHole(ch.spells))return ch;
+    const o=Object.assign({},ch,{cantrips:noHoles(ch.cantrips),spells:noHoles(ch.spells)});
+    if(ch.prep)o.prep=(ch.prep||[]).slice();
+    return o;
+  }
   const sched=rowSched(row)||{cant:null,spells:null};
   const lvls=charLevelMap().get(row.id)||[];
-  const cut=(arr,sa,kind)=>unswap((arr||[]).filter((_,i)=>acqAt(sa,i,lvls)<=L),row.id,kind,L);
+  // POSITION first, holes second: the slice boundary is an index, so filtering the empty
+  // slots out before it would pull picks up across it — the very shift D146 exists to stop
+  const cut=(arr,sa,kind)=>unswap(noHoles((arr||[]).filter((_,i)=>acqAt(sa,i,lvls)<=L)),row.id,kind,L);
   const out={cantrips:cut(ch.cantrips,sched.cant,"cantrip"),
-             spells:sched.spells?cut(ch.spells,sched.spells,"spell"):(ch.spells||[]).slice()};
+             spells:sched.spells?cut(ch.spells,sched.spells,"spell"):noHoles(ch.spells)};
   // a prepared subset can only draw on the book as it exists at L
   if(ch.prep){const book=new Set(out.spells);out.prep=(ch.prep||[]).filter(k=>book.has(k));}
   return out;
@@ -985,6 +1048,32 @@ function sliceInsertAt(row,arr,L){
   const lvls=charLevelMap().get(row.id)||[];
   let n=0; ch[arr].forEach((_,i)=>{if(acqAt(sa,i,lvls)<=L)n++;});
   return n;
+}
+// which EMPTY SLOT a new pick answers (D146). Earliest slot first — best case, the same
+// rule the rest of the app reads acquisition by (D18) — but never a slot the pick could
+// not legally have been learned in: filling an L1 hole with a 3rd-level spell would
+// manufacture exactly the illegal slot the chain flags, so those are stepped over and
+// the pick lands at the insert point instead. Cantrips have no such test; they are all
+// level 0. -1 = no slot to fill, take the ordinary path.
+function holeFor(row,arr,key,L){
+  const ch=state.chosen[row.id]; if(!ch||!ch[arr]||!hasHole(ch[arr]))return -1;
+  const sched=rowSched(row)||{cant:null,spells:null};
+  const sa=arr==="cantrips"?sched.cant:sched.spells;
+  if(arr==="spells"&&!sa)return -1;               // preparer list: daily, no slots to hold
+  const lvls=charLevelMap().get(row.id)||[];
+  const sp=SPELL_BY[key], c=CLS_BY[row.clsKey];
+  for(let i=0;i<ch[arr].length;i++){
+    if(!isHole(ch[arr][i]))continue;
+    // the schedule is cumulative, so acquisition level is monotone in position: the first
+    // slot above the view ends the search rather than skipping it
+    if(L!=null&&acqAt(sa,i,lvls)>L)break;
+    if(arr==="spells"&&sp&&sp.level>0){
+      const cl=acqIdx(sa,i,lvls)+1;
+      if(!cl||sp.level>maxLvlAt(sched.caster,Math.max(1,cl),c))continue;
+    }
+    return i;
+  }
+  return -1;
 }
 // feats: origin slots arrive at level 1 (background/Human) or with the feature that
 // grants them; general/epic spends fill the build's slot
@@ -1051,37 +1140,52 @@ function featAcqLevels(){
   const oSlots=originSlotLevels(true);
   let origin=0;
   state.feats.forEach(fk=>{
-    const cat=featSlotOf(fk)||"origin";
+    // an EMPTY SLOT consumes the slot it was dropped from and nothing else (D146). That
+    // consumption is the whole mechanism: without it the next feat of the same category
+    // slides into the vacated slot and reads as taken at a level it was not.
+    const empty=isHole(fk);
+    const cat=empty?(holeTag(fk)||"origin"):(featSlotOf(fk)||"origin");
     if(cat==="origin"){const i=origin++;
-      out.set(fk,{lv:i<oSlots.length?oSlots[i]:1,cat,over:i>=oSlots.length});return;}
+      if(!empty)out.set(fk,{lv:i<oSlots.length?oSlots[i]:1,cat,over:i>=oSlots.length});return;}
     const min=cat==="epic"?19:1;
     let lv=null;
     for(let i=0;i<slots.length;i++)if(!used[i]&&slots[i]>=min){used[i]=true;lv=slots[i];break;}
-    out.set(fk,{lv:lv==null?top:lv,cat,over:lv==null});
+    if(!empty)out.set(fk,{lv:lv==null?top:lv,cat,over:lv==null});
   });
   return out;
 }
-function featsAt(){ if(PREVIEW.level==null)return state.feats;
+function featsAt(){ if(PREVIEW.level==null)return hasHole(state.feats)?noHoles(state.feats):state.feats;
   const acq=featAcqLevels();
-  return state.feats.filter(fk=>((acq.get(fk)||{}).lv||1)<=PREVIEW.level); }
+  return state.feats.filter(fk=>!isHole(fk)&&((acq.get(fk)||{}).lv||1)<=PREVIEW.level); }
 // optional features ride their progression's own counts (D28): position within the
 // progression → first class level with room, through the plan like every other schedule
-function optAcqLevels(){
-  const clm=charLevelMap(), top=topCharLevel(), out=new Map(), progs=[];
+// every optional-feature queue this build opens, in class-row order. Split out of
+// `optAcqLevels` because an EMPTY SLOT has to be matched back to its progression by NAME
+// (D146), and two readers deriving that list independently is how they drift apart.
+function optProgs(){
+  const clm=charLevelMap(), progs=[];
   state.classes.forEach(row=>[CLS_BY[row.clsKey],subOfRow(row)].forEach(src=>{
     if(src&&src.optFeatures)src.optFeatures.forEach(p=>
       progs.push({name:p.name,types:new Set(p.types),counts:p.counts||[],lvls:clm.get(row.id)||[],n:0}));}));
-  state.optFeats.forEach(ok=>{const o=OPT_BY[baseKey(ok)];
-    const p=o&&progs.find(x=>(o.types||[]).some(t=>x.types.has(t)));
-    if(!p){out.set(ok,{lv:top,over:true,slot:null});return;}
+  return progs;
+}
+function optAcqLevels(){
+  const top=topCharLevel(), out=new Map(), progs=optProgs();
+  state.optFeats.forEach(ok=>{
+    // an empty slot names its own progression, because a POSITION cannot say which queue
+    // it belongs to: an invocation slot and a fighting-style slot are different lines
+    const empty=isHole(ok), o=empty?null:OPT_BY[baseKey(ok)];
+    const p=empty?progs.find(x=>x.name===holeTag(ok))
+                 :(o&&progs.find(x=>(o.types||[]).some(t=>x.types.has(t))));
+    if(!p){ if(!empty)out.set(ok,{lv:top,over:true,slot:null}); return;}
     const i=p.n++; let lv=null;
     for(let l=0;l<p.lvls.length;l++)if((p.counts[l]||0)>i){lv=p.lvls[l];break;}
-    out.set(ok,{lv:lv==null?top:lv,over:lv==null,slot:p.name});});
+    if(!empty)out.set(ok,{lv:lv==null?top:lv,over:lv==null,slot:p.name});});
   return out;
 }
-function optFeatsAt(){ if(PREVIEW.level==null)return state.optFeats;
+function optFeatsAt(){ if(PREVIEW.level==null)return hasHole(state.optFeats)?noHoles(state.optFeats):state.optFeats;
   const acq=optAcqLevels();
-  return state.optFeats.filter(ok=>((acq.get(ok)||{}).lv||1)<=PREVIEW.level); }
+  return state.optFeats.filter(ok=>!isHole(ok)&&((acq.get(ok)||{}).lv||1)<=PREVIEW.level); }
 
 // ── "order matters" (E7 · D115) ────────────────────────────────────────────
 // A quiet word, not a warning: the level ORDER is load-bearing in this build — reasons,
@@ -1126,12 +1230,12 @@ function buildHealth(){
     const sched=rowSched(row); if(!sched)return;      // non-caster: nothing sticky to check
     const ch=state.chosen[row.id]||{}, sw=swIn.get(row.id)||new Map();
     // cantrips are never "copied" — past the schedule is past the budget
-    (ch.cantrips||[]).forEach((k,i)=>{ if(acqIdx(sched.cant,i,lvls)>=0)return;
+    (ch.cantrips||[]).forEach((k,i)=>{ if(isHole(k)||acqIdx(sched.cant,i,lvls)>=0)return;   // D146
       add(rowTop,"over",`${spName(k)} is one cantrip more than ${c.name} ${row.level} grants.`);});
     // a preparer's list is chosen fresh each day (D18/D115(c)) — not sticky, not swept here
     if(!sched.spells)return;
     (ch.spells||[]).forEach((k,i)=>{
-      const sp=SPELL_BY[k]; if(!sp)return;
+      const sp=isHole(k)?null:SPELL_BY[k]; if(!sp)return;   // an empty slot is not over-budget (D146)
       const l=acqIdx(sched.spells,i,lvls);
       if(l<0){
         // the wizard's own legal move: copying into the spellbook beyond the free
@@ -1202,11 +1306,15 @@ function gsec(o){ return Object.assign({kind:"self",optional:false,need:1,have:0
 // a class row's pick group for ONE character level: the array positions [from,to) that
 // level opens, and what sits in them right now
 function gpickSec(pick,row,from,to,arr,castMax,label){
-  const need=to-from, have=Math.max(0,Math.min((arr||[]).length-from,need));
+  const need=to-from;
+  // `keys` keeps the EMPTY SLOTS (D146) — they are positions in this range and the card
+  // draws them — while `have` counts only what is actually answered, so a section with a
+  // slot standing open is not done and the walk does not step over it
   const keys=(arr||[]).slice(from,Math.min(to,(arr||[]).length));
+  const have=Math.max(0,Math.min(nFilled(keys),need));
   return gsec({id:pick+"@"+from+"-"+to,kind:"pick",pick,row,from,to,castMax,label,need,have,
     done:have>=need,keys,
-    value:keys.map(k=>(SPELL_BY[k]||{}).name||String(k).split("|")[0]).join(", ")||null});
+    value:noHoles(keys).map(k=>(SPELL_BY[k]||{}).name||String(k).split("|")[0]).join(", ")||null});
 }
 // a choice the build carries (D126(g)), as a section of its GIVER's step
 function gchoiceSec(c){
@@ -1241,13 +1349,15 @@ function guideSteps(){
   // vanishes when the walk previews a level below its giver
   const oSlots=originSlotLevels(true), originCap=oSlots.length;
   // an unrecorded spend defaults to origin, exactly as featAcqLevels() reads it
-  const originSpent=state.feats.filter(fk=>(featSlotOf(fk)||"origin")==="origin");
-  oSlots.forEach((slv,i)=>{const fk=originSpent[i], f=fk?FEAT_BY[baseKey(fk)]:null;
+  // empty slots stay in this walk — they OCCUPY the slot they were dropped from (D146),
+  // and filtering them out is precisely how the feat below would slide up into it
+  const originSpent=state.feats.filter(fk=>featCatOf(fk)==="origin");
+  oSlots.forEach((slv,i)=>{const fk=originSpent[i], f=(fk&&!isHole(fk))?FEAT_BY[baseKey(fk)]:null;
     const st=add({key:"feat~"+i,lv:slv,ord:slv===1?3:6,kind:"feat",slot:"origin",pos:i,
       sub:"Origin feat",label:"Origin feat",multiLabel:f?f.name:"Origin feat",
       sections:[gsec({id:"self",kind:"feat",label:"Origin feat",slot:"origin",pos:i,
-        done:!!fk,value:f?f.name:null})]});
-    if(fk)hostBy.set("f"+fk+"@"+slv,st);});
+        done:!!f,value:f?f.name:null})]});   // an EMPTY SLOT holds the slot, not the answer (D146)
+    if(fk&&!isHole(fk))hostBy.set("f"+fk+"@"+slv,st);});
   // one class step per character level — the wizard's "continue or multiclass" answer
   // (D118(e)); every level the plan holds is a decision already made
   const perClass=new Map();
@@ -1284,8 +1394,8 @@ function guideSteps(){
     // is one decision to a player, and splitting it made the walk ask twice about the same
     // moment. D128's model is untouched: still per KIND, still read through swapAt.
     if(cl>=2){const rule=swapRule(row), ask=[];
-      if(rule.spell&&sched.spells&&!sched.book&&(ch.spells||[]).length)ask.push(["spell","Swap a spell"]);
-      if(rule.cantrip==="levelup"&&sched.cant&&(ch.cantrips||[]).length)ask.push(["cantrip","Swap a cantrip"]);
+      if(rule.spell&&sched.spells&&!sched.book&&nFilled(ch.spells))ask.push(["spell","Swap a spell"]);
+      if(rule.cantrip==="levelup"&&sched.cant&&nFilled(ch.cantrips))ask.push(["cantrip","Swap a cantrip"]);
       // ids must be unique WITHIN the step now that both can share one (`guideSecKey`)
       ask.forEach(([swkind,label])=>{const ev=swapAt(lv,swkind);
         secs.push(gsec({id:"swap-"+swkind,kind:"swap",label,swkind,row:id,optional:true,done:!!ev,
@@ -1298,17 +1408,17 @@ function guideSteps(){
   // general/epic feat slots at the character levels the plan puts them (D114); spends
   // attribute in array order, earliest slot first — same walk featAcqLevels() does
   const slots=featSlotLevels(true), used=new Array(slots.length).fill(false);
-  const spent=state.feats.filter(fk=>(featSlotOf(fk)||"origin")!=="origin");
+  const spent=state.feats.filter(fk=>featCatOf(fk)!=="origin");
   const slotOf=new Array(slots.length).fill(null);
-  spent.forEach(fk=>{const min=featSlotOf(fk)==="epic"?19:1;
+  spent.forEach(fk=>{const min=featCatOf(fk)==="epic"?19:1;
     for(let i=0;i<slots.length;i++)if(!used[i]&&slots[i]>=min){used[i]=true;slotOf[i]=fk;break;}});
-  slots.forEach((lv,i)=>{const fk=slotOf[i], f=fk?FEAT_BY[baseKey(fk)]:null;
+  slots.forEach((lv,i)=>{const fk=slotOf[i], f=(fk&&!isHole(fk))?FEAT_BY[baseKey(fk)]:null;
     const lab=lv>=19?"Feat / ASI / Epic Boon":"Feat / ASI";
     const st=add({key:"feat~"+(originCap+i),lv,ord:6,kind:"feat",slot:lv>=19?"epic":"general",
       pos:originCap+i,sub:lab,label:lab,multiLabel:f?f.name:lab,
       sections:[gsec({id:"self",kind:"feat",label:lab,slot:lv>=19?"epic":"general",
-        pos:originCap+i,done:!!fk,value:f?f.name:null})]});
-    if(fk)hostBy.set("f"+fk+"@"+lv,st);});
+        pos:originCap+i,done:!!f,value:f?f.name:null})]});   // D146
+    if(fk&&!isHole(fk))hostBy.set("f"+fk+"@"+lv,st);});
   // optional-feature slots ride their progression's counts (D28), like optAcqLevels()
   const oa=optAcqLevels(), byProg=new Map();
   state.optFeats.forEach(ok=>{const a=oa.get(ok); if(!a||a.over)return;
@@ -1507,8 +1617,8 @@ function closeGuide(){ if(!GUIDE.on)return; GUIDE.on=false; GUIDE.aside=false;
 // anything to place, and D126(i)'s CTA reads it (with the class rows) to decide whether
 // the build is empty at all.
 function guideAnswered(){
-  return !!(state.speciesKey||state.feats.length||state.optFeats.length
-    ||Object.values(state.chosen||{}).some(ch=>((ch&&ch.cantrips||[]).length+(ch&&ch.spells||[]).length)>0));
+  return !!(state.speciesKey||nFilled(state.feats)||nFilled(state.optFeats)
+    ||Object.values(state.chosen||{}).some(ch=>(nFilled(ch&&ch.cantrips)+nFilled(ch&&ch.spells))>0));
 }
 const guideEmpty=()=>!state.classes.length&&!guideAnswered();
 function guideEntry(){
@@ -1546,7 +1656,10 @@ function guidePlace(sec,k,at){
   const i=ch[arr].indexOf(k); if(i<0)return;
   const pos=at==null?guideTarget(sec):at;
   if(pos>=ch[arr].length)return;      // no slot to place into — never a delete (D118(g))
-  if(i!==pos){ch[arr].splice(i,1);ch[arr].splice(pos,0,k);}
+  // placing INTO an empty slot is a swap, not a shift (D146): the pick answers that slot
+  // and leaves its own standing open, so nothing between the two moves
+  if(i!==pos&&isHole(ch[arr][pos])){ch[arr][pos]=k;dropSlot(ch[arr],i);}
+  else if(i!==pos){ch[arr].splice(i,1);ch[arr].splice(pos,0,k);}
   GUIDE.place[guideSecKey(sec)]=Math.min(pos+1,sec.to-1);
   save(); render();
 }
@@ -1601,7 +1714,7 @@ function guideSync(){
     const c=steps.find(x=>x.key===GUIDE.cur); let best=null;
     (c?c.sections:[]).forEach(sec=>{
       if(sec.kind!=="pick"||sec.done)return;
-      const filled=(((state.chosen[sec.row]||{})[sec.pick==="cantrip"?"cantrips":"spells"])||[]).length;
+      const filled=firstOpen(((state.chosen[sec.row]||{})[sec.pick==="cantrip"?"cantrips":"spells"])||[]);
       if(sec.from<=filled)return;
       const t=steps.find(x=>x.sections.some(y=>y.kind==="pick"&&y.pick===sec.pick
         &&y.row===sec.row&&y.from<=filled&&filled<y.to));
@@ -1703,8 +1816,9 @@ function guideDownPlaceable(list){
     if(sec.kind!=="pick")return false;
     const arr=sec.pick==="cantrip"?"cantrips":"spells";
     // a slot that exists AND holds something to place: `guidePlace` refuses a position
-    // past the array's end (D118(g) — never a delete), which is a step with no answer
-    return sec.from<(((state.chosen[sec.row]||{})[arr])||[]).length;
+    // past the array's end (D118(g) — never a delete), which is a step with no answer.
+    // An EMPTY SLOT is a position with nothing in it to place, so it does not count (D146).
+    return (((state.chosen[sec.row]||{})[arr])||[]).some((k,i)=>i>=sec.from&&!isHole(k));
   }))||null;
 }
 // an in-flight Down walk never hides its own control — the way back up is on it
@@ -2098,9 +2212,11 @@ function guideOptBtn(pool,label,cls){
 }
 // dropping ONE pick from a chip's ✕ (D130(b)). Both paths are the app's existing writers —
 // a class pick goes through `toggle` (the same call the modal's ✓ row makes) and a granted
-// choice through the same `state.choices` filter the Choices card's chip uses. A drop is
-// not a delete of history: the acquisition array simply loses that entry, exactly as it
-// does anywhere else in the app, and nothing else moves.
+// choice through the same `state.choices` filter the Choices card's chip uses. The tip on
+// this ✕ promised that nothing else moved, and until D146 that was false for every pick
+// but the last one: the array position IS the acquisition slot, so a splice re-dated
+// everything below it. `toggle` leaves an EMPTY SLOT now, and the promise is kept.
+// A granted choice is a SET, not an order — it has no slots and needs none.
 function guideDrop(sec,k){
   if(sec.kind==="cpick"){
     state.choices[sec.cid]=(state.choices[sec.cid]||[]).filter(v=>v!==k); render(); return;}
@@ -2134,7 +2250,21 @@ function guideSecBlock(step,sec,rowOf){
     // chips ARE the answer (D130(b)) — one representation, each with its own ✕
     const chips=el("div","gchips");
     (sec.keys||[]).forEach((k,j)=>{
-      const sp=SPELL_BY[k], pos=sec.from!=null?sec.from+j:j;
+      const pos=sec.from!=null?sec.from+j:j;
+      // an EMPTY SLOT draws as itself (D146). It is this level's slot, unanswered, sitting
+      // where it really is instead of collapsing and pulling every later pick up a level.
+      // It is the section's own question, so it opens the section's own picker — and it
+      // carries no ✕, because there is nothing in it to take back out.
+      if(isHole(k)){
+        const slot=el("button","cartchip gslot");
+        slot.append(el("span","lv",secIsCantrip(sec)?"C":"\u2013"));
+        slot.append(el("span",null,"Empty slot"));
+        slot.onclick=()=>openGpickSec(step,sec);
+        attachTip(slot,tipBlock("An empty slot","This level's slot, still open. Fill it here — "
+          +"everything you learned later keeps the level you learned it at."));
+        chips.append(slot); return;
+      }
+      const sp=SPELL_BY[k];
       const bad=sec.illAt&&sec.illAt.has(pos);
       const chip=el("span","cartchip"+(bad?" gbad":""));
       chip.append(el("span","lv",sp?(sp.level===0?"C":String(sp.level)):"?"));
@@ -2143,7 +2273,8 @@ function guideSecBlock(step,sec,rowOf){
       chip.append(nm);
       const x=xBtn(null,()=>guideDrop(sec,k));
       attachTip(x,tipBlock("Drop "+(sp?sp.name:"this pick"),
-        "Takes it back out of this group. Nothing else moves, and it can be taken again."));
+        "Takes it back out and leaves the slot standing here, still yours to fill. "
+        +"Nothing else moves."));
       chip.append(x); chips.append(chip);});
     // ONLY REAL PICKS ARE CHIPS (D131(d)). The "+N more" ghost took the shared
     // `.cartchip:hover` accent border and answered no click — a control that looks
@@ -2278,6 +2409,7 @@ function guideSecBlock(step,sec,rowOf){
     const sa=kind==="cantrip"?sched.cant:sched.spells;
     const opts=[];
     ((kind==="cantrip"?ch.cantrips:ch.spells)||[]).forEach((k2,i)=>{
+      if(isHole(k2))return;                          // nothing to trade away from an empty slot
       if(acqAt(sa,i,lvls)<sec.lv)opts.push(unswap([k2],sec.row,kind,sec.lv-1)[0]);});
     if(!opts.length){b.append(hint(
       "No "+kind+" was learned before this level, so there is nothing to trade away yet."));
@@ -2372,7 +2504,7 @@ function guideEligible(sec,mode,cap){
 function guideLandingSec(sec){
   if(GUIDE.reverse||sec.kind!=="pick")return sec;
   const arr=sec.pick==="cantrip"?"cantrips":"spells";
-  const filled=(((state.chosen[sec.row]||{})[arr])||[]).length;
+  const filled=firstOpen(((state.chosen[sec.row]||{})[arr])||[]);   // an empty slot IS the landing slot (D146)
   if(sec.from<=filled&&filled<sec.to)return sec;
   let out=null;
   ((R&&R.gsteps)||[]).forEach(st=>st.sections.forEach(y=>{
@@ -2556,7 +2688,7 @@ function renderGpick(){
   const items=all.filter(sp=>!q||sp.name.toLowerCase().includes(q));
   shown=items.length;
   const held=g.mode==="place"
-    ? new Set([((state.chosen[sec.row]||{})[sec.pick==="cantrip"?"cantrips":"spells"]||[])[guideTarget(sec)]].filter(Boolean))
+    ? new Set([((state.chosen[sec.row]||{})[sec.pick==="cantrip"?"cantrips":"spells"]||[])[guideTarget(sec)]].filter(k=>k&&!isHole(k)))
     : sec.kind==="cpick" ? new Set(state.choices[sec.cid]||[])
     : new Set(((state.chosen[sec.row]||{})[sec.pick==="cantrip"?"cantrips":"spells"])||[]);
   gpickSection(list,sec,items,held,g.mode,q);
@@ -2571,7 +2703,7 @@ function gpickSlots(sec){
   const box=el("div","gpslots");
   const t=guideTarget(sec);
   for(let p=sec.from;p<sec.to;p++){
-    const k=cur[p], sp=k?SPELL_BY[k]:null;
+    const k=(cur[p]&&!isHole(cur[p]))?cur[p]:null, sp=k?SPELL_BY[k]:null;   // a hole reads as empty (D146)
     const b=el("button","gpslot"+(p===t?" on":"")+(sec.illAt&&sec.illAt.has(p)?" bad":""));
     b.append(el("span","n","slot "+(p-sec.from+1)));
     b.append(el("span","v",sp?sp.name:(k?String(k).split("|")[0]:"empty")));
@@ -3053,12 +3185,19 @@ function toggle(idx,spellKey,cantrip,which){
   // it. An ambient `GUIDE.reverse` test in this shared writer hijacked every other surface
   // that takes or drops a pick, the prepare-daily modal's `arr==="prep"` included.
   const L=PREVIEW.level;
+  const row=state.classes.find(r=>r.id===idx);
+  // an EMPTY SLOT is answered before anything else (D146): a take with a slot standing
+  // open is the answer to that slot, not a new pick beside it. Appending instead would
+  // read as over-budget while the build is one pick short of its own schedule.
+  if(i<0&&arr!=="prep"&&row){
+    const h=holeFor(row,arr,spellKey,L);
+    if(h>=0){ ch[arr][h]=spellKey; save(); render(); return; }
+  }
   // standing at a previewed level, the order is load-bearing (E2 · D115(d)): an add
   // inserts at L's slice point (the earliest open schedule slot — best case, D18); a
   // click on a pick the build only acquires LATER pulls it back to that point instead
   // of silently deleting it from a list where it never showed
   if(L!=null&&arr!=="prep"){
-    const row=state.classes.find(r=>r.id===idx);
     // a swapped-out display entry isn't in the array — editing it means editing the
     // swap event, which is E3's surface; refuse rather than corrupt the chain
     if(i<0&&swapEvents().some(e=>e.lvl>L&&e.row===idx
@@ -3067,8 +3206,10 @@ function toggle(idx,spellKey,cantrip,which){
     if(i>=at){ ch[arr].splice(i,1); ch[arr].splice(at,0,spellKey); save(); render(); return; }
     if(i<0){ ch[arr].splice(at,0,spellKey); save(); render(); return; }
   } else if(i<0){ ch[arr].push(spellKey); save(); render(); return; }
-  // i>=0 within the visible slice (or not previewing): a plain removal, at every level
-  ch[arr].splice(i,1);
+  // i>=0 within the visible slice (or not previewing): a drop, at every level. It leaves
+  // the SLOT (D146) — `prep` is the one array with no slots to leave, being a daily
+  // subset with no acquisition order of its own.
+  if(arr==="prep")ch[arr].splice(i,1); else dropSlot(ch[arr],i);
   // dropping a spell from the book must not leave it prepared
   if(arr==="spells"&&ch.prep){const j=ch.prep.indexOf(spellKey);if(j>=0)ch.prep.splice(j,1);}
   save(); render();
@@ -3091,11 +3232,15 @@ function markTake(c,k){
   ch[arr]=ch[arr]||[];
   if(ch[arr].indexOf(k)>=0)return;               // already yours — the designation is all
   const row=state.classes.find(r=>r.id===idx);
+  const h=row?holeFor(row,arr,k,PREVIEW.level):-1;   // a standing slot is answered first (D146)
+  if(h>=0){ch[arr][h]=k;return;}
   const at=(PREVIEW.level!=null&&row)?sliceInsertAt(row,arr,PREVIEW.level):ch[arr].length;
   ch[arr].splice(at,0,k);
 }
 function removeChosen(idx,spellKey){ const ch=state.chosen[idx];if(!ch)return;
-  ["cantrips","spells","prep"].forEach(a=>{if(!ch[a])return;const i=ch[a].indexOf(spellKey);if(i>=0)ch[a].splice(i,1);});save();render(); }
+  ["cantrips","spells","prep"].forEach(a=>{if(!ch[a])return;const i=ch[a].indexOf(spellKey);
+    if(i<0)return; if(a==="prep")ch[a].splice(i,1); else dropSlot(ch[a],i);});   // leaves the slot (D146)
+  save();render(); }
 
 // ── render ───────────────────────────────────────────────────────────────
 let R=null, curTab="build";
@@ -3525,9 +3670,9 @@ function renderEntityList(){
       // from it enables that book globally, otherwise afterSourceChange would prune the pick
       if(!on&&!srcOn(it.source)){SRC.add(it.source);saveSources();ENT.note=`Enabled ${bookName(it.source)} in your sources`;}
       if(ENT.kind==="species"){state.speciesKey=on?"":k;}
-      else if(ENT.kind==="opt"){ if(on)dropCopy(state.optFeats,k); else state.optFeats.push(k); }
+      else if(ENT.kind==="opt"){ if(on)dropOptCopy(k); else takeOpt(k); }
       else{ if(on)dropFeatCopy(k);
-            else{state.feats.push(k);setFeatSlot(k,ENT.category||featSlot(it));} }
+            else takeFeat(k,ENT.category||featSlot(it)); }
       save();refreshAll();render();renderEntityList(); };
     row.append(btn);
     // "You can gain this invocation more than once" (D135). The take button keeps its own
@@ -3538,8 +3683,8 @@ function renderEntityList(){
       const ml=`Take ${it.name} again — you can gain it more than once`;
       more.setAttribute("aria-label",ml); more.title=ml;
       more.onclick=()=>{ const nk=nextCopy(held,k);
-        if(ENT.kind==="opt")state.optFeats.push(nk);
-        else{state.feats.push(nk);setFeatSlot(nk,ENT.category||featSlot(it));}
+        if(ENT.kind==="opt")takeOpt(nk);
+        else takeFeat(nk,ENT.category||featSlot(it));
         save();refreshAll();render();renderEntityList(); };
       row.append(more);
     }
@@ -3629,14 +3774,17 @@ function savePreviewAsVersion(){
   state.classes.forEach(row=>{const sched=rowSched(row), ch=st.chosen[row.id];
     if(!sched||!ch)return;
     const lvls=clm.get(row.id)||[];
-    ch.cantrips=(ch.cantrips||[]).filter((_,i)=>acqAt(sched.cant,i,lvls)<=lv);
-    if(sched.spells)ch.spells=(ch.spells||[]).filter((_,i)=>acqAt(sched.spells,i,lvls)<=lv);
-    if(ch.prep){const book=new Set(ch.spells);ch.prep=ch.prep.filter(k=>book.has(k));}});
+    // by POSITION, so an EMPTY SLOT below the slice is carried into the fork as itself
+    // (D146) — the variant owes that pick exactly as the source does. A hole left past
+    // the last kept pick is trailing, and trailing is not a slot.
+    ch.cantrips=trimHoles((ch.cantrips||[]).filter((_,i)=>acqAt(sched.cant,i,lvls)<=lv));
+    if(sched.spells)ch.spells=trimHoles((ch.spells||[]).filter((_,i)=>acqAt(sched.spells,i,lvls)<=lv));
+    if(ch.prep){const book=new Set(noHoles(ch.spells));ch.prep=ch.prep.filter(k=>book.has(k));}});
   Object.keys(st.chosen||{}).forEach(id=>{
     if(!st.classes.some(r=>String(r.id)===String(id)))delete st.chosen[id];});
-  st.feats=(st.feats||[]).filter(fk=>((fa.get(fk)||{}).lv||1)<=lv);
+  st.feats=trimHoles((st.feats||[]).filter(fk=>((fa.get(fk)||{}).lv||1)<=lv));
   Object.keys(st.featSlots||{}).forEach(k=>{if(!st.feats.includes(k))delete st.featSlots[k];});
-  st.optFeats=(st.optFeats||[]).filter(ok=>((oa.get(ok)||{}).lv||1)<=lv);
+  st.optFeats=trimHoles((st.optFeats||[]).filter(ok=>((oa.get(ok)||{}).lv||1)<=lv));
   // keep the lineage readable: named as a VARIANT branching here (D115(i)) — the old
   // "· LV5" copies stay what they are, ordinary variants under their old names
   const used=new Set(buildsOf(src.meta.character).map(b=>b.meta.name));
@@ -4001,8 +4149,11 @@ function applyImportedState(st){
     if(list.length)out.sbFav[String(k)]=list;});
   out.chosen={};
   Object.entries(st.chosen||{}).forEach(([k,v])=>{const nk=idMap.has(+k)?idMap.get(+k):k;
-    out.chosen[nk]={cantrips:(v&&v.cantrips||[]).map(String),spells:(v&&v.spells||[]).map(String),
-                    prep:(v&&v.prep||[]).map(String)};});
+    // empty slots survive an export/import intact — they are part of the build's SHAPE,
+    // not content (D146). `prep` is the exception: a daily subset holds no slots.
+    out.chosen[nk]={cantrips:trimHoles((v&&v.cantrips||[]).map(String)),
+                    spells:trimHoles((v&&v.spells||[]).map(String)),
+                    prep:noHoles((v&&v.prep||[]).map(String))};});
   out.choices={};
   Object.entries(st.choices||{}).forEach(([k,v])=>{
     // choice ids embed the class row id ("c3:pk0") — remap so picks survive the renumber
@@ -4488,8 +4639,8 @@ function prqTake(o,kind){
   if(!srcOn(o.source)){SRC.add(o.source);saveSources();}
   const k=key(o.name,o.source);
   if(kind==="species")state.speciesKey=k;
-  else if(kind==="opt"){if(!state.optFeats.includes(k))state.optFeats.push(k);}
-  else if(!state.feats.some(x=>sameEnt(x,k))){state.feats.push(k);setFeatSlot(k,featSlot(o));}
+  else if(kind==="opt"){if(!state.optFeats.includes(k))takeOpt(k);}
+  else if(!state.feats.some(x=>sameEnt(x,k)))takeFeat(k,featSlot(o));
   save();refreshAll();render();
   PRQPOP.classList.add("hidden");
   if(ENT)renderEntityList();
@@ -6492,12 +6643,14 @@ function timelinePicks(){
     // HAVE is counted where each pick actually lands, not clamped to the slot count —
     // an off-schedule pick (past the budget) lands at the row's top level and has to
     // make that level read OVER, which is exactly where the sweep flags it too
-    (ch.cantrips||[]).forEach((k,i)=>{const lv=acqAt(sched.cant,i,lvls);
+    (ch.cantrips||[]).forEach((k,i)=>{ if(isHole(k))return;   // an empty slot is WANT, never HAVE (D146)
+      const lv=acqAt(sched.cant,i,lvls);
       const sk=shown(k,lv,"cantrip");
       put(lv,{kind:"ct",rowId:row.id,key:k,shownKey:sk,label:name(sk),tag:"c",
         lv,lvls,swappable:!noCt,noswap:noCt,traded:traded(sk,lv,"cantrip")});
       bump(lv,0,1);});
-    if(sched.spells)(ch.spells||[]).forEach((k,i)=>{const lv=acqAt(sched.spells,i,lvls);
+    if(sched.spells)(ch.spells||[]).forEach((k,i)=>{ if(isHole(k))return;   // D146
+      const lv=acqAt(sched.spells,i,lvls);
       const sk=shown(k,lv,"spell");
       put(lv,{kind:"sp",rowId:row.id,key:k,shownKey:sk,label:name(sk),
         lv,lvls,swappable:!noSp,noswap:noSp,traded:traded(sk,lv,"spell")});
@@ -6512,8 +6665,10 @@ function timelinePicks(){
         if(to<=from)return;
         const len=(ch[arr]||[]).length;
         bump(lv,to-from,0);
-        for(let p=Math.max(from,len);p<to;p++)
-          put(lv,{kind:"ghost",rowId:row.id,gkind:arr,lv});
+        // a slot is open past the array's end OR at an EMPTY SLOT inside it (D146) — the
+        // ghost is what the timeline draws for "this level still owes you one"
+        for(let p=from;p<to;p++)
+          if(p>=len||isHole((ch[arr]||[])[p]))put(lv,{kind:"ghost",rowId:row.id,gkind:arr,lv});
       });});
   });
   // a trade's INCOMING pick belongs to the level the trade happened at: the outgoing
@@ -6562,7 +6717,12 @@ function dropChipOnLevel(chip,L){
     if(!sa||!ch||!ch[arr])return false;
     const lvls=charLevelMap().get(row.id)||[];
     const i=ch[arr].indexOf(chip.key); if(i<0)return false;
-    let j=-1; for(let k=0;k<ch[arr].length;k++)if(acqAt(sa,k,lvls)===L){j=k;break;}
+    // prefer an EMPTY SLOT at the target level (D146): filling one is a swap of two
+    // positions, so nothing between them is re-dated. Only then fall back to the shift.
+    let h=-1,j=-1;
+    for(let k=0;k<ch[arr].length;k++){ if(acqAt(sa,k,lvls)!==L)continue;
+      if(j<0)j=k; if(isHole(ch[arr][k])){h=k;break;} }
+    if(h>=0){ ch[arr][h]=chip.key; dropSlot(ch[arr],i); save(); return true; }
     if(j<0)return false;
     ch[arr].splice(i,1); ch[arr].splice(j,0,chip.key);
     save(); return true;
@@ -7285,7 +7445,12 @@ function renderSpells(){
 }
 // hover toolbar for a spell-level group: tracks picks at that level + quick clear
 function pickedAtLevel(l){return R.casters.reduce((a,rec)=>{const ch=R.cart[rec.idx]||{};const arr=l===0?ch.cantrips:ch.spells;return a+((arr||[]).map(k=>SPELL_BY[k]).filter(s=>s&&s.level===l).length);},0);}
-function clearLevel(l){R.casters.forEach(rec=>{const ch=state.chosen[rec.idx];if(!ch)return;["cantrips","spells"].forEach(a=>{ch[a]=(ch[a]||[]).filter(k=>{const s=SPELL_BY[k];return !(s&&s.level===l);});});});save();render();}
+// clearing a level empties its slots, it does not close them (D146): a bulk drop that
+// filtered would re-date every pick below it, which is the single-drop bug at scale
+function clearLevel(l){R.casters.forEach(rec=>{const ch=state.chosen[rec.idx];if(!ch)return;
+  ["cantrips","spells"].forEach(a=>{if(!ch[a])return;dropWhere(ch[a],k=>{const s=SPELL_BY[k];return !!(s&&s.level===l);});});
+  if(ch.prep)ch.prep=ch.prep.filter(k=>{const s=SPELL_BY[k];return !(s&&s.level===l);});});
+  save();render();}
 function lvlTools(l){const t=el("div","lvltools");const n=pickedAtLevel(l);
   t.append(el("span","lvltools-n",n+(l===0?" known":" picked")));
   const clr=el("button","lvltools-btn ico-only");clr.append(icoEl("x"));
@@ -8098,15 +8263,65 @@ const featSlotOf=fk=>{const f=FEAT_BY[baseKey(fk)];if(!f)return null;
   const rec=(state.featSlots||{})[fk];
   // only trust a recorded slot the feat could actually occupy
   return (rec&&SLOTS_FOR[rec]&&SLOTS_FOR[rec].indexOf(featSlot(f))>=0)?rec:featSlot(f);};
+// the category a POSITION in `state.feats` occupies. An empty slot answers for itself
+// (D146); anything else answers through the slot it was spent from.
+const featCatOf=fk=>isHole(fk)?(holeTag(fk)||"origin"):(featSlotOf(fk)||"origin");
 function setFeatSlot(fk,slot){ if(!state.featSlots)state.featSlots={};
   if(slot)state.featSlots[fk]=slot; else delete state.featSlots[fk];}
+// ── feats and optional features: their own empty slots (D146) ──────────────
+// Same rule as a spell's, with one extra thing to remember. A spell slot is defined by
+// its POSITION alone, because one schedule owns the whole array; a feat's is not — origin,
+// general and epic are separate queues walked in array order, and an optional feature's
+// queue is its progression. So these holes carry a tag, and these writers are the only
+// places that know how to read it off the entry being dropped.
+function dropFeatAt(i){
+  const fk=state.feats[i]; if(fk==null)return null;
+  const cat=isHole(fk)?holeTag(fk):(featSlotOf(fk)||"origin");
+  dropSlot(state.feats,i,cat);
+  if(!isHole(fk))setFeatSlot(fk,null);
+  return fk;
+}
+function dropOptAt(i){
+  const ok=state.optFeats[i]; if(ok==null)return null;
+  // an entry with no progression in this build never occupied a slot, so it leaves none:
+  // an untagged hole matches no queue and is skipped by the walk, which is what we want
+  const a=isHole(ok)?null:optAcqLevels().get(ok);
+  dropSlot(state.optFeats,i,isHole(ok)?holeTag(ok):((a&&a.slot)||""));
+  return ok;
+}
+// the standing slot a take answers, or -1. Earliest first, same best-case rule as
+// everywhere else (D18) — and for a feat the slot has to be one this category can be
+// spent from, which is `SLOTS_FOR`'s question, not an equality (origin ⊆ general).
+function featHoleFor(cat){
+  const want=SLOTS_FOR[cat]||[cat];
+  for(let i=0;i<state.feats.length;i++){const t=state.feats[i];
+    if(isHole(t)&&want.indexOf(holeTag(t)||"origin")>=0)return i;}
+  return -1;
+}
+function optHoleFor(k){
+  const o=OPT_BY[baseKey(k)]; if(!o)return -1;
+  const names=new Set(optProgs().filter(p=>(o.types||[]).some(t=>p.types.has(t))).map(p=>p.name));
+  for(let i=0;i<state.optFeats.length;i++){const t=state.optFeats[i];
+    if(isHole(t)&&names.has(holeTag(t)))return i;}
+  return -1;
+}
+// the two take paths, so no call site has to remember the slot rule
+function takeFeat(k,slot){
+  const cat=slot||"origin", i=featHoleFor(cat);
+  if(i>=0)state.feats[i]=k; else state.feats.push(k);
+  setFeatSlot(k,slot);
+}
+function takeOpt(k){
+  const i=optHoleFor(k);
+  if(i>=0)state.optFeats[i]=k; else state.optFeats.push(k);
+}
 // remove ONE copy — the last taken — of a repeatable entry, by its own identity (D135).
 // The earlier copies keep their keys, so their choices and their slot stay theirs.
-function dropCopy(arr,k){ for(let i=arr.length-1;i>=0;i--)if(baseKey(arr[i])===k){
-    const gone=arr[i]; arr.splice(i,1); return gone;}
+function dropOptCopy(k){ for(let i=state.optFeats.length-1;i>=0;i--)
+    if(!isHole(state.optFeats[i])&&baseKey(state.optFeats[i])===k)return dropOptAt(i);   // leaves the slot (D146)
   return null;}
-function dropFeatCopy(k){ for(let i=state.feats.length-1;i>=0;i--)if(baseKey(state.feats[i])===k){
-    const fk=state.feats[i]; state.feats.splice(i,1); setFeatSlot(fk,null); return fk;}
+function dropFeatCopy(k){ for(let i=state.feats.length-1;i>=0;i--)
+    if(!isHole(state.feats[i])&&baseKey(state.feats[i])===k)return dropFeatAt(i);   // leaves the slot (D146)
   return null;}
 // ── prerequisites (D31) ────────────────────────────────────────────────────
 // 5etools stores `prerequisite` as a list of ALTERNATIVES, so one satisfied block is
@@ -8337,7 +8552,7 @@ function renderOptFeats(){
         attachTip(w,tipBlock("Prerequisite not met",`${o.name} needs ${pr.why}. Kept in the build — nothing is removed.`));c.append(w);}
       c.append(el("span",null,o.name));
       if(ord>1)c.append(el("span","chipn","#"+ord));
-      const b=xBtn(null,()=>{state.optFeats=state.optFeats.filter(x=>x!==k);save();refreshAll();render();});
+      const b=xBtn(null,()=>{const i=state.optFeats.indexOf(k);if(i>=0)dropOptAt(i);save();refreshAll();render();});
       c.append(b);chips.append(c);});
     box.append(chips);
   });
@@ -8354,7 +8569,7 @@ function renderFeatChips(){const box=$("#featChips");box.innerHTML="";FCHIP_ORD.
   if(grantsAny(f.grants))c.append(icoEl("spark","fmark"));
   c.append(el("span",null,f.name));
   if(ord>1)c.append(el("span","chipn","#"+ord));   // a repeatable feat taken again (D135)
-  const b=xBtn(null,()=>{state.feats.splice(i,1);setFeatSlot(fk,null);renderFeatChips();render();});
+  const b=xBtn(null,()=>{dropFeatAt(i);renderFeatChips();render();});
   c.append(b);box.append(c);});
   renderFeatBudget();}
 
@@ -8500,7 +8715,9 @@ $("#tGroup").onchange=e=>{tableOpts.group=e.target.value;saveTableOpts();renderT
 $("#tColReset").onclick=e=>{e.preventDefault();tableOpts.order=[...COL_ORDER_DEFAULT];tableOpts.hidden=new Set();
   saveTableOpts();renderColMenu();renderTable();};
 $("#pickClear").onclick=()=>{ if(!PICK)return;
-  if(PICK.classIdx!=null){const ch=state.chosen[PICK.classIdx];if(ch)ch.spells=(ch.spells||[]).filter(k=>{const s=SPELL_BY[k];return !(s&&s.level>=1&&s.level<=PICK.maxLevel);});}
+  if(PICK.classIdx!=null){const ch=state.chosen[PICK.classIdx];
+    if(ch&&ch.spells)dropWhere(ch.spells,k=>{const s=SPELL_BY[k];return !!(s&&s.level>=1&&s.level<=PICK.maxLevel);});   // slots stay (D146)
+    if(ch&&ch.prep)ch.prep=ch.prep.filter(k=>{const s=SPELL_BY[k];return !(s&&s.level>=1&&s.level<=PICK.maxLevel);});}
   else state.choices[PICK.id]=[];
   save();renderPickList();render();};
 $("#prepDailyBtn").onclick=openPrepDaily;
@@ -9182,9 +9399,18 @@ function pruneState(){
   // exist", not "which one does this row mean" — subOfRow() here would drop a stored
   // subKey the moment its class went missing, and nothing prunes on absence (D42/D56).
   state.classes.forEach(r=>{if(r.subKey&&!SUB_BY[r.subKey]&&bookLoaded(r.subKey))r.subKey=null;});
-  state.feats=(state.feats||[]).filter(fk=>FEAT_BY[baseKey(fk)]||!bookLoaded(baseKey(fk)));
-  state.optFeats=(state.optFeats||[]).filter(ok=>OPT_BY[baseKey(ok)]||!bookLoaded(baseKey(ok)));
+  // an EMPTY SLOT is not content and has no book, so it is never pruned (D146) — spelt out
+  // rather than left to `bookLoaded` failing to resolve the tag as a source code
+  state.feats=(state.feats||[]).filter(fk=>isHole(fk)||FEAT_BY[baseKey(fk)]||!bookLoaded(baseKey(fk)));
+  state.optFeats=(state.optFeats||[]).filter(ok=>isHole(ok)||OPT_BY[baseKey(ok)]||!bookLoaded(baseKey(ok)));
   if(state.speciesKey&&!RACE_BY[state.speciesKey]&&bookLoaded(state.speciesKey))state.speciesKey="";
+  // the one invariant worth re-asserting on every load: a TRAILING hole is not a slot.
+  // Pruning above can expose one, and so can a file written by an older build.
+  trimHoles(state.feats); trimHoles(state.optFeats);
+  Object.values(state.chosen||{}).forEach(ch=>{ if(!ch)return;
+    if(ch.cantrips)trimHoles(ch.cantrips);
+    if(ch.spells)trimHoles(ch.spells);
+    if(ch.prep)ch.prep=noHoles(ch.prep);});   // a daily subset has no slots to hold
 }
 // ── boot ─────────────────────────────────────────────────────────────────
 // Reading the imported digest is ASYNC now (D93), so boot waits for it before deciding

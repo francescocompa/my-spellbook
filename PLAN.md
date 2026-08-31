@@ -131,6 +131,16 @@ Francesco's own reading** — see each D142 sub-entry's *Rejected:* clause befor
   measured for contrast; depth restored. Biggest item in the batch and the one most likely
   to want its own decision entry.
 
+## Closed this session
+
+- [x] **A drop re-dated every pick below it** (v1.4.14, **D146**). Reported by Francesco as
+  *"removing a spell moves all other spells out of place, resulting in a broken build"* and
+  reproduced exactly: one drop at L1 on a clean Sorcerer 5 moved five of eight survivors and
+  created two illegal slots. A drop leaves an **empty slot** now; the model, the four pick
+  arrays, the guide, the timeline, the fork and the exporter all carry it. Cite D146 and the
+  GOTCHAS entry before touching a raw pick array — `.length` on one is almost always the
+  wrong question now (`nFilled` counts what is answered, `firstOpen` finds what is owed).
+
 ## Open ⚑ — calls for Francesco
 
 - [ ] **The `…`-placeholder family needs one call** (H6, left as scoped): "+ add a class…",

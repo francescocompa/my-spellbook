@@ -7,12 +7,12 @@
 > |---|---|
 > | `CLAUDE.md` | What this project is, its conventions, build/run, the verify gate, versioning |
 > | `PLAN.md` | The queue — what is next, what is flagged for Francesco |
-> | `DECISIONS.md` | Every decision D7–D145 and what was rejected |
+> | `DECISIONS.md` | Every decision D7–D146 and what was rejected |
 > | `GOTCHAS.md` | Traps that have already cost a session |
 > | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 > | `ARCHIVE.md` | Bodies of consumed phases, decisions and old rationale |
 
-## TL;DR (2026-08-31 · **v1.4.12** at `1bd4f5a`, pushed + tagged · LIVE on Pages)
+## TL;DR (2026-08-31 · **v1.4.14**, committed · phase J shipped, one model bug closed)
 
 - **Phase J — Francesco's 2026-08-31 notes batch, all eighteen items — is SHIPPED**
   (v1.4.8 → v1.4.12, decisions **D142–D145**), and v1.4.7 closed the last unflagged bug in
@@ -44,8 +44,17 @@
     existing one.
   - **v1.4.12 · D145** — the light theme SOLVED: **0 contrast failures across 698 rendered
     text nodes, in both themes.** "Too flat" WAS the border contrast.
+- **v1.4.14 · D146 — a drop leaves an EMPTY SLOT.** Francesco reported that removing a spell
+  in the guided builder moved everything else out of place. Reproduced on a clean Sorcerer 5:
+  one drop at L1 re-dated **five of eight** survivors and made **two of them illegal**, and the
+  emptied slot opened at the TOP. The cause was the model, not the guide — position IS the
+  acquisition slot, so `splice` re-dates. Holes are real positions now, every VIEW strips them,
+  and the acquisition walks consume them. Scope is **everywhere picks are level-mapped** (his
+  call): spells, cantrips, feats, optional features. Verified: 0 re-dated, 0 illegal.
 - **Next action: none blocked.** Francesco picks from PLAN. The nearest well-scoped item is
-  the 2024 half-caster pooling flag (⚑, from v1.4.3).
+  the 2024 half-caster pooling flag (⚑, from v1.4.3). **Not yet run for this session: a
+  `/handoff`** — STATE's block is restamped here but PLAN's phase J bodies are still live and
+  a `/clean` was already queued behind the open flags.
 - **Manual for Francesco:** ① the four ⚑ copy/model calls in PLAN — the `…`-placeholder
   family; the chain rail's CSS `· optional` vs the card's "Optional" (styles.css:1822);
   whether `sbFav` should be edition-tolerant; and where the guide's orphaned *"Ability scores
@@ -95,4 +104,3 @@ newer than 14:30 on 2026-08-31, and that one ("Version bump review process") car
 reads as a hand-written title covering a topic it really did discuss (D140) — renaming it
 would more likely hit the wrong chat than the right one.
 
-⟳ Rename previous session → "The notes batch, and a solved light theme"  · session: resolve by cwd + latest

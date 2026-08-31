@@ -1654,6 +1654,50 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     1.3:1 in whichever theme was measured second. Measure one theme per pass, after a real
     frame.
 
+- **D146 (2026-08-31) DECIDED — a drop leaves an EMPTY SLOT; it does not close the gap**
+  (Francesco: *"there seems to be an issue with spells and level assignment in the guided
+  builder. Removing a spell moves all other spells out of place, resulting in a broken
+  build."*). Reproduced exactly: on a clean Sorcerer 5, dropping the L1 pick re-dated **five
+  of the eight survivors** and produced **two illegal slots** (a 2nd-level spell in an L2
+  slot, a 3rd-level in an L4 slot), and the emptied slot opened at **L5** instead of L1.
+  The ✕'s own tip promised *"Nothing else moves"*, which had never been true for any pick
+  but the last one.
+  - **(a) The cause is the model, not the guide.** A pick array's POSITION *is* the
+    acquisition slot (D64 · D115(b,h)), so `toggle`'s `splice(i,1)` moved every later pick
+    one slot earlier. The guided builder is only where it is VISIBLE — the character view,
+    the picker's ✓ and the bulk clears all shared the same writer.
+  - **(b) A hole is a real position.** `state.chosen[row].cantrips`/`.spells`,
+    `state.feats` and `state.optFeats` now carry an `∅|`-prefixed sentinel at a dropped
+    position. A string, so the four arrays stay homogeneous and no content key can collide
+    (a key is `Name|SOURCE`, and a name is never empty). Its tag carries what a position
+    cannot say for itself: a feat's slot category, an optional feature's progression — a
+    spell slot needs none, the schedule owns it.
+  - **(c) Containment is what makes this a ~30-site change, not a 169-site sweep.** RAW
+    arrays carry holes; every VIEW strips them (`sliceChosen`, `featsAt`, `optFeatsAt`), so
+    nothing downstream of `R.cart` or a sliced reader ever meets one — never known, never
+    prepared, never printed, never counted as spent. The ACQUISITION WALKS consume them,
+    and that consumption is the entire mechanism. A **trailing** hole is not a slot:
+    dropping the LAST pick still shrinks the array, because nothing follows it to move.
+  - **(d) A take answers a standing slot before it adds a position** — earliest first, the
+    same best-case rule as everywhere else (D18), **but never a slot the pick could not
+    legally have been learned in**. Filling an L1 hole with a 3rd-level spell would
+    manufacture exactly the illegal slot the chain flags, so `holeFor` steps over those and
+    the pick lands at the insert point instead, where the sweep reports it as over-budget —
+    honest, and reversible by filling the slot.
+  - **(e) Everywhere picks are level-mapped, not the guided builder alone** (Francesco's
+    call). Spells, cantrips, feats and optional features; the guide, the character view, the
+    timeline's drag-to-level, the bulk clears, the fork and the exporter. `prep` is the one
+    array excluded by construction — a daily subset re-chosen every long rest has no
+    acquisition order and therefore no slots (D18/D115(c)).
+  - *Rejected:* **"✕ = replace this slot"** (the ✕ opens the picker addressed at that
+    position and overwrites in place). Cheapest of the three, no storage change, and the
+    app already has two in-place position writers — but it takes away "just remove it",
+    and a slot left open while you go and think about it is a real state a builder needs.
+    *Rejected:* **keeping the shift and warning about it** — "this will move 5 later picks
+    up a level" is a truthful sentence about a broken outcome; the outcome was the problem.
+  - **→ Gotcha.** The rule about where holes may live is enforced in code and copied to
+    `GOTCHAS.md`; that is the version to trust.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

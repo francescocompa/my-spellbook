@@ -2106,6 +2106,14 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
 /* the answer, once, as chips — each carrying its own ✕ (D130(b)) */
 .gchips{display:flex;flex-wrap:wrap;gap:6px}
 .gchips .cartchip{font-size:12px}
+/* an EMPTY SLOT (D146) — the slot is real and it is unanswered, so it is drawn rather
+   than closed up. Dashed and quiet: it is a question, not a pick. It is a <button>
+   because it opens its own section's picker, so it takes the chip's own metrics back
+   off the UA stylesheet. */
+.gchips .gslot{font-family:inherit;line-height:inherit;letter-spacing:inherit;
+  background:none;border-style:dashed;color:var(--muted);cursor:pointer}
+.gchips .gslot .lv{color:inherit}
+.gchips .gslot:hover{border-style:solid;border-color:var(--accent);color:var(--ink)}
 /* a pick the class could not cast when its slot arrived — the same red the chain gives
    the level, never `.gapped`, which means a book you turned off */
 .gchips .cartchip.gbad{border-color:var(--bad)}

@@ -618,5 +618,31 @@
   ancestor's `opacity` — a decorative `opacity` on a text container is a contrast cut no
   palette can repair (`.lvltools` at `.6` put its label at 2.68:1; D145 removed both).
 
+- **A pick array's POSITION is the acquisition slot, so a `splice` is a re-dating (D146).**
+  This bit for real: on a clean Sorcerer 5, dropping the L1 pick moved five of the eight
+  survivors to an earlier level and put a 2nd-level spell in an L2 slot and a 3rd-level in
+  an L4 slot — two illegal slots from one ✕. The rules, all four of them enforced in code:
+  - **Never `splice` a pick array to remove.** `dropSlot` writes an `∅|` EMPTY SLOT at that
+    position instead. The only exception is the LAST position, which shrinks the array
+    because nothing follows it to move — and a **trailing** hole is therefore never stored.
+    `prep` is the one pick array with no slots at all: a daily subset has no acquisition
+    order, so it splices (D18/D115(c)).
+  - **Raw arrays carry holes; every VIEW strips them.** `sliceChosen`, `featsAt` and
+    `optFeatsAt` are the boundary. Anything reading `R.cart` or a sliced list is safe by
+    construction — which is why this was ~30 sites and not the 169 that touch a pick array.
+    A new RAW reader of `state.chosen[…]`/`state.feats`/`state.optFeats` must decide, in so
+    many words, whether it wants POSITIONS (keep the holes) or PICKS (`noHoles`/`nFilled`).
+    `.length` on a raw pick array is almost always the wrong question now — `nFilled` counts
+    what is answered, `firstOpen` finds the slot still owed.
+  - **The acquisition walks must CONSUME a hole**, or the entry below it slides up into the
+    vacated slot and that is the original bug again. Spells need nothing (the arithmetic is
+    positional); `featAcqLevels` and `optAcqLevels` read the hole's TAG, because a feat's
+    queue is its category and an optional feature's is its progression — neither of which a
+    bare position knows.
+  - **A take answers a standing slot before it appends** (`holeFor`), earliest first — but
+    never a slot the pick could not legally have been learned in. Filling an L1 slot with a
+    3rd-level spell manufactures the very illegal slot the chain flags; those are stepped
+    over, and the pick lands over-budget instead, where the sweep can say so.
+
 - **History purge:** old data-bearing commits are unreachable on origin but GitHub may still serve
   them by exact SHA until it gc's. `backup/pre-purge-20260826` (local) has the original.
