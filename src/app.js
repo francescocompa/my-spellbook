@@ -6906,9 +6906,11 @@ function renderTimeline(){
   // only one. It is NOT a drop target, and the chain's growth ghost is not one either
   // since I5 — see `wireRowDrag`'s `opt.enabled`.
   if(total<20)col.growth(tlAddRow(plan,rowOf,total));
-  // the order arrow, at the visual head in either order — the same ghost-arrow control
-  // the guide's rail carries, minus the walk: here it only flips the display order
-  col.head(tlOrderStrip(total));
+  // J9: the order arrow and its "from L…" note sit in the modal HEADER, on the right. It
+  // used to be a sticky strip at the visual head of the column, which meant it MOVED when
+  // the order flipped (D141 put it at whichever end the walk started from) — the control
+  // that inverts the order was the one thing changing places when you used it.
+  const oh=$("#tlOrderHost"); if(oh){oh.innerHTML=""; oh.append(tlOrderStrip(total));}
   // footer: fork a variant · start the guide (D115(i), D118(i)). The pin is gone —
   // clicking a row IS setting the current level now.
   const fork=$("#tlFork"),guide=$("#tlGuide");
@@ -8736,6 +8738,7 @@ $("#nbGuided").onclick=()=>{
   openGuide(false);                             // fresh build: forward, no ceremony
 };
 $("#guideBtn").onclick=()=>{closeMenu();guideEntry();};
+$("#guideTopBtn").onclick=()=>guideEntry();
 $("#tlGuide").onclick=()=>{closeTimeline();guideEntry();};
 $("#nbVer").onkeydown=e=>{if(e.key==="Enter")$("#nbCreate").click();};
 $("#nbChar").onkeydown=e=>{if(e.key==="Enter")$("#nbVer").focus();};
@@ -9110,14 +9113,17 @@ function randomBuild(){
   });
   save();refreshAll();render();
 }
-// the 🎲 random-build helper is a local testing tool — hide it on the public build
+// J8: the random-build helper is a first-class page feature now (it used to be stripped
+// from the public build as a local testing tool)
 // which build you are looking at. build.py injects `__VERSION__` from the VERSION file
 // into every deliverable, so the footer of a page always names the code that made it —
 // including on a printed sheet, which is where "is this current?" actually gets asked.
 {const v=$("#appVer");
  if(v)v.textContent=window.__VERSION__?"v"+window.__VERSION__:"";}
-if(typeof window!=="undefined"&&window.__PUBLIC__){const tb=$("#testBtn");if(tb)tb.remove();}
-else $("#testBtn").onclick=randomBuild;
+// J8: "Random character" is a real feature of the page now, not a local-only test helper —
+// it ships on the public build too, and it lives in the menu beside the guided builder
+// rather than holding a slot in the header. The header slot is the guided builder's.
+$("#testBtn").onclick=()=>{closeMenu();randomBuild();};
 
 // drop build references to content the current data set doesn't contain
 // (e.g. after switching baked↔imported, or a homebrew spell was deleted)

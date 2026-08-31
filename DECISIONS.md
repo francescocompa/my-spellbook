@@ -1551,6 +1551,13 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     the mock: *"Make sure the top empty margin is the same between the two columns (currently
     stat block hits the row above)"* — moot for the pane, but it stands as the rule for any
     future two-column picker.
+  - **(e) The eligible list is capped at ~55vh and scrolls inside itself.** Asked separately
+    after the fact: (c) replaced the filter-status half of the mockup's C question and said
+    nothing about the height half, so it was re-put rather than assumed. Two-column layout
+    only — below 920px the columns stack and a nested scroller fights the page scroll under
+    a thumb — and `#secSpells` is already hidden outright in print. Level headers go sticky
+    inside the scroller. *Rejected:* a fixed ~420px cap (steadier on a big screen, tighter on
+    a laptop), and leaving it uncapped.
   - **Scope:** the familiar picker only for now; the spell and feat pickers are not touched.
 
 ### Superseded

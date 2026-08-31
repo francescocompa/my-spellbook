@@ -768,6 +768,23 @@ table.spelltable td.cmp .l.iffy{color:var(--good);cursor:help;
 .cmmark.iffy{color:var(--muted)}
 .card h2 .menu{margin-left:0}
 /* right-align the control in each "choice to make" row */
+/* ── D142(e): the eligible list has a ceiling ────────────────────────────────
+   The finder used to run the full length of whatever is eligible, so the page's height was
+   a function of the spell list rather than of the build. It scrolls inside itself now, with
+   the level headers sticky so you always know which band you are reading.
+   Two-column layout ONLY: below 920px the columns stack and the card is the whole screen,
+   where a nested scroller fights the page scroll under a thumb. `#secSpells` is hidden
+   outright in print (see the print block), so printing cannot see any of this. */
+@media (min-width:921px){
+  #secSpells #spellList{max-height:55vh;overflow-y:auto;overscroll-behavior:contain;
+    scrollbar-width:thin;margin:0 -4px;padding:0 4px}
+  /* the header needs an opaque ground of its own — it is transparent by default and the
+     rows would run underneath it */
+  #secSpells #spellList .lvlgroup>h3{position:sticky;top:0;z-index:2;background:var(--panel);
+    margin-top:0;padding-top:6px}
+  #secSpells #spellList .lvlgroup:first-child{margin-top:0}
+}
+
 /* ── D142(c): the active-filter row ──────────────────────────────────────────
    What is filtered, named as chips, on ONE masked line with a clear-all at the right —
    the same scroller/mask pattern as the spell modal's access row and the choices field.
@@ -1236,13 +1253,20 @@ table.spelltable .pickcell{cursor:help}
 .tllist .locard{margin-top:6px}
 .tllist .locard:first-child{margin-top:0}
 .tllist .locard.runjoin{margin-top:2px}
-/* the order arrow at the head of the timeline column — the chain rail's own ghost
-   control (`.gwalkbtn`/`.gwalkat`), sticky so scrolling never takes the order off
-   screen; it bleeds back over the list's 2px padding so rows start flush under it */
-.tlorder{position:sticky;top:-2px;z-index:3;display:flex;align-items:center;gap:7px;
-  margin:-2px -2px 6px;padding:6px 8px;background:var(--panel);
-  border-bottom:1px solid var(--line)}
-.tlorder+.locard,.tlorder+.tlrundiv{margin-top:0}
+/* J9: the order arrow now lives in the timeline HEADER, right-aligned — the chain rail's
+   own ghost control (`.gwalkbtn`/`.gwalkat`), but parked instead of sticky. It no longer
+   needs to travel with the column, and a control that moved when you used it was the point
+   of the note. `.x` in this header keeps `margin-left:auto`, so pushing the host does it. */
+/* the close button in this header ALSO carries `margin-left:auto`, and two auto margins
+   split the free space between them — which parked the strip in the middle of the header
+   rather than at its right edge. Ids so the pairing wins over whatever set that auto. */
+/* a fixed min-width so "from L12" → "from L1" cannot drag the arrow sideways: the host's
+   right edge is pinned by the auto margin, so without it a shorter label moved the very
+   control you had just clicked */
+#tlOrderHost{margin-left:auto;display:inline-flex;align-items:center;
+  min-width:84px;justify-content:flex-start}
+#tlOrderHost+.x{margin-left:10px}
+.tlorder{display:flex;align-items:center;gap:7px}
 .locard.runc0{border-left:3px solid color-mix(in srgb,var(--accent) 60%,transparent)}
 .locard.runc1{border-left:3px solid color-mix(in srgb,var(--free) 60%,transparent)}
 .locard.runc2{border-left:3px solid color-mix(in srgb,var(--gold) 60%,transparent)}

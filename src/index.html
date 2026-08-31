@@ -38,13 +38,14 @@
       <div class="menupop bswpop hidden" id="bswPop"></div>
     </div>
     <span class="spacer"></span>
-    <button class="btn iconbtn ico" id="testBtn" data-ico="dice" title="Populate a random test build (local only)" aria-label="Random test build"></button>
+    <button class="btn iconbtn ico" id="guideTopBtn" data-ico="spark" title="Guided builder: walk the build level by level" aria-label="Guided builder"></button>
     <div class="tabs"><button id="tabBuild" class="on"><span class="tl" data-t="Build">Build</span></button><button id="tabTable"><span class="tl full" data-t="Spell table">Spell table</span><span class="tl short" data-t="Table">Table</span></button></div>
     <div class="menu">
       <button class="btn iconbtn ico" id="menuBtn" data-ico="dots" title="Settings" aria-label="Settings"></button>
       <div class="menupop hidden" id="menuPop">
         <button id="buildsBtn"><span class="mi ico" data-ico="stack"></span>Builds…</button>
         <button id="guideBtn"><span class="mi ico" data-ico="spark"></span>Guided builder…</button>
+        <button id="testBtn"><span class="mi ico" data-ico="dice"></span>Random character</button>
         <div class="sep"></div>
         <button id="customBtn"><span class="mi ico" data-ico="pencil"></span>Custom spell…</button>
         <button id="hbBtn"><span class="mi ico" data-ico="stack"></span>My homebrew…</button>
@@ -580,6 +581,9 @@
   <div class="box tlbox">
     <div class="mh">
       <h2>Timeline</h2><span class="ordflag hidden" id="tlOrder"></span>
+      <!-- J9: the order arrow and the "from L…" note live in the HEADER now, on the right,
+           rather than as a sticky strip at the head of the list. -->
+      <span class="tlorderhost" id="tlOrderHost"></span>
       <button class="x ico" id="tlClose" data-ico="x" aria-label="Close"></button>
     </div>
     <div class="mb tlmb"><div id="tlList" class="lolist tllist"></div></div>

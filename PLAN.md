@@ -74,12 +74,10 @@ started until the four gated calls come back.
   ≤820px rule to `.btn.gh-toggle`. Then re-check every other `display` rule a `.lbl-ico`
   button could be losing.
 
-### Still open out of J3
+### Closed out of J3
 
-- [ ] **Cap the Eligible spells list height and scroll inside it.** Mocked as C-ii and NOT
-  ruled on: the answer that came back replaced the filter-status half of J3 and said nothing
-  about the cap. Ask before building — the two candidates were ~55vh and a fixed ~420px.
-  ⚑ (owner: Francesco, 2026-08-31)
+- [x] **The eligible list is capped at ~55vh and scrolls inside itself** (v1.4.9, D142(e)) —
+  two-column layout only; level headers sticky; print unaffected (`#secSpells` is hidden there).
 
 ### J6–J10 · ready to build
 
@@ -89,11 +87,13 @@ started until the four gated calls come back.
 - [ ] **J7 · Guided builder — copy pass.** Strip AI tells (em dashes) and drop pointless
   notes, starting with the one under the "Next level" section. Note: D131(c) already removed
   the guide's explanatory prose, so this is the remainder.
-- [ ] **J8 · Random build becomes official, guided takes its place.** `#testBtn` (index.html:41,
+- [x] **J8 · Random build is official, guided took its place** (v1.4.9). Original note: `#testBtn` (index.html:41,
   the 🎲) currently sits in the header and is `remove()`d on the public build (app.js:8975).
   Swap it for a guided-builder button in the header, move random into `#menuPop` beside
   "Guided builder…", and stop stripping it from the public build.
-- [ ] **J9 · Timeline — arrow + "from level" to the header right.** `tlOrderStrip()`
+- [x] **J9 · Timeline arrow + "from level" moved to the header right** (v1.4.9). It is
+  parked rather than sticky now, with a `min-width` on the host so a shorter label cannot
+  drag the arrow sideways: measured 0px movement on flip. Original note: `tlOrderStrip()`
   (app.js:6844) currently emits into the column head via `col.head(...)` (app.js:6826); the
   timeline header is index.html:575 (`<h2>Timeline</h2>` + `#tlOrder`). D141 owns the arrow's
   behaviour (display inverts, computation never does) — this moves where it lives, not what
