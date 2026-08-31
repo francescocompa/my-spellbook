@@ -1482,6 +1482,86 @@ written up in full in `GOTCHAS.md` — that is the copy to trust.
   Affects: src/app.js `renderGpick` (the (a) alert), DECISIONS D130(e) annotation,
   PLAN's H5 block (three ⚑ resolved).
 
+- **D135 (2026-08-31) DECIDED — invocations, and everything shaped like one, are wired**
+  (Francesco's report: *"invocations do not seem to be wired correctly: agonizing and
+  repelling do not let me choose a cantrip, repeatable invocations (and also feats) are not
+  actually repeatable, one with shadows does not add extra condition to invisible spell
+  modal, lessons of the first ones does not grant extra origin feat. Do a full audit of
+  invocations and similar features and fix all these issues."*). Four independent holes,
+  every one of them a 5etools field neither extractor read, or a note path that never ran
+  for the record type. **Nothing here is hand-authored per invocation** — the data carries
+  all four answers and the audit found the whole affected set each time (3 designations,
+  8 repeatables, 1 feat-slot grant, 252 notes).
+  - **(a) A DESIGNATION is a new grant kind, `marks`** — not a grant, not a pick. Agonizing
+    Blast, Repelling Blast and Eldritch Spear say *"Choose one of your known {@filter
+    Warlock cantrips|spells|level=0|class=Warlock|damage type=…} that deals damage"*: the
+    spell is already yours and the feature changes what it does. 5etools carries the pool as
+    a real **filter tag inside the prose**, so `parse_marks` reads it — a table would have
+    been three names today and stale on the next book. A mark rides the pick machinery
+    (`type:"pick"`, count 1, an array value) so every surface that already draws a pick
+    draws it — Choices card, guided chain, both pick modals — but it never calls
+    `spellOut`, because nothing is granted. What it produces is a **note on the designated
+    spell**, through D79's own channel, so it lands in the spell modal and on the printed
+    card with no new machinery. *Rejected:* a note-only advisory with no state (can't say
+    WHICH cantrip, so a build never answers the question); leaving it out of scope because
+    no spell is granted; a hand-authored table keyed by invocation name.
+  - **(b) Designating a cantrip you HAVEN'T got takes it — as a normal pick, never a
+    bonus.** Francesco's call, raw: *"The choice should also let me pick a cantrip (not in
+    addition to warlock, but essentially a shortcut to pick)."* The modal offers the whole
+    filtered pool, and a take lands in the owning class's own cantrip list at the E2 slice
+    position, spending one of that class's slots exactly as picking it on the page would.
+    The owning row is the one whose progression opened the invocation's slot — the same
+    `optOwner` answer the grants already use. Dropping the designation afterwards leaves
+    the pick where it is: it is a real pick now, and `markTake` never deletes one.
+  - **(c) Repeatable is a per-take identity, `key` / `key##n`.** 5etools flags a repeatable
+    FEAT with `repeatable`, but a repeatable optional feature only with a nested entry
+    named "Repeatable" — so Agonizing/Repelling/Eldritch Spear and Lessons of the First
+    Ones all read as take-once, and so did Magic Initiate, Elemental Adept, Skilled and
+    ASI. Both shapes are read now. The second copy needs an identity of its own or its
+    grants, its choices (`"f"+fk` IS the whole token path) and its feat slot would be the
+    first copy's — so the nth copy carries a `##n` suffix, the first keeps the bare key
+    (nothing stored moves, no migration owed), and every FEAT_BY/OPT_BY lookup goes through
+    `baseKey`. The picker keeps its take button meaning click-to-remove and grows a second
+    "+ again" button only where the rule applies; copies past the first carry their ordinal
+    on the chip and on their Choices group. *Rejected:* one key with a parallel count (the
+    two copies' choices would collide, which is the actual bug); renumbering copies on
+    removal (the survivor would inherit the removed copy's picks).
+  - **(d) A feature may hand you a FEAT SLOT — `featProgression` → `featSlots`.** Lessons of
+    the First Ones grants an Origin feat and 5etools models it properly; neither extractor
+    read the field. It is read from **feats, optional features and species only** — a
+    class's own ASI / Epic Boon / Fighting Style schedule is `featSlotLevels()`'s to derive
+    from the level plan, and reading the class copy too would hand every class its boon
+    twice. **+1 on the Origin row** (Francesco's call), whose tooltip names the giver; the
+    guided chain grows one more Origin-feat step because `originSlots()` is now ONE owner
+    for a cap three surfaces used to derive separately. *Rejected:* a second labelled row
+    per granted slot (the Feats block would grow a row every time something grants one).
+  - **(e) A record's own prose is mined for D79 notes, BLOCK BY BLOCK.** `_mod_note` only
+    ever ran through the class/subclass feature index, so a feat, an optional feature or a
+    species — which carry `entries` on the record itself — never got one: every
+    invocation's *"on yourself"*, *"while you're in Dim Light or Darkness"*, *"without
+    expending a spell slot"* was dropped and the modal showed a bare "at will". Now 252
+    notes across the three types. Block by block, never the record flattened: a named spell
+    matches its own block, a pick matches the block carrying the same `@filter`, and
+    anything unmatched keeps no note — a missing note costs a line of prose, a wrong one
+    tells you the wrong rule. *Rejected:* one note per record (the first cut put the
+    Aasimar's *"Once you transform, you can't do so again"* on its Light cantrip).
+  - **(f) A prerequisite that carries a filter is VERIFIABLE.** "a Warlock Cantrip That
+    Deals Damage" could only ever read "?" (D31) because it is not a spell name — but
+    5etools ships the `choose` string beside it, so `spellFilters` carries it and the build
+    answers it exactly. Agonizing and Repelling Blast now read ✓ against a build that holds
+    Eldritch Blast. D31's asymmetry is untouched: what still cannot be checked still
+    cannot say no.
+  - **Two bugs found in passing, fixed:** `METAMAGIC_WHEN["Seeking Spell"]` tested
+    `(sp.atk||[]).length>0` where the record carries a **boolean** — `undefined>0`, so that
+    chip could never appear on any spell; and `EMPTY_GRANTS` was a shared literal whose
+    `fixed`/`picks` LISTS were handed to every spell-less record by `dict(EMPTY_GRANTS)`, so
+    the first append would have appeared on all 200+ of them (it is a function now).
+  Affects: extract.py + src/extract.js (`parse_marks`, `_repeatable`, `feat_progression`,
+  `_own_note_blocks`/`_apply_own_note`, `spellFilters`, `empty_grants`), src/app.js
+  (`baseKey`/`nextCopy`/`dropCopy`, `filterSpells` damage-type + spell-attack, `markTake`,
+  `grantedFeatSlots`/`originSlots`, `grantNotes`, the entity picker, both pick modals, the
+  Choices card), src/styles.css (`.entcount`, `.chipn`), GOTCHAS (three new entries).
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

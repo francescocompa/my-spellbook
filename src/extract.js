@@ -178,6 +178,81 @@ const MOD_RE=/without expending|no spell slot|automatically succeed|can'?t do so
 function modNote(txt){
   const keep=String(txt||"").split(/(?<=[.!?])\s+/).map(x=>x.trim()).filter(x=>x&&MOD_RE.test(x));
   return keep.length?richStrip(keep.join(" ")):null;}
+// A feat, optional feature or species IS its own granting feature: unlike a class, whose
+// prose lives in a separate classFeature record and reaches parseGrants() through the
+// feature index, these carry `entries` on the record itself. Nothing read them, so D79's
+// note lift never ran for ANY of them — every invocation's "on yourself", "while you're in
+// Dim Light or Darkness", "without expending a spell slot" was dropped and the spell modal
+// showed a bare "at will". BLOCK BY BLOCK, never the record flattened: a species is a list
+// of named traits, and one string of all of them is how the Aasimar's "Once you transform,
+// you can't do so again" landed on its Light cantrip.
+// **Keep identical to extract.py's _own_note_blocks / _apply_own_note.**
+function ownNoteBlocks(rec){
+  const out=[];
+  (rec.entries||[]).forEach(blk=>{
+    const buf=[]; walkText(blk,buf); const note=modNote(buf.join(" "));
+    if(!note)return;
+    const raw=typeof blk==="string"?blk:JSON.stringify(blk);
+    const spells=new Set(); let m; const rs=/\{@spell ([^}]+)\}/g;
+    while((m=rs.exec(raw)))spells.add(m[1].split("|")[0].trim().toLowerCase());
+    out.push({spells,filter:raw.indexOf("{@filter")>=0,note});});
+  return out;}
+function applyOwnNote(grants,blocks){
+  if(!blocks||!blocks.length||!grants)return;
+  const hang=b0=>{
+    (b0.fixed||[]).forEach(e=>{const nm=String((e.spell&&e.spell.name)||"").toLowerCase();
+      if(!nm||e.note)return;
+      for(const b of blocks)if(b.spells.has(nm)){e.note=b.note;break;}});
+    (b0.picks||[]).forEach(e=>{ if(e.note)return;
+      for(const b of blocks)if(b.filter){e.note=b.note;break;}});};
+  hang(grants);
+  (grants.optionGroups||[]).forEach(og=>(og.options||[]).forEach(hang));}
+// 5etools marks a repeatable FEAT with a flag, but a repeatable optional feature only with
+// a nested entry named "Repeatable" — so Agonizing Blast, Repelling Blast, Eldritch Spear
+// and Lessons of the First Ones all read as take-once. Both shapes answer one question.
+// **Keep identical to extract.py's _repeatable.**
+function repeatableFlag(o){
+  if(o.repeatable)return true;
+  const walk=e=>{ if(Array.isArray(e))return e.some(walk);
+    if(e&&typeof e==="object"){
+      if(String(e.name||"").trim().toLowerCase().indexOf("repeatable")===0)return true;
+      return walk(e.entries);}
+    return false;};
+  return walk(o.entries);}
+// `featProgression` — a feature that hands you a FEAT SLOT ("you gain one Origin feat of
+// your choice"). Same cumulative shape optProgression() builds, keyed by feat CATEGORY.
+// Read on feats / optional features / species ONLY: a class's own ASI, Epic Boon and
+// Fighting Style schedule is derived from the level plan in the app (featSlotLevels), and
+// reading the class copy here would grant every class its boon twice.
+// **Keep identical to extract.py's feat_progression.**
+function featProgression(o){const out=[];
+  (o.featProgression||[]).forEach(p=>{const prog=p.progression;const counts=new Array(20).fill(0);
+    if(Array.isArray(prog)){for(let i=0;i<20;i++)counts[i]=+(prog[i]||0);}
+    else if(prog&&typeof prog==="object"){Object.entries(prog).forEach(([k,v])=>{const lv=numOf(k)||1;
+      for(let i=lv-1;i<20;i++)counts[i]=Math.max(counts[i],+(v||0));});}
+    if(counts.some(Boolean))out.push({name:p.name||"Feat",cats:p.category||[],counts});});
+  return out;}
+// A DESIGNATION, not a grant (D135): "Choose one of your known {@filter Warlock cantrips|
+// spells|level=0|class=Warlock|damage type=…} that deals damage." The spell is already
+// yours — the feature changes what it does. 5etools carries the pool as a real filter tag,
+// so this is data like everything else here, not a hand-authored table. Top-level PROSE
+// only: the nested blocks are the feature's asides ("Repeatable: you can gain this
+// invocation more than once"), which say nothing about the spell.
+// **Keep identical to extract.py's parse_marks.**
+const MARK_RE=/choose one of your (?:known )?\{@filter ([^}]+)\}/i;
+function parseMarks(o){
+  const top=(o.entries||[]).filter(x=>typeof x==="string").join(" ");
+  const sents=top.split(/(?<=[.!?])\s+/).map(x=>x.trim()).filter(Boolean);
+  const out=[];
+  sents.forEach((sent,i)=>{
+    const m=MARK_RE.exec(sent); if(!m)return;
+    const parts=m[1].split("|"), filt={};
+    parts.slice(2).forEach(part=>{const j=part.indexOf("=");   // [0] display, [1] the page
+      if(j>=0)filt[part.slice(0,j).trim()]=part.slice(j+1).trim();});
+    if(!Object.keys(filt).length)return;
+    const rest=sents.slice(i+1).join(" ");
+    out.push({feature:o.name,filter:filt,desc:richStrip(sent),note:richStrip(rest)||null});});
+  return out;}
 function featRecord(f){ const buf=[]; walkText(f.entries,buf); const txt=buf.join(" "),low=txt.toLowerCase();
   const spells=new Set(); let m; const rs=/\{@spell ([^}]+)\}/g; while((m=rs.exec(txt)))spells.add(m[1].split("|")[0].trim().toLowerCase());
   const filters=new Set(); const rf=/\{@filter [^|}]*\|([^}]+)\}/g;
@@ -394,7 +469,7 @@ const plainRef=x=>typeof x==="object"&&x?richStrip(x.displayEntry||x.entrySummar
 function prereqBlocks(o,ownCat,declared){const out=[];
   const ownName=ownCat?featCatName(ownCat,declared):null;
   (o.prerequisite||[]).forEach(p=>{
-    const b={text:"",level:null,cls:null,feats:[],optfeats:[],races:[],spells:[],spellcasting:false,pact:null,checks:[],soft:false,exclusiveCat:[]};
+    const b={text:"",level:null,cls:null,feats:[],optfeats:[],races:[],spells:[],spellFilters:[],spellcasting:false,pact:null,checks:[],soft:false,exclusiveCat:[]};
     const bits=[];const lv=p.level;
     if(lv&&typeof lv==="object"){b.cls=(lv.class||{}).name;b.level=lv.level;
       bits.push(b.cls?`${b.cls} level ${b.level}`:`level ${b.level}`);}
@@ -402,7 +477,14 @@ function prereqBlocks(o,ownCat,declared){const out=[];
     (p.feat||[]).forEach(x=>{const n=plainRef(x);b.feats.push(n);bits.push(n);});
     (p.optionalfeature||[]).forEach(x=>{const n=plainRef(x);b.optfeats.push(n);bits.push(n);});
     (p.race||[]).forEach(x=>{const n=plainRef(x);b.races.push(n);bits.push(n);});
-    (p.spell||[]).forEach(x=>{const n=plainRef(x);b.spells.push(n);bits.push(n);});
+    (p.spell||[]).forEach(x=>{const n=plainRef(x);b.spells.push(n);bits.push(n);
+      // "a Warlock Cantrip That Deals Damage" is a FILTER, not a spell name — and the app
+      // could only ever say "can't verify" about it (D31). 5etools carries the real
+      // `choose` string, so the build can answer it: carry the filter alongside.
+      if(x&&typeof x==="object"&&x.choose){const filt={};
+        String(x.choose).split("|").forEach(part=>{const i=part.indexOf("=");
+          if(i>=0)filt[part.slice(0,i).trim()]=part.slice(i+1).trim();});
+        if(Object.keys(filt).length)b.spellFilters.push({text:n,filter:filt});}});
     if(p.pact){b.pact=p.pact;bits.push("Pact of the "+p.pact);}
     if(p.spellcasting||p.spellcasting2020||p.spellcastingFeature){b.spellcasting=true;bits.push("spellcasting");}
     // the parts we can't model go in `checks`, kept separate so the app can show a
@@ -728,32 +810,41 @@ function buildDigest(files){
           category:cat,fsClass:({"FS:R":"Ranger","FS:P":"Paladin","FS":"Fighter"})[cat]||null,hasSpells,
           catName:featCatName(cat,featCats),      // what the picker calls this category
           optFeatures:optProgression(ft),prereq:prereqText(ft,cat,featCats),prereqs:prereqBlocks(ft,cat,featCats),
+          repeatable:repeatableFlag(ft),           // Magic Initiate, Elemental Adept… (D135)
+          featSlots:featProgression(ft),           // a feature that hands you a feat slot (D135)
           grants:hasSpells?parseGrants(ft.additionalSpells):{fixed:[],picks:[],expansions:[],optionGroups:[],ability:null},
-          _raw:ft});});
+          _raw:ft});
+        feats[feats.length-1].grants.marks=parseMarks(ft);
+        applyOwnNote(feats[feats.length-1].grants,ownNoteBlocks(ft));});
       (j.optionalfeature||[]).forEach(o=>{if(!validName(o)){report.errors.push(f.name+": unnamed optional feature skipped");return;}
         const hasSpells="additionalSpells"in o;
         optfeats.push({name:o.name,source:o.source||"",group:bgroup(o.source||""),book:bname(o.source||""),
           reprinted:reprinted(o),supersededBy:supersededBy(o),page:o.page??null,types:o.featureType||[],prereq:prereqText(o),prereqs:prereqBlocks(o),hasSpells,
+          repeatable:repeatableFlag(o),            // "You can gain this invocation more than once"
+          featSlots:featProgression(o),            // Lessons of the First Ones → an Origin feat
           grants:hasSpells?parseGrants(o.additionalSpells):{fixed:[],picks:[],expansions:[],optionGroups:[],ability:null},
-          _raw:o});});
+          _raw:o});
+        optfeats[optfeats.length-1].grants.marks=parseMarks(o);
+        applyOwnNote(optfeats[optfeats.length-1].grants,ownNoteBlocks(o));});
       // `base` is the parent species a lineage hangs off — the picker groups on it (D46).
       // D127: a species that SPLITS into lineages emits several records and the reprint
       // stamp belongs to every one of them. The old code stamped races[races.length-1]
       // after the call (so a split species flagged only its last lineage) and the subrace
       // loop never stamped at all — which is why the Gith and Half-Elf twins read as
       // originals and showed up twice in the picker.
-      const emitSpecies=(name,source,blocks,page,base,lineage,reprint,superseded)=>{ page=page??null;
+      const emitSpecies=(name,source,blocks,page,base,lineage,reprint,superseded,note)=>{ page=page??null;
         if(typeof name!=="string"||!name.trim()){report.errors.push(f.name+": unnamed species skipped");return;}
         const start=races.length;
         const named=(blocks||[]).filter(b=>b.name);
         if(named.length>1)named.forEach(b=>races.push({name:`${name} — ${b.name}`,source,group:bgroup(source),book:bname(source),page,base:name,lineage:b.name,grants:parseGrants([b])}));
         else races.push({name,source,group:bgroup(source),book:bname(source),page,base:base||name,lineage:base?(lineage||name):"",grants:parseGrants(blocks)});
-        for(let i=start;i<races.length;i++){races[i].reprinted=!!reprint;races[i].supersededBy=superseded??null;}};
+        for(let i=start;i<races.length;i++){races[i].reprinted=!!reprint;races[i].supersededBy=superseded??null;
+          applyOwnNote(races[i].grants,note);}};
       (j.race||[]).forEach(rc=>{emitSpecies(rc.name,rc.source||"",rc.additionalSpells,rc.page,undefined,undefined,
-        reprinted(rc),supersededBy(rc));});
+        reprinted(rc),supersededBy(rc),ownNoteBlocks(rc));});
       (Array.isArray(j.subrace)?j.subrace:[]).forEach(rc=>{const base=rc.raceName||"",nm=rc.name||"";
         if(!rc.additionalSpells)return;emitSpecies(nm?`${base} (${nm})`:base,rc.source||"",rc.additionalSpells,rc.page,base||null,nm||null,
-          reprinted(rc),supersededBy(rc));});
+          reprinted(rc),supersededBy(rc),ownNoteBlocks(rc));});
     }catch(e){report.errors.push(f.name+": "+e.message);}
   });
 

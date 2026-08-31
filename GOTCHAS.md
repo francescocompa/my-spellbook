@@ -454,5 +454,41 @@
   variable, not an argv token — it kills only the wrapping shell and leaves the python
   process serving. Kill by PID captured at launch, or resolve it:
   `lsof -nP -iTCP -sTCP:LISTEN | grep 8011` then `kill <pid>`.
+- **The pick arrays hold an IDENTITY, not a record key (D135).** `state.feats` and
+  `state.optFeats` may now hold `"Magic Initiate|XPHB"` **and** `"Magic Initiate|XPHB##2"` —
+  a repeatable feat or invocation is held once per take, and the copy needs its own identity
+  or its grants, its choices (`"f"+fk` is the whole token path, so every choice id under it
+  would collide) and its feat slot are the first copy's. **Never `FEAT_BY[fk]` or
+  `OPT_BY[ok]` on an array entry — always `FEAT_BY[baseKey(fk)]`.** The suffix is the only
+  thing that keeps `featAcqLevels()`/`optAcqLevels()` (both Maps keyed by the entry) from
+  silently dropping the second copy. Adds go through `nextCopy` (it reuses a freed ordinal),
+  removals through `dropCopy`/`dropFeatCopy`, which take the LAST copy — renumbering was
+  rejected because the survivor would inherit the removed copy's picks. Export/import
+  carries the strings verbatim and the choice-id remap only touches `^[cs]\d+`, so a
+  round-trip is safe.
+- **A feat / optional feature / species IS its own granting feature — nothing was reading
+  its prose (D135(e)).** `_mod_note` (D79) only ever ran through `SUBFEAT_INDEX` /
+  `CLSFEAT_INDEX`, which exist because a CLASS's prose lives in a separate feature record.
+  These three carry `entries` on the record itself, so for years every invocation's *"on
+  yourself"*, *"while you're in an area of Dim Light or Darkness"*, *"without expending a
+  spell slot"* was parsed away and the spell modal showed a bare "at will". `_own_note_blocks`
+  fixes it, and it must stay **block by block**: the first cut flattened the record and put
+  the Aasimar's *"Once you transform, you can't do so again"* on its Light cantrip. A named
+  spell matches its own block, a pick matches the block carrying the same `@filter`, and
+  anything unmatched keeps NO note — a missing note costs a line of prose, a wrong one
+  tells you the wrong rule.
+- **A grant kind that does not grant: `marks` must never reach `spellOut`.** A designation
+  (Agonizing Blast → "choose one of your known Warlock cantrips that deals damage") rides
+  the pick machinery so every existing surface draws it, which makes it very easy to hand it
+  to the same `(state.choices[id]||[]).forEach(k=>spellOut(...))` line the real picks use.
+  Do that and the designated cantrip becomes a granted free cast — a spell the character
+  never paid for. Its only output is `out.marks`, read by `grantNotes` alone. The take-side
+  twin is `markTake`: designating a cantrip you have not got spends one of the class's OWN
+  slots (D135(b)), so it inserts into `state.chosen` at the E2 slice position — never a
+  bonus pick beside the schedule.
+- **A shared-literal "empty" is a shared LIST.** `dict(EMPTY_GRANTS)` copied the dict and
+  handed all 200+ spell-less records the SAME `fixed`/`picks` arrays; the first `.append`
+  anywhere would have shown up on every one of them. It is `empty_grants()` now. Any
+  constant in these extractors holding a mutable value has this trap in it.
 - **History purge:** old data-bearing commits are unreachable on origin but GitHub may still serve
   them by exact SHA until it gc's. `backup/pre-purge-20260826` (local) has the original.

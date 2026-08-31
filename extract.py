@@ -791,6 +791,110 @@ def _mod_note(txt):
     keep = [x.strip() for x in _SENT_RE.split(txt or "") if x.strip() and MOD_RE.search(x)]
     return rich_strip(" ".join(keep)) if keep else None
 
+# A feat, optional feature or species IS its own granting feature: unlike a class, whose
+# prose lives in a separate classFeature record and reaches parse_grants() through
+# SUBFEAT_INDEX/CLSFEAT_INDEX, these carry `entries` on the record itself. Nothing was
+# reading them, so D79's note lift never ran for ANY of them — every invocation's
+# "on yourself", "while you're in Dim Light or Darkness", "without expending a spell slot"
+# was dropped, and the spell modal showed a bare "at will".
+# **Keep identical to extract.js's ownNote/applyOwnNote.**
+# BLOCK BY BLOCK, never the record flattened: a species or feat is a list of named traits,
+# and one string of all of them is how the Aasimar's "Once you transform, you can't do so
+# again" landed on its Light cantrip. A note may only reach a grant its OWN block names.
+def _own_note_blocks(rec):
+    out = []
+    for blk in (rec.get("entries") or []):
+        buf = []; _walk_text(blk, buf)
+        note = _mod_note(" ".join(buf))
+        if not note: continue
+        raw = blk if isinstance(blk, str) else json.dumps(blk, ensure_ascii=False)
+        spells = set(m.group(1).split("|")[0].strip().lower()
+                     for m in re.finditer(r"\{@spell ([^}]+)\}", raw))
+        out.append({"spells": spells, "filter": "{@filter" in raw, "note": note})
+    return out
+
+def _apply_own_note(grants, blocks):
+    """Hang each block's modification note on the grants that block is ABOUT: a named
+       spell matches by name, a pick matches the block that carries the same @filter tag.
+       Anything unmatched keeps no note — a missing one costs a line of prose, a wrong one
+       tells you the wrong rule."""
+    if not blocks or not grants: return
+    def hang(bucket):
+        for e in (bucket.get("fixed") or []):
+            nm = str(((e.get("spell") or {}).get("name")) or "").lower()
+            if not nm or e.get("note"): continue
+            for b in blocks:
+                if nm in b["spells"]: e["note"] = b["note"]; break
+        for e in (bucket.get("picks") or []):
+            if e.get("note"): continue
+            for b in blocks:
+                if b["filter"]: e["note"] = b["note"]; break
+    hang(grants)
+    for og in (grants.get("optionGroups") or []):
+        for o in (og.get("options") or []): hang(o)
+
+# 5etools marks a repeatable FEAT with a flag, but a repeatable optional feature only with
+# a nested entry named "Repeatable" ("You can gain this invocation more than once") — so
+# Agonizing Blast, Repelling Blast, Eldritch Spear and Lessons of the First Ones all read
+# as take-once. Both shapes answer the same question, so both are read here.
+def _repeatable(o):
+    if o.get("repeatable"): return True
+    def walk(e):
+        if isinstance(e, list): return any(walk(x) for x in e)
+        if isinstance(e, dict):
+            if str(e.get("name") or "").strip().lower().startswith("repeatable"): return True
+            return walk(e.get("entries"))
+        return False
+    return walk(o.get("entries"))
+
+# `featProgression` — a feature that hands you a FEAT SLOT ("you gain one Origin feat of
+# your choice"). Same cumulative shape opt_progression() builds, keyed by feat CATEGORY.
+# Read on feats / optional features / species ONLY: a class's own ASI, Epic Boon and
+# Fighting Style schedule is derived from the level plan in the app (featSlotLevels), and
+# reading the class copy here would grant every class its boon twice.
+def feat_progression(o):
+    out = []
+    for p in (o.get("featProgression") or []):
+        prog = p.get("progression"); counts = [0] * 20
+        if isinstance(prog, list):
+            for i in range(20): counts[i] = int(prog[i]) if i < len(prog) and prog[i] else 0
+        elif isinstance(prog, dict):
+            for k, v in prog.items():          # "*" means "from level 1" -> 1
+                lv = int(re.sub(r"\D", "", str(k)) or 1)
+                for i in range(lv - 1, 20): counts[i] = max(counts[i], int(v or 0))
+        if any(counts):
+            out.append({"name": p.get("name") or "Feat", "cats": p.get("category") or [],
+                        "counts": counts})
+    return out
+
+# A DESIGNATION, not a grant (D135): "Choose one of your known {@filter Warlock cantrips|
+# spells|level=0|class=Warlock|damage type=…} that deals damage." The spell is already
+# yours — the feature changes what it does. 5etools carries the pool as a real filter tag,
+# so this is data like everything else here, not a hand-authored table.
+_MARK_RE = re.compile(r"choose one of your (?:known )?\{@filter ([^}]+)\}", re.I)
+def parse_marks(o):
+    # top-level PROSE only: the nested blocks are the feature's asides ("Repeatable: you
+    # can gain this invocation more than once"), and folding those into the note would put
+    # them in the spell modal, where they say nothing about the spell
+    top = " ".join(x for x in (o.get("entries") or []) if isinstance(x, str))
+    sents = [x.strip() for x in _SENT_RE.split(top) if x.strip()]
+    out = []
+    for i, sent in enumerate(sents):
+        m = _MARK_RE.search(sent)
+        if not m: continue
+        parts = m.group(1).split("|")
+        filt = {}
+        for part in parts[2:]:                 # [0] display text, [1] the page ("spells")
+            if "=" in part:
+                k, v = part.split("=", 1); filt[k.strip()] = v.strip()
+        if not filt: continue
+        # the rest of the feature's prose is what the designation DOES to that spell —
+        # it rides as the grant note D79 already renders in the spell modal
+        rest = " ".join(sents[i + 1:])
+        out.append({"feature": o.get("name"), "filter": filt,
+                    "desc": rich_strip(sent), "note": rich_strip(rest) or None})
+    return out
+
 def _feat_record(f):
     buf = []; _walk_text(f.get("entries"), buf); txt = " ".join(buf); low = txt.lower()
     spells = set(m.group(1).split("|")[0].strip().lower() for m in re.finditer(r"\{@spell ([^}]+)\}", txt))
@@ -1247,7 +1351,7 @@ def _prereq_blocks(o, own_cat=None, declared=None):
     own_name = feat_cat_name(own_cat, declared) if own_cat else None
     for p in (o.get("prerequisite") or []):
         b = {"text": "", "level": None, "cls": None, "feats": [], "optfeats": [],
-             "races": [], "spells": [], "spellcasting": False, "pact": None,
+             "races": [], "spells": [], "spellFilters": [], "spellcasting": False, "pact": None,
              "checks": [], "soft": False, "exclusiveCat": []}
         bits = []
         lv = p.get("level")
@@ -1265,6 +1369,15 @@ def _prereq_blocks(o, own_cat=None, declared=None):
             n = _plain(rc); b["races"].append(n); bits.append(n)
         for sp in (p.get("spell") or []):
             n = _plain(sp); b["spells"].append(n); bits.append(n)
+            # "a Warlock Cantrip That Deals Damage" is a FILTER, not a spell name — and the
+            # app could only ever say "can't verify" about it (D31). 5etools carries the real
+            # `choose` string, so the build can answer it: carry the filter alongside.
+            if isinstance(sp, dict) and sp.get("choose"):
+                filt = {}
+                for part in str(sp["choose"]).split("|"):
+                    if "=" in part:
+                        k, v = part.split("=", 1); filt[k.strip()] = v.strip()
+                if filt: b["spellFilters"].append({"text": n, "filter": filt})
         if p.get("pact"): b["pact"] = p["pact"]; bits.append(f"Pact of the {p['pact']}")
         if p.get("spellcasting") or p.get("spellcasting2020") or p.get("spellcastingFeature"):
             b["spellcasting"] = True; bits.append("spellcasting")
@@ -1306,7 +1419,11 @@ def _prereq_text(o, own_cat=None, declared=None):
     return " or ".join(b["text"] for b in _prereq_blocks(o, own_cat, declared)) or None
 
 feats = []
-EMPTY_GRANTS = {"fixed": [], "picks": [], "expansions": [], "optionGroups": [], "ability": None}
+# a FUNCTION, not a shared literal: `empty_grants()` copies the dict but hands every
+# spell-less record the SAME fixed/picks lists, so anything appended to one would appear
+# on all of them. Nothing appended before; parse_marks does.
+def empty_grants():
+    return {"fixed": [], "picks": [], "expansions": [], "optionGroups": [], "ability": None}
 _featdata = load(os.path.join(MIRROR, "feats.json"))
 _featcats = (_featdata.get("_meta") or {}).get("featCategories") or {}
 for ft in _featdata.get("feat", []):
@@ -1323,9 +1440,13 @@ for ft in _featdata.get("feat", []):
                   "srd": bool(ft.get("srd52")),
                   "hasSpells": has_spells,               # non-spell feats are build-choice-only
                   "optFeatures": opt_progression(ft),    # Eldritch Adept, Metamagic Adept… (D28)
+                  "repeatable": _repeatable(ft),         # Magic Initiate, Elemental Adept… (D135)
+                  "featSlots": feat_progression(ft),     # a feature that hands you a feat slot (D135)
                   "prereq": _prereq_text(ft, cat, _featcats),
                   "prereqs": _prereq_blocks(ft, cat, _featcats),
-                  "grants": parse_grants(ft.get("additionalSpells")) if has_spells else dict(EMPTY_GRANTS)})
+                  "grants": parse_grants(ft.get("additionalSpells")) if has_spells else empty_grants()})
+    feats[-1]["grants"]["marks"] = parse_marks(ft)
+    _apply_own_note(feats[-1]["grants"], _own_note_blocks(ft))
     _fg = _form_grants(ft)
     if _fg:
         feats[-1]["forms"] = _fg
@@ -1345,9 +1466,13 @@ for o in (load(_optpath).get("optionalfeature", []) if os.path.exists(_optpath) 
                      "reprinted": reprinted(o), "supersededBy": superseded_by(o),
                      "page": o.get("page"), "srd": bool(o.get("srd52")),
                      "types": o.get("featureType") or [],
+                     "repeatable": _repeatable(o),       # "You can gain this invocation more than once"
+                     "featSlots": feat_progression(o),   # Lessons of the First Ones → an Origin feat
                      "prereq": _prereq_text(o), "prereqs": _prereq_blocks(o),
                      "hasSpells": has_spells,
-                     "grants": parse_grants(o.get("additionalSpells")) if has_spells else dict(EMPTY_GRANTS)})
+                     "grants": parse_grants(o.get("additionalSpells")) if has_spells else empty_grants()})
+    optfeats[-1]["grants"]["marks"] = parse_marks(o)
+    _apply_own_note(optfeats[-1]["grants"], _own_note_blocks(o))
     _fg = _form_grants(o)
     if _fg:
         optfeats[-1]["forms"] = _fg
@@ -1356,7 +1481,7 @@ for o in (load(_optpath).get("optionalfeature", []) if os.path.exists(_optpath) 
 # species (ALL, even without spells; split lineages that carry named blocks)
 races = []
 def emit_species(name, source, blocks, srd=False, page=None, base=None, lineage=None,
-                 reprint=False, superseded=None):
+                 reprint=False, superseded=None, note=None):
     """`base` is the parent species a lineage hangs off — the picker groups on it (D46).
 
     A species that splits into lineages emits SEVERAL records, and the reprint stamp
@@ -1378,19 +1503,21 @@ def emit_species(name, source, blocks, srd=False, page=None, base=None, lineage=
                       "grants": parse_grants(blocks)})
     for r in races[start:]:
         r["reprinted"] = bool(reprint); r["supersededBy"] = superseded
+        _apply_own_note(r["grants"], note)
 
 rd = load(os.path.join(MIRROR, "races.json"))
 for rc in rd.get("race", []):
     if not valid_name(rc): continue
     emit_species(rc["name"], rc.get("source", ""), rc.get("additionalSpells"), bool(rc.get("srd52")),
-                 rc.get("page"), reprint=reprinted(rc), superseded=superseded_by(rc))
+                 rc.get("page"), reprint=reprinted(rc), superseded=superseded_by(rc),
+                 note=_own_note_blocks(rc))
 for rc in rd.get("subrace", []) if isinstance(rd.get("subrace"), list) else []:
     base = rc.get("raceName", ""); nm = rc.get("name") or ""
     if not rc.get("additionalSpells"):   # skip spell-less subraces (noise)
         continue
     emit_species(f"{base} ({nm})" if nm else base, rc.get("source", ""), rc.get("additionalSpells"),
                  bool(rc.get("srd52")), rc.get("page"), base=base or None, lineage=nm or None,
-                 reprint=reprinted(rc), superseded=superseded_by(rc))
+                 reprint=reprinted(rc), superseded=superseded_by(rc), note=_own_note_blocks(rc))
 
 # ---- source registry (for the settings selector) ---------------------------
 src_counter = defaultdict(lambda: {"spells": 0, "classes": 0, "subclasses": 0, "feats": 0, "species": 0})

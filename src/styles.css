@@ -913,6 +913,13 @@ table.spelltable td.cmp .l.iffy{color:var(--good);cursor:help;
   background:var(--gold-soft);border-radius:4px;padding:1px 5px;font-weight:600}
 .entrow .tk{flex:0 0 auto;padding:3px 10px;font-size:11px}
 .entrow .tk.on:hover{background:var(--bad-soft);border-color:var(--bad);color:var(--bad)}
+/* D135 — repeatable: how many copies you hold, and the button that adds one more. The
+   "again" button sits beside the take button rather than replacing it, so the held state
+   keeps meaning click-to-remove exactly as it does on everything else. */
+.entname .entcount{font-size:10px;font-weight:700;color:var(--accent);
+  background:var(--accent-soft);border-radius:4px;padding:1px 5px}
+.entrow .tk.more{margin-left:-4px}
+.chipn{font-size:9.5px;font-weight:700;color:var(--muted);opacity:.8}
 /* choices grouped by the entity that granted them (D30) */
 /* every giver is a group (D43) — one consistent block, never a bare row */
 .choicegroup{border:1px solid var(--line);border-radius:10px;background:var(--panel-2);padding:8px 11px;margin:0 0 8px}

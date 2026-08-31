@@ -2,6 +2,19 @@
 const $ = s => document.querySelector(s);
 const el=(t,c,txt)=>{const e=document.createElement(t);if(c)e.className=c;if(txt!=null)e.textContent=txt;return e;};
 const key=(n,s)=>n+"|"+s;
+// D135 · a REPEATABLE feat or invocation is held once per take. `state.feats` and
+// `state.optFeats` are the acquisition order (E1 · D115(b,h)), so a second copy needs an
+// identity of its own — otherwise its grants, its choices (`"f"+fk` is the whole token
+// path) and its slot would all be the FIRST copy's. The nth copy carries a `##n` suffix;
+// the first keeps the bare key, so nothing already stored moves and no migration is owed.
+// Every LOOKUP into FEAT_BY / OPT_BY goes through `baseKey`; the arrays hold the suffixed
+// form and stay unique, which is what keeps choice ids stable when a sibling is removed.
+const baseKey=k=>{const i=String(k).indexOf("##");return i<0?String(k):String(k).slice(0,i);};
+const sameEnt=(a,b)=>baseKey(a)===baseKey(b);
+// the next free identity for one more copy — reuses a hole rather than climbing forever
+const nextCopy=(arr,k)=>{let n=1;while(arr.indexOf(n===1?k:k+"##"+n)>=0)n++;
+  return n===1?k:k+"##"+n;};
+const copyCount=(arr,k)=>arr.filter(x=>baseKey(x)===k).length;
 const ROMAN=["Cantrip","1st","2nd","3rd","4th","5th","6th","7th","8th","9th"];
 // "0;1;2" -> "0-2", "1;3" -> "1, 3": collapse a level list into ranges
 function fmtLevelList(str){const nums=String(str).split(/[;,]/).map(s=>s.trim()).filter(Boolean).map(Number).filter(n=>!isNaN(n)).sort((a,b)=>a-b);
@@ -604,15 +617,26 @@ function capsFor(rec){
 const SCHOOL_ABBR={A:"Abjuration",C:"Conjuration",D:"Divination",E:"Enchantment",V:"Evocation",I:"Illusion",N:"Necromancy",T:"Transmutation",P:"Psionic"};
 function grantRec(name){const a=SPELL_BY_NAME[name.toLowerCase()]||[];return a.find(visible)||a[0];}
 function grantsAny(g){return g&&((g.fixed||[]).length||(g.picks||[]).length||(g.expansions||[]).length||(g.optionGroups||[]).length);}
-// spells matching a pick/expansion filter {level:'1;2',class:'Cleric;Druid',school:'E;D'}
+// spells matching a pick/expansion/mark filter {level:'1;2',class:'Cleric;Druid',school:'E;D',
+// 'damage type':'fire;cold','spell attack':'m;r;o'}. 5etools' own keys, and their case is
+// not stable across books, so they are lowered once here. An unknown key is IGNORED, not
+// failed — a filter this app can't read must never empty a pool it should have filled.
 function filterSpells(f){
-  const levels=f.level!=null?new Set(String(f.level).split(";").map(Number)):null;
-  const classes=f.class?f.class.split(";").map(s=>s.trim().toLowerCase()):null;
-  const schools=f.school?f.school.split(";").map(s=>SCHOOL_ABBR[s.trim().toUpperCase()]||s):null;
+  const F={}; Object.keys(f||{}).forEach(k=>{F[String(k).toLowerCase()]=f[k];});
+  const levels=F.level!=null?new Set(String(F.level).split(";").map(Number)):null;
+  const classes=F.class?String(F.class).split(";").map(s=>s.trim().toLowerCase()):null;
+  const schools=F.school?String(F.school).split(";").map(s=>SCHOOL_ABBR[s.trim().toUpperCase()]||s):null;
+  // D135's designations narrow on these two: "a Warlock cantrip that deals damage" and
+  // "…that requires an attack roll". The record carries `dmg` (types) and `atk` (bool),
+  // so the damage-type set is intersected and any attack code means "needs an attack roll".
+  const dmgs=F["damage type"]?new Set(String(F["damage type"]).split(";").map(s=>s.trim().toLowerCase())):null;
+  const atk=F["spell attack"]!=null&&String(F["spell attack"]).trim()!=="";
   return DATA.spells.filter(sp=>{ if(!visible(sp))return false;
     if(levels&&!levels.has(sp.level))return false;
     if(classes&&!sp.cls.some(([cn,cs])=>classes.includes(cn.toLowerCase())&&srcOn(cs)))return false;
     if(schools&&!schools.includes(sp.school))return false;
+    if(dmgs&&!(sp.dmg||[]).some(d=>dmgs.has(String(d).toLowerCase())))return false;
+    if(atk&&!sp.atk)return false;
     return true; });
 }
 // resolve a grant source's casting ability (default to the character's shared
@@ -667,6 +691,16 @@ function resolveGrants(grants,level,tok,giver,out,sharedStat,giverSrc,owner){
     // source's numbers. Nothing in the data emitted a pick with `extra` before D96, so it never
     // showed; it would have the moment one did.
     (state.choices[id]||[]).forEach(k=>spellOut(SPELL_BY[k],p.kind,p.recharge,p.feature,p.extra||null,p.note)); });
+  // D135 · a MARK is a designation, not a grant: "choose one of your known Warlock cantrips
+  // that deals damage" names a spell you already have and changes what it does. It rides the
+  // pick machinery (one choice, count 1, an array value) so every surface that already draws
+  // a pick draws this — but it never calls `spellOut`, because nothing is being granted. What
+  // it produces instead is a NOTE on the designated spell, through D79's own path.
+  (grants.marks||[]).forEach((mk,j)=>{ const id=tok+":mk"+j;
+    out.choices.push({id,count:1,filter:mk.filter,kind:"mark",mark:true,type:"pick",
+      giver:mk.feature||giver,giverSrc,desc:mk.desc,note:mk.note,owner,atLevel:mk.atLevel||0});
+    (state.choices[id]||[]).forEach(k=>{const sp=SPELL_BY[k];
+      if(sp&&out.marks)out.marks.push({key:k,src:mk.feature||giver,note:mk.note});}); });
   (grants.optionGroups||[]).forEach((og,i)=>{ const id=tok+":og"+i; const names=og.options.map(o=>o.name);
     const sel=state.choices[id]||names[0];
     out.choices.push({id,type:"option",options:names,value:sel,giver,giverSrc,owner});
@@ -902,6 +936,38 @@ function sliceInsertAt(row,arr,L){
   return n;
 }
 // feats: origin slots are character level 1; general/epic spends fill the build's slot
+// ── feat slots a FEATURE hands you (D135) ──────────────────────────────────
+// 5etools models these as `featProgression` and neither extractor read it, which is why
+// Lessons of the First Ones ("you gain one Origin feat of your choice") granted nothing.
+// Read from FEATS, OPTIONAL FEATURES and SPECIES only — a class's own ASI / Epic Boon /
+// Fighting Style schedule is `featSlotLevels()`'s to derive from the level plan, and
+// reading the class copy here would hand every class its boon a second time.
+const FEAT_SLOT_OF_CAT={O:"origin",G:"general",EB:"epic",
+  FS:"fs","FS:P":"fs","FS:R":"fs","FS:B":"fs","FS:M":"fs"};
+function grantedFeatSlots(){
+  const out={origin:0,general:0,epic:0,fs:0,from:[]};
+  const lv=Math.max(1,Math.min(20,charLevel()));
+  const add=rec=>{ if(!rec||!rec.featSlots)return;
+    (rec.featSlots||[]).forEach(p=>{ const n=(p.counts||[])[lv-1]||0; if(!n)return;
+      out[FEAT_SLOT_OF_CAT[(p.cats||[])[0]]||"origin"]+=n;
+      out.from.push({name:rec.name,n,slot:FEAT_SLOT_OF_CAT[(p.cats||[])[0]]||"origin"});});};
+  // `state.feats` RAW, not featsAt(): the sliced reader walks featAcqLevels(), which asks
+  // for the origin cap this feeds — one hop and it would recur. Nothing in the data grants
+  // a feat slot FROM a feat today; when something does, that walk needs breaking first.
+  (state.feats||[]).forEach(fk=>add(FEAT_BY[baseKey(fk)]));
+  optFeatsAt().forEach(ok=>add(OPT_BY[baseKey(ok)]));
+  const sp=RACE_BY[state.speciesKey]; if(sp)add(sp);
+  return out;
+}
+// The origin-feat cap, in ONE place. Three surfaces derived it independently — the budget
+// card, featAcqLevels()'s attribution walk and the guided chain's step list — which is
+// exactly the drift that lets them disagree about how many origin feats you owe.
+function originSlots(){
+  const race=RACE_BY[state.speciesKey];
+  return (state.classes.length?1:0)
+    +(/human/i.test((race&&race.name)||"")?1:0)
+    +grantedFeatSlots().origin;
+}
 // levels in array order, earliest available slot first (best case, D18); anything past
 // the budget arrives at top — E4 flags it, nothing hides it (D31)
 // fk -> {lv, cat, over}. `over` means no slot in the build could pay for it — it still
@@ -909,8 +975,7 @@ function sliceInsertAt(row,arr,L){
 function featAcqLevels(){
   const slots=featSlotLevels(true), used=new Array(slots.length).fill(false);
   const top=topCharLevel(), out=new Map();
-  const originCap=(state.classes.length?1:0)
-    +(/human/i.test((RACE_BY[state.speciesKey]||{}).name||"")?1:0);
+  const originCap=originSlots();
   let origin=0;
   state.feats.forEach(fk=>{
     const cat=featSlotOf(fk)||"origin";
@@ -932,7 +997,7 @@ function optAcqLevels(){
   state.classes.forEach(row=>[CLS_BY[row.clsKey],subOfRow(row)].forEach(src=>{
     if(src&&src.optFeatures)src.optFeatures.forEach(p=>
       progs.push({name:p.name,types:new Set(p.types),counts:p.counts||[],lvls:clm.get(row.id)||[],n:0}));}));
-  state.optFeats.forEach(ok=>{const o=OPT_BY[ok];
+  state.optFeats.forEach(ok=>{const o=OPT_BY[baseKey(ok)];
     const p=o&&progs.find(x=>(o.types||[]).some(t=>x.types.has(t)));
     if(!p){out.set(ok,{lv:top,over:true,slot:null});return;}
     const i=p.n++; let lv=null;
@@ -1011,14 +1076,14 @@ function buildHealth(){
   });
 
   const fa=featAcqLevels();
-  state.feats.forEach(fk=>{const f=FEAT_BY[fk], a=fa.get(fk); if(!f||!a||!a.over)return;
+  state.feats.forEach(fk=>{const f=FEAT_BY[baseKey(fk)], a=fa.get(fk); if(!f||!a||!a.over)return;
     add(a.lv,"feat", a.cat==="epic"
       ? `${f.name} is an epic boon, and no feat slot in this build arrives at character level 19 or later.`
       : a.cat==="origin"
         ? `${f.name} is an origin feat, and this build has no origin slot left for it.`
         : `${f.name} has no feat slot in this build to be taken with.`);});
   const oa=optAcqLevels();
-  state.optFeats.forEach(ok=>{const o=OPT_BY[ok], a=oa.get(ok); if(!o||!a||!a.over)return;
+  state.optFeats.forEach(ok=>{const o=OPT_BY[baseKey(ok)], a=oa.get(ok); if(!o||!a||!a.over)return;
     add(a.lv,"opt", a.slot
       ? `${o.name} is one ${lc(a.slot)} more than this build grants.`
       : `${o.name} has no feature in this build that grants it.`);});
@@ -1097,11 +1162,10 @@ function guideSteps(){
     label:"Species",multiLabel:race?race.name:"Species",
     sections:[gsec({id:"self",kind:"species",label:"Species",done:!!race,
       value:race?race.name:null})]}));
-  const originCap=(state.classes.length?1:0)
-    +(/human/i.test((race||{}).name||"")?1:0);
+  const originCap=originSlots();
   // an unrecorded spend defaults to origin, exactly as featAcqLevels() reads it
   const originSpent=state.feats.filter(fk=>(featSlotOf(fk)||"origin")==="origin");
-  for(let i=0;i<originCap;i++){const fk=originSpent[i], f=fk?FEAT_BY[fk]:null;
+  for(let i=0;i<originCap;i++){const fk=originSpent[i], f=fk?FEAT_BY[baseKey(fk)]:null;
     const st=add({key:"feat~"+i,lv:1,ord:3,kind:"feat",slot:"origin",pos:i,sub:"Origin feat",
       label:"Origin feat",multiLabel:f?f.name:"Origin feat",
       sections:[gsec({id:"self",kind:"feat",label:"Origin feat",slot:"origin",pos:i,
@@ -1155,7 +1219,7 @@ function guideSteps(){
   const slotOf=new Array(slots.length).fill(null);
   spent.forEach(fk=>{const min=featSlotOf(fk)==="epic"?19:1;
     for(let i=0;i<slots.length;i++)if(!used[i]&&slots[i]>=min){used[i]=true;slotOf[i]=fk;break;}});
-  slots.forEach((lv,i)=>{const fk=slotOf[i], f=fk?FEAT_BY[fk]:null;
+  slots.forEach((lv,i)=>{const fk=slotOf[i], f=fk?FEAT_BY[baseKey(fk)]:null;
     const lab=lv>=19?"Feat / ASI / Epic Boon":"Feat / ASI";
     const st=add({key:"feat~"+(originCap+i),lv,ord:6,kind:"feat",slot:lv>=19?"epic":"general",
       pos:originCap+i,sub:lab,label:lab,multiLabel:f?f.name:lab,
@@ -1172,7 +1236,7 @@ function guideSteps(){
     src.optFeatures.forEach(p=>{for(let cl=1;cl<=lvls.length;cl++){
       const d=(p.counts[cl-1]||0)-(cl>1?(p.counts[cl-2]||0):0);
       const got=byProg.get(p.name+"|"+lvls[cl-1])||[];
-      for(let k=0;k<d;k++){const ok=got[k], o=ok?OPT_BY[ok]:null, lv=lvls[cl-1];
+      for(let k=0;k<d;k++){const ok=got[k], o=ok?OPT_BY[baseKey(ok)]:null, lv=lvls[cl-1];
         // the progression and the class level ride along so the section can open the app's
         // OWN optional-feature picker for this slot (D126(g)) — the same descriptor
         // `openGainChooser` builds for the timeline's quick-choose, never a second picker
@@ -2476,7 +2540,9 @@ function gpickCommit(sec,k){
     if(a.includes(k))a=a.filter(v=>v!==k);
     else if(a.length<sec.need)a=[...a,k];
     else return;                                   // the group is full — drop one first
-    state.choices[sec.cid]=a; render(); return;}
+    state.choices[sec.cid]=a;
+    if(sec.choice&&sec.choice.mark&&a.includes(k))markTake(sec.choice,k);
+    render(); return;}
   toggle(sec.row,k,sec.pick==="cantrip");          // the app's own take — it re-renders us
 }
 // D126(i): the empty-character entry. One card at the head of the character panel — the
@@ -2644,10 +2710,10 @@ function csrcPower(cs){
 // `feats`/`optFeats` are passed in rather than read from `featsAt()`/`optFeatsAt()` — those
 // read PREVIEW, and that is the one thing the two callers must disagree about.
 function collectGrants(records,casters,charLevel,feats,optFeats,sharedStat){
-  const gout={fixed:[],freeCasts:[],expansions:[],choices:[]};
+  const gout={fixed:[],freeCasts:[],expansions:[],choices:[],marks:[]};
   const recExp={};   // rowId -> [expansion filters] (Magical-Secrets style)
   records.forEach(r=>{
-    const o={fixed:[],freeCasts:[],expansions:[],choices:[]};
+    const o={fixed:[],freeCasts:[],expansions:[],choices:[],marks:[]};
     const rAb=r.ability||sharedStat;   // a class's own grants use that class's stat
     resolveGrants(r.c.grants,r.level,"c"+r.idx,r.name,o,rAb,r.c.source);
     if(r.sub)resolveGrants(r.sub.grants,r.level,"s"+r.idx,r.sub.name,o,rAb,r.sub.source);
@@ -2684,10 +2750,11 @@ function collectGrants(records,casters,charLevel,feats,optFeats,sharedStat){
     o.fixed.forEach(g=>g.srcIdx=r.idx);
     o.freeCasts.forEach(g=>{if(g.srcIdx==null)g.srcIdx=r.idx;});
     gout.fixed.push(...o.fixed);gout.freeCasts.push(...o.freeCasts);gout.choices.push(...o.choices);
+    gout.marks.push(...o.marks);
   });
   // sliced (E2): a feat or optional feature the build only acquires above the view
   // level doesn't exist yet there — its grants, choices and forms come with it
-  feats.forEach(fk=>{const f=FEAT_BY[fk];if(f)resolveGrants(f.grants,charLevel,"f"+fk,f.name,gout,sharedStat,f.source);});
+  feats.forEach(fk=>{const f=FEAT_BY[baseKey(fk)];if(f)resolveGrants(f.grants,charLevel,"f"+fk,f.name,gout,sharedStat,f.source);});
   // An optional feature is resolved outside the caster loop (a feat can grant one too), so
   // its owner is found by which class's progression opened the slot it fills — that is what
   // makes a Warlock's invocation spells part of Warlock. Tag by range rather than resolving
@@ -2697,12 +2764,17 @@ function collectGrants(records,casters,charLevel,feats,optFeats,sharedStat){
     casters.forEach(r=>[r.c,r.sub].filter(Boolean).forEach(sc=>
       (sc.optFeatures||[]).forEach(pr=>{ if(pr.types.some(t=>(o.types||[]).includes(t)))idx=r.idx; })));
     return idx;};
-  optFeats.forEach(ok=>{const o=OPT_BY[ok];if(!o)return;
-    const f0=gout.fixed.length,c0=gout.freeCasts.length;
+  optFeats.forEach(ok=>{const o=OPT_BY[baseKey(ok)];if(!o)return;
+    const f0=gout.fixed.length,c0=gout.freeCasts.length,h0=gout.choices.length;
     resolveGrants(o.grants,charLevel,"o"+ok,o.name,gout,sharedStat,o.source);
     const own=optOwner(o); if(own==null)return;
     for(let i=f0;i<gout.fixed.length;i++)if(gout.fixed[i].srcIdx==null)gout.fixed[i].srcIdx=own;
-    for(let i=c0;i<gout.freeCasts.length;i++)if(gout.freeCasts[i].srcIdx==null)gout.freeCasts[i].srcIdx=own;});
+    for(let i=c0;i<gout.freeCasts.length;i++)if(gout.freeCasts[i].srcIdx==null)gout.freeCasts[i].srcIdx=own;
+    // a designation (D135) names a cantrip of the class whose progression opened this slot —
+    // the same "which class does this invocation belong to" answer the grants above use. It
+    // is what lets designating a cantrip you HAVEN'T got take it on that row (Francesco's
+    // call: a shortcut to the pick, never a bonus cantrip beside it).
+    for(let i=h0;i<gout.choices.length;i++)if(gout.choices[i].mark&&gout.choices[i].rowIdx==null)gout.choices[i].rowIdx=own;});
   if(state.speciesKey){const sp=RACE_BY[state.speciesKey];if(sp)resolveGrants(sp.grants,charLevel,"r",sp.name,gout,sharedStat,sp.source);}
   (state.customSources||[]).forEach(cs=>{
     if(cs.mode==="list")return;          // not a grant — it widens the eligible pool below
@@ -2855,7 +2927,8 @@ function compute(){
       cantOver:(ch.cantrips||[]).length>r.cantrips, spellOver:(ch.spells||[]).length>spellCap, overLevels};
   });
 
-  return {records,casters,charLevel,mcSlots,mcLevel,pactRec,pool,freeCasts,caps,cart,choices,sharedStat};
+  return {records,casters,charLevel,mcSlots,mcLevel,pactRec,pool,freeCasts,caps,cart,choices,sharedStat,
+          marks:gout.marks};
 }
 
 // ── toggling picks ───────────────────────────────────────────────────────
@@ -2903,6 +2976,27 @@ function toggle(idx,spellKey,cantrip,which){
   // dropping a spell from the book must not leave it prepared
   if(arr==="spells"&&ch.prep){const j=ch.prep.indexOf(spellKey);if(j>=0)ch.prep.splice(j,1);}
   save(); render();
+}
+// D135 · designating a spell you HAVEN'T got is a SHORTCUT to taking it, never a bonus
+// beside it (Francesco's call): it lands in the owning class's own list and spends one of
+// that class's slots, exactly as picking it on the page would. Dropping the designation
+// afterwards leaves the pick where it is — it is a real pick now, and this writer never
+// deletes one. `rowIdx` is the class whose progression opened the feature's slot; a
+// designation from a feat has none, so any row that can take the spell stands in.
+function markTake(c,k){
+  const sp=SPELL_BY[k]; if(!sp)return;
+  const arr=sp.level===0?"cantrips":"spells";
+  let idx=c&&c.rowIdx;
+  if(idx==null||!state.classes.some(r=>r.id===idx)){
+    const e=R&&R.pool&&R.pool.get(k), t=e&&e.takers&&e.takers[0];
+    idx=t?t.idx:null;}
+  if(idx==null)return;
+  const ch=state.chosen[idx]=state.chosen[idx]||{cantrips:[],spells:[]};
+  ch[arr]=ch[arr]||[];
+  if(ch[arr].indexOf(k)>=0)return;               // already yours — the designation is all
+  const row=state.classes.find(r=>r.id===idx);
+  const at=(PREVIEW.level!=null&&row)?sliceInsertAt(row,arr,PREVIEW.level):ch[arr].length;
+  ch[arr].splice(at,0,k);
 }
 function removeChosen(idx,spellKey){ const ch=state.chosen[idx];if(!ch)return;
   ["cantrips","spells","prep"].forEach(a=>{if(!ch[a])return;const i=ch[a].indexOf(spellKey);if(i>=0)ch[a].splice(i,1);});save();render(); }
@@ -2959,6 +3053,10 @@ function renderChoices(){
     const box=el("div","choicegroup");
     const h=el("div","cghead");
     h.append(el("b",null,g.owner.name));
+    // a repeatable feat/invocation taken more than once is several groups with ONE name
+    // (D135) — the copy's ordinal is what tells them apart, exactly as on its chip
+    const rep=/##(\d+)$/.exec(String(g.owner.id||""));
+    if(rep)h.append(el("span","chipn","#"+rep[1]));
     if(g.owner.src)h.append(bookChip(g.owner.src,ownerPage(g.owner)));
     h.append(el("span","cgn",g.items.length===1?"1 choice":`${g.items.length} choices`));
     const cat=ownerCat(g.owner);
@@ -2997,7 +3095,8 @@ function choiceRow(c){
       const nm=el("span",null,sp.name);attachSpell(nm,sp);chip.append(nm);
       const x=xBtn(null,()=>{state.choices[c.id]=(state.choices[c.id]||[]).filter(v=>v!==k);render();});
       chip.append(x);picks.append(chip);});
-    const btn=el("button","pickbtn"+(have>=c.count?" done":" needclr"), have>=c.count?"Edit":`Choose ${c.count-have}`);
+    const btn=el("button","pickbtn"+(have>=c.count?" done":" needclr"),
+      have>=c.count?(c.mark?"Change":"Edit"):(c.mark?"Designate":`Choose ${c.count-have}`));
     btn.onclick=()=>openPick(c); picks.append(btn); row.append(picks);
   }
   return row;
@@ -3035,7 +3134,9 @@ let PICK=null;
 // time, and a level folded in the last one would hide spells with nothing on screen to
 // explain why (the same reason the custom-source disclosures reset on open, D94)
 function openPick(choice){ FOLDED.pick.clear(); PICK={...choice,levelSet:new Set(),onlyPicked:false}; $("#pickSearch").value="";
-  $("#pickTitle").textContent="Choose "+choice.count+(choice.count>1?" spells":" spell");
+  // a designation names a spell rather than granting one, so it never says "Choose 1 spell"
+  $("#pickTitle").textContent=choice.mark?"Designate a spell"
+    :"Choose "+choice.count+(choice.count>1?" spells":" spell");
   const ask=guidePickAsk(choice)||fmtDesc(choice.desc);
   $("#pickSub").textContent=choice.giver+(ask?" · "+cap1(ask):"");
   $("#pickModal").classList.remove("hidden"); renderPickList(); }
@@ -3104,7 +3205,9 @@ function renderPickList(){
     b.onclick=()=>{ if(isClass){ toggle(PICK.classIdx,k,false); renderPickList(); return; }
       let a=state.choices[PICK.id]||[];
       if(a.includes(k))a=a.filter(v=>v!==k); else if(a.length<PICK.count)a=[...a,k]; else return;
-      state.choices[PICK.id]=a; renderPickList(); render();};
+      state.choices[PICK.id]=a;
+      if(PICK.mark&&a.includes(k))markTake(PICK,k);
+      renderPickList(); render();};
     take.append(b);d.append(take);return d;};
   // levels are groups only when there is more than one to separate — the same rule the
   // level FILTER follows, and a lone header over the whole list names nothing
@@ -3223,10 +3326,16 @@ function renderEntityList(){
       if(prev&&prev.classList.contains("entgroup"))prev=prev.lastElementChild;
       if(prev&&prev.classList.contains("entrow"))prev.classList.add("nodiv");
       list.append(el("div","entsep"));}
-    const on = ENT.kind==="species"?curSel===k:ENT.kind==="opt"?state.optFeats.includes(k):state.feats.includes(k);
+    // D135: a repeatable feat/invocation is HELD PER TAKE, so "on" is "you have at least
+    // one" and the count comes from the acquisition array, not from a boolean
+    const held=ENT.kind==="opt"?state.optFeats:ENT.kind==="feat"?state.feats:null;
+    const n=held?copyCount(held,k):0;
+    const rep=!!(it.repeatable&&held);
+    const on = ENT.kind==="species"?curSel===k:n>0;
     const row=el("div","entrow"+(on?" on":"")+(pr.state==="no"?" blocked":""));
     const main=el("div","entmain");
     const nm=el("div","entname");nm.append(document.createTextNode(label||it.name));
+    if(n>1)nm.append(el("span","entcount","×"+n));
     if(it.source!==CORE)nm.append(bookChip(it.source,it.page));
     if(ENT.kind==="feat"&&(ENT.catList||[]).length>1)
       nm.append(Object.assign(el("span","entcat"),{textContent:featCatLabel(it)}));
@@ -3263,11 +3372,25 @@ function renderEntityList(){
       // from it enables that book globally, otherwise afterSourceChange would prune the pick
       if(!on&&!srcOn(it.source)){SRC.add(it.source);saveSources();ENT.note=`Enabled ${bookName(it.source)} in your sources`;}
       if(ENT.kind==="species"){state.speciesKey=on?"":k;}
-      else if(ENT.kind==="opt"){ if(on)state.optFeats=state.optFeats.filter(x=>x!==k); else state.optFeats.push(k); }
-      else{ if(on){state.feats=state.feats.filter(x=>x!==k);setFeatSlot(k,null);}
+      else if(ENT.kind==="opt"){ if(on)dropCopy(state.optFeats,k); else state.optFeats.push(k); }
+      else{ if(on)dropFeatCopy(k);
             else{state.feats.push(k);setFeatSlot(k,ENT.category||featSlot(it));} }
       save();refreshAll();render();renderEntityList(); };
-    row.append(btn); return row;};
+    row.append(btn);
+    // "You can gain this invocation more than once" (D135). The take button keeps its own
+    // meaning — held means click-to-remove, as everywhere else — and the extra copy gets a
+    // button of its own, shown only where the rule actually applies.
+    if(rep&&on){
+      const more=el("button","tk ico-only more");more.append(icoEl("plus"));
+      const ml=`Take ${it.name} again — you can gain it more than once`;
+      more.setAttribute("aria-label",ml); more.title=ml;
+      more.onclick=()=>{ const nk=nextCopy(held,k);
+        if(ENT.kind==="opt")state.optFeats.push(nk);
+        else{state.feats.push(nk);setFeatSlot(nk,ENT.category||featSlot(it));}
+        save();refreshAll();render();renderEntityList(); };
+      row.append(more);
+    }
+    return row;};
   if(ENT.kind!=="species"){shown.forEach(it=>list.append(entRow(it)));return;}
   // a species and its lineages are one thing to choose between, so they are one block —
   // the same grouping the choices card uses (D46). A species with no lineage stays flat.
@@ -4075,8 +4198,8 @@ function buildGaps(st){
     if(!srcOn(o.source))books.add(o.source);};
   (st.classes||[]).forEach(r=>{add("class",CLS_BY[r.clsKey],r.clsKey); if(r.subKey)add("subclass",subOfRow(r),r.subKey);});
   if(st.speciesKey)add("species",RACE_BY[st.speciesKey],st.speciesKey);
-  (st.feats||[]).forEach(k=>add("feat",FEAT_BY[k],k));
-  (st.optFeats||[]).forEach(k=>add("option",OPT_BY[k],k));
+  (st.feats||[]).forEach(k=>add("feat",FEAT_BY[baseKey(k)],k));
+  (st.optFeats||[]).forEach(k=>add("option",OPT_BY[baseKey(k)],k));
   const spells=new Set();
   Object.values(st.chosen||{}).forEach(c=>[...(c.cantrips||[]),...(c.spells||[])].forEach(k=>spells.add(k)));
   Object.values(st.choices||{}).forEach(v=>(Array.isArray(v)?v:[]).forEach(k=>spells.add(k)));
@@ -4160,7 +4283,7 @@ function prqTake(o,kind){
   const k=key(o.name,o.source);
   if(kind==="species")state.speciesKey=k;
   else if(kind==="opt"){if(!state.optFeats.includes(k))state.optFeats.push(k);}
-  else if(!state.feats.includes(k)){state.feats.push(k);setFeatSlot(k,featSlot(o));}
+  else if(!state.feats.some(x=>sameEnt(x,k))){state.feats.push(k);setFeatSlot(k,featSlot(o));}
   save();refreshAll();render();
   PRQPOP.classList.add("hidden");
   if(ENT)renderEntityList();
@@ -4193,7 +4316,7 @@ function renderEntBudget(){
   if(ENT.kind==="species"){box.classList.add("hidden");return;}
   box.classList.remove("hidden");box.innerHTML="";
   if(ENT.kind==="opt"){
-    const have=state.optFeats.filter(k=>{const o=OPT_BY[k];return o&&o.types.some(t=>ENT.slot.types.includes(t));}).length;
+    const have=state.optFeats.filter(k=>{const o=OPT_BY[baseKey(k)];return o&&o.types.some(t=>ENT.slot.types.includes(t));}).length;
     box.append(budgetPill(ENT.slot.name.toLowerCase(),have,ENT.slot.cap,have<ENT.slot.cap));
     return;}
   const b=featBudget();
@@ -5455,7 +5578,9 @@ const METAMAGIC_WHEN={
     why:"forces a saving throw, and one save can be made with disadvantage"},
   "Quickened Spell":{tag:"quicken",test:sp=>sp.tcat==="action",
     why:"takes an action to cast, which can become a bonus action"},
-  "Seeking Spell":{tag:"seek",test:sp=>(sp.atk||[]).length>0,
+  // `atk` is a BOOLEAN on the record, not a list: `(sp.atk||[]).length>0` reads
+  // `undefined>0`, so this chip could never appear on any spell
+  "Seeking Spell":{tag:"seek",test:sp=>!!sp.atk,
     why:"makes an attack roll, and a miss can be rerolled"},
   "Transmuted Spell":{tag:"transmute",
     test:sp=>(sp.dmg||[]).some(d=>["acid","cold","fire","lightning","poison","thunder"].includes(d)),
@@ -5468,7 +5593,7 @@ const METAMAGIC_WHEN={
 // progressions grant Metamagic — tags only make sense on that class's spells
 let TABLE_MM=null;
 function activeMetamagic(){
-  const taken=state.optFeats.map(k=>OPT_BY[k])
+  const taken=state.optFeats.map(k=>OPT_BY[baseKey(k)])
     .filter(o=>o&&(o.types||[]).includes("MM")&&METAMAGIC_WHEN[o.name]);
   if(!taken.length)return null;
   const rows=new Set();
@@ -5575,7 +5700,7 @@ let CASTMODS=[];
 // "your Elemental Disciplines" has to know which ones you actually picked
 function optNamesOfType(types){
   const want=new Set(types||[]);
-  return state.optFeats.map(k=>OPT_BY[k]).filter(o=>o&&(o.types||[]).some(t=>want.has(t)))
+  return state.optFeats.map(k=>OPT_BY[baseKey(k)]).filter(o=>o&&(o.types||[]).some(t=>want.has(t)))
     .map(o=>o.name);
 }
 function activeCastMods(){
@@ -5997,9 +6122,9 @@ function timelinePicks(){
     put(SWAPARM.level,{kind:"swghost",rowId:SWAPARM.row,lv:SWAPARM.level,
                        gkind:SWAPARM.kind==="cantrip"?"cantrips":"spells",label:SWAPARM.label});
     bumpSwap(SWAPARM.level,1,0);}
-  featAcqLevels().forEach((a,fk)=>{const f=FEAT_BY[fk]; if(!f)return;
+  featAcqLevels().forEach((a,fk)=>{const f=FEAT_BY[baseKey(fk)]; if(!f)return;
     put(a.lv,{kind:"ft",key:fk,label:f.name,tag:"feat",fixed:a.cat==="origin"});});
-  optAcqLevels().forEach((a,ok)=>{const o=OPT_BY[ok]; if(!o)return;
+  optAcqLevels().forEach((a,ok)=>{const o=OPT_BY[baseKey(ok)]; if(!o)return;
     put(a.lv,{kind:"of",key:ok,label:o.name,tag:"opt"});});
   return {by,counts};
 }
@@ -6907,8 +7032,8 @@ function activeFormGrants(sp){
   const take=(rec)=>((rec&&rec.forms)||[]).forEach(g=>{
     if(!formRefMatches(sp,g.spell))return;
     out.push({giver:rec.name,mode:g.mode||"add",creatures:g.creatures||[]});});
-  featsAt().forEach(fk=>take(FEAT_BY[fk]));
-  optFeatsAt().forEach(ok=>take(OPT_BY[ok]));
+  featsAt().forEach(fk=>take(FEAT_BY[baseKey(fk)]));
+  optFeatsAt().forEach(ok=>take(OPT_BY[baseKey(ok)]));
   return out;
 }
 // A 2014 ref carries no book, so it resolves to every book that prints that creature —
@@ -6975,8 +7100,8 @@ function formPinOffers(){
     if(buildCreatures(sp).length<2)return;        // one form is not a choice (D105)
     let o=by.get(k); if(!o){o={sp,key:k,givers:[]};by.set(k,o);}
     if(!o.givers.includes(rec.name))o.givers.push(rec.name);});
-  featsAt().forEach(fk=>take(FEAT_BY[fk]));
-  optFeatsAt().forEach(ok=>take(OPT_BY[ok]));
+  featsAt().forEach(fk=>take(FEAT_BY[baseKey(fk)]));
+  optFeatsAt().forEach(ok=>take(OPT_BY[baseKey(ok)]));
   return [...by.values()].map(o=>({...o,n:grantedCreatures(o.sp).length,
     marked:buildCreatures(o.sp).filter(c=>favsFor(o.sp).includes(c._ck))}));
 }
@@ -7172,6 +7297,8 @@ function grantNotes(sp){
   const add=(src,note)=>{if(!note)return;const kk=src+"|"+note;if(seen.has(kk))return;seen.add(kk);out.push({src,note});};
   const e=R.pool&&R.pool.get(k); if(e)(e.grants||[]).forEach(g=>add(g.src,g.note));
   (R.freeCasts||[]).forEach(fc=>{if(fc.name===sp.name)add(fc.src,fc.note);});
+  // a designation (D135) changes this spell without granting it — same channel, same block
+  (R.marks||[]).forEach(m=>{if(m.key===k)add(m.src,m.note);});
   return out;}
 function modalHTML(sp){
   // the subtitle already reads "3rd-level Evocation" / "Evocation cantrip", so Level and
@@ -7469,12 +7596,20 @@ function featCatsFor(slots){
 }
 // the slot a feat was actually SPENT from. Attribution follows the slot, not the category:
 // with origin ⊆ general, an origin feat taken at an ASI must not read `origin 2/1`.
-const featSlotOf=fk=>{const f=FEAT_BY[fk];if(!f)return null;
+const featSlotOf=fk=>{const f=FEAT_BY[baseKey(fk)];if(!f)return null;
   const rec=(state.featSlots||{})[fk];
   // only trust a recorded slot the feat could actually occupy
   return (rec&&SLOTS_FOR[rec]&&SLOTS_FOR[rec].indexOf(featSlot(f))>=0)?rec:featSlot(f);};
 function setFeatSlot(fk,slot){ if(!state.featSlots)state.featSlots={};
   if(slot)state.featSlots[fk]=slot; else delete state.featSlots[fk];}
+// remove ONE copy — the last taken — of a repeatable entry, by its own identity (D135).
+// The earlier copies keep their keys, so their choices and their slot stay theirs.
+function dropCopy(arr,k){ for(let i=arr.length-1;i>=0;i--)if(baseKey(arr[i])===k){
+    const gone=arr[i]; arr.splice(i,1); return gone;}
+  return null;}
+function dropFeatCopy(k){ for(let i=state.feats.length-1;i>=0;i--)if(baseKey(state.feats[i])===k){
+    const fk=state.feats[i]; state.feats.splice(i,1); setFeatSlot(fk,null); return fk;}
+  return null;}
 // ── prerequisites (D31) ────────────────────────────────────────────────────
 // 5etools stores `prerequisite` as a list of ALTERNATIVES, so one satisfied block is
 // enough. We can check level, other feats, optional features, species, spellcasting and
@@ -7485,8 +7620,8 @@ const lc=x=>String(x||"").toLowerCase();
 const classLevelOf=name=>state.classes.reduce((a,r)=>{const c=CLS_BY[r.clsKey];
   return a+(c&&lc(c.name)===lc(name)?effLevel(r):0);},0);
 const hasCaster=()=>state.classes.some(r=>{const c=CLS_BY[r.clsKey];return c&&c.caster;});
-const pickedFeatNames=()=>featsAt().map(k=>FEAT_BY[k]).filter(Boolean).map(f=>lc(f.name));
-const pickedOptNames=()=>optFeatsAt().map(k=>OPT_BY[k]).filter(Boolean).map(o=>lc(o.name));
+const pickedFeatNames=()=>featsAt().map(k=>FEAT_BY[baseKey(k)]).filter(Boolean).map(f=>lc(f.name));
+const pickedOptNames=()=>optFeatsAt().map(k=>OPT_BY[baseKey(k)]).filter(Boolean).map(o=>lc(o.name));
 const pickedSpellNames=()=>{const out=new Set();
   state.classes.forEach(r=>{const c=sliceChosen(r);[...(c.cantrips||[]),...(c.spells||[])].forEach(k=>{
     const sp=SPELL_BY[k];if(sp)out.add(lc(sp.name));});});
@@ -7516,10 +7651,18 @@ function prereqParts(b,ent){
       pick:{kind:"species",names:b.races}});}
   if(b.spellcasting)out.push({t:"spellcasting",s:hasCaster()?"ok":"no"});
   if(b.spells&&b.spells.length){
-    // a named spell we know can be checked against the build; a prose description can't
-    const known=b.spells.filter(n=>SPELL_BY_NAME[lc(n)]),have=pickedSpellNames();
+    // a named spell we know can be checked against the build; a prose description can't —
+    // UNLESS it came with its own filter (D135: "a Warlock Cantrip That Deals Damage" is a
+    // `choose` string in the data, and the build can answer it exactly)
+    const have=pickedSpellNames();
+    const filts=b.spellFilters||[];
+    const byFilter=new Set(filts.map(x=>lc(x.text)));
+    const named=b.spells.filter(n=>!byFilter.has(lc(n)));
+    const known=named.filter(n=>SPELL_BY_NAME[lc(n)]);
+    const filtOk=filts.some(x=>filterSpells(x.filter).some(sp=>have.has(lc(sp.name))));
+    const anyOk=filtOk||known.some(n=>have.has(lc(n)));
     out.push({t:b.spells.join(" or "),
-      s:known.length<b.spells.length?"?":(known.some(n=>have.has(lc(n)))?"ok":"no")});}
+      s:anyOk?"ok":(known.length<named.length?"?":"no")});}
   // "no other Dragonmark feat", "No other Wild Talent" (D84). The extractors used to file
   // this under `checks`, where D31 can only ever say "maybe" — but the build's own feats
   // answer it exactly. Self-exclusion doesn't count: holding it is not holding ANOTHER.
@@ -7527,8 +7670,9 @@ function prereqParts(b,ent){
     const label=(DATA.feats||[]).reduce((a,f)=>a||(featCatId(f)===catId?featCatLabel(f):null),null)
       ||FEAT_CAT_NAME[catId]||catId;
     const selfKey=ent?key(ent.name,ent.source):null;
-    const clash=state.feats.filter(fk=>fk!==selfKey&&FEAT_BY[fk]&&featCatId(FEAT_BY[fk])===catId)
-      .map(fk=>FEAT_BY[fk].name);
+    const clash=state.feats.filter(fk=>!(selfKey&&sameEnt(fk,selfKey))&&FEAT_BY[baseKey(fk)]
+        &&featCatId(FEAT_BY[baseKey(fk)])===catId)
+      .map(fk=>FEAT_BY[baseKey(fk)].name);
     out.push({t:"no other "+label+" feat",s:clash.length?"no":"ok",
       why:clash.length?("you already have "+clash.join(", ")):""});});
   (b.checks||[]).forEach(t=>out.push({t,s:"?"}));
@@ -7603,10 +7747,13 @@ function featSlotLevels(full){
 }
 function featBudget(){
   const slots=featSlotLevels();
-  const general=slots.length;                          // every feat slot your classes grant
-  const epic=slots.filter(l=>l>=19).length;            // …of those, the ones a boon may use
+  // …plus anything a FEATURE hands you (D135). An epic-boon slot from a feature is still a
+  // feat slot, so it counts in `general` too — `epic` is a sub-limit, never a pool beside it.
+  const gs=grantedFeatSlots();
+  const general=slots.length+gs.general+gs.epic;        // every feat slot your build grants
+  const epic=slots.filter(l=>l>=19).length+gs.epic;     // …of those, the ones a boon may use
   const race=RACE_BY[state.speciesKey];const isHuman=/human/i.test((race&&race.name)||"");
-  const origin=(state.classes.length?1:0)+(isHuman?1:0);
+  const origin=originSlots();
   // attribution follows the slot the feat was SPENT from (D84), not its category: origin
   // is a subset of general, so an origin feat taken at an ASI is a general feat spent.
   const held=featsAt();                                // sliced (E2): spent means spent by L
@@ -7614,11 +7761,16 @@ function featBudget(){
   const originPicked=inSlot("origin"), epicPicked=inSlot("epic"), generalPicked=inSlot("general");
   // a boon SPENDS a feat slot, so the general row counts it too; `epic` is a sub-limit on how
   // many of those slots may be boons, not a pool beside them
-  return {general,origin,epic,originPicked,generalPicked,epicPicked,isHuman,
+  return {general,origin,epic,originPicked,generalPicked,epicPicked,isHuman,granted:gs,
           slotsUsed:generalPicked+epicPicked};
 }
+// a granted slot has to SAY where it came from, or the origin row silently reads 2/2 on a
+// build whose background gave one (D135)
+function grantedNote(gs,slot){
+  const mine=(gs.from||[]).filter(x=>x.slot===slot);
+  return mine.length?mine.map(x=>(x.n>1?x.n+" from ":"1 from ")+x.name).join(", ")+".":null;}
 function renderFeatBudget(){const b=featBudget();
-  slotCount($("#originCnt"),b.originPicked,b.origin);
+  slotCount($("#originCnt"),b.originPicked,b.origin,grantedNote(b.granted,"origin"));
   slotCount($("#generalCnt"),b.slotsUsed,b.general,
     b.epic?"Every feat your classes grant, boons included.":null);
   slotCount($("#epicCnt"),b.epicPicked,b.epic,
@@ -7634,14 +7786,14 @@ function optSlots(){
       src.optFeatures.forEach(p=>{
         const cap=p.counts[Math.max(0,lv-1)]||0; if(!cap)return;
         const types=new Set(p.types);
-        const picked=optFeatsAt().filter(k=>{const o=OPT_BY[k];return o&&o.types.some(t=>types.has(t));});
+        const picked=optFeatsAt().filter(k=>{const o=OPT_BY[baseKey(k)];return o&&o.types.some(t=>types.has(t));});
         out.push({name:p.name,types:p.types,cap,picked,giver:src.name,giverSrc:src.source});
       });};
   state.classes.forEach(row=>{const el0=effLevel(row); if(!el0)return;   // not yet taken in a preview
     const lv=Math.max(1,Math.min(20,el0));
     add(CLS_BY[row.clsKey],lv); add(subOfRow(row),lv);});
   // feats can grant them too (Eldritch Adept, Metamagic Adept, Martial Adept…)
-  featsAt().forEach(fk=>add(FEAT_BY[fk],Math.max(1,charLevel())));
+  featsAt().forEach(fk=>add(FEAT_BY[baseKey(fk)],Math.max(1,charLevel())));
   // one class taken twice can't stack the same feature line twice
   // the same feature line from two sources merges into one slot with the caps summed
   const merged=new Map();
@@ -7667,25 +7819,34 @@ function renderOptFeats(){
     const cnt=el("span");row.append(cnt);slotCount(cnt,sl.picked.length,sl.cap);
     box.append(row);
     const chips=el("div","chips");
-    sl.picked.forEach(k=>{const o=OPT_BY[k];if(!o)return;
+    const seenOpt=new Map();
+    sl.picked.forEach(k=>{const o=OPT_BY[baseKey(k)];if(!o)return;
       const pr=prereqState(o);
+      // a repeatable invocation taken twice is TWO chips — each is its own take with its own
+      // designation — so the copies past the first carry their ordinal (D135)
+      const ord=(seenOpt.get(baseKey(k))||0)+1; seenOpt.set(baseKey(k),ord);
       const c=el("span","chip"+(grantsAny(o.grants)?" hasspell":"")+(pr.state==="no"?" unmet":""));
       if(pr.state==="no"){const w=icoEl("warn","warn");
         attachTip(w,tipBlock("Prerequisite not met",`${o.name} needs ${pr.why}. Kept in the build — nothing is removed.`));c.append(w);}
       c.append(el("span",null,o.name));
+      if(ord>1)c.append(el("span","chipn","#"+ord));
       const b=xBtn(null,()=>{state.optFeats=state.optFeats.filter(x=>x!==k);save();refreshAll();render();});
       c.append(b);chips.append(c);});
     box.append(chips);
   });
 }
-function renderFeatChips(){const box=$("#featChips");box.innerHTML="";state.feats.forEach((fk,i)=>{const f=FEAT_BY[fk];if(!f)return;
+const FCHIP_ORD=new Map();
+function renderFeatChips(){const box=$("#featChips");box.innerHTML="";FCHIP_ORD.clear();
+  state.feats.forEach((fk,i)=>{const f=FEAT_BY[baseKey(fk)];if(!f)return;
   const pr=prereqState(f);
+  const ord=(FCHIP_ORD.get(baseKey(fk))||0)+1; FCHIP_ORD.set(baseKey(fk),ord);
   const sl=featSlotOf(fk);
   const c=el("span","chip"+(sl==="epic"?" epic":sl==="origin"?" origin":"")+(grantsAny(f.grants)?" hasspell":"")
     +(pr.state==="no"?" unmet":""));
   if(pr.state==="no"){const w=icoEl("warn","warn");attachTip(w,tipBlock("Prerequisite not met",`${f.name} needs ${pr.why}. Kept in the build — nothing is removed.`));c.append(w);}
   if(grantsAny(f.grants))c.append(icoEl("spark","fmark"));
   c.append(el("span",null,f.name));
+  if(ord>1)c.append(el("span","chipn","#"+ord));   // a repeatable feat taken again (D135)
   const b=xBtn(null,()=>{state.feats.splice(i,1);setFeatSlot(fk,null);renderFeatChips();render();});
   c.append(b);box.append(c);});
   renderFeatBudget();}
@@ -8476,8 +8637,8 @@ function pruneState(){
   // exist", not "which one does this row mean" — subOfRow() here would drop a stored
   // subKey the moment its class went missing, and nothing prunes on absence (D42/D56).
   state.classes.forEach(r=>{if(r.subKey&&!SUB_BY[r.subKey]&&bookLoaded(r.subKey))r.subKey=null;});
-  state.feats=(state.feats||[]).filter(fk=>FEAT_BY[fk]||!bookLoaded(fk));
-  state.optFeats=(state.optFeats||[]).filter(ok=>OPT_BY[ok]||!bookLoaded(ok));
+  state.feats=(state.feats||[]).filter(fk=>FEAT_BY[baseKey(fk)]||!bookLoaded(baseKey(fk)));
+  state.optFeats=(state.optFeats||[]).filter(ok=>OPT_BY[baseKey(ok)]||!bookLoaded(baseKey(ok)));
   if(state.speciesKey&&!RACE_BY[state.speciesKey]&&bookLoaded(state.speciesKey))state.speciesKey="";
 }
 // ── boot ─────────────────────────────────────────────────────────────────

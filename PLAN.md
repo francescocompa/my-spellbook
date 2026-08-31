@@ -265,6 +265,18 @@ restate it. **The phase is CLOSED — H1/H2 (v1.2.27), H3 (v1.2.28), H4 (v1.2.31
 - [x] **`#tableChip` has no singular case** (**fixed v1.2.29**) — guards the way every
   sibling count in the file does; `nsp` was NOT reused (it is a `const` local to
   `renderSpells()`).
+- [x] **Invocations, and everything shaped like one** (**shipped v1.3.0 → D135**, Francesco's
+  report of four broken behaviours, audited whole rather than patched one by one; done-when
+  verified in-browser on a Warlock 5 fixture and torn down after): ① the three DESIGNATION
+  invocations get a real choice whose pool is a filter read out of their own prose, and whose
+  effect lands on the designated spell as a D79 note — and designating a cantrip you have not
+  got takes it on the class's own schedule; ② repeatable is read from BOTH shapes 5etools
+  uses and the nth take carries a `##n` identity, so two Magic Initiates hold two independent
+  sets of picks and two Agonizing Blasts two independent designations; ③ a feat / optional
+  feature / species now has its OWN prose mined for casting notes (252 of them, block-scoped);
+  ④ `featProgression` is read, so Lessons of the First Ones adds its Origin slot to the budget
+  card and to the guided chain. Plus a verifiable filtered prerequisite and two bugs found in
+  passing (`Seeking Spell`'s boolean-as-array test; `EMPTY_GRANTS`'s shared mutable lists).
 - [ ] **`refreshAddFeat()` has the identical defect for `#epicRow`** (found while fixing the
   above, 2026-08-30 — HIGH CONFIDENCE from reading, NOT reproduced in the browser): it
   toggles `#epicRow` on `featBudget().epic`, which per D114 is a function of
