@@ -1691,6 +1691,25 @@ written up in full in `GOTCHAS.md` — that is the copy to trust.
   src/index.html (`#libParser`, `#buildExportAll`, the import note), src/styles.css
   (`.libparser`), GOTCHAS (the per-book stamp).
 
+- **D139 (2026-08-31) OPEN — the reported bug is NOT fixed, and the method was wrong**
+  (Francesco: *"the problem wasn't solved"*, after v1.3.2, v1.3.3 and v1.4.0). Logged as a
+  decision because the lesson is a working rule, not a bug: **do not ship a fix for a
+  "works for you, not for me" report until the reporter's own reading is in hand.** The
+  agent's browser holds no imported library, so `IMPORTED||BAKED` puts it on the baked bundle
+  where every extractor fix is present by construction — it cannot reproduce the class of bug
+  being reported without being *made* to. Three releases followed from theorising in that
+  environment: D137 (the app was silent about a stale digest), D137(d) (the published build
+  was silent about a waiting update), D138(a) (a partial refresh stamped the whole library
+  current). **Each fixed something real. None was confirmed to be the reported cause.**
+  → The next session's first act is the reading, not a change: `ver`, `imported`,
+  `IMPORTED.meta.parser`, `staleBooks()`, and the Hex grant — the snippet is in `STATE.md`,
+  which also maps each possible answer to a different place to look. Only one branch
+  (`staleBooks()` empty while the record is still wrong) is a new bug; the others are a
+  stale page or stale data. → **Gotcha** (the pane cannot reproduce an import bug by
+  default; `scratchpad/jsimport.js` exonerates the in-browser importer in one command).
+  *Rejected:* shipping a fourth theory; treating "re-import" as an answer without evidence
+  it ran and covered the books in question.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

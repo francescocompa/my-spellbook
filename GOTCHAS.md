@@ -551,5 +551,17 @@
   arrives on another device with a dangling `Name|HB` key for every homebrew spell it uses.
   That is what the backup file (D138(c)) exists for; per-build export is still the right
   thing for handing one character to someone who has the same books.
+- **The agent's browser has NO imported library, so it cannot reproduce an import bug —
+  and three releases were spent learning that.** `IMPORTED||BAKED` means the pane runs on the
+  baked bundle, where every extractor fix is present by construction. A report of the shape
+  "works for you, not for me" about data is therefore almost never reproducible in the pane
+  *by default*: you must first put a stale digest in `IMPORT_CACHE` (two lines — copy
+  `window.__DATA__`, strip the new fields, stamp a previous version, `assembleData()`).
+  **Get the reading from the reporter's browser before shipping a theory.** `ver`,
+  `imported`, `IMPORTED.meta.parser`, `staleBooks()` and the record in question separate
+  stale-page from stale-data from a real bug in one step; guessing between them cost
+  v1.3.2, v1.3.3 and v1.4.0, each fixing something real and none fixing what was reported.
+  `node scratchpad/jsimport.js` asserts the in-browser importer's own output on the specific
+  records — use it to exonerate (or convict) `src/extract.js` in one command.
 - **History purge:** old data-bearing commits are unreachable on origin but GitHub may still serve
   them by exact SHA until it gc's. `backup/pre-purge-20260826` (local) has the original.

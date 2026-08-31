@@ -3,10 +3,30 @@
 > What is queued, and what is blocked on a decision. `STATE.md` says where things stand;
 > this says what comes next. Closed items → `ARCHIVE.md#closed-backlog`.
 >
-> **v7 shipped as v1.0; phase E (D115) is DONE; phase F (D118) is DONE — the F4 gate
-> passed 2026-08-29 (D125 fixed in-gate).** Nothing is queued as a plan of record. The
-> queue below is a backlog; its one 🔶 (magic items / rewards) is ungated and awaits
-> Francesco's call.
+> **⚠ 2026-08-31: the one LIVE item is the open bug at the head of this file — it is
+> blocked on a reading from Francesco's browser, not on work.** Everything below it is the
+> standing backlog. All phases (E–I) are done and gated; its one 🔶 (magic items / rewards)
+> is ungated and awaits Francesco's call.
+
+## ⚠ OPEN — the reported bug is not fixed (2026-08-31)
+
+**This is the queue's only live item and it is BLOCKED ON A READING, not on work.**
+Great Old One's Hex still reads "at will" and Lessons of the First Ones grants no origin
+feat *on Francesco's browser*, at an updated version; both are correct in the agent's.
+The full account, what is verified, and what each possible reading would mean are in
+`STATE.md` — read that block before anything else.
+
+- [ ] **D1 — get the reading** ⚑ (owner: Francesco, 2026-08-31). `Done when` the snippet in
+  STATE (or ⋯ → Library → Manage) has been run on HIS browser and the five values are known:
+  `ver`, `imported`, `digestStamp`, `stale[]`, `hex.kind`. **Ship nothing before this.**
+- [ ] **D2 — act on what it says.** STATE maps each possible reading to a different place to
+  look. Only one of the branches ("`stale` empty but `hex.kind==="innate"`") is a new bug;
+  the rest are stale page or stale data.
+- [ ] **D3 — verify the fix the way this bug demands**: NOT on the agent's browser, which has
+  no imported library and therefore cannot reproduce it. Either drive a stale digest through
+  `IMPORT_CACHE` (two lines, in STATE) or have Francesco confirm on his own machine.
+  `node scratchpad/jsimport.js` asserts the in-browser importer's own output on the exact
+  records in question — it is the harness this bug needed and it now lives in the repo.
 
 ## Phase E — a build at every level (D115, decided 2026-08-28)
 
