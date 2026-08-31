@@ -537,5 +537,19 @@
   when fetching the script"), so the SW lifecycle cannot be verified there — drive the
   `controllerchange` handler directly with `navigator.serviceWorker.dispatchEvent(new
   Event("controllerchange"))` and say plainly that the lifecycle itself is unexercised.
+- **A refresh is PARTIAL, so the parser stamp has to be per book (D138).** `refreshImported`
+  re-reads only the books the folder actually holds — `kept=stored.filter(c=>SCAN.books[c])`
+  — and the rest keep their stored data, which the report says as a caveat that is easy to
+  miss. `applyPlan` used to stamp `meta.parser` on the WHOLE digest anyway, so a refresh that
+  re-read 2 of 43 books claimed all 43 were current: the D137 notice went quiet and the data
+  stayed wrong with nothing left saying why. Every source carries its own `parser` now, set
+  only for books that came through the parser that time. **`staleBooks()` is the honest
+  question; `IMPORTED.meta.parser` alone is not** — it is kept only as the fallback for
+  digests written before this.
+- **Homebrew spells do NOT ride along with a build.** `state.customSources` is per build, but
+  authored spells live in the GLOBAL `spellForge.custom.v1`, so a build exported on its own
+  arrives on another device with a dangling `Name|HB` key for every homebrew spell it uses.
+  That is what the backup file (D138(c)) exists for; per-build export is still the right
+  thing for handing one character to someone who has the same books.
 - **History purge:** old data-bearing commits are unreachable on origin but GitHub may still serve
   them by exact SHA until it gc's. `backup/pre-purge-20260826` (local) has the original.

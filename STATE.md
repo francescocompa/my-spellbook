@@ -7,12 +7,12 @@
 > |---|---|
 > | `CLAUDE.md` | What this project is, its conventions, build/run, the verify gate, versioning |
 > | `PLAN.md` | The queue — what is next and what is gated |
-> | `DECISIONS.md` | Every decision D7–D137 and what was rejected |
+> | `DECISIONS.md` | Every decision D7–D138 and what was rejected |
 > | `GOTCHAS.md` | Traps that have already cost a session |
 > | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 > | `ARCHIVE.md` | Bodies of consumed phases and old rationale |
 
-## TL;DR (2026-08-31 · **v1.3.3**, committed · **pushed** · app content = v1.3.3)
+## TL;DR (2026-08-31 · **v1.4.0**, committed · **pushed** · app content = v1.4.0)
 - **State:** phases E–I all closed (every gate passed 2026-08-31). This session was
   Francesco's own bug report, taken as a **full audit of invocations and everything shaped
   like one** → **D135, shipped v1.3.0**. Four independent holes, every one a 5etools field
@@ -42,7 +42,13 @@
   since D111 and never read it; `staleParserNotice()` now says it at boot and offers the
   inline refresh — and **v1.3.3** adds the same for the published build's service worker,
   which is stale-while-revalidate by design and so is always exactly one reload behind.
-- **Next action:** v1.3.0–v1.3.2 are already on origin (tags too); **push v1.3.3**. Then the
+  Then a REAL bug under all of that → **D138, v1.4.0**: a refresh re-reads only the books the
+  folder holds, but the digest was stamped current as a whole, so a partial refresh silenced
+  the notice and left the library stale with nothing saying why. The stamp is per book now,
+  the notice names the books behind, and the Library shows it as a line rather than a hover
+  title. Same release adds **Export all…** — one backup file carrying every build AND the
+  homebrew spells they reference, which a per-build export could never carry.
+- **Next action:** **push v1.4.0** (v1.3.x is already on origin, tags too). Then the
   standing queue in PLAN: the fattest small item is `refreshAddFeat()`'s `#epicRow`
   staleness (verify from a fresh load, then fix); the one 🔶 is magic items / rewards,
   awaiting Francesco. The live docs carry five finished phases inline — **`/clean` is still

@@ -365,6 +365,10 @@
         <div class="quick" id="importPlanQuick"></div>
         <div id="importPlanList" class="importplanlist"></div>
       </div>
+      <!-- D138: which parser read your books, said out loud. It used to be a hover title on
+           the Refresh button, which is no help at all when the question is "why is my data
+           still wrong" — and it counts the books actually behind, not one digest-wide stamp. -->
+      <p class="libparser hidden" id="libParser"></p>
       <div class="prepnav" id="libFoot" style="padding:10px 0 0">
         <span class="sub" id="libStore" style="color:var(--muted);font-size:12px"></span>
         <span class="prepnav-sp"></span>
@@ -412,12 +416,13 @@
   <div class="mb">
     <div class="pickbar">
       <input type="search" id="buildSearch" placeholder="filter by name…">
+      <button class="btn lbl-ico" id="buildExportAll"><span class="ico" data-ico="download"></span>Export all…</button>
       <button class="btn lbl-ico" id="buildImport"><span class="ico" data-ico="download"></span>Import…</button>
       <button class="btn on lbl-ico" id="buildNew"><span class="ico" data-ico="plus"></span>New build</button>
     </div>
     <div class="importdrop bimport hidden" id="bImportBox">
       <input type="file" id="bImportFile" accept=".json,application/json" hidden>
-      <p class="note" style="margin:0 0 8px">Drop a <code>.spellbook.json</code> file here, <u id="bImportPick">browse…</u>, or paste it below. Importing adds a build — it never replaces one.</p>
+      <p class="note" style="margin:0 0 8px">Drop a <code>.spellbook.json</code> build or a <code>.spellbook-backup.json</code> from another device here, <u id="bImportPick">browse…</u>, or paste it below. Importing <b>adds</b> — it never replaces or removes anything you already have.</p>
       <textarea id="bImportPaste" placeholder="paste an exported build here…"></textarea>
       <div class="prepnav" style="border:none;padding:8px 0 0">
         <span class="cverr" id="bImportErr"></span>

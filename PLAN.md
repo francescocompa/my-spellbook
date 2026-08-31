@@ -290,6 +290,17 @@ restate it. **The phase is CLOSED — H1/H2 (v1.2.27), H3 (v1.2.28), H4 (v1.2.31
   `verLt` cases, the no-import case, the no-stamp case, the × and the action button): the
   boot notice compares the imported digest's parser stamp with the app version and offers
   the inline refresh. **The reproduction is the thing to keep** — it is in GOTCHAS.
+- [x] **A partial refresh claimed the whole library was current** (**shipped v1.4.0 →
+  D138(a,b)**; done-when verified in-browser by storing a digest whose meta stamp reads
+  current while 41 of 43 sources read v1.2.41 — the notice and the Library line both name
+  41, where the old code stayed silent): per-source `parser`/`parsedAt`, `staleBooks()`, and
+  the stamp promoted from a hover title to a visible line above the Library's footer.
+- [x] **Export/import characters between devices** (**shipped v1.4.0 → D138(c)**; done-when
+  verified in-browser by a full round trip onto an emptied browser: 3 builds + 1 homebrew
+  spell land, the homebrew spell resolves, and the build's pick of it survives — plus
+  re-import not duplicating homebrew, and a single-build file still importing through the
+  same box): `Export all…` writes one backup file carrying every build and the homebrew they
+  reference; one import entry point takes either kind.
 - [ ] **`refreshAddFeat()` has the identical defect for `#epicRow`** (found while fixing the
   above, 2026-08-30 — HIGH CONFIDENCE from reading, NOT reproduced in the browser): it
   toggles `#epicRow` on `featBudget().epic`, which per D114 is a function of

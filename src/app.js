@@ -3739,6 +3739,59 @@ function exportBuild(id){
   const a=el("a"); a.href=url; a.download=name; document.body.append(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(url),4000);
 }
+// ── everything, in one file (D138) ─────────────────────────────────────────
+// Per-build export has existed since v7 (T5) and is right for handing ONE character to
+// someone. Moving to another device is a different job: several characters, several
+// versions each, and — the part a per-build file cannot carry — the homebrew spells they
+// reference, which live in a GLOBAL store (localStorage), not in a build. A build exported
+// alone arrives on the other machine with dangling keys for every homebrew spell in it.
+// The imported 5etools library is deliberately NOT in here: it is content, not character
+// (D33/D86), it is 2.5 MB, and the other device imports it from its own copy of the books.
+const BACKUP_FILE_KIND="my-spellbook/backup";
+const BACKUP_FILE_VERSION=1;
+function backupObj(){
+  save();                                   // flush the live build before writing it out
+  return {kind:BACKUP_FILE_KIND,version:BACKUP_FILE_VERSION,exported:Date.now(),
+    app:"My Spellbook",appVersion:window.__VERSION__||"dev",
+    builds:BUILDS.order.filter(id=>BUILDS.builds[id]).map(id=>({
+      meta:JSON.parse(JSON.stringify(BUILDS.builds[id].meta)),
+      state:JSON.parse(JSON.stringify(BUILDS.builds[id].state))})),
+    homebrew:JSON.parse(JSON.stringify((CUSTOM&&CUSTOM.spells)||[])),
+    // a RECORD of the books these were seen under, never an instruction (D33)
+    sources:[...SRC]};
+}
+function exportAll(){
+  const o=backupObj();
+  if(!o.builds.length){$("#buildSub").textContent="Nothing to export yet — this browser holds no builds.";return;}
+  const d=new Date(), p=n=>String(n).padStart(2,"0");
+  const name=`my-spellbook-${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}.spellbook-backup.json`;
+  const url=URL.createObjectURL(new Blob([JSON.stringify(o,null,1)],{type:"application/json"}));
+  const a=el("a"); a.href=url; a.download=name; document.body.append(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),4000);
+  const nh=o.homebrew.length;
+  $("#buildSub").textContent=`Exported ${o.builds.length} build${o.builds.length===1?"":"s"}`
+    +(nh?` and ${nh} homebrew spell${nh===1?"":"s"}`:"")+" to your downloads.";
+}
+// ADDITIVE, always: a backup import adds builds beside what is here and never replaces or
+// removes one, exactly as the single-build import does. Homebrew is merged by name|source,
+// and a spell already here WINS — the file may be older than what you have been editing.
+function importBackupObj(j){
+  if(!Array.isArray(j.builds)||!j.builds.length)throw new Error("That backup holds no builds.");
+  if((j.version||1)>BACKUP_FILE_VERSION)
+    throw new Error("That backup was exported by a newer version of the app.");
+  let nb=0,nh=0;
+  j.builds.forEach(b=>{ try{ importBuildText(JSON.stringify(
+      {kind:BUILD_FILE_KIND,version:BUILD_FILE_VERSION,meta:b.meta||{},state:b.state||b})); nb++;
+    }catch(_){}});                          // one unreadable build must not sink the rest
+  if(!nb)throw new Error("None of the builds in that backup could be read.");
+  const have=new Set(((CUSTOM&&CUSTOM.spells)||[]).map(sp=>key(sp.name,sp.source)));
+  (Array.isArray(j.homebrew)?j.homebrew:[]).forEach(sp=>{
+    if(!sp||!sp.name)return; const k=key(sp.name,sp.source||HB_SRC);
+    if(have.has(k))return; have.add(k);
+    CUSTOM=CUSTOM||{spells:[]}; CUSTOM.spells=CUSTOM.spells||[]; CUSTOM.spells.push(sp); nh++;});
+  if(nh){ saveCustom(); assembleData(); if(!SRC.has(HB_SRC)){SRC.add(HB_SRC);saveSources();} }
+  return {builds:nb,homebrew:nh,skipped:j.builds.length-nb};
+}
 // what the file needs that this browser hasn't got loaded or turned on
 function importGaps(st,srcs){
   const missing=new Set(), off=new Set();
@@ -5095,9 +5148,18 @@ async function applyPlan(rep,refreshed){
   const out=filterDigest(PLAN.merged,PLAN.keep);
   if(!digestSize(out)){const m="That would leave no content at all — keep at least one book.";
     rep.textContent=m;return m;}
-  // D111: stamp what made this data, so Refresh can say whether the new parser ran
-  out.meta=Object.assign({},out.meta,{importedAt:new Date().toISOString(),
-    parser:window.__VERSION__||"dev"});
+  // D111: stamp what made this data, so Refresh can say whether the new parser ran.
+  // PER BOOK as well as per digest (D138): a refresh only re-reads the books the folder
+  // actually holds — the rest "keep their stored data" — and one digest-wide stamp then
+  // claimed the whole library was current when most of it had not been re-parsed. That is
+  // the D129 false-success shape one level down, and it is what let the stale-parser notice
+  // go quiet on a library that was still stale. Only the books that came through the
+  // parser THIS time get the new stamp; every other source keeps the one it had.
+  const now=new Date().toISOString(), pv=window.__VERSION__||"dev";
+  out.meta=Object.assign({},out.meta,{importedAt:now,parser:pv});
+  const parsed=Object.keys(((PLAN.incoming||{}).sources)||{});
+  parsed.forEach(c=>{ if(out.sources[c])out.sources[c]=Object.assign({},out.sources[c],
+    {parser:pv,parsedAt:now}); });
   const btn=$("#importApply"); if(btn)btn.disabled=true;
   rep.textContent="Storing…";
   const err=await importSave(out);
@@ -5257,14 +5319,28 @@ function verLt(a,b){const A=verParts(a),B=verParts(b);
   for(let i=0;i<Math.max(A.length,B.length,3);i++){const x=A[i]||0,y=B[i]||0;
     if(x!==y)return x<y;}
   return false;}
+// which imported books were last read by an OLDER parser than the app (D138). Per book,
+// because a refresh only re-reads what the folder holds — asking the digest-wide stamp
+// reports "all current" for a library where one book was re-read and eleven were not.
+function staleBooks(){
+  if(!IMPORTED)return [];
+  const app=window.__VERSION__; if(!app)return [];
+  const fallback=(IMPORTED.meta||{}).parser||null;   // pre-D138 digests have only this one
+  return Object.keys(IMPORTED.sources||{}).filter(c=>{
+    const p=((IMPORTED.sources[c])||{}).parser||fallback;
+    return !p||verLt(p,app);});
+}
 function staleParserNotice(){
   const app=window.__VERSION__; if(!app||!IMPORTED)return;
+  const behind=staleBooks(); if(!behind.length)return;
+  const total=Object.keys(IMPORTED.sources||{}).length;
   const made=(IMPORTED.meta||{}).parser||null;
-  // a digest from before D111 carries no stamp at all — that is as stale as it gets
-  if(made&&!verLt(made,app))return;
   let seen=null; try{seen=localStorage.getItem(LS_PARSER_NAG);}catch(_){}
   if(seen===app)return;                       // already said for this version, and dismissed
-  const n=appNotice(`Your imported books were read by ${made?"parser v"+made:"an older parser"}`
+  const which=behind.length===total?"Your imported books were"
+    :`${behind.length} of your ${total} imported books (${behind.slice(0,3).map(bookName).join(", ")}`
+      +`${behind.length>3?`, +${behind.length-3} more`:""}) were`;
+  const n=appNotice(`${which} read by ${made&&behind.length===total?"parser v"+made:"an older parser"}`
     +` — this is v${app}. Refresh to re-read them and pick up the fixes since.`,"ask");
   const act=el("button","anact","Refresh now");
   act.onclick=()=>{ try{localStorage.setItem(LS_PARSER_NAG,app);}catch(_){}
@@ -5311,6 +5387,16 @@ function renderLibFoot(){
   if(stamp){const when=meta.importedAt?new Date(meta.importedAt).toLocaleDateString():null;
     stamp.title=when?`Last import ${when} · parser v${meta.parser||"?"}`:"Nothing imported yet";}
   st.textContent="";
+  // D138: the parser stamp was reachable only by hovering a button, which is no use when
+  // the question being asked is "why is my data still wrong". It is a visible line now,
+  // and it counts the books that are actually behind rather than trusting one stamp.
+  const behind=staleBooks(), nsrc=Object.keys((IMPORTED&&IMPORTED.sources)||{}).length;
+  const line=$("#libParser");
+  if(line){ line.classList.toggle("hidden",!IMPORTED);
+    if(IMPORTED){ line.classList.toggle("stale",!!behind.length);
+      line.textContent=behind.length
+        ? `${behind.length} of ${nsrc} book${nsrc===1?"":"s"} still read by an older parser — Refresh re-reads them`
+        : `all ${nsrc} book${nsrc===1?"":"s"} read by parser v${meta.parser||"?"}`; } }
   if(navigator.storage&&navigator.storage.estimate)
     navigator.storage.estimate().then(e=>{ if(!e||!e.usage)return;
       const mb=e.usage/1048576;
@@ -8243,6 +8329,18 @@ function showBuildImport(on){
 function doBuildImport(txt){
   const err=$("#bImportErr");
   try{
+    // one entry point, two file kinds (D138): a backup is several builds plus the homebrew
+    // they reference, and asking a person to know which file they have is a question the
+    // app can answer by looking
+    let j=null; try{ j=JSON.parse(txt); }catch(_){}
+    if(j&&j.kind===BACKUP_FILE_KIND){
+      const r=importBackupObj(j);
+      showBuildImport(false); renderBuildList(); refreshAll(); render();
+      $("#buildSub").textContent=`Added ${r.builds} build${r.builds===1?"":"s"}`
+        +(r.homebrew?` and ${r.homebrew} homebrew spell${r.homebrew===1?"":"s"}`:"")
+        +(r.skipped?` · ${r.skipped} couldn’t be read and were skipped`:"")+".";
+      return;
+    }
     const b=importBuildText(txt);
     const g=importGaps(b.state,b.meta.sources);
     showBuildImport(false); renderBuildList();
@@ -8254,6 +8352,7 @@ function doBuildImport(txt){
   }catch(e){ err.textContent=e.message||"Could not read that file."; }
 }
 $("#buildImport").onclick=()=>showBuildImport($("#bImportBox").classList.contains("hidden"));
+$("#buildExportAll").onclick=exportAll;
 $("#bImportCancel").onclick=()=>showBuildImport(false);
 $("#bImportGo").onclick=()=>{const t=$("#bImportPaste").value.trim();
   if(!t){$("#bImportErr").textContent="Paste a build, or drop a file here.";return;} doBuildImport(t);};

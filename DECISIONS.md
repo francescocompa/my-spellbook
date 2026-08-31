@@ -1651,6 +1651,46 @@ written up in full in `GOTCHAS.md` — that is the copy to trust.
   Affects: src/app.js (`staleParserNotice`, `verLt`, the boot tail, the SW registration),
   src/styles.css (`.appnotice .anact`), GOTCHAS (the `IMPORTED||BAKED` entry).
 
+- **D138 (2026-08-31) DECIDED — the parser stamp is PER BOOK, and everything moves in one
+  file** (Francesco: *"doesn't work still in my browser, even though the version is updated,
+  but it works in the Claude browser"*, and *"let's add a feature that lets me export/import
+  characters between devices"*). The first half found a real bug under D137.
+  - **(a) One digest-wide parser stamp was a false success.** A refresh only re-reads the
+    books the FOLDER holds — the rest "keep their stored data" (D129 says so in its own
+    caveat) — but `applyPlan` stamped `meta.parser` on the whole digest anyway. So a partial
+    refresh claimed the entire library was current, D137's notice went quiet, and the data
+    stayed wrong with nothing left saying why. That is the D129 false-success shape one level
+    down, and it is almost certainly why "it works in the Claude browser" (no import at all,
+    so baked data) and not in Francesco's (an import that reported itself current). Every
+    source now carries its own `parser`/`parsedAt`, set only for the books that actually came
+    through the parser that time; `staleBooks()` asks per book and falls back to the
+    digest-wide stamp for pre-D138 digests. The notice counts and NAMES them ("41 of your 43
+    imported books (…) were read by an older parser"). *Rejected:* keeping one stamp and
+    trusting the refresh to be total (it is documented as partial); blocking a partial
+    refresh (the books the folder lacks are exactly the ones you cannot re-read).
+  - **(b) The stamp is a visible line, not a hover title.** It sat in the Refresh button's
+    `title`, which is no use when the question being asked is "why is my data still wrong".
+    `#libParser` sits above the Library's own footer buttons, quiet when everything is
+    current and gold when a book is behind.
+  - **(c) A BACKUP file: every build plus the homebrew they reference.** Per-build export has
+    existed since v7 (T5) and is right for handing one character to someone; moving to
+    another device is a different job. The part a per-build file cannot carry is **homebrew
+    spells** — they live in a GLOBAL store, not in a build, so a build exported alone arrives
+    with a dangling key for every homebrew spell in it (verified: the round trip restores the
+    pick AND resolves the spell). `Export all…` writes one
+    `my-spellbook-YYYY-MM-DD.spellbook-backup.json`; the existing import box takes it, told
+    apart from a single build by its `kind`, so there is one import entry point and no
+    question for the reader to answer. **Additive, always** — like the single-build import it
+    adds beside what is there and never replaces or removes; a homebrew spell already present
+    WINS, since the file may be older than what you have been editing. *Rejected:* putting
+    the imported 5etools library in the file (content, not character — D33/D86 — and 2.5 MB;
+    the other device imports it from its own copy of the books); a replace-on-import mode
+    (destructive, and the manager already deletes by hand); a second import control.
+  Affects: src/app.js (`applyPlan` per-source stamp, `staleBooks`, `staleParserNotice`,
+  `renderLibFoot`, `backupObj`/`exportAll`/`importBackupObj`, `doBuildImport`),
+  src/index.html (`#libParser`, `#buildExportAll`, the import note), src/styles.css
+  (`.libparser`), GOTCHAS (the per-book stamp).
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives
