@@ -525,5 +525,17 @@
   lines: hand `IMPORT_CACHE` a copy of `window.__DATA__` with the new fields stripped and a
   stamp of the previous version, call `assembleData()`, and the old symptoms come back
   exactly.
+- **"I reloaded and nothing changed" has TWO causes on the published build, and they stack.**
+  ① The service worker is stale-while-revalidate on purpose, so a deploy is **exactly one
+  reload behind** — reload once and you are still on the old page while the new one caches;
+  reload again and you have it. ② The imported digest is independent of the page and only
+  changes on a Refresh. So a data fix needs a page update AND a re-import, and until v1.3.2/
+  v1.3.3 the app announced neither. Both now raise a notice. When diagnosing, read the
+  FOOTER version and `IMPORTED.meta.parser` before anything else — they answer which layer
+  is stale, and they disagree far more often than the code is wrong.
+  **Service-worker registration fails inside the browser pane** ("An unknown error occurred
+  when fetching the script"), so the SW lifecycle cannot be verified there — drive the
+  `controllerchange` handler directly with `navigator.serviceWorker.dispatchEvent(new
+  Event("controllerchange"))` and say plainly that the lifecycle itself is unexercised.
 - **History purge:** old data-bearing commits are unreachable on origin but GitHub may still serve
   them by exact SHA until it gc's. `backup/pre-purge-20260826` (local) has the original.

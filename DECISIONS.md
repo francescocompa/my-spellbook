@@ -1635,8 +1635,21 @@ written up in full in `GOTCHAS.md` — that is the copy to trust.
   - **The notice is silent where there is nothing to say**: no import at all (the public
     build's default, and any browser using the bundle) and a stamp at the current version
     both produce nothing.
-  Affects: src/app.js (`staleParserNotice`, `verLt`, the boot tail), src/styles.css
-  (`.appnotice .anact`), GOTCHAS (the `IMPORTED||BAKED` entry).
+  - **(d) …and the same silence in the service worker, added v1.3.3.** The published build
+    is stale-while-revalidate BY DESIGN — the page comes from the cache instantly and the
+    new copy lands for the NEXT load, so a deploy is always exactly one reload behind, a
+    trade taken deliberately against a 1.4 MB blocking download on every open. The app KNEW
+    a newer build had arrived and said nothing, so "I reloaded and nothing changed" was the
+    only way to find out. The worker calls `skipWaiting()`+`claim()`, so `controllerchange`
+    fires exactly when a newer build has taken over: that now raises "A newer version of the
+    app has downloaded. Reload to use it." with a Reload button. The very first install is
+    NOT an update and stays silent. *Rejected:* dropping stale-while-revalidate for a
+    network-first shell (that is the 1.4 MB download the strategy exists to avoid);
+    reloading the page automatically (it would throw away whatever was on screen).
+    **Verified only at the handler** — service-worker registration fails inside the browser
+    pane, so the lifecycle on Pages is reasoned from `skipWaiting`+`claim`, not exercised.
+  Affects: src/app.js (`staleParserNotice`, `verLt`, the boot tail, the SW registration),
+  src/styles.css (`.appnotice .anact`), GOTCHAS (the `IMPORTED||BAKED` entry).
 
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for

@@ -8644,9 +8644,26 @@ $("#prGo").onclick=()=>{$("#printModal").classList.add("hidden");
 // would only cache the thing being edited. Only the Pages build ships sw.js, and only
 // it sets __PUBLIC__. Registration failing is not an error worth surfacing: the app is
 // fully usable online, it just will not have installed itself.
+// The worker is stale-while-revalidate BY DESIGN: the page comes from the cache instantly
+// and the new copy lands for the NEXT load, so a deploy is always exactly one reload behind
+// — the trade taken deliberately against a 1.4 MB blocking download on every open. What was
+// missing is that the app KNEW a newer build had arrived and said nothing, so "I reloaded and
+// nothing changed" was the only way to find out (D137, same shape as the parser stamp). The
+// worker calls skipWaiting()+claim(), so `controllerchange` fires exactly when a newer build
+// has taken over the cache — that is the moment to say a reload will pick it up.
 if(typeof window!=="undefined"&&window.__PUBLIC__&&"serviceWorker" in navigator
    &&(location.protocol==="https:"||location.hostname==="localhost"||location.hostname==="127.0.0.1"))
-  addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+  addEventListener("load",()=>{
+    let had=!!navigator.serviceWorker.controller;   // false on the very first visit — that
+    navigator.serviceWorker.addEventListener("controllerchange",()=>{
+      if(!had){had=true;return;}                   // …install is not an update
+      const n=appNotice("A newer version of the app has downloaded. Reload to use it.","ask");
+      const act=el("button","anact","Reload");
+      act.onclick=()=>location.reload();
+      n.insertBefore(act,n.querySelector(".anx"));
+    });
+    navigator.serviceWorker.register("sw.js").catch(()=>{});
+  });
 
 // ── test helper: random sample build (local only) ──────────────────────────
 function randomBuild(){

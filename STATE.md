@@ -12,7 +12,7 @@
 > | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 > | `ARCHIVE.md` | Bodies of consumed phases and old rationale |
 
-## TL;DR (2026-08-31 · **v1.3.2**, committed · **not yet pushed** · app content = v1.3.2)
+## TL;DR (2026-08-31 · **v1.3.3**, committed · **pushed** · app content = v1.3.3)
 - **State:** phases E–I all closed (every gate passed 2026-08-31). This session was
   Francesco's own bug report, taken as a **full audit of invocations and everything shaped
   like one** → **D135, shipped v1.3.0**. Four independent holes, every one a 5etools field
@@ -40,8 +40,9 @@
   never reaches an importing browser until the books are re-read. Reproduced exactly from a
   v1.2.41-stamped digest and cleared from a current one. The app has stamped `meta.parser`
   since D111 and never read it; `staleParserNotice()` now says it at boot and offers the
-  inline refresh.
-- **Next action:** **push** (`git push && git push --tags`) — three commits are local. Then the
+  inline refresh — and **v1.3.3** adds the same for the published build's service worker,
+  which is stale-while-revalidate by design and so is always exactly one reload behind.
+- **Next action:** v1.3.0–v1.3.2 are already on origin (tags too); **push v1.3.3**. Then the
   standing queue in PLAN: the fattest small item is `refreshAddFeat()`'s `#epicRow`
   staleness (verify from a fresh load, then fix); the one 🔶 is magic items / rewards,
   awaiting Francesco. The live docs carry five finished phases inline — **`/clean` is still
