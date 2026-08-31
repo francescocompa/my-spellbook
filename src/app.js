@@ -50,7 +50,6 @@ const ICONS={
   copy:_I('<rect x="5.6" y="5.6" width="8" height="8" rx="1.7"/><path d="M10.4 5.6V4.1A1.7 1.7 0 0 0 8.7 2.4H4.1A1.7 1.7 0 0 0 2.4 4.1v4.6a1.7 1.7 0 0 0 1.7 1.7h1.5"/>'),
   trash:_I('<path d="M2.7 4.3h10.6M6.4 4.3V3.2a1 1 0 0 1 1-1h1.2a1 1 0 0 1 1 1v1.1"/><path d="m4.3 4.3.6 8.1a1.2 1.2 0 0 0 1.2 1.1h3.8a1.2 1.2 0 0 0 1.2-1.1l.6-8.1"/>'),
   order:_I('<path d="M2.4 3.9h6.4M2.4 8h4.4M2.4 12.1h2.6"/><path d="M12.1 3.4v9.2M12.1 12.6 10.4 11M12.1 12.6 13.8 11"/>'),
-  bookmark:_I('<path d="M4.1 2.7h7.8v10.6L8 10.5l-3.9 2.8z"/>'),
   star:_I('<path d="M8 2.2 9.85 6l4.15.6-3 2.95.71 4.15L8 11.74 4.29 13.7 5 9.55 2 6.6 6.15 6z"/>'),
   print:_I('<path d="M4.6 6.1V2.7h6.8v3.4"/><rect x="2.4" y="6.1" width="11.2" height="4.8" rx="1.4"/><path d="M4.6 9.3h6.8v4H4.6z"/>'),
   // a trade: two arrows passing each other. Marks a pick swapped away and the one that
@@ -1678,12 +1677,13 @@ function guideSetWalk(down){
   openGuide(down,down);
 }
 // The control lives at the HEAD OF THE CHAIN COLUMN, not in the page header — it
-// describes that column, and since D132 inverted both level columns (top level at the
-// top, L1 at the bottom) it can be READ against it: the arrow now points the way the walk
-// really travels on screen. **Up** starts at the bottom row and climbs; **Down** starts at
-// the head and descends. That is what carries the meaning, so the button needs no label —
-// one quiet ghost arrow beside the line naming the level the walk starts from, and a tip
-// that says in one line what this direction does.
+// describes that column, and it INVERTS it: the rail's display order follows the walk,
+// so the walk's starting end is always the top row. **Up** reads L1 at the head and the
+// levels climb as you read down; **Down** reads the top level at the head and descends.
+// The arrow points the way the LEVELS run, which is what carries the meaning, so the
+// button needs no label — one quiet ghost arrow beside the line naming the level the
+// walk starts from (always the top row now), and a tip that says in one line what this
+// direction does.
 // The arrows are DRAWN (`walkup`/`walkdn` in ICONS), never typed: a ↑ glyph sits wherever
 // its font puts it, which is why this app draws its carets (D57).
 // Sticky, so scrolling the rail never takes the direction off screen. Hidden entirely
@@ -1706,8 +1706,9 @@ function guideWalkStrip(total,steps){
   // that swallowed this click would leave the walk with no way to turn around.
   b.onclick=e=>{e.stopPropagation(); guideSetWalk(!down);};
   attachTip(b,tipBlock(down?"Walking down, from L"+at:"Walking up, from L1",
-    down?"Only this build's own picks are offered, and a click places one into the slot you selected. Click to turn the walk around."
-        :"A pick you take fills the next open slot. Click to turn the walk around."));
+    (down?"Only this build's own picks are offered, and a click places one into the slot you selected. "
+        :"A pick you take fills the next open slot. ")
+    +"The rail reads the same way, starting level on top. Click to turn the walk around."));
   wrap.append(b);
   wrap.append(el("span","gwalkat","from L"+at));
   return wrap;
@@ -1767,18 +1768,22 @@ function renderGuideChain(steps,cur){
   const health=(R&&R.health)||buildHealth();
   const multi=state.classes.length>1;
   const view=PREVIEW.level==null?total:PREVIEW.level;
-  // the descending column's four pieces — runs keyed on their highest level, the divider,
-  // `runjoin` reaching upward, the prepend — belong to `levelColumn`, shared with the
-  // timeline modal so the two can never drift (D132)
-  const col=levelColumn(plan,box,multi);
+  // the column's four order-dependent pieces — the run keying, the divider, `runjoin`,
+  // the insertion — belong to `levelColumn`, shared with the timeline modal so the two
+  // can never drift (D132). The DISPLAY order follows the walk, so the walk's starting
+  // end is always the top of the rail: walking up reads L1-first, walking down reads
+  // highest-first. Only the display flips — the loop below still computes ascending.
+  const asc=!guideWalkDown();
+  const col=levelColumn(plan,box,multi,asc);
   const byLv=new Map();
   steps.forEach(s=>{const a=byLv.get(s.lv)||[];a.push(s);byLv.set(s.lv,a);});
   const curLv=cur?cur.lv:null;
   const perClass=new Map(); let curEl=null;
-  // ASCENDING iteration, DESCENDING insertion (`box.prepend`) — `perClass` counts each
-  // class's own level as it walks, so the walk cannot be reversed without every row
-  // naming the wrong class level. The "next level" affordance is the highest key, so it
-  // is prepended last and lands at the head of the column, where growth belongs.
+  // ASCENDING iteration in BOTH display orders — `perClass` counts each class's own
+  // level as it walks, so the walk cannot be reversed without every row naming the
+  // wrong class level. `levelColumn` places each fragment for the current order; the
+  // "next level" affordance is the highest key, so it lands at the growth end either
+  // way (the head descending, the foot ascending).
   [...byLv.keys()].sort((a,b)=>a-b).forEach(lv=>{
     const group=byLv.get(lv);
     const id0=lv<=total?plan[lv-1]:null, row=id0!=null?rowOf.get(id0):null;
@@ -1836,9 +1841,9 @@ function renderGuideChain(steps,cur){
     wireRowDrag(card,lv-1,plan,GC,box,{enabled:multi&&!!row});
     col.emit(lv,id,card);
   });
-  // last prepend wins the top: the direction sits above every level, including the
-  // growth affordance, because it governs the whole column
-  if(guideCanWalkDown(steps))col.top(guideWalkStrip(total,steps));
+  // the direction sits at the visual head in either order, above every level including
+  // the growth affordance, because it governs the whole column
+  if(guideCanWalkDown(steps))col.head(guideWalkStrip(total,steps));
   box.scrollTop=keep;
   // keep the current step in view without touching the page's own scroll
   if(curEl){const r=curEl.getBoundingClientRect(), br=box.getBoundingClientRect();
@@ -6279,7 +6284,7 @@ const lvTile=(kind,big,word,tip)=>{
 // retrain: which chip's "move the trade" chooser is open — {id, cur, kind}, inline in
 // the row rather than a floating menu (the chip row is a masked scroller and would clip
 // one, and a document-level closer is exactly what D122 removed from this modal)
-let TL={open:false,drag:null,retrain:null};
+let TL={open:false,drag:null,retrain:null,asc:false};   // asc: the column's display order
 function toggleTimeline(){ TL.open?closeTimeline():openTimeline(); }
 // a full modal since D122 — no chip anchoring, no scroll re-anchoring to maintain
 function openTimeline(){ TL.open=true; renderTimeline();
@@ -6438,34 +6443,41 @@ function dropChipOnLevel(chip,L){
   }
   state[arrName]=base; return false;
 }
-// ── the descending level column, shared (D132) ─────────────────────────────
-// Both level surfaces — the timeline modal and the guide's chain column — read HIGHEST
-// LEVEL AT THE TOP, and both build that the same way: walk the plan ASCENDING (every
-// per-level number is incremental and would be wrong backwards) and PREPEND each level's
-// fragment. Four pieces come with that inversion and were carried in two near-identical
-// copies until this: the run map keyed on a run's HIGHEST level (`to`, where the block
-// starts on screen), the divider that opens a class block, `runjoin` reaching UPWARD to
-// close the gap against the level above, and the prepend itself. They are one owner now —
-// a change to the column is a change to both surfaces by construction, which is what the
-// duplication could only promise by hand.
+// ── the level column, shared, order-aware (D132 + the order toggle) ────────
+// Both level surfaces — the timeline modal and the guide's chain column — build their
+// column the same way: walk the plan ASCENDING (every per-level number is incremental
+// and would be wrong backwards) and let `levelColumn` place each level's fragment for
+// the DISPLAY order in force. Descending (D132's shape) prepends; ascending appends.
+// Four pieces follow the order and were carried in two near-identical copies until
+// v1.2.39: the run map keyed on the level where a block starts ON SCREEN (`to`
+// descending, `from` ascending), the divider that opens a class block, `runjoin`
+// closing the gap against the card above, and the insertion itself. They are one owner
+// now — a change to the column is a change to both surfaces by construction, which is
+// what the duplication could only promise by hand.
 // What is NOT here is the card body: each surface builds its own and hands it over. And
 // the row drag stays where it is (`wireRowDrag`, below) — it is handed PLAN INDICES, so
 // the axis flip never reaches it, and that is why the same drag on either surface still
 // produces the identical plan (G1's acceptance test).
-function levelColumn(plan,box,multi){
+function levelColumn(plan,box,multi,asc){
+  // `asc` is the DISPLAY order (a toggle since the arrow inverts it): false = the D132
+  // descending column (highest level at the head, insertion by prepend), true = L1 at
+  // the head, insertion by append. The computation never changes — callers still walk
+  // the plan ASCENDING either way — only where each level's fragment lands does.
+  box.classList.toggle("asc",!!asc);
   const runColor=new Map(); plan.forEach(id=>{if(!runColor.has(id))runColor.set(id,runColor.size%4);});
   const runs=[]; plan.forEach((id,j)=>{
     if(j===0||plan[j-1]!==id)runs.push({id,from:j+1,to:j+1});
     else runs[runs.length-1].to=j+1;});
-  const runAt=new Map(runs.map(r=>[r.to,r]));
+  // a run's divider goes above the run's FIRST card ON SCREEN: its highest level when
+  // the column descends, its lowest when it ascends
+  const runAt=new Map(runs.map(r=>[asc?r.from:r.to,r]));
   return {
-    // the class rail + join classes a level's card wears. `runjoin` asks about the level
-    // ABOVE (lv+1 in plan terms, the card above it on screen)
+    // the class rail + join classes a level's card wears. `runjoin` asks about the card
+    // ABOVE it on screen — level lv+1 descending, lv-1 ascending
     railCls:(lv,id)=>!multi||id==null?"":" runc"+runColor.get(id)
-      +(lv<plan.length&&plan[lv]===id?" runjoin":""),
-    // one level, inserted at the head of the column: its divider (when a class block
-    // starts here) and its card go in TOGETHER, or prepending them one at a time would
-    // put the card above its own divider
+      +((asc?(lv>1&&plan[lv-2]===id):(lv<plan.length&&plan[lv]===id))?" runjoin":""),
+    // one level: its divider (when a class block starts here on screen) and its card go
+    // in TOGETHER, or inserting them one at a time would split them across a prepend
     emit(lv,id,card){
       const into=document.createDocumentFragment();
       if(multi&&id!=null&&runAt.has(lv)){const r=runAt.get(lv);
@@ -6475,11 +6487,15 @@ function levelColumn(plan,box,multi){
         dv.append(document.createTextNode((c?c.name:"?")+" · "
           +(r.from===r.to?"L"+r.from:"L"+r.from+"–L"+r.to)));
         into.append(dv);}
-      into.append(card); box.prepend(into);
+      into.append(card); asc?box.append(into):box.prepend(into);
     },
-    // the growth end of the column, and anything that governs the whole of it: last
-    // prepend wins the top
-    top(node){box.prepend(node);}
+    // the visual HEAD of the column in either order — what governs the whole column
+    // (the order/direction strip) sits here. Descending, last prepend wins the top;
+    // ascending, prepend lands above L1 outright.
+    head(node){box.prepend(node);},
+    // the GROWTH end — where "+ add level" belongs: the head of a descending column,
+    // the foot of an ascending one
+    growth(node){asc?box.append(node):box.prepend(node);}
   };
 }
 // ── the level-plan row drag, shared (D122(e) · D126(b)) ────────────────────
@@ -6535,8 +6551,11 @@ function renderTimeline(){
   if(!total){closeTimeline();return;}
   const rowOf=new Map(state.classes.map(r=>[r.id,r]));
   const perClass=new Map();               // running class level, for the gains line
+  // ONE level state on this surface: the clicked row IS the current level. A row click
+  // writes both the view (PREVIEW) and the saved pointer (state.currentLevel), so the
+  // old footer pin and its separate bookmark treatment are gone — the highlighted row
+  // is where the character stands, and the dashed rows above it are the plan.
   const view=PREVIEW.level==null?total:PREVIEW.level;
-  const cur=(typeof state.currentLevel==="number"&&state.currentLevel<total)?state.currentLevel:total;
   const {by:picks,counts:pickCounts}=timelinePicks(), health=(R&&R.health)||buildHealth();
   const openSlots=timelineOpen();         // which gains this build hasn't answered yet
   const multi=state.classes.length>1;
@@ -6549,13 +6568,14 @@ function renderTimeline(){
       attachTip(om,tipBlock("Order matters in this build",
         reasons.map(r=>cap1(r)).join("; ")
         +". Drag the rows to change which class each level was taken in.")); } }
-  // run aggregation (D122) and the descending column itself (D132) — the run map keyed
-  // on each block's HIGHEST level, its divider label (D124), `runjoin` reaching upward
-  // and the prepend — all belong to `levelColumn`, shared with the guide's chain so the
-  // two surfaces cannot drift. The label ("Bard · L2–L5") reads the same either way.
-  const col=levelColumn(plan,box,multi);
-  // The LOOP still walks the plan ASCENDING and only the INSERTION is reversed
-  // (`box.prepend` of a per-level fragment). Everything this loop computes is
+  // run aggregation (D122) and the column's order (D132, made a toggle) — the run map
+  // keying, the divider label (D124), `runjoin` and the insertion — all belong to
+  // `levelColumn`, shared with the guide's chain so the two surfaces cannot drift.
+  // `TL.asc` is this modal's own display order, flipped by the arrow at the head; the
+  // label ("Bard · L2–L5") reads the same either way.
+  const col=levelColumn(plan,box,multi,TL.asc);
+  // The LOOP still walks the plan ASCENDING and only the INSERTION follows the
+  // display order (`levelColumn.emit`). Everything this loop computes is
   // incremental — the running class level, and `planSlots(perClass)` read once before
   // and once after each level — so walking it backwards would report the wrong class
   // level on every row and the wrong slot table on all of them. Order of computation and
@@ -6564,7 +6584,7 @@ function renderTimeline(){
     const i=i0+1, row=rowOf.get(id); if(!row)return;
     const cl=(perClass.get(id)||0)+1;      // advanced below, between the two slot reads
     const c=CLS_BY[row.clsKey];
-    const card=el("div","locard tlrow"+(i>cur?" zplan":"")+(i===cur?" zpin":"")+(i===view?" here":"")
+    const card=el("div","locard tlrow"+(i>view?" zplan":"")+(i===view?" here":"")
       +col.railCls(i,id));
     card.dataset.lv=String(i);
     if(multi){const g=icoEl("grip","logrip");card.append(g);card.draggable=true;}
@@ -6572,9 +6592,6 @@ function renderTimeline(){
     const top=el("div","lotop");
     top.append(el("span","lolv","L"+i));
     top.append(el("b","locls",(c?c.name:"?")+" "+cl));
-    if(i===cur){const pin=el("span","tlpin");pin.append(icoEl("bookmark"));
-      top.append(pin);
-      attachTip(pin,tipBlock("Current level","Where the character stands now. The build opens here; levels above are the plan."));}
     const flags=health.byLevel.get(i);
     if(flags){const wI=el("span","tlwarn");wI.append(icoEl("warn"));
       top.append(wI);
@@ -6769,12 +6786,14 @@ function renderTimeline(){
       card.append(chips);
     }
     if(retrainRow)card.append(retrainRow);
-    // click = jump the view there; the popover stays open so levels can be walked.
+    // click = set the current level AND jump the view there — one state, not two: the
+    // clicked row is where the character stands (saved), and the view follows it. The
+    // popover stays open so levels can be walked.
     // stopPropagation, because the jump re-renders this very list — the bubbling click
     // would reach the outside-click closer with a DETACHED target that reads as
     // "outside" and shut the popover (the re-render-under-a-bubbling-event trap)
     card.onclick=e=>{ if(e.target.closest(".tlchip,.tlswap,.tlretrain,.gopen,.logrip,button"))return;
-      e.stopPropagation(); setPreview(i===total?null:i); };
+      e.stopPropagation(); setCurrentLevel(i===total?null:i); setPreview(i===total?null:i); };
     // row drag (multiclass): reorder WHICH class each level is taken in — the old
     // Level order panel's whole job, absorbed here (D115(j) retires it). The rules and
     // the write path live in wireRowDrag, shared with the guide's chain column (D126(b));
@@ -6785,28 +6804,49 @@ function renderTimeline(){
       if(dropChipOnLevel(d,i)){refreshAll();render();}
       else{card.classList.add("refuse");setTimeout(()=>card.classList.remove("refuse"),380);}}});
     col.emit(i,id,card);});
-  // the ghost row that ADDS a level. It sits at the TOP now (D132) — the growth end
-  // of an inverted column is its head, and it is the row you reach for most. One tap
-  // continues the class the plan ends on; the last other class sits beside it and the
-  // rest live in a compact menu (D126(d)'s shape). Every path writes through
-  // classLevelPlan() + an append to state.levelOrder — the same idiom the guide's class
-  // step uses, and the only one. It is NOT a drop target, and the chain's growth ghost
-  // is not one either since I5 — see `wireRowDrag`'s `opt.enabled`.
-  if(total<20)col.top(tlAddRow(plan,rowOf,total));
-  // footer: fork a variant · set the current level · start the guide (D115(i,e), D118(i))
-  const fork=$("#tlFork"),pin=$("#tlPin"),guide=$("#tlGuide");
+  // the ghost row that ADDS a level. It sits at the GROWTH end (D132, made order-aware):
+  // the head of a descending column, the foot of an ascending one. One tap continues
+  // the class the plan ends on; the last other class sits beside it and the rest live
+  // in a compact menu (D126(d)'s shape). Every path writes through classLevelPlan() +
+  // an append to state.levelOrder — the same idiom the guide's class step uses, and the
+  // only one. It is NOT a drop target, and the chain's growth ghost is not one either
+  // since I5 — see `wireRowDrag`'s `opt.enabled`.
+  if(total<20)col.growth(tlAddRow(plan,rowOf,total));
+  // the order arrow, at the visual head in either order — the same ghost-arrow control
+  // the guide's rail carries, minus the walk: here it only flips the display order
+  col.head(tlOrderStrip(total));
+  // footer: fork a variant · start the guide (D115(i), D118(i)). The pin is gone —
+  // clicking a row IS setting the current level now.
+  const fork=$("#tlFork"),guide=$("#tlGuide");
   const icoBtn=(b,ico,txt)=>{b.innerHTML="";const l=el("span","lbl-ico");
     l.append(icoEl(ico),document.createTextNode(txt));b.append(l);};
   icoBtn(fork,"fork","Fork a variant");
   fork.disabled=PREVIEW.level==null;
   fork.title=PREVIEW.level==null?"Jump to a lower level first — the fork branches there":"";
   fork.onclick=()=>{savePreviewAsVersion();closeTimeline();};
-  const pinned=view===cur;
-  icoBtn(pin,pinned?"check":"bookmark",pinned?"Current level":"Set current level");
-  pin.disabled=pinned;
-  pin.onclick=()=>{setCurrentLevel(view>=total?null:view);render();};
   if(guide)icoBtn(guide,"compass","Guide from here");
   box.scrollTop=keepScroll;
+}
+// the timeline's order toggle: one quiet ghost arrow + the level the column starts
+// from, exactly the chain rail's control (`.gwalkbtn`/`.gwalkat`), but with no walk
+// behind it — clicking only inverts the rendered order. The arrow points the way the
+// LEVELS run reading down the column: descending starts at the top level, ascending
+// at L1. Module state (`TL.asc`), never saved — a display preference, not build data.
+function tlOrderStrip(total){
+  const asc=TL.asc;
+  const wrap=el("div","tlorder");
+  const b=el("button","gwalkbtn");
+  b.append(icoEl(asc?"walkup":"walkdn"));
+  b.setAttribute("aria-label","Levels listed "+(asc?"lowest":"highest")+" first — flip the order");
+  // the click goes on BEFORE attachTip — its standing rule
+  b.onclick=e=>{e.stopPropagation(); TL.asc=!TL.asc; renderTimeline();};
+  attachTip(b,tipBlock(asc?"Reading up, from L1":"Reading down, from L"+total,
+    (asc?"The column starts at L1 and the levels climb as you read. "
+        :"The column starts at the build's top level. ")
+    +"Click to flip the order."));
+  wrap.append(b);
+  wrap.append(el("span","gwalkat","from L"+(asc?1:total)));
+  return wrap;
 }
 // take the next character level, by the ONE write path: normalize the plan, bump the
 // class row, append the row to the order. Never touch state.levelOrder any other way.

@@ -421,22 +421,24 @@
   scratch build was overwritten in place. Any agent that drives the pane must treat browser
   storage as SHARED: snapshot `spellForge.*` (and note IndexedDB) before writing, restore
   byte-identical after, and verify the restore — never trust port isolation.
-- **The level columns display DESCENDING, but nothing computes descending (D132).** Since
-  v1.2.37 the guide's chain rail and the timeline modal both read highest-level-first, and
-  the whole inversion is a rendering concern: `plan` is still ascending, and **`wireRowDrag`
-  takes PLAN indices** (`wireRowDrag(card, lv-1, plan, …)`), which is exactly why the one
-  shared drag implementation needed no change and why the same drag on either surface still
-  yields the identical plan. If you ever find yourself converting a visual position into a
-  plan index, stop — you are re-deriving something the call already has. What DID have to
-  change is anything that read order off the screen: a run's header keys on its **highest**
-  level (`runAt` on `r.to`), `runjoin` reaches upward, rows `prepend` instead of append, and
-  the "+ add level" row heads the column. Those four pieces lived as near-identical copies
-  in `renderGuideChain` and `renderTimeline` until v1.2.39 extracted them into **one owner,
-  `levelColumn`** (the I5 gate proved the copies byte-identical first — the only moment
-  extraction is cheap). The card BODY stays per-surface and `wireRowDrag` stays separate,
-  on plan indices. If a column-shape change ever tempts you to edit one renderer, it
-  belongs in `levelColumn`; the acceptance test is still the same drag on both surfaces
-  diffing to the identical plan, no-op refusals included.
+- **The level columns' display order is a TOGGLE, but nothing computes descending
+  (D132, amended by D141(a) v1.4.5).** Since v1.4.5 `levelColumn(plan,box,multi,asc)` owns
+  BOTH orders: the guide's chain rail follows the walk direction (`asc=!guideWalkDown()`,
+  so the walk's starting end is the top row) and the timeline has its own arrow strip
+  (`tlOrderStrip`, `TL.asc` — display-only module state, never saved). The inversion is
+  still purely a rendering concern: `plan` is still ascending, and **`wireRowDrag` takes
+  PLAN indices** (`wireRowDrag(card, lv-1, plan, …)`), which is exactly why the one shared
+  drag implementation needed no change and why the same drag on either surface, in either
+  order, still yields the identical plan. If you ever find yourself converting a visual
+  position into a plan index, stop — you are re-deriving something the call already has.
+  Everything that reads order off the screen lives inside `levelColumn` with the flag: the
+  run map keys on `to` (desc) / `from` (asc), `runjoin` asks about the card above
+  (`lv+1` desc / `lv-1` asc), the divider sits above the run's first on-screen card, and
+  `top()` split into `head()` (visual top, both orders — the order strip) and `growth()`
+  ("+ add level" + growth ghost: head desc, foot asc). The card BODY stays per-surface and
+  `wireRowDrag` stays separate, on plan indices. If a column-shape change ever tempts you
+  to edit one renderer, it belongs in `levelColumn`; the acceptance test is the same drag
+  on both surfaces IN BOTH ORDERS diffing to the identical plan, no-op refusals included.
 - **A HIDDEN browser pane does not composite — the page looks broken when the code is fine.**
   While the pane is hidden, `innerWidth`/`innerHeight` read **0**, every
   `getBoundingClientRect()` collapses to `0,0` (so coordinate clicks are refused as
@@ -545,7 +547,15 @@
   stayed wrong with nothing left saying why. Every source carries its own `parser` now, set
   only for books that came through the parser that time. **`staleBooks()` is the honest
   question; `IMPORTED.meta.parser` alone is not** — it is kept only as the fallback for
-  digests written before this.
+  digests written before this. **And the stamps must SURVIVE every digest rebuild:** the
+  same false success re-opened through a different hole in v1.4.4's audit — `filterDigest`
+  rebuilt `out.sources` and silently dropped the per-source `parser`/`parsedAt`, so every
+  book NOT re-parsed fell back to the digest-wide stamp `applyPlan` had just set to current.
+  Anything that reconstructs a digest's `sources` map must carry the stamps through;
+  `applyPlan` alone may overwrite them, and only for books it actually parsed. The remedy
+  path (v1.4.4): a refresh ending with books the folder couldn't provide names them, offers
+  Open Library, and Manage marks them (`refreshMissed()` = `spellForge.refreshMiss.v1` ∩
+  `staleBooks()`), so re-adding + Apply clears everything by construction.
 - **Homebrew spells do NOT ride along with a build.** `state.customSources` is per build, but
   authored spells live in the GLOBAL `spellForge.custom.v1`, so a build exported on its own
   arrives on another device with a dangling `Name|HB` key for every homebrew spell it uses.

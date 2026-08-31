@@ -42,6 +42,11 @@
   /* icon+label pairs share one gap */
   .lbl-ico{display:inline-flex;align-items:center;gap:6px}
   .lbl-ico .ico svg{width:12px;height:12px}
+  /* a plain (non-flex) button holding a .lbl-ico span aligns it on the BASELINE, and the
+     button's own strut adds ~2px of dead space under it — the label sat visibly high in
+     every such button (the timeline's add-level row was the measured case). Centre the
+     content instead; buttons that carry .lbl-ico on themselves already are inline-flex. */
+  .btn:has(>.lbl-ico){display:inline-flex;align-items:center;justify-content:center}
   /* small remove buttons inside chips and rows */
   button.xsm{border:none;background:none;color:inherit;opacity:.65;cursor:pointer;padding:0;line-height:0}
   button.xsm:hover{opacity:1}
@@ -1139,16 +1144,11 @@ table.spelltable .pickcell{cursor:help}
 /* ── level preview (D54): the level chip becomes the scrubber ─────────────── */
 .card h2 .count.prevable{cursor:pointer}
 .card h2 .count.prevable:hover{color:var(--accent);background:var(--accent-soft)}
+/* symmetric padding: the 6px/9px split served the retired scrubber's trailing controls
+   (.pvb/.pvx, long gone from the JS) and left the bare "L4 / 8" text 3px off-centre */
 .card h2 .count.prevon{display:inline-flex;align-items:center;gap:5px;
-  color:var(--accent);background:var(--accent-soft);padding:2px 6px 2px 9px}
+  color:var(--accent);background:var(--accent-soft)}
 .count .pvn{font-size:12px;font-variant-numeric:tabular-nums}
-.count .pvb{border:none;background:none;color:inherit;cursor:pointer;font:inherit;
-  font-size:13px;font-weight:700;padding:0 3px;line-height:1;border-radius:5px}
-.count .pvb:hover{background:var(--panel)}
-.count .pvb.pvo{border:1px solid currentColor;border-radius:8px;margin-left:2px;
-  padding:2px 5px;display:inline-flex;align-items:center;line-height:0}
-.count .pvb.pvo .ico svg{width:11px;height:11px}
-.count .pvx{color:inherit;margin-left:1px}
 /* ── the timeline popover (E5 · D115(j)) ─────────────────────────────────── */
 /* fixed so the column's overflow can't clip it (the standing menus-in-scrollers rule);
    placed from the chip's rect by JS, full-width sheet under 641px */
@@ -1171,13 +1171,20 @@ table.spelltable .pickcell{cursor:help}
 .tllist .locard{margin-top:6px}
 .tllist .locard:first-child{margin-top:0}
 .tllist .locard.runjoin{margin-top:2px}
+/* the order arrow at the head of the timeline column — the chain rail's own ghost
+   control (`.gwalkbtn`/`.gwalkat`), sticky so scrolling never takes the order off
+   screen; it bleeds back over the list's 2px padding so rows start flush under it */
+.tlorder{position:sticky;top:-2px;z-index:3;display:flex;align-items:center;gap:7px;
+  margin:-2px -2px 6px;padding:6px 8px;background:var(--panel);
+  border-bottom:1px solid var(--line)}
+.tlorder+.locard,.tlorder+.tlrundiv{margin-top:0}
 .locard.runc0{border-left:3px solid color-mix(in srgb,var(--accent) 60%,transparent)}
 .locard.runc1{border-left:3px solid color-mix(in srgb,var(--free) 60%,transparent)}
 .locard.runc2{border-left:3px solid color-mix(in srgb,var(--gold) 60%,transparent)}
 .locard.runc3{border-left:3px solid color-mix(in srgb,var(--good) 60%,transparent)}
-/* zones: lived history · the current-level pin · the plan above it */
+/* zones: lived history below the current (clicked) level · the dashed plan above it.
+   ONE level state since the pin unification: `.here` is the current level, full stop. */
 .locard.zplan{border-style:dashed;opacity:.82}
-.locard.zpin{border-color:var(--accent)}
 .locard.here{background:var(--accent-soft);border-color:var(--accent)}
 /* the class rail SURVIVES every highlight (D124) — these re-assert the left edge after
    the zone tints above, which repaint all four borders and used to eat it */
@@ -1197,8 +1204,6 @@ table.spelltable .pickcell{cursor:help}
 .tlrundiv .rdot.c3{background:color-mix(in srgb,var(--good) 70%,transparent)}
 .locard.tlrow{cursor:pointer;flex-wrap:wrap}
 .locard.tlrow:active{cursor:pointer}
-.locard .tlpin{display:inline-flex;align-items:center;color:var(--accent)}
-.locard .tlpin svg{width:11px;height:11px}
 .locard .tlwarn{display:inline-flex;align-items:center;color:var(--bad);cursor:help}
 .locard .tlwarn svg{width:12px;height:12px}
 .locard.refuse{animation:tlrefuse .35s}
@@ -1266,10 +1271,11 @@ table.spelltable .pickcell{cursor:help}
 .gopen:hover,.gopen:focus{color:var(--accent);border-bottom-color:var(--accent);outline:none}
 /* the ghost row that takes the next level: continue the class the plan ends on, the last
    other class beside it, everything else in a compact menu (D126(d)'s shape) */
-/* the growth row sits at the HEAD of the inverted column (D132), so its breathing
-   room is BELOW it — between it and the top level the plan actually holds */
+/* the growth row sits at the GROWTH end of the column — the head when it descends
+   (breathing room BELOW it), the foot when the order is flipped (room ABOVE it) */
 .locard.tladd{cursor:default;border-style:dashed;background:none;flex-wrap:wrap;
   margin:0 0 8px}
+.lolist.asc .locard.tladd{margin:8px 0 0}
 .locard.tladd:active{cursor:default}
 .tladdacts{display:flex;flex-wrap:wrap;align-items:center;gap:6px;flex:1;min-width:0}
 .tladdacts .btn.tiny{white-space:nowrap}
@@ -1316,9 +1322,10 @@ table.spelltable .pickcell{cursor:help}
    gone: with tiles appearing only where a clock MOVED, the tint said nothing the word
    didn't, and it made four tiles in a column read as four different kinds of thing.
    Only the states below (over/under, a trade) are allowed to differ. */
-/* the pact tile is the same square as the rest: "2×2nd" set a shade smaller so the
-   longest reading still fits inside it instead of pushing the row wider */
-.lt-pact b{font-size:10px;letter-spacing:-.02em}
+/* the pact tile is the same square as the rest — same type size, same baseline; a
+   longer reading ("2×2nd") just widens the tile past its min-width, the row wraps
+   nothing (the smaller-type variant read as a different kind of tile and sat off
+   the shared baseline — Francesco, 2026-08-31) */
 /* the picks tile states, both a TINT and nothing more — the number keeps its size and
    the tile never becomes a control. A trade adds a slot here, so the tile wears the
    trade colour; a level off its schedule wears the alert one, and outranks it. */
@@ -1836,13 +1843,6 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
 .ghead .x svg{width:14px;height:14px}
 .gh-toggle{display:none}                 /* phone only — see the media block */
 .gh-toggle.hidden,.gh-swap.hidden{display:none}
-/* D131(c) · D88: the guide's one reference note, disclosed from the header's `?`. It is
-   a strip UNDER the header rather than the modal shape, so it reads as the header
-   unfolding — the left rail and the rounded right edge belong to a note inside a card. */
-.ghelp{flex:0 0 auto;margin:0;border-left:none;border-radius:0;
-  border-bottom:1px solid var(--line);padding:12px 16px;max-height:38vh;overflow-y:auto;
-  scrollbar-width:thin}
-.ghelp p{max-width:70ch}
 .gbody{flex:1;min-height:0;display:flex}
 /* the chain column: a lean timeline (rails, runs, dividers) that also reorders */
 .gchain{flex:0 0 272px;min-width:0;overflow-y:auto;scrollbar-width:thin;
@@ -1854,8 +1854,10 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
 .gchain .locard:first-child,.gchain .tlrundiv:first-child,
 .gchain .gwalk+.locard,.gchain .gwalk+.tlrundiv{margin-top:0}
 .gchain .locard.runjoin{margin-top:2px}
-/* same as the timeline's add row: the level that isn't taken yet heads the column */
+/* same as the timeline's add row: the level that isn't taken yet sits at the growth
+   end — the head of a descending rail, the foot of an ascending one */
 .gchain .locard.gcnext{margin-bottom:8px}
+.gchain.asc .locard.gcnext{margin:8px 0 0}
 /* D131(e) — WHICH WALK, at the head of the column it describes rather than in the page
    header. STICKY, so scrolling the rail never takes the direction off screen; it bleeds
    back over the column's own padding so the level rows below start flush. */
