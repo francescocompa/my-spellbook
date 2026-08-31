@@ -4909,7 +4909,13 @@ function filterDigest(d,keep){
   out.subclasses.forEach(e=>cnt(e.source,"subclasses")); out.feats.forEach(e=>cnt(e.source,"feats"));
   out.races.forEach(e=>cnt(e.source,"species"));
   Object.keys(counter).forEach(src=>{const was=(d.sources||{})[src]||{};
-    out.sources[src]={name:was.name||src,group:was.group||"other",counts:counter[src]};});
+    out.sources[src]={name:was.name||src,group:was.group||"other",counts:counter[src]};
+    // the per-source parser stamp (D138) must SURVIVE the rebuild: dropping it here made an
+    // unread book fall back to the digest-wide stamp — which applyPlan is about to set to
+    // the CURRENT version — so a partial refresh read as "all current" again, the exact
+    // false success D138(a) closed. applyPlan overwrites these for the books it re-parsed.
+    if(was.parser)out.sources[src].parser=was.parser;
+    if(was.parsedAt)out.sources[src].parsedAt=was.parsedAt;});
   return out;
 }
 const digestSize=d=>DIGEST_ARRAYS.reduce((n,a)=>n+((d[a]||[]).length),0);
@@ -4963,9 +4969,23 @@ function renderImportPlan(){
   if(!Object.keys(map).length){box.classList.add("hidden");renderImportPlanFoot();return;}
   box.classList.remove("hidden");
   const shown=planShown(map);
+  // the diagnosis→remedy seam (2026-08-31): the books the last refresh could not re-read
+  // are named HERE, on the surface that can actually fix them — this list and the drop
+  // zone / folder chooser above it. Self-clearing: re-add a book and Apply, and its fresh
+  // parser stamp takes it off staleBooks(), which empties refreshMissed().
+  const miss=new Set(refreshMissed());
+  const mn=$("#importMissNote");
+  if(mn){mn.classList.toggle("hidden",!miss.size);
+    if(miss.size)mn.textContent="Refresh couldn’t re-read "
+      +(miss.size===1?"this book — the linked folder doesn’t hold it":"these books — the linked folder doesn’t hold them")
+      +": "+[...miss].map(bookName).join(", ")
+      +`. Drop the file${miss.size===1?"":"s"} above, or choose the folder that has ${miss.size===1?"it":"them"}, then Apply.`;}
   const list=$("#importPlanList");
   if(shown.length)renderSourceChecklist(list,PLAN.keep,renderImportPlanFoot,new Set(shown),
-                                        planCounts,map,{rowClass:c=>libAvail(c)?"avail":null});
+                                        planCounts,map,{rowClass:c=>{const k=[];
+                                          if(libAvail(c))k.push("avail");
+                                          if(miss.has(c))k.push("miss");
+                                          return k.length?k.join(" "):null;}});
   else {list.innerHTML="";list.append(el("div","empty","No book matches that."));}
   const q=$("#importPlanQuick"); q.innerHTML="";
   const f=el("input","planq"); f.type="search"; f.value=PLAN_Q;
@@ -5278,7 +5298,8 @@ function refreshFail(msg){ refreshStop();
   if(!RMODAL)appNotice(msg,""); }
 // the modal is the surface that can actually fix this one — say why it opened, in both places
 function refreshAsk(report,notice){ refreshStop();
-  if(RMODAL)setLibTab("man"); else openImport(false,"man");   // openImport closes the ⋯ menu
+  if(RMODAL){setLibTab("man");renderImportPlan();}   // re-render: the miss marks may have changed
+  else openImport(false,"man");                      // openImport closes the ⋯ menu (and renders the plan)
   const rep=$("#importReport"); if(rep)rep.innerHTML=report;
   if(!RMODAL)appNotice(notice,"ask"); }
 const nBooks=n=>n+" book"+(n===1?"":"s");
@@ -5316,9 +5337,11 @@ async function refreshImported(fromModal){
       FOLDER?"Refresh needs the folder — permission wasn’t granted. Choose it in the Library."
             :"Refresh needs the folder — choose it in the Library.");
     const kept=stored.filter(c=>SCAN.books[c]);
-    if(!kept.length)return refreshAsk(
-      "The scanned folder holds none of your imported books — <b>choose the folder</b> that has them.",
-      "Refresh found none of your books in that folder — choose another in the Library.");
+    if(!kept.length){
+      refreshMissRemember(stored);   // every stored book: the folder can heal none of them
+      return refreshAsk(
+        "The scanned folder holds none of your imported books — <b>choose the folder</b> that has them, or drop the files.",
+        "Refresh found none of your books in that folder — choose another in the Library.");}
     IMPORT_STAGE=[]; cancelBuild();
     refreshStage("Reading "+nBooks(kept.length)+"…");
     SCAN_BUSY=true;
@@ -5339,12 +5362,31 @@ async function refreshImported(fromModal){
     const err=await applyPlan(rep,true);
     if(err)return refreshFail(err);
     const n=Object.keys((IMPORTED&&IMPORTED.sources)||{}).length;
-    const missed=stored.length-kept.length;
     // "Re-imported 12 books" must not cover books the folder didn't have: those kept their
-    // stored data and were not re-parsed by anything.
-    const caveat=missed?" "+nBooks(missed)+" weren’t in that folder and kept their stored data.":"";
-    if(caveat&&rep)rep.innerHTML+="<br>"+esc(caveat.trim());
-    refreshDone("Re-imported "+nBooks(n)+" with parser v"+(window.__VERSION__||"dev")+"."+caveat);
+    // stored data and were not re-parsed by anything — and Refresh can NEVER heal them
+    // (D129 documents the partial read), so the outcome must NAME them and carry the user
+    // to the remedy (Manage's drop zone / folder chooser), not end at the diagnosis.
+    const missCodes=stored.filter(c=>!SCAN.books[c]);
+    refreshMissRemember(missCodes);
+    renderLibFoot();   // applyPlan painted #libParser before the miss memory changed
+    const head="Re-imported "+nBooks(n)+" with parser v"+(window.__VERSION__||"dev")+".";
+    if(!missCodes.length)return refreshDone(head);
+    const names=missCodes.slice(0,3).map(bookName).join(", ")
+      +(missCodes.length>3?`, +${missCodes.length-3} more`:"");
+    const one=missCodes.length===1;
+    const caveat=` ${nBooks(missCodes.length)} (${names}) ${one?"wasn’t":"weren’t"} in that folder and kept ${one?"its":"their"} stored data.`;
+    if(rep)rep.innerHTML+="<br>"+esc(caveat.trim())
+      +` Re-add ${one?"it":"them"} below — drop the file${one?"":"s"}, or choose the folder that has ${one?"it":"them"}.`;
+    refreshStop();
+    if(RMODAL)renderImportPlan();   // the note above the book list marks what to drop in
+    else{
+      // not refreshDone: a fading "ok" is for good news, and this names something still
+      // undone (D129's own rule) — it waits, and its action opens the surface that fixes it
+      const bar=appNotice(head+caveat+` Re-add ${one?"it":"them"} in the Library to bring ${one?"it":"them"} current.`,"ask");
+      const act=el("button","anact","Open Library");
+      act.onclick=()=>{bar.remove();openImport(false,"man");};
+      bar.insertBefore(act,bar.querySelector(".anx"));
+    }
   }finally{ if(REFRESH_BUSY)refreshStop(); }
 }
 // ── the imported digest is older than the parser (D137) ────────────────────
@@ -5371,6 +5413,21 @@ function staleBooks(){
     const p=((IMPORTED.sources[c])||{}).parser||fallback;
     return !p||verLt(p,app);});
 }
+// What the last refresh LEARNED it cannot heal (the 2026-08-31 episode): a refresh only
+// re-reads the books the folder holds (D129/D138) — a book the folder cannot provide is
+// NEVER healed by Refresh, and the remedy lives in Manage (drop the files / re-link the
+// folder). Remembered across reloads so the boot notice can route to the remedy instead of
+// offering the refresh that already failed those books. Self-clearing on read: a book that
+// has since been re-read (current stamp) or removed needs no remedy any more.
+const LS_REFRESH_MISS="spellForge.refreshMiss.v1";
+function refreshMissRemember(codes){
+  try{localStorage.setItem(LS_REFRESH_MISS,JSON.stringify(codes||[]));}catch(_){}}
+function refreshMissed(){
+  let codes=null; try{codes=JSON.parse(localStorage.getItem(LS_REFRESH_MISS)||"null");}catch(_){}
+  if(!Array.isArray(codes)||!codes.length)return [];
+  const behind=new Set(staleBooks());
+  return codes.filter(c=>behind.has(c));
+}
 function staleParserNotice(){
   const app=window.__VERSION__; if(!app||!IMPORTED)return;
   const behind=staleBooks(); if(!behind.length)return;
@@ -5378,15 +5435,24 @@ function staleParserNotice(){
   const made=(IMPORTED.meta||{}).parser||null;
   let seen=null; try{seen=localStorage.getItem(LS_PARSER_NAG);}catch(_){}
   if(seen===app)return;                       // already said for this version, and dismissed
+  // books the last refresh could not re-read route to the Library, not to another refresh —
+  // "Refresh now" on a book the folder cannot provide is the one action that cannot help
+  const miss=refreshMissed(), allMiss=miss.length&&miss.length===behind.length;
   const which=behind.length===total?"Your imported books were"
     :`${behind.length} of your ${total} imported books (${behind.slice(0,3).map(bookName).join(", ")}`
-      +`${behind.length>3?`, +${behind.length-3} more`:""}) were`;
+      +`${behind.length>3?`, +${behind.length-3} more`:""}) ${behind.length===1?"was":"were"}`;
+  const tail=allMiss
+    ?` The last refresh couldn’t re-read ${miss.length===1?"it — the folder doesn’t hold it. Re-add the file":"them — the folder doesn’t hold them. Re-add the files"} in the Library.`
+    :miss.length?` Refresh to re-read them — but ${nBooks(miss.length)} ${miss.length===1?"wasn’t in the folder last time and needs":"weren’t in the folder last time and need"} re-adding in the Library.`
+    :" Refresh to re-read them and pick up the fixes since.";
   const n=appNotice(`${which} read by ${made&&behind.length===total?"parser v"+made:"an older parser"}`
-    +` — this is v${app}. Refresh to re-read them and pick up the fixes since.`,"ask");
-  const act=el("button","anact","Refresh now");
-  act.onclick=()=>{ try{localStorage.setItem(LS_PARSER_NAG,app);}catch(_){}
-    n.remove(); refreshImported(false); };
-  n.insertBefore(act,n.querySelector(".anx"));
+    +` — this is v${app}.`+tail,"ask");
+  const act=(label,fn)=>{const b=el("button","anact",label);
+    b.onclick=()=>{ try{localStorage.setItem(LS_PARSER_NAG,app);}catch(_){}
+      n.remove(); fn(); };
+    n.insertBefore(b,n.querySelector(".anx"));};
+  if(!allMiss)act("Refresh now",()=>refreshImported(false));
+  if(miss.length)act("Open Library",()=>openImport(false,"man"));
   // the × means "not now", so it must not come back every boot on the same version
   const x=n.querySelector(".anx");
   if(x)x.addEventListener("click",()=>{try{localStorage.setItem(LS_PARSER_NAG,app);}catch(_){}});
@@ -5435,8 +5501,14 @@ function renderLibFoot(){
   const line=$("#libParser");
   if(line){ line.classList.toggle("hidden",!IMPORTED);
     if(IMPORTED){ line.classList.toggle("stale",!!behind.length);
+      // a book the folder cannot provide is not healed by Refresh — say which remedy applies
+      const miss=refreshMissed();
       line.textContent=behind.length
-        ? `${behind.length} of ${nsrc} book${nsrc===1?"":"s"} still read by an older parser — Refresh re-reads them`
+        ? `${behind.length} of ${nsrc} book${nsrc===1?"":"s"} still read by an older parser — `
+          +(miss.length&&miss.length===behind.length
+              ?`the linked folder doesn’t hold ${miss.length===1?"it; drop the file above":"them; drop the files above"}`
+              :miss.length?`Refresh re-reads them (${nBooks(miss.length)} not in the folder — re-add above)`
+              :"Refresh re-reads them")
         : `all ${nsrc} book${nsrc===1?"":"s"} read by parser v${meta.parser||"?"}`; } }
   if(navigator.storage&&navigator.storage.estimate)
     navigator.storage.estimate().then(e=>{ if(!e||!e.usage)return;

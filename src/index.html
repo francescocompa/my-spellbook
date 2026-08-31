@@ -362,6 +362,9 @@
         </div>
         <p class="note hidden" id="importPlanNote" style="margin:0 0 8px;color:var(--gold)">Nothing
           imported yet — applying puts the app's built-in books behind whatever you tick here.</p>
+        <!-- diagnosis→remedy (2026-08-31): the books the last refresh could not re-read, named on
+             the surface that fixes them. Filled by renderImportPlan from refreshMissed(). -->
+        <p class="note hidden" id="importMissNote" style="margin:0 0 8px;color:var(--gold)"></p>
         <div class="quick" id="importPlanQuick"></div>
         <div id="importPlanList" class="importplanlist"></div>
       </div>

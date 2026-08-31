@@ -383,6 +383,9 @@
 /* D112: a book the scanned folder offers but you haven't imported */
 .importplan label.avail{opacity:.55}
 .importplan label.avail:hover{opacity:.85}
+/* a book the last refresh could not re-read — still on an older parser, and the folder
+   doesn't hold it; #importMissNote above the list says why these are gold */
+.importplan label.miss>span{color:var(--gold);font-weight:600}
 .importplan{margin-top:14px;padding:12px;border:1px solid var(--line-strong);border-radius:10px;
   background:var(--panel-2)}
 .importplan .iph{display:flex;align-items:center;gap:9px;margin-bottom:6px}
