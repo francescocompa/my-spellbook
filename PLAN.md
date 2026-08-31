@@ -3,10 +3,11 @@
 > What is queued, and what is blocked on a decision. `STATE.md` says where things stand;
 > this says what comes next. Closed items → `ARCHIVE.md#closed-backlog`.
 >
-> **Nothing is gated and nothing is owed.** Every phase (E–I) is done and gated; the
-> 2026-08-31 bug is resolved. What remains is the standing backlog below: open ⚑ flags
-> (calls only Francesco can make) and the Queue. Its one 🔶 (magic items / rewards) is
-> researched and awaits his call.
+> **Nothing is gated and nothing is owed.** Every phase (E–J) is done; the 2026-08-31 bug is
+> resolved and **phase J — Francesco's 18-item notes batch — shipped in full** (v1.4.8 →
+> v1.4.12, D142–D145). What remains is the standing backlog below: open ⚑ flags (calls only
+> Francesco can make) and the Queue. Its one 🔶 (magic items / rewards) is researched and
+> awaits his call. One ⚑ is NEW and was created by J6 — D125's clamp now covers the trade.
 
 ## Shipped phases — bodies archived, models still binding
 
@@ -21,6 +22,7 @@ merge notes) are archived.
 | **G** | the guide as a full-size page | D126(a–i) | `ARCHIVE.md#phase-g` |
 | **H** | guided builder v2 | D130(a–h) | `ARCHIVE.md#phase-h` |
 | **I** | guided builder v3 | D131(a–h) + D132 | `ARCHIVE.md#phase-i` |
+| **J** | Francesco's notes batch | D142 + D143 + D144 + D145 | still live below |
 
 → archived 2026-08-31: the W1–W5 wave batch — `ARCHIVE.md#wave-batch`; the 2026-08-31 bug's
 task lines — `ARCHIVE.md#bug-0831`; closed one-off bugs and batches (v1.3.0 → v1.4.3,
@@ -29,13 +31,19 @@ D135–D138 + the third-caster clock) — `ARCHIVE.md#closed-oneoffs-0831`.
 Optional follow-up, never scoped: D76's Magical Secrets narrowing could report the EXACT
 window for ordered picks instead of best-case.
 
-## Phase J — the 2026-08-31 notes batch (Francesco's session notes)
+## Phase J — the 2026-08-31 notes batch — ✅ DONE (v1.4.8 → v1.4.12)
 
-Six surfaces, eighteen items. **J1–J4 are gated on mockup feedback** (`scratchpad/mockups/index.html`,
-built against the real `styles.css`); everything else is ready to build. Nothing here is
-started until the four gated calls come back.
+Six surfaces, eighteen items, all shipped. The models are **D142** (masked chip fields, ability
+tiles, the filter icon + active-filter chips, the familiar picker), **D143** (one spellcasting
+step, the guide's copy), **D144** (the menu grouping, the custom builder) and **D145** (the light
+theme). Cite those rather than re-deriving; the bodies below keep each original note under its
+ticked line and are the natural next thing a `/clean` archives.
 
-### J1–J4 · 🔶 gated on the mockup review
+The four mockups that settled J1–J4 are at `scratchpad/mockups/index.html` (gitignored, built
+against the real `styles.css`). **Three of the four recommendations were rejected in favour of
+Francesco's own reading** — see each D142 sub-entry's *Rejected:* clause before re-proposing.
+
+### J1–J4 · ✅ shipped (were gated on the mockup review)
 
 - [x] **J1 · Choices — the chip field is masked behind its button** (v1.4.8, D142(a)).
   *Shipped as the masked one-line field, not the stacked row — see D142(a).* Original note: Description goes full width; chips wrap
@@ -63,7 +71,7 @@ started until the four gated calls come back.
   feat-detail renderer, only a one-line `.entprev`, so that one is its own task.
   One real cost: the `.sb*` rules are scoped under `.spmodal` and need the scope widened. 🔶
 
-### J5 · ready to build — diagnosed
+### J5 · ✅ shipped — a v1.4.5 regression
 
 - [x] **The Chain/Decision toggle showed on desktop and did nothing** — fixed in v1.4.8. — **REGRESSION FROM
   v1.4.5, cause found.** `.btn:has(>.lbl-ico){display:inline-flex}` (styles.css:49, added as
@@ -79,7 +87,7 @@ started until the four gated calls come back.
 - [x] **The eligible list is capped at ~55vh and scrolls inside itself** (v1.4.9, D142(e)) —
   two-column layout only; level headers sticky; print unaffected (`#secSpells` is hidden there).
 
-### J6–J10 · ready to build
+### J6–J10 · ✅ shipped
 
 - [x] **J6 · Guided builder — one spellcasting step** (v1.4.10, D143(a)). Original note: Fold the spell/cantrip choices and the
   swap option into a single step instead of two. Touches `guideSteps()`; D128 (swaps are per
@@ -110,7 +118,7 @@ started until the four gated calls come back.
   matters in use: carry the clicked section through `guideGo` and skip the clamp for a swap.
   ⚑ (owner: Francesco, 2026-08-31)
 
-### J11–J12 · ready to build, larger
+### J11–J12 · ✅ shipped
 
 - [x] **J11 · Custom spell builder fits the page, and seeds from a spell** (v1.4.11,
   D144(b,c)). Original note: Its fields and

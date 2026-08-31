@@ -573,5 +573,50 @@
   v1.3.2, v1.3.3 and v1.4.0, each fixing something real and none fixing what was reported.
   `node scratchpad/jsimport.js` asserts the in-browser importer's own output on the specific
   records — use it to exonerate (or convict) `src/extract.js` in one command.
+- **A `refreshAll()` member that reads CLASS LEVELS goes stale, and this has now cost three
+  sessions.** The class row's own handlers (level stepper, swap class, subclass, remove),
+  `#addClass` and a feat chip's ✕ all call `render()` WITHOUT `refreshAll()`. So anything
+  derived from the level plan belongs in the RENDER PASS, not in those handlers — unless it
+  holds a `<select>`, `<input>` or disclosure that would be lost under the user's fingers,
+  which is the only reason the rest of `refreshAll()` is kept out of render. Bitten by
+  `renderOptFeats` (v1.2.29, which then LIED: Warlock 2 → 1 kept reading "0/3" against 0/1),
+  by D135's origin slot (v1.4.2) and by `#epicRow` (v1.4.7, wrong in BOTH directions —
+  hidden at 19 with a slot owed, still offered at 18 with none). `refreshSpecies`,
+  `renderCustomSources` and `renderFeatChips` read `state.*` only, so they are clean.
+- **`el("input")` sets no `type` ATTRIBUTE, and `input[type=text]` does not match an input
+  that merely BEHAVES as text.** Every text field in the custom-spell builder therefore fell
+  through to the browser's own 2px inset border and square corners — 22px tall beside 34px
+  selects — for as long as that builder existed. The base rule carries `input:not([type])`
+  now, which is the fix at the SELECTOR rather than at each call site: forgetting the
+  attribute again cannot bring the mismatch back. Two neighbours of the same shape, both
+  found only by measuring: `.cfield.c-full` required BOTH classes, so `.cchips.c-full` was
+  silently half-width (a layout class belongs on the grid child — `.cgrid>.c-full`); and a
+  native checkbox only takes `accent-color` when CHECKED, so every unchecked box stayed the
+  browser's light square whatever the theme said.
+- **A `:has()` rule can silently outrank the state rule that hides something.**
+  `.btn:has(>.lbl-ico){display:inline-flex}` — added in v1.4.5 purely to centre a label — is
+  specificity 0-2-0 and beat `.gh-toggle{display:none}` at 0-1-0, so the guide's phone-only
+  Chain/Decision toggle appeared at every width and did nothing on desktop. Any rule whose
+  JOB is to hide or show must be able to win: qualify it (`.btn.gh-toggle`), and when you add
+  a broad `:has()` helper, check what display rules it now outranks.
+- **Flexbox breaks lines on an item's flex BASE size, not on its size after shrinking.** A
+  wrapping row containing a content-sized scroller therefore jumps the scroller (and whatever
+  follows it) onto its own line before any shrinking can happen — which is what a chip field
+  beside its button does. `nowrap` on that row shape, plus `min-width:0` on the field and a
+  `min-width` FLOOR on the label beside it: without the floor the label absorbs its
+  proportional share of the overflow and stacks into a 179px-tall column.
+- **`.spmodal` is `position:fixed;inset:0`** — it is the full-screen scrim, not a box. Borrow
+  the CLASS to inherit its `.sb*` stat-block rules and the borrowing element covers the whole
+  page. (Reusing the SPMODAL *element* for a creature modal is fine and is what D142(d)
+  does — that is the same scrim doing its job.)
+- **Measuring colour contrast: ONE THEME PER PASS, after a real frame.** Flipping
+  `data-theme` and auditing in the same synchronous block reads STALE computed styles: it
+  invented ~150 phantom failures at 1.3:1 in whichever theme was measured second, and
+  separately reported a chip that actually passes at 5.62:1 as 2.06:1. Set the attribute,
+  let a frame pass, audit, and do the other theme in its own call. And when auditing, walk
+  the real composited background (translucent layers included) and multiply in every
+  ancestor's `opacity` — a decorative `opacity` on a text container is a contrast cut no
+  palette can repair (`.lvltools` at `.6` put its label at 2.68:1; D145 removed both).
+
 - **History purge:** old data-bearing commits are unreachable on origin but GitHub may still serve
   them by exact SHA until it gc's. `backup/pre-purge-20260826` (local) has the original.
