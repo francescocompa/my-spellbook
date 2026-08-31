@@ -292,7 +292,25 @@
   .choicerow .cg b{color:var(--ink);display:inline;font-size:12.5px;vertical-align:middle}
   .choicerow .need{font-size:10px;color:var(--accent);font-weight:700;margin-left:4px}
   .choicerow select{width:auto;min-width:130px}
-  .choicerow .picks{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
+  /* D142(a): the picked chips are a ONE-LINE scroller, masked at the right edge so a long
+     run slides under its button instead of overflowing the card. `flex:0 1 auto` keeps the
+     run adjacent to the button and makes it the first thing to give way. */
+  /* see choiceRow(): a wrapping row would break the line on the field's CONTENT width */
+  .choicerow.pickrow{flex-wrap:nowrap}
+  /* the question gets a FLOOR. Shrinking is proportional to base size, and the field's base
+     is its whole content — so without this the description absorbed its share of a 500px
+     overflow and stacked into a 179px-tall column. The chip field is what gives way; that
+     is the entire point of making it a scroller. */
+  .choicerow.pickrow .cg{min-width:min(130px,42%)}
+  .choicerow .pickfield{flex:0 1 auto;min-width:0;display:flex;flex-wrap:nowrap;gap:5px;
+    align-items:center;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
+  .choicerow .pickfield::-webkit-scrollbar{display:none;width:0;height:0}
+  .choicerow .pickfield>*{flex:0 0 auto;white-space:nowrap}
+  .choicerow .pickfield.masked{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent);
+    mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent)}
+  /* the mask is fixed to the scroller, so the last chip needs trailing room to reach fully
+     lit space (the D124 rule). Only while masked — see maskOverflow(). */
+  .choicerow .pickfield.masked>*:last-child{margin-right:28px}
   .pickbtn{font:inherit;font-size:12px;padding:5px 11px;border-radius:8px;border:1px solid var(--line-strong);background:var(--panel);cursor:pointer;color:var(--ink)}
   .pickbtn.done{border-color:var(--good);color:var(--good)} .pickbtn.needclr{border-color:var(--accent);color:var(--accent)}
   .tabs{display:flex;gap:4px;background:var(--panel-2);border:1px solid var(--line);border-radius:9px;padding:3px}
@@ -750,8 +768,55 @@ table.spelltable td.cmp .l.iffy{color:var(--good);cursor:help;
 .cmmark.iffy{color:var(--muted)}
 .card h2 .menu{margin-left:0}
 /* right-align the control in each "choice to make" row */
-.choicerow>select,.choicerow>.picks{margin-left:auto;flex:0 0 auto}
-.choicerow .picks{justify-content:flex-end}
+/* ── D142(c): the active-filter row ──────────────────────────────────────────
+   What is filtered, named as chips, on ONE masked line with a clear-all at the right —
+   the same scroller/mask pattern as the spell modal's access row and the choices field.
+   The row does not exist at all when nothing is set: an empty strip that appears and
+   disappears is quieter than a permanent one that usually says "no filters". */
+.actfilt{display:flex;align-items:center;gap:8px;margin:8px 0 2px}
+.actfilt.hidden{display:none}
+.afchips{flex:1 1 auto;min-width:0;display:flex;flex-wrap:nowrap;gap:5px;
+  overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
+.afchips::-webkit-scrollbar{display:none;width:0;height:0}
+.afchips.masked{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent);
+  mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent)}
+.afchips.masked>*:last-child{margin-right:28px}
+/* the same chip the access row uses — a LABEL, not a control: the clear-all is the only
+   action here, so a per-chip ✕ would promise a removal this row doesn't do */
+.afchip{flex:0 0 auto;white-space:nowrap;font-size:11px;padding:2px 9px;border-radius:12px;
+  background:var(--accent-soft);border:1px solid transparent;color:var(--accent)}
+.afclear{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;
+  width:22px;height:22px;border:none;border-radius:6px;background:none;color:var(--muted);
+  cursor:pointer;padding:0;transition:background .12s,color .12s}
+.afclear:hover{background:var(--panel-2);color:var(--accent)}
+.afclear svg{width:12px;height:12px}
+/* `.cg` grows, so the control side is pushed right without a margin trick; the button is
+   a SIBLING of the chip field now (D142(a)) and never shrinks. */
+.choicerow>select,.choicerow>.abtiles{margin-left:auto;flex:0 0 auto}
+.choicerow>.pickbtn{flex:0 0 auto}
+/* D142(b): casting-ability tiles — chip only, each wearing its own key colour. Quiet until
+   chosen: the selected tile is the only coloured thing in the row, so the answer is what
+   the eye lands on rather than the six alternatives. */
+.abtiles{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}
+.abtile{font:inherit;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;
+  padding:5px 9px;border-radius:8px;border:1px solid var(--line-strong);background:var(--panel);
+  transition:background .12s,border-color .12s,opacity .12s}
+.abtile .abchip{font-size:9.5px;font-weight:700;letter-spacing:.05em;opacity:.6;
+  transition:opacity .12s}
+.abtile:hover .abchip{opacity:.9}
+.abtile.on .abchip{opacity:1}
+.abtile:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.abtile.str.on{border-color:var(--ab-str);background:color-mix(in srgb,var(--ab-str) 14%,transparent)}
+.abtile.dex.on{border-color:var(--ab-dex);background:color-mix(in srgb,var(--ab-dex) 14%,transparent)}
+.abtile.con.on{border-color:var(--ab-con);background:color-mix(in srgb,var(--ab-con) 14%,transparent)}
+.abtile.int.on{border-color:var(--ab-int);background:color-mix(in srgb,var(--ab-int) 14%,transparent)}
+.abtile.wis.on{border-color:var(--ab-wis);background:color-mix(in srgb,var(--ab-wis) 14%,transparent)}
+.abtile.cha.on{border-color:var(--ab-cha);background:color-mix(in srgb,var(--ab-cha) 14%,transparent)}
+/* the answered pick button is icon-only (D142(a)) — square, so it reads as a tool beside
+   the chip field rather than a truncated label */
+.pickbtn.ico-only{display:inline-flex;align-items:center;justify-content:center;
+  width:28px;height:28px;padding:0}
+.pickbtn.ico-only svg{width:13px;height:13px}
 @media (max-width:520px){ .choicerow select{min-width:0;max-width:52vw} }
 /* pick modal: stacked header, quick filters, scrollbar breathing room */
 .mh.mh-stack{flex-direction:column;align-items:stretch;gap:5px}
@@ -1841,7 +1906,11 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
   border:none;background:none;color:var(--muted);cursor:pointer}
 .ghead .x:hover{color:var(--accent)}
 .ghead .x svg{width:14px;height:14px}
-.gh-toggle{display:none}                 /* phone only — see the media block */
+/* Phone only — see the media block. The selector carries `.btn` on purpose: v1.4.5 added
+   `.btn:has(>.lbl-ico){display:inline-flex}` for baseline centring, and `renderGuide()`
+   wraps this button's label in a `.lbl-ico` span — so a bare `.gh-toggle` (0-1-0) LOST to
+   it (0-2-0) and the phone-only toggle showed at every width, doing nothing on desktop. */
+.btn.gh-toggle{display:none}
 .gh-toggle.hidden,.gh-swap.hidden{display:none}
 .gbody{flex:1;min-height:0;display:flex}
 /* the chain column: a lean timeline (rails, runs, dividers) that also reorders */
@@ -2063,7 +2132,7 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
   .gstage{height:100%;padding:16px 14px 40px}
   .gview:not(.gvchain) .gchain{display:none}
   .gview.gvchain .gstage{display:none}
-  .gh-toggle{display:inline-flex}
+  .btn.gh-toggle{display:inline-flex}   /* must outrank .btn:has(>.lbl-ico) — see above */
   .ghead .gh-name{max-width:40vw}
 }
 @media (max-width:640px){

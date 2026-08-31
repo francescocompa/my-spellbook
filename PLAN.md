@@ -29,6 +29,88 @@ D135–D138 + the third-caster clock) — `ARCHIVE.md#closed-oneoffs-0831`.
 Optional follow-up, never scoped: D76's Magical Secrets narrowing could report the EXACT
 window for ordered picks instead of best-case.
 
+## Phase J — the 2026-08-31 notes batch (Francesco's session notes)
+
+Six surfaces, eighteen items. **J1–J4 are gated on mockup feedback** (`scratchpad/mockups/index.html`,
+built against the real `styles.css`); everything else is ready to build. Nothing here is
+started until the four gated calls come back.
+
+### J1–J4 · 🔶 gated on the mockup review
+
+- [x] **J1 · Choices — the chip field is masked behind its button** (v1.4.8, D142(a)).
+  *Shipped as the masked one-line field, not the stacked row — see D142(a).* Original note: Description goes full width; chips wrap
+  on a second row with the button on it. Measured in the mockup: today a four-chip run is
+  **574px inside a 374px card — 228px past the edge** (`.choicerow>.picks{flex:0 0 auto}` sets
+  its width to max-content, so `flex-wrap` on `.picks` can never fire). Two variants: **A1**
+  button right-aligned (recommended), **A2** button leads the row. 🔶
+- [x] **J2 · Casting ability — chip-only tiles** (v1.4.8, D142(b)). Original note: One tile per eligible ability, wearing
+  that ability's key colour. The tokens already exist (`--ab-str`…`--ab-cha`, used by
+  `.abchip`/`.savechip`), so no new palette. Variants: **B1** chip + full name (recommended),
+  **B2** chip only. Six-wide worst case wraps to two rows at 396px. 🔶
+- [x] **J3 · Filters became an icon; the active ones became a masked chip row** (v1.4.8,
+  D142(c)). **The height cap was NOT part of what was decided** and is still open — see the
+  Queue below. Original note: (i) drop the
+  `activeFilterCount()` badge (app.js:7094) for a filtered/not-filtered state on the button
+  plus a clear that never opens the panel — **C1** segmented ✕ beside Filters (recommended)
+  or **C2** a status line saying "128 of 411". (ii) cap the list height and scroll inside it,
+  level headers sticky. 🔶
+- [x] **J4 · Familiar picker — search, filters, rename, and stat blocks like spells**
+  (v1.4.8, D142(d)). No preview pane. Original note: Add the search + filter row
+  the other pickers have; rename *"Find Familiar's own forms"* → **Other familiars**
+  (app.js:7513); split into list + collapsible stat-block preview reusing `sbBodyHTML()`.
+  **Investigated (asked for):** spell pickers can do the same via the existing `modalHTML(sp)`;
+  creatures via `sbBodyHTML(b)`; **feats/optional features cannot yet** — there is no
+  feat-detail renderer, only a one-line `.entprev`, so that one is its own task.
+  One real cost: the `.sb*` rules are scoped under `.spmodal` and need the scope widened. 🔶
+
+### J5 · ready to build — diagnosed
+
+- [x] **The Chain/Decision toggle showed on desktop and did nothing** — fixed in v1.4.8. — **REGRESSION FROM
+  v1.4.5, cause found.** `.btn:has(>.lbl-ico){display:inline-flex}` (styles.css:49, added as
+  the `.lbl-ico` baseline-centering fix) has specificity 0-2-0 and beats
+  `.gh-toggle{display:none}` (styles.css:1844, 0-1-0); `renderGuide()` wraps the label in a
+  `.lbl-ico` span (app.js:1628), so the button matches. Verified at 1280px:
+  `getComputedStyle(#ghToggle).display === "flex"`. Fix: raise both the base rule and the
+  ≤820px rule to `.btn.gh-toggle`. Then re-check every other `display` rule a `.lbl-ico`
+  button could be losing.
+
+### Still open out of J3
+
+- [ ] **Cap the Eligible spells list height and scroll inside it.** Mocked as C-ii and NOT
+  ruled on: the answer that came back replaced the filter-status half of J3 and said nothing
+  about the cap. Ask before building — the two candidates were ~55vh and a fixed ~420px.
+  ⚑ (owner: Francesco, 2026-08-31)
+
+### J6–J10 · ready to build
+
+- [ ] **J6 · Guided builder — one spellcasting step.** Fold the spell/cantrip choices and the
+  swap option into a single step instead of two. Touches `guideSteps()`; D128 (swaps are per
+  KIND) and D131(a) (one picker per section) both constrain it — cite, don't re-derive.
+- [ ] **J7 · Guided builder — copy pass.** Strip AI tells (em dashes) and drop pointless
+  notes, starting with the one under the "Next level" section. Note: D131(c) already removed
+  the guide's explanatory prose, so this is the remainder.
+- [ ] **J8 · Random build becomes official, guided takes its place.** `#testBtn` (index.html:41,
+  the 🎲) currently sits in the header and is `remove()`d on the public build (app.js:8975).
+  Swap it for a guided-builder button in the header, move random into `#menuPop` beside
+  "Guided builder…", and stop stripping it from the public build.
+- [ ] **J9 · Timeline — arrow + "from level" to the header right.** `tlOrderStrip()`
+  (app.js:6844) currently emits into the column head via `col.head(...)` (app.js:6826); the
+  timeline header is index.html:575 (`<h2>Timeline</h2>` + `#tlOrder`). D141 owns the arrow's
+  behaviour (display inverts, computation never does) — this moves where it lives, not what
+  it does.
+- [ ] **J10 · Settings menu — tidy and organise.** `#menuPop` (index.html:44-56) is ten flat
+  items with two separators. Needs grouping.
+
+### J11–J12 · ready to build, larger
+
+- [ ] **J11 · Custom spell builder — fit the page, and seed from a spell.** Its fields and
+  checkboxes don't match the rest of the app. Plus: load an existing spell from the picker as
+  a template. D94/D95 own the editor's model; this is presentation + one new entry path.
+- [ ] **J12 · Light theme — full contrast/accessibility audit.** Francesco: overall not
+  working, and "it all feels too flat". Every token in the light block (styles.css:975 ff.)
+  measured for contrast; depth restored. Biggest item in the batch and the one most likely
+  to want its own decision entry.
+
 ## Open ⚑ — calls for Francesco
 
 - [ ] **The `…`-placeholder family needs one call** (H6, left as scoped): "+ add a class…",

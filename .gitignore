@@ -9,3 +9,4 @@ node_modules/
 data/
 # Offline build embeds that data — local only. Public build is docs/ (no data).
 dist/
+scratchpad/mockups/

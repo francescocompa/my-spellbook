@@ -50,6 +50,9 @@ const ICONS={
   copy:_I('<rect x="5.6" y="5.6" width="8" height="8" rx="1.7"/><path d="M10.4 5.6V4.1A1.7 1.7 0 0 0 8.7 2.4H4.1A1.7 1.7 0 0 0 2.4 4.1v4.6a1.7 1.7 0 0 0 1.7 1.7h1.5"/>'),
   trash:_I('<path d="M2.7 4.3h10.6M6.4 4.3V3.2a1 1 0 0 1 1-1h1.2a1 1 0 0 1 1 1v1.1"/><path d="m4.3 4.3.6 8.1a1.2 1.2 0 0 0 1.2 1.1h3.8a1.2 1.2 0 0 0 1.2-1.1l.6-8.1"/>'),
   order:_I('<path d="M2.4 3.9h6.4M2.4 8h4.4M2.4 12.1h2.6"/><path d="M12.1 3.4v9.2M12.1 12.6 10.4 11M12.1 12.6 13.8 11"/>'),
+  // D142(c): the filters control is an ICON everywhere now — a funnel, drawn on the same
+  // 16px grid and stroke weight as the rest so it sits on the toolbar baseline unchanged
+  filter:_I('<path d="M2.6 3.5h10.8l-4.2 5v4.3l-2.4 1.2V8.5z"/>'),
   star:_I('<path d="M8 2.2 9.85 6l4.15.6-3 2.95.71 4.15L8 11.74 4.29 13.7 5 9.55 2 6.6 6.15 6z"/>'),
   print:_I('<path d="M4.6 6.1V2.7h6.8v3.4"/><rect x="2.4" y="6.1" width="11.2" height="4.8" rx="1.4"/><path d="M4.6 9.3h6.8v4H4.6z"/>'),
   // a trade: two arrows passing each other. Marks a pick swapped away and the one that
@@ -325,6 +328,40 @@ const state={
   nextRowId:1,
 };
 const FILTER_DEFAULT=()=>({q:"",levels:new Set(),school:"",cls:"",time:new Set(),comp:new Set(),tags:new Set(),save:"",dmg:"",books:null,reprint:"dedupe",chosen:false});
+// D142(c): the filters you have SET, each named. `activeFilterCount()` answered "how many
+// controls are touched", which is a number you cannot act on; this answers "filtered by
+// what", which is the thing you either keep or clear. Same grouping as the count, so the
+// two can never disagree about what counts as a filter.
+// NOT included, on purpose: the name search and the `picked` toggle. Both have a visible
+// control of their own that already shows its state, so a chip would only say it twice.
+const F_TIME={action:"Action",bonus:"Bonus action",reaction:"Reaction",long:"Longer casting"};
+const F_COMP={v:"Verbal",s:"Somatic",m:"Material"};
+const F_TAGS={ritual:"Ritual",conc:"Concentration",atk:"Attack roll",upcast:"Upcasts",
+  consume:"Consumes material"};
+function activeFilterChips(){
+  const f=state.filters, out=[];
+  if(f.levels.size){const ls=[...f.levels].sort((a,b)=>a-b);
+    out.push(ls.length===1?(ls[0]===0?"Cantrips":ROMAN[ls[0]]+" level")
+      :"Levels "+ls.map(l=>l===0?"C":ROMAN[l]).join(", "));}
+  if(f.school)out.push(f.school);
+  if(f.cls)out.push(f.cls===ALL_SPELLS?"Every spell":f.cls);
+  if(f.save)out.push(cap1(f.save)+" save");
+  if(f.dmg)out.push(cap1(f.dmg)+" damage");
+  [[f.time,F_TIME],[f.comp,F_COMP],[f.tags,F_TAGS]].forEach(([set,map])=>{
+    [...set].forEach(k=>out.push(map[k]||cap1(String(k))));});
+  if(f.reprint!=="dedupe")out.push("All editions");
+  if(f.books&&(f.books.size!==SRC.size||[...SRC].some(c=>!f.books.has(c))))
+    out.push(`Books (${f.books.size})`);
+  return out;
+}
+function renderActiveFilters(){
+  const box=$("#actFilt"), host=$("#afChips"); if(!box||!host)return;
+  const chips=activeFilterChips();
+  box.classList.toggle("hidden",!chips.length);
+  host.innerHTML="";
+  chips.forEach(t=>host.append(Object.assign(el("span","afchip"),{textContent:t})));
+  maskOverflow(host);
+}
 function activeFilterCount(){const f=state.filters;let n=0;
   n+=f.levels.size?1:0;["school","cls","save","dmg"].forEach(k=>{if(f[k])n++;});
   n+=f.time.size?1:0;n+=f.comp.size?1:0;n+=f.tags.size?1:0;if(f.reprint!=="dedupe")n++;
@@ -3128,7 +3165,19 @@ function renderChoices(){
     });
     body.append(box);
   });
+  // measured AFTER the rows are in the document — scrollWidth/clientWidth are both 0 on a
+  // detached node, which would leave every field unmasked
+  body.querySelectorAll(".pickfield").forEach(maskOverflow);
 }
+// D142(a,c): a chip run that has to stay on ONE line. It scrolls under a right-edge
+// gradient instead of wrapping or pushing its neighbours — the `.tlchips` pattern D124
+// shipped for the timeline, including its trailing-gap rule: the mask is fixed to the
+// SCROLLER, so without trailing room the last chip could never scroll out from under the
+// gradient. The gap only exists while the mask does, which is why this is measured rather
+// than always on — an unmasked field carrying 28px of dead space would look like a bug.
+function maskOverflow(f){ if(!f)return;
+  f.classList.toggle("masked", f.scrollWidth > f.clientWidth + 1); }
+
 // one choice: what it asks for on the left, its control on the right, one line.
 // The giver is the group's job (cghead) and the feature is cgsub's — never repeated here.
 function choiceRow(c){
@@ -3137,22 +3186,58 @@ function choiceRow(c){
     const isAb=c.type==="ability";
     const cg=el("div","cg");
     cg.append(el("span","cwhat",isAb?"Casting ability":"Choose one"));row.append(cg);
-    const sel=el("select"); c.options.forEach(o=>sel.append(new Option(isAb?ABIL[o]||o:o,o)));
-    sel.value=c.value; sel.onchange=()=>{state.choices[c.id]=sel.value; render();}; row.append(sel);
+    // D142(b): a casting ability is a TILE ROW, not a dropdown — one tile per eligible
+    // ability wearing that ability's own key colour, chip only (no name beside it). The
+    // colours are the existing `--ab-*` tokens `.abchip`/`.savechip` already use, so this
+    // adds a control, never a palette. A closed <select> hid the alternatives entirely.
+    if(isAb){
+      const box=el("div","abtiles");
+      c.options.forEach(o=>{
+        const on=o===c.value, full=ABIL[o]||o;
+        const t=el("button","abtile "+o+(on?" on":"")); t.type="button";
+        t.append(Object.assign(el("span","abchip "+o),{textContent:(ABIL_SHORT[o]||o).toUpperCase()}));
+        // the abbreviation is the only label, so the full name has to be reachable both ways
+        t.title=full; t.setAttribute("aria-label",full); t.setAttribute("aria-pressed",String(on));
+        t.onclick=()=>{state.choices[c.id]=o; render();};
+        box.append(t);});
+      row.append(box);
+    } else {
+      const sel=el("select"); c.options.forEach(o=>sel.append(new Option(o,o)));
+      sel.value=c.value; sel.onchange=()=>{state.choices[c.id]=sel.value; render();}; row.append(sel);
+    }
   } else { // pick
+    // `nowrap` on THIS row shape only: `.choicerow` wraps, and flexbox breaks lines on an
+    // item's flex BASE size — the chip field's base is its content, so a long run jumped to
+    // its own line and took the button with it before any shrinking could happen. An
+    // explicit class, not a `:has()` selector: the last one of those (v1.4.5's `.lbl-ico`
+    // centring) silently outranked a display rule and un-hid a phone-only control.
+    row.classList.add("pickrow");
     const have=(state.choices[c.id]||[]).length;
     const cg=el("div","cg");
     const what=el("span","cwhat");what.append(document.createTextNode(cap1(guidePickAsk(c)||fmtDesc(c.desc)||"choose")+" "));
     what.append(el("span","need",`${have}/${c.count}`));cg.append(what);row.append(cg);
-    const picks=el("div","picks");
+    // D142(a): the chips are their own field and the button is its SIBLING, not a member —
+    // the field scrolls on one line under a right-edge mask (the D124 `.tlchips` pattern)
+    // so a long run slides under the button instead of pushing the row past the card. It
+    // used to be `flex:0 0 auto` around wrapping chips, which set the width to max-content
+    // and overflowed by 228px on a four-pick choice.
+    const field=el("div","pickfield");
     (state.choices[c.id]||[]).forEach(k=>{const sp=SPELL_BY[k];if(!sp)return;
       const chip=el("span","cartchip");chip.append(el("span","lv",sp.level===0?"C":String(sp.level)));
       const nm=el("span",null,sp.name);attachSpell(nm,sp);chip.append(nm);
       const x=xBtn(null,()=>{state.choices[c.id]=(state.choices[c.id]||[]).filter(v=>v!==k);render();});
-      chip.append(x);picks.append(chip);});
-    const btn=el("button","pickbtn"+(have>=c.count?" done":" needclr"),
-      have>=c.count?(c.mark?"Change":"Edit"):(c.mark?"Designate":`Choose ${c.count-have}`));
-    btn.onclick=()=>openPick(c); picks.append(btn); row.append(picks);
+      chip.append(x);field.append(chip);});
+    row.append(field);
+    // once the count is met the button is only a way back IN, and the `have/count` counter
+    // beside the question already carries the number — so it becomes an icon and gives the
+    // chip field its width. While picks are still owed it keeps its words: an unanswered
+    // choice has to read as a prompt.
+    const done=have>=c.count;
+    const btn=el("button","pickbtn"+(done?" done ico-only":" needclr"));
+    if(done){const lbl=c.mark?"Change the designation":"Edit these picks";
+      btn.append(icoEl("pencil")); btn.title=lbl; btn.setAttribute("aria-label",lbl);}
+    else btn.textContent=c.mark?"Designate":`Choose ${c.count-have}`;
+    btn.onclick=()=>openPick(c); row.append(btn);
   }
   return row;
 }
@@ -7091,7 +7176,10 @@ function renderSpells(){
   buildToggleRow($("#fComp"),[["v","V"],["s","S"],["m","M"]],F.comp);
   buildToggleRow($("#fTags"),[["ritual","Ritual"],["conc","Concentr."],["atk","Atk roll"],["upcast","Upcasts"],["consume","Consumes mat."]],F.tags);
   $("#fChosen").classList.toggle("on",F.chosen);
-  const afc=activeFilterCount();$("#filterBtn").innerHTML="Filters"+(afc?` <span class="badge">${afc}</span>`:"");
+  // D142(c): the button is an icon and carries no count — what is set is named in the chip
+  // row directly below instead. No second "filters are set" state on the button: it already
+  // wears `.on` while its panel is open, and the chip row is the honest indicator.
+  renderActiveFilters();
 
   // the sliced cart, not raw state (E2) — "chosen" at a previewed level means chosen BY it
   const chosenKeys=new Set(); R.casters.forEach(r=>{const c=R.cart[r.idx]||{};(c.cantrips||[]).forEach(k=>chosenKeys.add(k));(c.spells||[]).forEach(k=>chosenKeys.add(k));});
@@ -7461,7 +7549,12 @@ function openFam(sp){
   // hides a value you set is a trap (D94)
   const marked=new Set(favsFor(sp));
   const ownMarked=spellCreatures(sp).some(c=>marked.has(c._ck));
-  FAM={sp,own:ownMarked};
+  // D142(d): search + filters, like every other picker. `books` starts as every book the
+  // spell's own forms come from — never `SRC`, which knows no bestiary book (see GOTCHAS)
+  // and would filter almost all of them out.
+  const books=new Set(buildCreatures(sp).map(c=>c.source).filter(Boolean));
+  FAM={sp,own:ownMarked,q:"",books,allBooks:new Set(books),only:false};
+  $("#famSearch").value=""; $("#famOnly").checked=false;
   $("#famModal").classList.remove("hidden");
   renderFam();
 }
@@ -7470,7 +7563,10 @@ function famRow(sp,c,marked){
   const on=marked.has(c._ck);
   const row=el("div","entrow"+(on?" on":""));
   const main=el("div","entmain");
-  const nm=el("div","entname");nm.append(document.createTextNode(c.name));
+  const nm=el("div","entname");
+  // D142(d): only the NAME opens the stat block — the rest of the row is still the mark
+  // toggle, so one tap is still one toggle exactly as before
+  const link=el("span",null,c.name); attachCreature(link,c); nm.append(link);
   if(c.source)nm.append(bookChip(c.source,c.page));
   main.append(nm);
   const meta=[c.kind,c.cr!=null&&c.cr!==""?"CR "+c.cr:""].filter(Boolean).join(" · ");
@@ -7488,7 +7584,18 @@ function famRow(sp,c,marked){
 }
 function renderFam(){
   const list=$("#famList"); if(!list||!FAM)return;
-  const sp=FAM.sp, all=buildCreatures(sp), marked=new Set(favsFor(sp));
+  const sp=FAM.sp, everything=buildCreatures(sp), marked=new Set(favsFor(sp));
+  // the book row is built from the WHOLE set, never the filtered one, or turning a book off
+  // would remove its own toggle and there would be no way back
+  buildToggleRow($("#famBooks"),[...FAM.allBooks].sort().map(b=>[b,b]),FAM.books,false,renderFam);
+  // D142(c) precedent (`#entMenuBtn`): the icon says THAT the list is narrowed, never by how
+  // much — a count on an icon button pushes the icon off centre
+  $("#famMenuBtn").classList.toggle("on",FAM.only||FAM.books.size!==FAM.allBooks.size);
+  const q=(FAM.q||"").toLowerCase();
+  const all=everything.filter(c=>
+    (!q||c.name.toLowerCase().includes(q))
+    &&(!c.source||FAM.books.has(c.source))
+    &&(!FAM.only||marked.has(c._ck)));
   const granted=all.filter(c=>c._from), own=all.filter(c=>!c._from);
   const givers=[...new Set(granted.map(c=>c._from))];
   $("#famTitle").textContent=`${sp.name} forms`;
@@ -7510,7 +7617,7 @@ function renderFam(){
     const box=el("div","lvlgroup famown"+(FAM.own?"":" folded"));
     const h=el("h3");
     const fold=el("button","lvlfold");fold.type="button";
-    fold.append(el("span",null,`${sp.name}'s own forms`));
+    fold.append(el("span",null,"Other familiars"));
     fold.append(el("span","n",String(own.length)));
     const car=el("span","lvlcar");if(FAM.own)car.classList.add("up");fold.append(car);
     fold.setAttribute("aria-expanded",String(FAM.own));
@@ -7519,7 +7626,8 @@ function renderFam(){
     own.forEach(c=>box.append(famRow(sp,c,marked)));
     list.append(box);
   }
-  if(!all.length)list.append(el("div","empty","This spell carries no stat blocks."));
+  if(!all.length)list.append(el("div","empty",
+    everything.length?"Nothing matches those filters.":"This spell carries no stat blocks."));
 }
 // favourites first, then the forms a feature granted, then the rest — original order
 // within each band. A form your build adds is the one you came here to look at.
@@ -7743,6 +7851,38 @@ function wireCreatureNav(sp){
     draw();}
   paint();
 }
+// D142(d): a stat block is reached the way a spell is — hover the name for a tip, click it
+// for a dedicated modal. Deliberately NOT a preview pane beside the list: the pane was
+// mocked and rejected. Both surfaces reuse what already exists — `sbBodyHTML()` paints the
+// body, and the modal borrows SPMODAL itself, which is also why the `.spmodal`-scoped
+// `.sb*` rules need no widening: the block is literally inside a `.spmodal` again.
+function creatureTipHTML(c){
+  const sub=[c.kind,c.cr!=null&&c.cr!==""?"CR "+c.cr:""].filter(Boolean).join(" · ");
+  const line=(k,v)=>v?`<div class="line"><b>${k}</b> ${esc(String(v))}</div>`:"";
+  return `<h4>${esc(c.name)}</h4>${sub?`<div class="sub">${esc(sub)}</div>`:""}`
+    +line("AC",c.ac)+line("HP",c.hp)+line("Speed",c.speed)+line("Senses",c.senses)
+    +`<p style="color:var(--muted);font-size:11px">click for the full stat block</p>`;}
+function creatureModalHTML(c){
+  const bk=c.source?` <span class="bchip" data-book="${esc(c.source)}"`
+    +(c.page?` data-page="${esc(String(c.page))}"`:"")+`>${esc(c.source)}</span>`:"";
+  // the giver, not the type: `sbBodyHTML` opens with `.sb-kind`, so repeating the type here
+  // would print it twice, two lines apart
+  const sub=c._from?`Added to this spell by ${esc(c._from)}`:"Stat block";
+  return `<div class="box"><button class="x ico" type="button" title="Close" aria-label="Close">${ICONS.x}</button>`
+    +`<div class="mh"><h3>${esc(c.name)}${bk}</h3><div class="sub">${sub}</div></div>`
+    +`<div class="mb">${sbBodyHTML(c)}</div></div>`;}
+function openCreatureModal(c){
+  hideTip(); SPMODAL.innerHTML=creatureModalHTML(c);
+  SPMODAL.querySelectorAll(".bchip[data-book]").forEach(x=>attachTip(x,bookTip(x.dataset.book,x.dataset.page)));
+  SPMODAL.classList.remove("hidden");}
+// the spell-name contract, for a creature: the NAME is the link, so the row around it keeps
+// doing its own job (here, toggling the mark) — same split `mkSpell` uses
+function attachCreature(elm,c){elm.classList.add("nmlink");
+  elm.addEventListener("mouseenter",e=>{SPTIP.innerHTML=creatureTipHTML(c);SPTIP.classList.add("show");posTip(e);});
+  elm.addEventListener("mousemove",posTip);
+  elm.addEventListener("mouseleave",hideTip);
+  elm.addEventListener("click",e=>{e.stopPropagation();openCreatureModal(c);});}
+
 function attachSpell(elm,sp){elm.classList.add("nmlink");
   elm.addEventListener("mouseenter",e=>showTip(sp,e));elm.addEventListener("mousemove",posTip);
   elm.addEventListener("mouseleave",hideTip);
@@ -8300,6 +8440,7 @@ $("#entHideNo").onchange=e=>{if(ENT){ENT.hideNo=e.target.checked;renderEntityLis
 $("#entGrants").onchange=e=>{if(ENT){ENT.grantsOnly=e.target.checked;renderEntityList();}};
 $("#fq").oninput=e=>{state.filters.q=e.target.value;render();};
 $("#filterBtn").onclick=()=>{$("#filterPanel").classList.toggle("hidden");$("#filterBtn").classList.toggle("on");};
+$("#afClear").onclick=()=>$("#clearFilters").click();
 $("#clearFilters").onclick=()=>{const q=state.filters.q;state.filters=FILTER_DEFAULT();state.filters.q=q;$("#fReprint").value="dedupe";refreshAll();render();};
 $("#fSchool").onchange=e=>{state.filters.school=e.target.value;render();};
 $("#fClass").onchange=e=>{state.filters.cls=e.target.value;render();};
@@ -8327,6 +8468,9 @@ $("#prepModal").onclick=e=>{if(e.target.id==="prepModal")$("#prepModal").classLi
 // detached target can never equal the backdrop (the D122 shape from GOTCHAS).
 $("#famClose").onclick=closeFam;
 $("#famModal").onclick=e=>{if(e.target===$("#famModal"))closeFam();};
+$("#famSearch").oninput=e=>{if(FAM){FAM.q=e.target.value;renderFam();}};
+$("#famMenuBtn").onclick=e=>{e.stopPropagation();toggleMenu("#famMenuPop");};
+$("#famOnly").onchange=e=>{if(FAM){FAM.only=e.target.checked;renderFam();}};
 $("#prepPrev").onclick=()=>{if(PREP&&PREP.step>0){PREP.step--;PREP.search="";renderPrepStep();}};
 $("#prepNext").onclick=()=>{if(PREP&&PREP.step<PREP.steps.length-1){PREP.step++;PREP.search="";renderPrepStep();}};
 $("#prepSearch").oninput=e=>{if(PREP){PREP.search=e.target.value;renderPrepList();}};

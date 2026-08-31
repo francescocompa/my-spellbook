@@ -1518,6 +1518,41 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
   display (what D132 shipped — Francesco read the arrow as an order control, and the
   control should do what it reads as).
 
+- **D142 (2026-08-31) DECIDED — Francesco's calls on the 2026-08-31 notes batch** (his
+  answers to the four mockup questions, verbatim in quotes; mockups at
+  `scratchpad/mockups/index.html`):
+  - **(a) The choices row KEEPS one line — the chip field is masked behind the button.**
+    *"The block you marked as 'now' works as long as you mask the chipfield behind the button
+    (which could be an icon), similarly to the access chipfield in spell modals."* So the fix
+    for the 228px overflow is not a stacked layout: `.picks` becomes a horizontal scroller
+    under a right-edge gradient mask, exactly the **`.tlchips` pattern already shipped for
+    D124** (`overflow-x:auto`, no scrollbar, `mask-image`, and the trailing `margin-right` on
+    the last child so it can reach lit space). The button stays a sibling at `flex:0 0 auto`.
+    *Rejected:* **A1** (description full width, chips + CTA on a second row) and **A2** (button
+    leads that row) — both were mocked; a second row buys wrapping at the cost of a taller card
+    per choice, and the masked single line reads the same as the access row he already knows.
+  - **(b) Ability tiles are CHIP ONLY.** B2: the three-letter chip in its ability colour, no
+    name beside it. *Rejected:* **B1** (chip + full name, which I had recommended) and the
+    responsive B1/B2 split — the column is narrow and the colour plus the abbreviation carry it.
+  - **(c) Filters become an ICON everywhere, and the active ones become a masked chip row.**
+    *"replace filter text with icon (do it everywhere we have filters); show active filters as
+    chips in a chipfield row right below it with a close button at the right to remove all, the
+    chips mask behind that (again, like the access row in spell modal)."* So the count badge
+    goes, and so does the word "Filters"; what replaces it is not a status word but the filters
+    themselves, named as chips. Same mask pattern as (a). *Rejected:* **C1** (accent dot on the
+    button + a segmented ✕, which I had recommended) and **C2** (a "showing 128 of 411" status
+    line) — both say THAT you are filtered without saying BY WHAT.
+  - **(d) No preview pane — a creature gets the spell treatment.** *"Instead of a preview pane,
+    let's have the statblocks like spells, with a dedicated modal with a preview on hover."* So
+    the familiar picker's rows follow `attachSpell`'s contract: hover the name for a tip, click
+    it for a dedicated modal; the rest of the row keeps toggling the mark. *Rejected:* the
+    two-column split with a collapsible `sbBodyHTML()` pane (mocked and recommended) — and with
+    it, for now, rolling a preview column out to the spell and feat pickers. Also noted against
+    the mock: *"Make sure the top empty margin is the same between the two columns (currently
+    stat block hits the row above)"* — moot for the pane, but it stands as the rule for any
+    future two-column picker.
+  - **Scope:** the familiar picker only for now; the spell and feat pickers are not touched.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives
