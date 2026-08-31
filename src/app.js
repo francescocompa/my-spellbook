@@ -3062,6 +3062,15 @@ function render(){ maybeOnboard(); renderGapBar(); CASTMODS=activeCastMods(); R=
   // disclosure to lose under the user's fingers — which is the whole reason the rest of
   // refreshAll() is kept OUT of the render pass.
   renderOptFeats();
+  // …and so is the epic-boon row's visibility: `featBudget().epic` is a function of the
+  // level plan (D114) plus any granted slot (D135), and the class row's own handlers
+  // (swap class, subclass, level stepper, remove), #addClass and a feat chip's ✕ all call
+  // render() without refreshAll() — so stepping a class across the level an Epic Boon slot
+  // arrives at kept the PREVIOUS answer in both directions: hidden at 19 with a slot owed,
+  // and still offered at 18 with none. Same reason it belongs here rather than in each
+  // handler: the row holds no <select>, <input> or disclosure to lose under the user's
+  // fingers, and `#epicCnt` inside it has always been a render-pass view (renderFeatBudget).
+  refreshAddFeat();
   if(GPICK)renderGpick();                // the open pick modal follows every change (G3)
   if(TL.open)renderTimeline();           // the open timeline follows every change (E5)
   if(curTab==="table")renderTable(); save(); }

@@ -53,8 +53,10 @@ window for ordered picks instead of best-case.
 
 ## Queue — open work
 
-- [ ] **`refreshAddFeat()` has the identical defect for `#epicRow`** (found 2026-08-30 —
-  HIGH CONFIDENCE from reading, NOT reproduced): it toggles `#epicRow` on
+- [x] **`refreshAddFeat()` had the identical defect for `#epicRow`** — REPRODUCED and FIXED
+  in **v1.4.7**; the toggle joins the render pass beside `renderOptFeats()`. Both directions
+  were wrong (18 → 19 hid a slot that existed; 19 → 18 offered one that did not), and the
+  class-remove and `#addClass` paths carried it too. Original note: it toggles `#epicRow` on
   `featBudget().epic`, which per D114 is a function of `featSlotLevels()` →
   `classLevelPlan()` → class levels, yet it runs only inside `refreshAll()`. So stepping a
   class across the level where an Epic Boon slot arrives should leave the row showing the
