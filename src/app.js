@@ -5412,15 +5412,39 @@ function tableRows(){
       // a wizard's book row is only "prepared" when today's subset holds it (D62)
       inBook:!!book&&sp.level>0, prepared:!book||sp.level===0||prepSet.has(k)});});
   });
-  // always-prepared (free) grants
-  [...R.pool.values()].filter(e=>e.grants.length).forEach(e=>{const g=e.grants[0];
-    push({sp:e.sp,src:srcTidy(g.src),type:"free",ability:g.ability,recharge:null,sel:true,
-      note:g.note,ownIdx:g.srcIdx});});
-  // innate / free casts
-  R.freeCasts.forEach(fc=>{if(fc.choice)return;const sp=grantRec(fc.name);if(sp)
-    push({sp,src:srcTidy(fc.src),type:fc.swappable?"swap":"cast",ability:fc.ability,
-      recharge:fc.recharge,sel:true,dc:fc.dc,atk:fc.atk,castLv:fc.castLv,note:fc.note,
-      ownIdx:fc.srcIdx});});
+  // Everything GRANTED is merged by SPELL (D136): a spell two sources both hand you is ONE
+  // row naming both, not the same line twice. It used to fail in both directions — the
+  // always-prepared branch read `e.grants[0]` and silently dropped every later giver, while
+  // two innate grants produced a row each. A PICK stays its own row: that one is your
+  // choice on a class row and the marker column is about that class.
+  const grant=new Map();
+  const giverOf=(k,mk,giver)=>{ let r=grant.get(k);
+    if(!r){ r=mk(); r.givers=[]; r.kinds=new Set(); r.recharges=[]; grant.set(k,r); }
+    if(!r.givers.some(x=>x.src===giver.src))r.givers.push(giver);
+    r.kinds.add(giver.kind);
+    return r; };
+  const fill=(r,o)=>{ ["ability","dc","atk","castLv","ownIdx"].forEach(f=>{
+    if(r[f]==null&&o[f]!=null)r[f]=o[f];}); };
+  [...R.pool.values()].filter(e=>e.grants.length).forEach(e=>{
+    const k=key(e.sp.name,e.sp.source);
+    e.grants.forEach(g=>{
+      const r=giverOf(k,()=>({sp:e.sp,sel:true}),{src:srcTidy(g.src),note:g.note,kind:"free"});
+      fill(r,{ability:g.ability,ownIdx:g.srcIdx});});});
+  R.freeCasts.forEach(fc=>{ if(fc.choice)return; const sp=grantRec(fc.name); if(!sp)return;
+    const kind=fc.swappable?"swap":"cast";
+    const r=giverOf(key(sp.name,sp.source),()=>({sp,sel:true}),
+      {src:srcTidy(fc.src),note:fc.note,kind});
+    if(fc.recharge&&r.recharges.indexOf(fc.recharge)<0)r.recharges.push(fc.recharge);
+    fill(r,{ability:fc.ability,dc:fc.dc,atk:fc.atk,castLv:fc.castLv,ownIdx:fc.srcIdx});});
+  // A free cast is the stronger fact, so it takes the marker and the cadence; a spell that
+  // is ALSO always prepared says so in the marker's tip rather than in a second row.
+  grant.forEach(r=>{
+    r.type=r.kinds.has("cast")?"cast":r.kinds.has("swap")?"swap":"free";
+    r.alsoPrepared=r.type!=="free"&&r.kinds.has("free");
+    r.recharge=r.recharges.length?r.recharges[0]:null;
+    r.src=r.givers.map(g=>g.src).join(" · ");
+    r.note=(r.givers.find(g=>g.note)||{}).note||null;
+    push(r);});
   if(PRINT_MODE&&PRINT.eligible)addPreparableRows(push,rows);
   return rows;
 }
@@ -5608,9 +5632,12 @@ function cellFor(k,row){
     const ind=el("td","pickcell");
     // print-only: a spell you COULD prepare, waiting for a pencil
     if(row.blank){ind.append(el("span","prepbox"));return ind;}
+    // a merged row (D136) may hold both facts: the free cast takes the marker, and the
+    // always-prepared half says so here rather than in a row of its own
+    const alsoP=row.alsoPrepared?" It is also always prepared by another source.":"";
     if(type==="free"){ind.innerHTML=ICONS.check;ind.classList.add("always");attachTip(ind,tipBlock("Always prepared","A free grant — it doesn’t count against your prepared list."));}
-    else if(type==="swap"){ind.innerHTML=ICONS.dot;ind.classList.add("on");attachTip(ind,tipBlock("Prepared","Swappable on a long rest — change it in Choices."));}
-    else if(type==="cast"){ind.innerHTML=ICONS.spark;ind.classList.add("innate");attachTip(ind,tipBlock("Innate / free cast","Cast without preparing it."+(recharge?" Cadence: "+recharge+".":"")));}
+    else if(type==="swap"){ind.innerHTML=ICONS.dot;ind.classList.add("on");attachTip(ind,tipBlock("Prepared","Swappable on a long rest — change it in Choices."+alsoP));}
+    else if(type==="cast"){ind.innerHTML=ICONS.spark;ind.classList.add("innate");attachTip(ind,tipBlock("Innate / free cast","Cast without preparing it."+(recharge?" Cadence: "+recharge+".":"")+alsoP));}
     else if(sp.level===0){ind.innerHTML=ICONS.dot;ind.classList.add("on");attachTip(ind,tipBlock("Cantrip","Always known — not re-prepared daily."));}
     else if(row.inBook&&!row.prepared){ind.innerHTML=ICONS.book;ind.classList.add("inbook");
       attachTip(ind,tipBlock("In your spellbook, not prepared","A wizard knows every spell in its book but casts only the ones prepared after a long rest. Use Prepare daily."));}
@@ -5651,17 +5678,26 @@ function cellFor(k,row){
     // a spell that rolls neither states the casting ability like any other row
     td.innerHTML=row.ability?abChip(row.ability):"—";return td;}
   if(k==="casts"){
-    // innate recharge, with * when the spell is also castable via your own slots
-    const td=el("td");const lab=recharge?rechargeShort(recharge,sp.level===0):"—";
-    if(recharge&&lab!=="at will"&&lab!=="—"&&slotCastable(sp)){
+    // innate recharge, with * when the spell is also castable via your own slots.
+    // A merged row (D136) whose givers disagree names every cadence — one of them standing
+    // for all would say a source gives you something it doesn't.
+    const td=el("td");
+    const many=(row.recharges||[]).length>1?row.recharges:null;
+    const lab=many?many.map(x=>rechargeShort(x,sp.level===0)).join(" · ")
+      :(recharge?rechargeShort(recharge,sp.level===0):"—");
+    if(!many&&recharge&&lab!=="at will"&&lab!=="—"&&slotCastable(sp)){
       td.textContent=lab;const ast=el("sup","ast","*");ast.title="Also castable with your spell slots";td.append(ast);
       td.classList.add("hasast");td.onclick=()=>{td.firstChild.textContent=lab+" (also with your spell slots)";td.classList.remove("hasast");};
     } else td.textContent=lab;
     return td;}
   if(k==="build"){const td=el("td");
-    const b=el("span","srcbadge"+(type==="free"?" free":type==="cast"?" cast":""),src);
-    if(row.note){b.classList.add("hasnote");attachTip(b,tipBlock(src,row.note));}
-    td.append(b);
+    // one badge per giver: a spell two sources grant is ONE row (D136), and each giver keeps
+    // its own tint and its own note — a joined string would lose both
+    const givers=(row.givers&&row.givers.length)?row.givers:[{src,note:row.note,kind:type}];
+    givers.forEach(g=>{
+      const b=el("span","srcbadge"+(g.kind==="free"?" free":g.kind==="cast"?" cast":""),g.src);
+      if(g.note){b.classList.add("hasnote");attachTip(b,tipBlock(g.src,g.note));}
+      td.append(b);});
     // a casting-rule change belongs on the source that caused it — the struck letter in
     // Comp. says WHAT changed, this says which feature did it (D85)
     const eff=compEffect(sp,modsForSpell(sp,row));

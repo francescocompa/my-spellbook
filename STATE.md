@@ -7,12 +7,12 @@
 > |---|---|
 > | `CLAUDE.md` | What this project is, its conventions, build/run, the verify gate, versioning |
 > | `PLAN.md` | The queue — what is next and what is gated |
-> | `DECISIONS.md` | Every decision D7–D135 and what was rejected |
+> | `DECISIONS.md` | Every decision D7–D136 and what was rejected |
 > | `GOTCHAS.md` | Traps that have already cost a session |
 > | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 > | `ARCHIVE.md` | Bodies of consumed phases and old rationale |
 
-## TL;DR (2026-08-31 · **v1.3.0**, committed · **not yet pushed** · app content = v1.3.0)
+## TL;DR (2026-08-31 · **v1.3.1**, committed · **not yet pushed** · app content = v1.3.1)
 - **State:** phases E–I all closed (every gate passed 2026-08-31). This session was
   Francesco's own bug report, taken as a **full audit of invocations and everything shaped
   like one** → **D135, shipped v1.3.0**. Four independent holes, every one a 5etools field
@@ -28,8 +28,13 @@
   `featProgression` → `featSlots`, so Lessons of the First Ones adds its Origin slot to the
   budget card and to the guided chain. Plus: a prerequisite carrying a `choose` filter is now
   verifiable, and two bugs found in passing (Seeking Spell's boolean-as-array test;
-  `EMPTY_GRANTS`'s shared mutable lists).
-- **Next action:** **push** (`git push && git push --tags`) — the commit is local. Then the
+  `EMPTY_GRANTS`'s shared mutable lists). A second report the same day → **D136, v1.3.1**:
+  Great Old One's Hex is a PREPARED grant, not "at will" (5etools files it under `innate`;
+  its own feature says only "you always have it prepared"); Synaptic Static's Save column
+  drops the Constitution the spell never forces (the tag came from a penalty on the target's
+  own concentration saves); and everything GRANTED is now one row per spell with a badge per
+  giver — the always-prepared branch used to read `grants[0]` and silently drop the rest.
+- **Next action:** **push** (`git push && git push --tags`) — both commits are local. Then the
   standing queue in PLAN: the fattest small item is `refreshAddFeat()`'s `#epicRow`
   staleness (verify from a fresh load, then fix); the one 🔶 is magic items / rewards,
   awaiting Francesco. The live docs carry five finished phases inline — **`/clean` is still
@@ -40,7 +45,9 @@
   pre-**D127** digest still holds the unresolved `_copy` twins, which is why
   **Aberrant/Clockwork/Wild Magic appear twice**, why every **2014 subclass grants nothing**,
   and why the **Arcane Trickster / Eldritch Knight picker is EMPTY**; a pre-**D135** digest
-  has no designations, no repeatable flags, no granted feat slots and none of the new notes.
+  has no designations, no repeatable flags, no granted feat slots and none of the new notes;
+  a pre-**D136** one still reads Great Old One's Hex as "at will" and Synaptic Static as a
+  Con save.
   ① **Three copy/model calls are yours**: the `…`-placeholder family ("+ add a class…", "all
   schools", "any save", "picked") — one call settles all of them; whether the chain rail's
   CSS-authored `· optional` should match the card's now-capitalised "Optional"
@@ -79,7 +86,8 @@ https://claude.ai/code/artifact/47dbe945-a18a-4444-af21-c0143faa2eb0
 v1.2.39 → D133; the three gate questions answered by Francesco → D134, v1.2.40 — both
 pushed and live). No phase is open, no gate is owed, no ⚑ from the gates remains. On top of
 that, **D135 (v1.3.0) wired invocations and everything shaped like one** — designations,
-repeatable takes, a record's own casting notes, and feature-granted feat slots. What
+repeatable takes, a record's own casting notes, and feature-granted feat slots — and
+**D136 (v1.3.1)** fixed three wrong reads of the spell table. What
 remains is the standing queue/backlog in PLAN.
 v7 (saved builds) is complete → `ARCHIVE.md#v7-tasks`. Non-goals as narrowed by D115: no
 **authored** timeline (the level view is derived from the acquisition order; versions are

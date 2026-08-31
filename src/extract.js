@@ -253,13 +253,39 @@ function parseMarks(o){
     const rest=sents.slice(i+1).join(" ");
     out.push({feature:o.name,filter:filt,desc:richStrip(sent),note:richStrip(rest)||null});});
   return out;}
+// 5etools' `savingThrow` tags EVERY save the text mentions, including one the spell never
+// forces: Synaptic Static reads "…subtracts 1d6 from … any Constitution saving throws to
+// maintain Concentration", a PENALTY on the target's own later saves, not a save this spell
+// makes anyone roll. Drop an ability whose EVERY mention is that clause; anything else keeps
+// 5etools' tag, because a spell really can force several saves (Prismatic Spray, Symbol).
+// **Keep identical to extract.py's primary_saves.**
+const CONC_SAVE_RE=/(strength|dexterity|constitution|intelligence|wisdom|charisma)\s+saving\s+throws?\s+to\s+maintain\s+concentration/ig;
+function primarySaves(sp){
+  const tags=uniqSort(sp.savingThrow);
+  if(tags.length<2)return tags;
+  const body=flattenEntries(sp.entries).concat(flattenEntries(sp.entriesHigherLevel)).join(" ");
+  const conc=[]; CONC_SAVE_RE.lastIndex=0; let m;
+  while((m=CONC_SAVE_RE.exec(body)))conc.push(m[1].toLowerCase());
+  const out=tags.filter(a=>{
+    const seen=(body.match(new RegExp(a+"\\s+saving\\s+throws?","ig"))||[]).length;
+    return !(seen&&conc.filter(x=>x===a).length>=seen);});
+  return out.length?out:tags;   // never empty the column on a phrasing we failed to read
+}
+// "You always have the Hex spell prepared" and nothing else. 5etools writes Great Old One's
+// Eldritch Hex as an INNATE grant, which the app renders "at will" — but the feature grants
+// no free casting at all. FREECAST_RE is what tells the two apart and must stay wide: any
+// clause promising a slotless cast means the innate tag is right.
+// **Keep identical to extract.py's AP_RE / FREECAST_RE.**
+const AP_RE=/always ha(?:ve|s)\b[^.]{0,140}\bprepared/i;
+const FREECAST_RE=/without (?:expending|a spell slot|using a spell slot)|no spell slot|once per|at will|a number of times equal/i;
 function featRecord(f){ const buf=[]; walkText(f.entries,buf); const txt=buf.join(" "),low=txt.toLowerCase();
   const spells=new Set(); let m; const rs=/\{@spell ([^}]+)\}/g; while((m=rs.exec(txt)))spells.add(m[1].split("|")[0].trim().toLowerCase());
   const filters=new Set(); const rf=/\{@filter [^|}]*\|([^}]+)\}/g;
   while((m=rf.exec(txt))){const kv=[];m[1].split("|").forEach(p=>{const i=p.indexOf("=");if(i>=0)kv.push([p.slice(0,i).trim(),p.slice(i+1).trim()]);});
     if(kv.length)filters.add(kv.sort((a,b)=>a[0]<b[0]?-1:1).map(x=>x[0]+"="+x[1]).join("|"));}
   const grants=(low.indexOf("spellbook")>=0&&low.indexOf("add")>=0)||low.indexOf("always have")>=0||low.indexOf("have the following")>=0||filters.size>0||spells.size>0||String(f.name||"").toLowerCase().indexOf("spell")>=0;
-  return {name:f.name,level:f.level,spells,filters,grants:!!grants,note:modNote(txt)}; }
+  return {name:f.name,level:f.level,spells,filters,grants:!!grants,note:modNote(txt),
+          alwaysPrepared:AP_RE.test(txt)&&!FREECAST_RE.test(txt)}; }
 function resolveFeatureRec(feats,at,s){ if(!feats||!feats.length)return null;
   const gf=feats.filter(f=>f.grants); if(!gf.length)return null;
   const same=gf.filter(f=>f.level===at);
@@ -272,9 +298,18 @@ function resolveFeatureRec(feats,at,s){ if(!feats||!feats.length)return null;
   if(gf.length===1)return gf[0]; return null; }
 function resolveFeature(feats,at,s){const r=resolveFeatureRec(feats,at,s);return r?r.name:null;}
 function addSpellEntry(bucket,kind,at,recharge,s,feature,feats){
-  const ref=spellRef(s); let note=null;
-  if(feats!=null){const fr=resolveFeatureRec(feats,at,s);
-    if(fr){ if(feature==null)feature=fr.name; note=fr.note; }}
+  const ref=spellRef(s); let note=null,frec=null;
+  if(feats!=null){frec=resolveFeatureRec(feats,at,s);
+    if(frec){ if(feature==null)feature=frec.name; note=frec.note; }}
+  // 5etools sometimes files an ALWAYS-PREPARED spell under `innate`, which reads "at will"
+  // in the app — Great Old One's Eldritch Hex says only "You always have the Hex spell
+  // prepared". Deliberately narrow, so a real free cast is never rewritten: the at-will
+  // shape only, the feature must NAME this spell (a fallback match may not change a grant's
+  // kind), and its prose must carry no free-casting clause.
+  // **Keep identical to extract.py's add_spell_entry.**
+  if(kind==="innate"&&recharge==="at will"&&frec&&frec.alwaysPrepared&&!ref.choice
+     &&frec.spells.has(String(ref.name||"").toLowerCase())){
+    kind="prepared"; recharge="prepared (free)";}
   // `undefined` DISAPPEARS through JSON.stringify while Python writes `"feature": null`,
   // which is the whole of the 150-record "divergence" the parity harness used to report.
   if(feature===undefined)feature=null;
@@ -760,7 +795,7 @@ function buildDigest(files){
         spells[k]={name:sp.name,source:src,group:bgroup(src),book:bname(src),level:sp.level||0,
           school:SCHOOL[sp.school]||sp.school||"",time:ct[0],tcat:ct[1],range:rs[0],rcat:rs[1],
           comp:components(sp),ritual:!!((sp.meta||{}).ritual),conc:!!dur.concentration,
-          dmg:uniqSort(sp.damageInflict),cond:uniqSort(sp.conditionInflict),save:uniqSort(sp.savingThrow),
+          dmg:uniqSort(sp.damageInflict),cond:uniqSort(sp.conditionInflict),save:primarySaves(sp),
           atk:!!sp.spellAttack,durTxt:durationText(sp),desc:flattenEntries(sp.entries),
           higher:flattenEntries(sp.entriesHigherLevel),reprinted:reprinted(sp),supersededBy:supersededBy(sp),page:sp.page??null,cls:[],sub:[],feat:[],race:[],
           // raw entries, popped once creature sets are resolved — richStrip eats the

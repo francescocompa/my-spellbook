@@ -490,5 +490,28 @@
   handed all 200+ spell-less records the SAME `fixed`/`picks` arrays; the first `.append`
   anywhere would have shown up on every one of them. It is `empty_grants()` now. Any
   constant in these extractors holding a mutable value has this trap in it.
+- **5etools tags its own prose too broadly, in two places that reach the table (D136).**
+  ① `savingThrow` lists EVERY save the text mentions, so Synaptic Static carries Constitution
+  because it *penalises* the target's later "Constitution saving throws to maintain
+  Concentration" — a save this spell never makes anyone roll. `primary_saves` drops an
+  ability whose *every* mention is that one clause and nothing else: a spell really can force
+  several saves (Prismatic Spray, Symbol, 2014 Sleet Storm), and the phrasings for that are
+  open-ended, so the first cut — reading the primary save out of "makes a/an X saving throw" —
+  stripped real saves off four spells. ② `innate` sometimes holds an ALWAYS-PREPARED grant
+  (Great Old One's Eldritch Hex: "You always have the Hex spell prepared", no free casting at
+  all), which this app renders "at will". The rewrite in `add_spell_entry` is narrow on
+  purpose and all three guards are load-bearing: **at-will only** (a cadence is an explicit
+  free-cast budget — Psi Warrior's daily Telekinesis), **the feature must NAME the spell**
+  (Archfey's always-prepared table also names Misty Step, which it separately grants
+  innately), and **`FREECAST_RE` must stay wide** ("without *a* spell slot" is Psi Warrior's
+  phrasing; a regex that only knew "without expending" let it through). Widening either
+  pattern needs the measurement re-run — both were tuned against the whole mirror.
+- **The table's granted rows are keyed by SPELL, not by giver (D136).** `push` dedupes on
+  `spellKey|src`, so two givers of one spell used to make two rows — and the always-prepared
+  branch was worse, reading `e.grants[0]` and silently dropping every later giver. Granted
+  rows are merged in `tableRows` now and carry `givers[]`, `kinds` and `recharges`; anything
+  reading `row.src` gets the joined label, and `cellFor("build")` draws a badge per giver.
+  A PICK is deliberately NOT merged into them: its marker column and its prepare toggle
+  belong to a class row.
 - **History purge:** old data-bearing commits are unreachable on origin but GitHub may still serve
   them by exact SHA until it gc's. `backup/pre-purge-20260826` (local) has the original.

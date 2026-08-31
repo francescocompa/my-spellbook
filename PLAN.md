@@ -277,6 +277,13 @@ restate it. **The phase is CLOSED — H1/H2 (v1.2.27), H3 (v1.2.28), H4 (v1.2.31
   ④ `featProgression` is read, so Lessons of the First Ones adds its Origin slot to the budget
   card and to the guided chain. Plus a verifiable filtered prerequisite and two bugs found in
   passing (`Seeking Spell`'s boolean-as-array test; `EMPTY_GRANTS`'s shared mutable lists).
+- [x] **Three wrong reads of the spell table** (**shipped v1.3.1 → D136**, Francesco's
+  report; done-when verified in-browser on a Great Old One Warlock 10 fixture, torn down
+  after): Great Old One's Hex is a PREPARED grant, not "at will" (5etools files it under
+  `innate`, its own feature says only "you always have it prepared"); Synaptic Static's Save
+  column drops the Constitution it never forces (the tag came from a penalty on the target's
+  own concentration saves); and everything GRANTED is one row per spell with a badge per
+  giver — the always-prepared branch used to read `grants[0]` and silently drop the rest.
 - [ ] **`refreshAddFeat()` has the identical defect for `#epicRow`** (found while fixing the
   above, 2026-08-30 — HIGH CONFIDENCE from reading, NOT reproduced in the browser): it
   toggles `#epicRow` on `featBudget().epic`, which per D114 is a function of

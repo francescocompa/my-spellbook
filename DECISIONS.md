@@ -1562,6 +1562,51 @@ written up in full in `GOTCHAS.md` — that is the copy to trust.
   `grantedFeatSlots`/`originSlots`, `grantNotes`, the entity picker, both pick modals, the
   Choices card), src/styles.css (`.entcount`, `.chipn`), GOTCHAS (three new entries).
 
+- **D136 (2026-08-31) DECIDED — three reads of the table that were wrong** (Francesco's
+  report: *"for great old one, hex is marked as at will but is instead simply always
+  prepared"*, *"synaptic static includes in the save row Con save, but that's only a
+  secondary effect, it only targets intelligence saves"*, *"if two source grant the same
+  spell (ex. Shadowmoor Hexer and Eldritch Hex), ideally they should be merged in one
+  row"*). Two are 5etools tagging its own prose too broadly, one is ours.
+  - **(a) An at-will `innate` whose feature says only "always prepared" is a PREPARED
+    grant.** Great Old One's Eldritch Hex reads *"You always have the Hex spell prepared"*
+    and grants no free casting at all, but 5etools files it under `innate`, which this app
+    renders "at will". `add_spell_entry` now rewrites the kind — deliberately narrow, so a
+    real free cast is never touched: **only the at-will shape** (a cadence is an explicit
+    free-cast budget: Psi Warrior's daily Telekinesis and Archfey's Cha-per-day Misty Step
+    both stay innate), **only when the feature NAMES this spell** (a fallback feature match
+    may not rewrite a grant's kind — Archfey's always-prepared table also names Misty Step),
+    and **only when its prose carries no free-casting clause** (`FREECAST_RE` stays wide on
+    purpose: "without a spell slot" is the phrasing Psi Warrior uses, and a narrower regex
+    let it through). One record in 5etools v2.33.3 matches. *Rejected:* a hand-authored
+    correction table (one name today, stale on the next book); rewriting on the prose alone
+    without the at-will and names-the-spell guards (three false positives, measured).
+  - **(b) A save the spell never forces is not a save.** 5etools' `savingThrow` tags every
+    save the text mentions, so Synaptic Static carried Con because it *penalises* the
+    target's later *"Constitution saving throws to maintain Concentration"* — a spell that
+    only ever makes anyone roll Intelligence read "Con/Int" in the Save column.
+    `primary_saves` drops an ability whose **every** mention is that one clause. Everything
+    else keeps 5etools' tag: a spell really can force several saves (Prismatic Spray,
+    Symbol, 2014 Sleet Storm all verified unchanged), and the phrasings for that are not
+    enumerable. Two records change, both printings of Synaptic Static. *Rejected:* deriving
+    the primary save from "makes a/an X saving throw" (measured: it strips Prismatic Spray
+    to one save and Whirlwind's Strength save, because the other phrasings are open-ended).
+  - **(c) Everything GRANTED is one row per SPELL, with a badge per giver.** It failed in
+    both directions: the always-prepared branch read `e.grants[0]` and **silently dropped**
+    every later giver, while two innate grants produced a row each. Now the granted rows are
+    merged on the spell — each giver keeps its own badge, its own free/cast tint and its own
+    note, and where cadences disagree the Uses cell names them all rather than letting one
+    stand for the rest. A free cast is the stronger fact, so a spell both always-prepared
+    AND innately granted takes the innate marker and cadence and says the other half in the
+    marker's tip. **A PICK stays its own row** — that one is your choice on a class row and
+    the marker column is about that class. *Rejected:* merging picks into granted rows (the
+    marker and the prepare toggle belong to a class); one badge with the givers joined into
+    a string (loses the per-giver tint and note).
+  Affects: extract.py + src/extract.js (`primary_saves`/`primarySaves`, `AP_RE`/
+  `FREECAST_RE`, `_feat_record.alwaysPrepared`, `add_spell_entry`), src/app.js
+  (`tableRows` merge, `cellFor` mark/casts/build), src/styles.css (badge gap, print
+  separator).
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

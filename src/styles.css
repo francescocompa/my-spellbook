@@ -311,6 +311,10 @@
   table.spelltable .nm{font-weight:600}
   .srcbadge{font-size:10px;font-weight:600;padding:1px 7px;border-radius:12px;background:var(--panel-2);color:var(--muted);white-space:nowrap}
   .srcbadge.free{background:var(--good-soft);color:var(--good)} .srcbadge.cast{background:var(--gold-soft);color:var(--gold)}
+  /* D136: a spell two sources grant is one row with a badge each — they need a gap, and
+     the cell wraps rather than widening the column */
+  .srcbadge+.srcbadge{margin-left:4px}
+  table.spelltable td .srcbadge{display:inline-block;margin-bottom:1px}
   /* D77: no accent on a grouping header — the ability names are the table's only hue, and
      an accent band fought them. The outer group keeps a neutral fill, the level sub-header
      drops to a quiet sans label. */
@@ -1623,6 +1627,9 @@ label.fld .fldt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-wi
     background:none;font-size:7.5px}
   table.spelltable td{padding:3px 3px;border-bottom:.15mm solid var(--line)}
   table.spelltable .srcbadge{white-space:normal;padding:0;background:none;border-radius:0;font-size:9px}
+  /* on paper the badges lose their pills, so a bare gap would read as one long name */
+  table.spelltable .srcbadge+.srcbadge{margin-left:0}
+  table.spelltable .srcbadge+.srcbadge::before{content:" · ";color:var(--muted)}
   table.spelltable td.cmp{font-size:9px;letter-spacing:0}
   table.spelltable .savechip,table.spelltable .achip{padding:0 2px}
   table.spelltable .grouphdr td{border-bottom:.2mm solid var(--line-strong);padding-top:7px}

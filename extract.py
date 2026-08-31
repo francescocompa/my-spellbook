@@ -208,6 +208,29 @@ def flatten_entries(entries, strip=None):
                 elif isinstance(it, dict): out.append("• " + strip(it.get("name", "")) + " " + " ".join(flatten_entries(it.get("entries") or it.get("entry") and [it["entry"]] or [], strip)))
     return [x for x in out if x]
 
+# 5etools' `savingThrow` tags EVERY save the text mentions, including one the spell never
+# forces: Synaptic Static reads "…subtracts 1d6 from … any Constitution saving throws to
+# maintain Concentration", which is a PENALTY applied to the target's own later saves, not a
+# save this spell makes anyone roll — and the table's Save column showed "Con/Int" for a
+# spell that only ever targets Intelligence. Drop an ability whose EVERY mention is that
+# clause; anything else keeps 5etools' tag, because a spell really can force several saves
+# (Prismatic Spray, Symbol) and the phrasings for that are not enumerable.
+# **Keep identical to extract.js's primarySaves.**
+_CONC_SAVE_RE = re.compile(
+    r"(strength|dexterity|constitution|intelligence|wisdom|charisma)\s+saving\s+throws?\s+"
+    r"to\s+maintain\s+concentration", re.I)
+def primary_saves(sp):
+    tags = sorted(set(sp.get("savingThrow") or []))
+    if len(tags) < 2: return tags
+    body = " ".join(flatten_entries(sp.get("entries")) + flatten_entries(sp.get("entriesHigherLevel")))
+    conc = [m.group(1).lower() for m in _CONC_SAVE_RE.finditer(body)]
+    out = []
+    for a in tags:
+        seen = len(re.findall(a + r"\s+saving\s+throws?", body, re.I))
+        if seen and conc.count(a) >= seen: continue    # every mention is the concentration clause
+        out.append(a)
+    return out or tags        # never empty the column on a phrasing we failed to read
+
 spells = {}
 for f in glob.glob(os.path.join(MIRROR, "spells", "spells-*.json")):
     for sp in load(f).get("spell", []):
@@ -228,7 +251,7 @@ for f in glob.glob(os.path.join(MIRROR, "spells", "spells-*.json")):
             "conc": bool(dur.get("concentration")),
             "dmg": sorted(set(sp.get("damageInflict") or [])),
             "cond": sorted(set(sp.get("conditionInflict") or [])),
-            "save": sorted(set(sp.get("savingThrow") or [])),
+            "save": primary_saves(sp),
             "atk": bool(sp.get("spellAttack")),
             "durTxt": duration_text(sp),
             "desc": flatten_entries(sp.get("entries")),
@@ -637,12 +660,22 @@ def choose_filter(choose):
 def add_spell_entry(bucket, kind, at, recharge, s, feature=None, feats=None):
     """Route one spell reference into fixed (named) or picks (choose)."""
     ref = spell_ref(s)
-    note = None
+    note = None; frec = None
     if feats is not None:
         frec = resolve_feature_rec(feats, at, s)
         if frec:
             if feature is None: feature = frec["name"]
             note = frec.get("note")
+    # 5etools sometimes files an ALWAYS-PREPARED spell under `innate`, which reads "at will"
+    # in the app — Great Old One's Eldritch Hex says only "You always have the Hex spell
+    # prepared". Deliberately narrow, so a real free cast is never rewritten: the at-will
+    # shape only (a cadence is an explicit free-cast budget), the feature must NAME this
+    # spell (a fallback match may not change a grant's kind), and its prose must carry no
+    # free-casting clause at all. One record matches in 5etools v2.33.3.
+    if (kind == "innate" and recharge == "at will" and frec and frec.get("alwaysPrepared")
+            and not ref.get("choice")
+            and str(ref.get("name") or "").lower() in frec["spells"]):
+        kind, recharge = "prepared", "prepared (free)"
     if ref.get("choice"):
         f, c = choose_filter(s)          # pass the whole ref so count survives
         e = {"kind": kind, "atLevel": at, "recharge": recharge,
@@ -895,6 +928,15 @@ def parse_marks(o):
                     "desc": rich_strip(sent), "note": rich_strip(rest) or None})
     return out
 
+# "You always have the Hex spell prepared" and nothing else. 5etools writes Great Old One's
+# Eldritch Hex as an INNATE grant, which the app renders "at will" — but the feature grants
+# no free casting at all, only a standing preparation. `FREECAST_RE` is what tells the two
+# apart, and it must stay wide: any clause promising a slotless cast means the innate tag is
+# right and the kind must NOT be rewritten.
+AP_RE = re.compile(r"always ha(?:ve|s)\b[^.]{0,140}\bprepared", re.I)
+FREECAST_RE = re.compile(r"without (?:expending|a spell slot|using a spell slot)|no spell slot|"
+                         r"once per|at will|a number of times equal", re.I)
+
 def _feat_record(f):
     buf = []; _walk_text(f.get("entries"), buf); txt = " ".join(buf); low = txt.lower()
     spells = set(m.group(1).split("|")[0].strip().lower() for m in re.finditer(r"\{@spell ([^}]+)\}", txt))
@@ -907,7 +949,8 @@ def _feat_record(f):
     grants = (("spellbook" in low and "add" in low) or "always have" in low or "have the following"
               in low or bool(filters) or bool(spells) or ("spell" in (f.get("name") or "").lower()))
     return {"name": f.get("name"), "level": f.get("level"), "spells": spells,
-            "filters": filters, "grants": bool(grants), "note": _mod_note(txt)}
+            "filters": filters, "grants": bool(grants), "note": _mod_note(txt),
+            "alwaysPrepared": bool(AP_RE.search(txt)) and not FREECAST_RE.search(txt)}
 
 SUBFEAT_INDEX = {}   # (className, subclassShortName, subclassSource) -> [feature records]
 CLSFEAT_INDEX = {}   # (className, classSource) -> [feature records]
