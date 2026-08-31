@@ -555,9 +555,22 @@ const reprintOk=o=>state.filters.reprint==="all" ||
 const visible=o=>srcOn(o.source)&&reprintOk(o);
 
 // ── rules helpers ────────────────────────────────────────────────────────
-function ecl(caster,l){return {full:l,artificer:Math.ceil(l/2),"1/2":Math.floor(l/2),"1/3":Math.floor(l/3)}[caster]||0;}
-function maxLvlAt(caster,l){ if(caster==="pact")return DATA.pact[Math.min(l,20)-1][1];
-  const e=ecl(caster,l); if(e<=0)return 0; const row=DATA.fullMc[Math.min(e,20)-1]||[];
+// D68's TWO clocks round in OPPOSITE directions, and nothing below may mix them. Pooled
+// SLOTS floor each class into the combined caster level — that math lives inline where
+// 2+ casters combine (compute() and planSlots(): full + ⌊half/2⌋ + ⌊third/3⌋). A class's
+// OWN clock rounds UP: the mirror's own tables give a half-caster 2nd-level spells at
+// class level 5 (⌈l/2⌉ — Paladin, Ranger, Artificer identically) and a third-caster at 7
+// (⌈l/3⌉ — AT/EK rowsSpellProgression: 2nd/3rd/4th at 7/13/19), with nothing before a
+// third-caster's subclass level (3). Flooring the own clock is what read "1st at AT 7" —
+// one tier low at every odd gain level.
+function eclOwn(caster,l){return {full:l,artificer:Math.ceil(l/2),"1/2":Math.ceil(l/2),"1/3":l>=3?Math.ceil(l/3):0}[caster]||0;}
+// Top castable spell level on the class's OWN clock. When the class carries its real slot
+// table (`cls`, optional) that row IS the truth — it also settles the 2014-vs-2024 first-slot
+// level (PHB half-casters start at 2, XPHB at 1) without a per-edition rule. Third-caster
+// SUBCLASSES carry no table; fullMc at eclOwn reproduces their printed rows exactly.
+function maxLvlAt(caster,l,cls){ if(caster==="pact")return DATA.pact[Math.min(l,20)-1][1];
+  const e=eclOwn(caster,l);
+  const row=(cls&&cls.slots&&cls.slots[Math.min(l,20)-1])||(e>0?DATA.fullMc[Math.min(e,20)-1]:null)||[];
   let m=0;row.forEach((n,i)=>{if(n>0)m=i+1;});return m; }
 
 function resolveRow(row,idx){
@@ -574,14 +587,16 @@ function resolveRow(row,idx){
   const base={idx:row.id,row,c,sub,name:c.name,level:row.level};
   if(!caster)return {...base,caster:null,nonCaster:true};
   const lvl=row.level, isPact=caster==="pact";
-  const maxLvl=maxLvlAt(caster,lvl);
+  const maxLvl=maxLvlAt(caster,lvl,c);
   const prepared=prepArr?(prepArr[lvl-1]||0):0;
   const cantrips=cantArr?(cantArr[lvl-1]||0):0;
   // Wizard-style spellbook: cumulative known pool, separate from daily prepared
   const spellbook=c.spellbook?c.spellbook.slice(0,lvl).reduce((a,b)=>a+(b||0),0):null;
   let ownSlots=null,pact=null;
   if(isPact){const p=DATA.pact[Math.min(lvl,20)-1];pact={num:p[0],lvl:p[1]};}
-  else ownSlots=(c.slots&&c.slots[lvl-1])||DATA.fullMc[Math.min(ecl(caster,lvl),20)-1];
+  // a lone caster's slots are its OWN table — the fallback (third-caster subclasses,
+  // which carry none) rebuilds that table, so it reads the OWN clock, not the pooled one
+  else ownSlots=(c.slots&&c.slots[lvl-1])||DATA.fullMc[Math.min(eclOwn(caster,lvl),20)-1];
   return {...base,caster,ability,static:!!stat,isPact,pact,maxLvl,ownSlots,prepared,cantrips,spellbook,prepArr,listClass,listUnknown:!listClass,viaSub};
 }
 // A record with `listUnknown` casts but has no list to cast FROM — the one honest answer
@@ -604,7 +619,7 @@ function capsFor(rec){
   const cl=rec.level,total=rec.prepared,maxL=rec.maxLvl,cap={},dist={};
   if(rec.static){
     for(let L=1;L<=maxL;L++){
-      let first=cl; for(let k=1;k<=cl;k++){if(maxLvlAt(rec.caster,k)>=L){first=k;break;}}
+      let first=cl; for(let k=1;k<=cl;k++){if(maxLvlAt(rec.caster,k,rec.c)>=L){first=k;break;}}
       const prior=first>1?(rec.prepArr[first-2]||0):0;
       cap[L]=Math.min(total,(total-prior)+Math.min(cl-first+1,prior));
     }
@@ -1091,7 +1106,7 @@ function buildHealth(){
       // where it really arrived, and the class level it arrived at
       const at=sw.has(k)?sw.get(k):lvls[l];
       const cl=sw.has(k)?lvls.filter(x=>x<=at).length:l+1;
-      const canCast=maxLvlAt(sched.caster,Math.max(1,cl));
+      const canCast=maxLvlAt(sched.caster,Math.max(1,cl),c);
       if(sp.level>canCast)
         add(at,"spelllevel",`${sp.name} is level ${sp.level}, but ${c.name} ${cl}`
           +` — which is where it arrives — casts at most level ${canCast||1}.`);
@@ -1223,7 +1238,7 @@ function guideSteps(){
       ct-cf>1?"Cantrips":"Cantrip"));
     const sf=cum(sched.spells,cl-1), stp=cum(sched.spells,cl);
     if(sched.spells&&stp>sf)secs.push(gpickSec("spell",id,sf,stp,ch.spells||[],
-      Math.max(1,maxLvlAt(sched.caster,cl)),
+      Math.max(1,maxLvlAt(sched.caster,cl,c)),
       sched.book?(stp-sf>1?"Spellbook spells":"Spellbook spell"):(stp-sf>1?"Spells":"Spell")));
     if(secs.length)add({key:"cast~"+id+"~"+lv,lv,ord:4,kind:"cast",row:id,cl,
       label:secs[0].label,multiLabel:"Spellcasting",sections:secs});
@@ -2317,7 +2332,7 @@ function guideSwapMax(row,lv){
   const sched=row&&rowSched(row); if(!sched)return 1;
   const lvls=charLevelMap().get(row.id)||[];
   const clAt=lvls.filter(x=>x<=lv).length;
-  return Math.max(1,maxLvlAt(sched.caster,Math.max(1,clAt)));
+  return Math.max(1,maxLvlAt(sched.caster,Math.max(1,clAt),CLS_BY[row.clsKey]));
 }
 // open the modal for ONE SECTION of a chain step (D131(a), superseding D130(d)'s one visit
 // per step): the modal knows only that section's pool, so a Cantrips section and a Spells
@@ -2819,7 +2834,7 @@ function compute(){
   // multiclass slots
   const nonPact=casters.filter(r=>!r.isPact);
   let mcSlots=null,mcLevel=0;
-  if(nonPact.length===1){mcSlots=nonPact[0].ownSlots;mcLevel=ecl(nonPact[0].caster,nonPact[0].level);}
+  if(nonPact.length===1){mcSlots=nonPact[0].ownSlots;mcLevel=eclOwn(nonPact[0].caster,nonPact[0].level);}
   else if(nonPact.length>1){let full=0,half=0,third=0;
     nonPact.forEach(r=>{if(r.caster==="full")full+=r.level;else if(r.caster==="artificer"||r.caster==="1/2")half+=r.level;else if(r.caster==="1/3")third+=r.level;});
     mcLevel=full+Math.floor(half/2)+Math.floor(third/3); if(mcLevel>0)mcSlots=DATA.fullMc[Math.min(mcLevel,20)-1];}
@@ -2884,7 +2899,7 @@ function compute(){
       for(let k=0;k<r.level;k++){t+=add[k]||0;cum.push(t);}
       const bookTotal=cum[r.level-1]||0, bcap={};
       for(let L=1;L<=r.maxLvl;L++){ let first=r.level;
-        for(let k=1;k<=r.level;k++){if(maxLvlAt(r.caster,k)>=L){first=k;break;}}
+        for(let k=1;k<=r.level;k++){if(maxLvlAt(r.caster,k,r.c)>=L){first=k;break;}}
         const before=first>1?(cum[first-2]||0):0; bcap[L]=Math.max(0,bookTotal-before); }
       known={total:bookTotal,maxL:r.maxLvl,cap:bcap,book:true,prepares:r.prepared};
     }
@@ -2932,7 +2947,7 @@ function compute(){
         capAdj={};
         const priorAt=k=>k>=2?(r.prepArr[k-2]||0):0;
         for(let L=1;L<=cp.maxL;L++){
-          let first=r.level; for(let k=1;k<=r.level;k++){if(maxLvlAt(r.caster,k)>=L){first=k;break;}}
+          let first=r.level; for(let k=1;k<=r.level;k++){if(maxLvlAt(r.caster,k,r.c)>=L){first=k;break;}}
           const early=Math.max(0,priorAt(first)-priorAt(onset))+Math.max(0,first-onset);
           const offBelow=offItems.filter(sp=>sp.level<L).length;
           const pen=Math.max(0,offBelow-early);
@@ -6153,7 +6168,7 @@ function planSlots(levels){
     else if(caster==="1/3")third+=lvl;
   });
   let slots=null;
-  if(n===1)slots=(one.c.slots&&one.c.slots[one.lvl-1])||DATA.fullMc[Math.min(ecl(one.caster,one.lvl),20)-1]||null;
+  if(n===1)slots=(one.c.slots&&one.c.slots[one.lvl-1])||DATA.fullMc[Math.min(eclOwn(one.caster,one.lvl),20)-1]||null;
   else if(n>1){const mc=full+Math.floor(half/2)+Math.floor(third/3);
     if(mc>0)slots=DATA.fullMc[Math.min(mc,20)-1];}
   return {slots,pact};
@@ -6166,7 +6181,7 @@ function levelCasting(row,cl,before,after){
   const c=CLS_BY[row.clsKey]; if(!c)return null;
   const sub=subOfRow(row);
   const caster=c.caster||(sub&&sub.caster)||null; if(!caster)return null;
-  const spell=maxLvlAt(caster,cl), spellWas=cl>1?maxLvlAt(caster,cl-1):0;
+  const spell=maxLvlAt(caster,cl,c), spellWas=cl>1?maxLvlAt(caster,cl-1,c):0;
   // Pact Magic is measured on its own terms (D123): count × slot level, never folded
   // into the regular-slot clock
   if(caster==="pact"){

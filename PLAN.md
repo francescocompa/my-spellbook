@@ -257,13 +257,22 @@ restate it. **The phase is CLOSED — H1/H2 (v1.2.27), H3 (v1.2.28), H4 (v1.2.31
   CSS-authored twin of the `"Optional"` H6 capitalised at app.js:2042. Different surface
   (chain rail, appended mid-line after a middot) and the audit said no CSS work — but if the
   two should match, that is the line. ⚑ (owner: Francesco, 2026-08-30)
-- [ ] **Third-caster max spell level is one tier low from class level 7** (H2 agent, flagged
-  not fixed): `maxLvlAt("1/3",L)` uses `ecl=floor(L/3)`, so an Arcane Trickster / Eldritch
-  Knight gets 2nd-level spells at class level 9 when the mirror's own
-  `subclassTableGroups.rowsSpellProgression` says **7** (3rd at 13, 4th at 19 — `ceil(L/3)`).
-  This is D68's two clocks: `floor` is right for multiclass slot pooling, `ceil` for the
-  class's own max spell level, and `ecl` currently serves both. Neither extractor reads
-  `subclassTableGroups`. Touches multiclass slot maths. ⚑ (owner: Francesco, 2026-08-30)
+- [x] **Third-caster max spell level is one tier low from class level 7** (**fixed v1.4.3**,
+  and the audit widened it — the same one-variable bug hit 2014 half-casters and the lone
+  third-caster's own slot row): `ecl()` became `eclOwn()`, rounding UP per D68's own-class
+  clock (`1/3`: 2nd at 7, 3rd at 13, 4th at 19; `1/2`: one tier up at every odd gain level —
+  PHB Paladin 5 read max 1st, the mirror says 2nd; XPHB Paladin/Ranger were already tagged
+  `artificer`-progression and unaffected). `maxLvlAt` now prefers the class's REAL extracted
+  slot row when present, formula fallback otherwise — no new extractor surface. Multiclass
+  slot POOLING still floors and was verified byte-identical before/after (Wizard 5 / AT 7
+  pooled `[4,3,3,1]` unchanged). Deliberate widening: a lone AT 7's own slot strip now
+  matches the mirror's printed row (`1st×4 | 2nd×2`, was `1st×3`).
+- [ ] **2024 pooling rounds half-casters up per class, and the app floors them** (found
+  during the v1.4.3 fix, NOT fixed — pooling was out of its scope): `compute()`/`planSlots()`
+  lump `artificer` + `"1/2"` into one bucket and take `⌊half/2⌋`, but TCE Artificer and
+  XPHB Paladin/Ranger round up PER CLASS when multiclassing — Artificer 5 / Wizard 5 should
+  pool to caster level 8, the app says 7. Touches the pooled slot table only.
+  ⚑ (owner: Francesco, 2026-08-31)
 - [x] **`renderOptFeats()` goes stale after a class or level change** (**fixed v1.2.29** —
   the suspicion was right and understated). Five handlers, not two, call
   `renderClassRows(); render();` (class swap, subclass, level stepper, remove row, and
