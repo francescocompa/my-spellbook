@@ -6,83 +6,74 @@
 > | File | Owns |
 > |---|---|
 > | `CLAUDE.md` | What this project is, its conventions, build/run, the verify gate, versioning |
-> | `PLAN.md` | The queue — what is next and what is gated |
-> | `DECISIONS.md` | Every decision D7–D139 and what was rejected |
+> | `PLAN.md` | The queue — what is next, what is flagged for Francesco |
+> | `DECISIONS.md` | Every decision D7–D141 and what was rejected |
 > | `GOTCHAS.md` | Traps that have already cost a session |
 > | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
-> | `ARCHIVE.md` | Bodies of consumed phases and old rationale |
+> | `ARCHIVE.md` | Bodies of consumed phases, decisions and old rationale |
 
-## TL;DR (2026-08-31 · **v1.4.1** at `d3719a1`, pushed · LIVE on Pages)
-- **The reported bug is RESOLVED (2026-08-31, confirmed by Francesco).** It was the
-  stale-library branch: his imported digest was behind, and the books that stayed wrong were
-  ones the refresh **could not find in the linked folder to re-parse** — he relinked those
-  sources manually and the refresh healed them. Hex and Lessons now read correctly on his
-  browser. The method rule the episode produced is **D139** (and its Gotcha); the resolved
-  account is below.
-- Verified en route (first time with a controlling service worker): Pages serves the pushed
-  build; a returning browser gets the PREVIOUS page on first load by design
-  (stale-while-revalidate), and the v1.3.3 "newer version downloaded — Reload" notice
-  appears correctly and offers the reload. **D137(d) is no longer unverified.**
-- **Versioning changed → D140:** minor and major bumps only with Francesco's explicit
-  approval (present the case, ask); patch stays the automatic per-commit default.
-- **Next action:** nothing blocked — the queue is PLAN's standing backlog (⚑ calls and the
-  🔶 magic-item/rewards decision). A rework survey was delivered 2026-08-31; direction
-  awaits Francesco's pick.
-- **Manual for Francesco:** the standing list is unchanged: three copy/model calls
-  (the `…`-placeholder family; the chain rail's CSS `· optional` vs the card's "Optional",
-  styles.css:1822; whether `sbFav` should be edition-tolerant); your build "v2" health ⚠ at
-  L1–L4 (real: a Warlock 4 row holding 8 spells where the class knows 5); print from Chrome
-  or Safari, not an in-app PDF writer (D108); turn XMM on in Sources for Find Familiar's 2024
-  forms (D81); optionally ask GitHub Support to gc the pre-purge SHAs.
+## TL;DR (2026-08-31 · **v1.4.5** at `02f51fd`, pushed + tagged · LIVE on Pages)
 
-## ✅ The bug, resolved (2026-08-31)
-
-**Cause, confirmed by Francesco:** his imported library was stale, and the books that stayed
-wrong were ones the refresh **could not find in the linked folder to re-parse** — a partial
-refresh can never heal a book the folder does not hold (D129's caveat, D138's per-book
-stamps). He relinked those sources manually; the refresh then healed them and every symptom
-cleared. The method rule this episode produced — no fix for a "works for you, not for me"
-report without the reporter's own reading — is **D139** and its Gotcha entry; the
-stale-digest reproduction is in GOTCHAS. The three releases it took (v1.3.2/v1.3.3/v1.4.0)
-each fixed something real and all three now stand verified, including D137(d)'s update
-notice (seen live with a controlling service worker, 2026-08-31).
+- **Nothing is open, owed or gated.** Every phase (E–I) is closed and gated; the
+  "works for you, not for me" bug is resolved; four releases shipped this session.
+  What remains is PLAN's standing backlog — ⚑ calls that are Francesco's to make, plus
+  the 🔶 magic-item/rewards decision.
+- **The bug is RESOLVED** (confirmed by Francesco): his imported library was stale, and the
+  books that stayed wrong were ones the refresh **could not find in the linked folder to
+  re-parse** — he relinked those sources by hand and the refresh healed them. v1.4.4 then
+  closed that dead end in the app itself. The method rule the episode produced is **D139**.
+- **This session shipped v1.4.2 → v1.4.5** (four parallel worktree agents, merged one at a
+  time with the verify gate re-run on each merged tree, 48/48 parity throughout):
+  - **v1.4.2** — Lessons of the First Ones: a granted origin slot arrives WITH its giver,
+    not at level 1, and its cap is full-plan, not PREVIEW-sliced. One cause, both symptoms.
+  - **v1.4.3** — D68's own-class clock rounds UP: third-casters (2nd at 7) and 2014
+    half-casters. Multiclass pooling still floors, verified byte-identical.
+  - **v1.4.4** — the refresh carries you to the remedy; and `filterDigest` was dropping
+    D138's per-book stamps, which had re-opened the "all current" false success.
+  - **v1.4.5** — D141: the arrow orders both columns, the timeline has one current state,
+    the `?` before Character view is gone, and the centering audit fixed `#clvlChip` at its
+    root (dead D54 scrubber padding) plus a baseline bug on icon-label buttons.
+- **Two rules changed this session.** **D140** — minor and major bumps need Francesco's
+  explicit approval (present the case, ask); patch stays the per-commit default. **D141(d)**
+  → CLAUDE.md: alignment on new/changed UI is **measured** (text rect vs container rect at
+  1280 and 375), never eyeballed.
+- **Next action: none blocked.** Francesco picks from PLAN. The nearest well-scoped items:
+  `refreshAddFeat()`'s `#epicRow` (high-confidence, unreproduced), and the 2024 half-caster
+  pooling flag found during v1.4.3.
+- **Manual for Francesco:** ① the four ⚑ copy/model calls in PLAN — the `…`-placeholder
+  family; the chain rail's CSS `· optional` vs the card's "Optional" (styles.css:1822);
+  whether `sbFav` should be edition-tolerant; **and new this session**, where the guide's
+  orphaned *"Ability scores aren't tracked, so ASI = skip the step"* line should live now
+  that the `?` disclosure is gone. ② Your build "v2" health ⚠ at L1–L4 is real (a Warlock 4
+  row holding 8 spells where the class knows 5). ③ Print from Chrome or Safari, not an
+  in-app PDF writer (D108). ④ Turn XMM on in Sources for Find Familiar's 2024 forms (D81).
+  ⑤ Optionally ask GitHub Support to gc the pre-purge SHAs.
 
 ## What this is
+
 Offline single-page D&D 2024 spell planner. Two builds from one source:
 - `dist/index.html` — self-contained, **bundles the full data** (personal offline use). Local-only.
 - `docs/index.html` — **embeds the SRD 5.2 subset**, imports more 5etools at runtime. Public Pages build.
 
-Content at runtime = baked/SRD bundle ⊕ imported 5etools ⊕ custom homebrew (localStorage).
-Legacy Artifact URL (superseded by Pages, kept for reference):
+Content at runtime = baked/SRD bundle ⊕ imported 5etools (IndexedDB) ⊕ custom homebrew
+(localStorage). Legacy Artifact URL (superseded by Pages, kept for reference):
 https://claude.ai/code/artifact/47dbe945-a18a-4444-af21-c0143faa2eb0
+
+Non-goals, as narrowed by D115: no **authored** level-by-level timeline (per-level truth is
+derived from the acquisition order; versions are alternatives, never levels), no server sync
+or accounts, no sharing a build as a page or URL (D36), no full bestiary (D78 carries a
+bounded set). Ability scores and proficiency are not modelled.
 
 ## Now
 
-**Nothing is open or owed.** The 2026-08-31 bug is resolved (block above); what remains is
-the standing queue/backlog in PLAN.
+The queue is `PLAN.md` — a phase table pointing at the archived bodies, then the open ⚑
+flags and the backlog. Phases E–I are all closed and gated; their models (D115, D118, D126,
+D130, D131, D132) still bind any change to those surfaces, so cite them rather than
+re-deriving.
 
-**Phases E, F, G, H and I are ALL DONE** — every gate has passed (E8, F4, and on
-2026-08-31 G4, H5 and I5, all three PASSED-WITH-FINDINGS with the findings fixed in
-v1.2.39 → D133; the three gate questions answered by Francesco → D134, v1.2.40 — both
-pushed and live). No phase is open, no gate is owed, no ⚑ from the gates remains. On top of
-that, **D135 (v1.3.0) wired invocations and everything shaped like one** — designations,
-repeatable takes, a record's own casting notes, and feature-granted feat slots — and
-**D136 (v1.3.1)** fixed three wrong reads of the spell table and **D137 (v1.3.2)** made the
-app say when its data is older than its parser. What
-remains is the standing queue/backlog in PLAN.
-v7 (saved builds) is complete → `ARCHIVE.md#v7-tasks`. Non-goals as narrowed by D115: no
-**authored** timeline (the level view is derived from the acquisition order; versions are
-alternatives, never levels), no server sync or accounts, no sharing a build as a page or
-URL (D36).
+**Docs were cleaned 2026-08-31** (`/clean`): the live set went 304 KB → 227 KB. Consumed
+phase bodies, the wave batch, the 1.2.x changelog narrative and 43 settled decision bodies
+moved to `ARCHIVE.md` — every one leaving a stub, every `*Rejected:*` clause kept in place.
+→ archived: `ARCHIVE.md#state-consumed-0831` (STATE's own retired sections).
 
-The queue is `PLAN.md`; the next action is named in the TL;DR.
-
-## Where things live
-
-Split out of this file on 2026-08-27 so the resume read is short. Nothing was dropped.
-
-- → moved: the Decisions section (D7–D109, 679 lines) — `DECISIONS.md`
-- → moved: the Gotchas section (311 lines) — `GOTCHAS.md`
-- → moved: the Backlog — `PLAN.md`
-- → moved: Build / run — `CLAUDE.md`
-- → moved: the Shipped list — `CHANGELOG.md`
+⟳ Rename previous session → "The bug closed, and four releases in parallel"  · session: resolve by cwd + latest

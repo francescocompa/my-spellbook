@@ -8,6 +8,13 @@
 >
 > Moved out of `STATE.md` on 2026-08-27 (v1.1) — STATE is the resume block, this is the
 > record. Nothing was dropped in the move.
+>
+> **Compressed 2026-08-31 (`/clean`).** An entry ending `→ body: ARCHIVE.md#…` keeps its
+> headline, its model sentence, every *Rejected:* clause and its clause letters here; the
+> narrative, the measurements and the verification evidence moved, verbatim, to
+> `ARCHIVE.md#d81-d96-bodies` (the importer / custom-source / feat-category era),
+> `#print-family-bodies` (D97–D109), `#library-bodies` (D110–D113) and
+> `#phase-refinement-bodies` (D116, D119–D125, D133, D134). Nothing was deleted.
 
 
 ### Binding — these constrain current and future work
@@ -175,283 +182,165 @@
   something "Always prepared" already says — it is 44 now. *Rejected:* shipping each granting
   feature's full text (most of it is not a modification).
 - **D81 (2026-08-27) A creature set is filtered in the carousel, never pruned by it** — extends
-  D42 to D78's creature sets. `spellCreatures()` no longer drops forms whose book is off; the
-  carousel's own **book panel** (a ghost icon before the head's chevron) lists every book in the
-  set with its count and marks the ones off in your Sources, so you can tick them in locally.
-  This is what "Find Familiar is missing most base MM25 options" turned out to be — all 24 XMM
-  CR 0 beasts were in the data, XMM was simply switched off. The carousel's controls also moved
-  BELOW the block: you read the creature, then step. *Rejected:* the `<select>` book filter it
-  replaces (it sat in the head and could only narrow to one book at a time).
+  D42 to D78's creature sets: `spellCreatures()` never drops forms whose book is off, and the
+  carousel's own **book panel** lists every book in the set with its count and marks the ones off in
+  your Sources. Its controls sit BELOW the block — you read the creature, then step. *Rejected:* the
+  `<select>` book filter it replaces (it sat in the head and could only narrow to one book at a
+  time). → body: `ARCHIVE.md#d81-d96-bodies`
 
-- **D82 (2026-08-27) The importer rejects Foundry payloads by name AND by marker** — a zip
-  carries per-directory `foundry.json` files alongside the top-level `foundry-*.json` ones, and
-  `zipWanted()` only matched the hyphenated form. Their stub records then won, because the
-  builder overwrites by `name|source` and pushes classes unconditionally. The name test drops
-  the hyphen; on top of it `dropFoundryStubs()` strips any entity carrying `migrationVersion`,
-  a Foundry-only field, so a differently-named dump cannot repeat this. **Anyone who imported
-  before this must re-import** — the corrupt records are already in their localStorage.
-  *Rejected:* filtering only by `migrationVersion` (the name test also saves parsing three large
-  files); detecting the corruption at boot and warning (machinery for a one-off).
+- **D82 (2026-08-27) The importer rejects Foundry payloads by name AND by marker** — `zipWanted()`
+  drops the un-hyphenated per-directory `foundry.json` too, and on top of it `dropFoundryStubs()`
+  strips any entity carrying `migrationVersion`, a Foundry-only field. **Anyone who imported before
+  this must re-import** — the corrupt records are already in their localStorage. *Rejected:*
+  filtering only by `migrationVersion` (the name test also saves parsing three large files);
+  detecting the corruption at boot and warning (machinery for a one-off).
+  → body: `ARCHIVE.md#d81-d96-bodies`
 
-- **D83 (2026-08-27) One book checklist, everywhere** — the carousel's book filter was
-  hand-rolled markup; it is now the shared grouped checklist (D27) with its group headers and
-  all/some/none toggles, seeded from the global Sources list but **local** — ticking there never
-  writes back. `renderSourceChecklist()` gained an optional per-source count label so it can
-  count *forms* instead of spells; every existing caller keeps the `Nsp` default. Two fixes fell
-  out that affect **every** checklist, not just this one: `GROUP_NAME`/`GROUP_ORDER` never
-  covered 5etools' `supplement-alt` / `setting-alt` groups, so ten books (the Plane Shift
-  crossovers among them) rendered as a raw key and sorted last. Also **the carousel's controls
-  are pinned**: the nav's viewport position is held across a repaint and the height difference
-  handed to the scroller, so a taller or shorter creature is absorbed above the controls rather
-  than shoving them under the cursor. The head stopped counting forms — `3 / 8` already does.
+- **D83 (2026-08-27) One book checklist, everywhere** — the carousel's book filter is the shared
+  grouped checklist (D27), seeded from the global Sources list but **local** (ticking never writes
+  back), with an optional per-source count label so it can count *forms* instead of spells. Two
+  fixes ride it for **every** checklist: `GROUP_NAME`/`GROUP_ORDER` gained 5etools'
+  `supplement-alt`/`setting-alt` groups, and the carousel's controls are **pinned** across a repaint
+  so a taller creature never shoves them under the cursor. → body: `ARCHIVE.md#d81-d96-bodies`
 
 - **D84 (2026-08-27) A feat's CATEGORY is a book's own label; its SLOT is what it can be spent
-  from — and origin is a SUBSET of general** — `featCat()` folded every category it didn't know
-  into "general", which is exactly where UA's ten **Wild Talent** feats landed (5etools stores
-  the category as free text — `"Wild Talent"` — and declares nothing about which slot it fills;
-  the rule lives only in the book's prose). Now both extractors emit `catName` (known code →
-  `_meta.featCategories` → the raw value), the app derives the slot (`EB`→epic, `FS*`→fighting
-  style, `G`/absent→general, **anything else→origin**), and the picker's toggle row is built from
-  the categories actually present rather than three fixed buttons. The **general** picker offers
-  origin-slot feats too — Francesco's call, and what the Wild Talent rule says in as many words.
-  Because of that, budget attribution had to move: a feat is counted against **the slot it was
-  spent from** (`state.featSlots`), not its category, which also closes the standing
-  `origin 2/1` backlog item. On top of it, category exclusivity ("no other Dragonmark feat",
-  "No other Wild Talent") became a **real check** instead of an unverifiable one — the build's
-  own feats answer it, and self-exclusion doesn't count. *Rejected:* treating unknown categories
-  as origin-only (correct for Dragonmarks and Dark Gifts, wrong for Wild Talents, which the UA
-  explicitly also allows at an ASI); a hand-maintained category→slot map in both extractors
-  (precise, but every new UA that invents a category would need a code change and a re-import).
+  from — and origin is a SUBSET of general** — both extractors emit `catName` (known code →
+  `_meta.featCategories` → the raw value); the app derives the slot (`EB`→epic, `FS*`→fighting
+  style, `G`/absent→general, **anything else→origin**) and builds the picker's toggle row from the
+  categories actually present. The **general** picker offers origin-slot feats too (Francesco's
+  call), so budget is attributed to **the slot it was spent from** (`state.featSlots`), not the
+  category; category exclusivity ("no other Dragonmark feat") became a **real check**. *Rejected:*
+  treating unknown categories as origin-only (correct for Dragonmarks and Dark Gifts, wrong for Wild
+  Talents, which the UA explicitly also allows at an ASI); a hand-maintained category→slot map in
+  both extractors (precise, but every new UA that invents a category would need a code change and a
+  re-import). → body: `ARCHIVE.md#d81-d96-bodies`
 - **D85 (2026-08-27) A feature may change HOW you cast a spell you already have, and an
-  unverifiable condition marks rather than strikes** — a dozen features rewrite casting rules for
-  a whole class list or school: Psion's *Psionic Spellcasting* (no V or M on any Psion spell),
-  GOO Warlock's *Psychic Spells*, Illusionist's *Improved Illusions*, Aberrant Sorcery's *Psionic
-  Sorcery*, Undead Warlock's *Profane Casting*, 2014 *Archdruid*, Shadow Monk. 5etools carries
-  none of it structurally and D79's `MOD_RE` never matched component language at all, so it only
-  ever reached spells a feature GRANTS. A hand-authored `CAST_MODS` table (like `PROSE_GRANTS`,
-  identical in both extractors) attaches `{feature, level, scope, drop, exceptCostly, when, note}`
-  to the class/subclass; `scope` is `{cls, schools, spells, giver}`. The app resolves what is live
-  at your level and marks the affected components in **three places**: a chip under the class row
-  that added it, the table's Comp. column, and the spell modal. **`when` is the honest half** — a
-  condition the app cannot verify ("by spending Sorcery Points") marks the letter with a dotted
-  underline and never strikes it through. A component the spell doesn't have, or a Material the
-  feature exempts for costing money, is not touched. `MOD_RE` widened to the component clauses
-  too, so a grant that strips V/M (every Wild Talent) now carries its note: 44 → 52 notes, still
-  narrow. *Rejected:* a note with no computation (the table would still print V/S/M that don't
-  apply to you); covering feats, species and optional features with their own scope table (mostly
-  already served by grant notes, for a much bigger authored table).
-  → **widened 2026-08-27:** `scope` gained `maxLevel` and `optTypes` (a spell granted by one of
-  YOUR optional features of that type), entries gained `label`, and a mod with an **empty `drop`**
-  is a free cast rather than a component change — it still registers and names itself. That took
-  the table from 9 entries to 13 and closed three backlog items at once. A grant row also carries
-  `ownIdx` now, so `scope.cls` matches the class exactly instead of by substring.
-- **D86 (2026-08-27) An import ADDS, and ONE list decides what is in your data** — building an
-  import used to replace everything stored, so adding one brew meant re-staging every core file
-  with it (D58's caveat). `mergeDigests()` now merges by `name|source` — a staged file wins only
-  over its own exact record — and what ends up stored is chosen in a single **"Your books"**
-  panel listing every book you already have plus every book the staged files hold, where a tick
-  means "this is in my data". Unticking a book you have **removes its content**, which is the
-  only way to get storage back; picks that referenced it are kept and surface through the gap
-  machinery (D42/D56), never deleted. Nothing is written until **Apply**, which names the delta
-  and turns red when it would remove something. The list carries its own **filter**, and All /
-  None act on what the filter is showing — with 60+ books that is what makes it quick. *Rejected:* two panels, one for staging and one
-  for what is loaded (monster-forge's shape — but "keep or remove" is one question, so it is one
-  list); ticking only at staging time (a book you regret importing would keep eating quota).
-  **Not done:** the merge base is the stored import, not the baked bundle — importing on a
-  browser with nothing imported still puts the built-in books behind what you tick, and the panel
-  says so rather than pretending otherwise.
+  unverifiable condition marks rather than strikes** — a hand-authored `CAST_MODS` table (like
+  `PROSE_GRANTS`, identical in both extractors) attaches `{feature, level, scope, drop,
+  exceptCostly, when, note}` to the class/subclass, `scope` being `{cls, schools, spells, giver}`;
+  the app resolves what is live at your level and marks the affected components in three places —
+  a chip under the class row, the table's Comp. column, the spell modal. **`when` is the honest
+  half**: a condition the app cannot verify marks the letter with a dotted underline and never
+  strikes it through. *Rejected:* a note with no computation (the table would still print V/S/M that
+  don't apply to you); covering feats, species and optional features with their own scope table
+  (mostly already served by grant notes, for a much bigger authored table).
+  → **widened 2026-08-27:** `scope` gained `maxLevel`/`optTypes`, entries gained `label`, an empty
+  `drop` is a free cast, and a grant row carries `ownIdx` so `scope.cls` matches exactly.
+  → body: `ARCHIVE.md#d81-d96-bodies`
+- **D86 (2026-08-27) An import ADDS, and ONE list decides what is in your data** —
+  `mergeDigests()` merges by `name|source` (a staged file wins only over its own exact record) and
+  what ends up stored is chosen in a single **"Your books"** panel, where a tick means "this is in
+  my data". Unticking a book **removes its content** — the only way to get storage back — while
+  picks that referenced it are kept and surface through the gap machinery (D42/D56), never deleted.
+  Nothing is written until **Apply**, which names the delta and turns red when it would remove
+  something; the list carries its own filter, and All / None act on what the filter is showing.
+  *Rejected:* two panels, one for staging and one for what is loaded (monster-forge's shape — but
+  "keep or remove" is one question, so it is one list); ticking only at staging time (a book you
+  regret importing would keep eating quota). **Not done:** the merge base is the stored import, not
+  the baked bundle, and the panel says so. → body: `ARCHIVE.md#d81-d96-bodies`
 
 - **D87 (2026-08-27) A character is a CARD its versions live in, and the switcher's actions are
-  pinned** — the popover grouped by character with a small uppercase divider above each run, which
-  reads as a separator rather than as the thing the versions belong to. Each character is now its
-  own panel: name at reading size in ink with its version count, versions inside it, and the active
-  build's tint stops at the card's edge instead of bleeding to the popover's. Underneath, the list
+  pinned** — each character is its own panel (name at reading size with its version count, its
+  versions inside it, the active build's tint stopping at the card's edge); underneath, the list
   scrolls and **New build / Manage builds… are pinned below it**, so they are reachable with two
-  builds or twenty — Francesco's call, and it is what made the extra height affordable. *Rejected:*
-  a manager-style head with a hairline and versions on a left rail (mocked up and compared side by
-  side; compact, but the rail read faint and the grouping stayed weaker than the card's).
+  builds or twenty. *Rejected:* a manager-style head with a hairline and versions on a left rail
+  (mocked up and compared side by side; compact, but the rail read faint and the grouping stayed
+  weaker than the card's). → body: `ARCHIVE.md#d81-d96-bodies`
 - **D88 (2026-08-27) A note that is REFERENCE moves behind a `?`; a note that is STATE stays** —
-  the import modal spent five lines on how to get a 5etools zip, three more on what a tick means,
-  and two on which JSON files count: the same space on the hundredth visit as the first. Reference
-  prose now sits behind a `?` in line with its header. It is a **disclosure, not a hover popover**,
-  because these notes carry links and code the reader has to be able to click, and `attachTip`
-  vanishes on mouseleave. What stays visible is anything that changes with the build or warns about
-  the action in front of you — the "nothing imported yet" line, the wizard's copied-in count, the
-  Magical Secrets cap. The Magical Secrets note split along exactly that seam: the live half on the
-  card, the D76 weighting explanation on a popover on the meter that states it. *Rejected:* one
-  rule for every note (Francesco: "depends on the instance"); tightening the prose in place with no
-  popovers (the removal warning has to stay long, and had nowhere to go).
+  reference prose sits behind a `?` in line with its header, as a **disclosure, not a hover
+  popover**, because these notes carry links and code the reader has to be able to click and
+  `attachTip` vanishes on mouseleave. What stays visible is anything that changes with the build or
+  warns about the action in front of you. *Rejected:* one rule for every note (Francesco: "depends
+  on the instance"); tightening the prose in place with no popovers (the removal warning has to stay
+  long, and had nowhere to go). → body: `ARCHIVE.md#d81-d96-bodies`
 - **D96 (2026-08-27) A custom source may grant a CHOICE, not only a named spell** — some items
-  give you a spell **picked from one or more lists**, re-chosen on a long rest: Silverquill
-  Primer, *"if you study the primer at the end of a long rest, you can choose one 1st-level spell
-  from the bard or cleric spell list… you can cast the chosen spell once without a spell slot."*
-  5etools models **none** of it (`attachedSpells: null`), so this shape can only ever be
-  hand-authored — which is exactly what custom sources are for. **Almost all the machinery
-  already existed**: the grants tree has `picks`, `filterSpells` already splits `level`/`class`/
-  `school` on `;`, and the choices panel already renders and groups them. `customSourceGrants`
-  simply never emitted any. An entry is now **either a named spell (`key`) or a choice (`pick`)**
-  — `{take, level, class, school}`, empty meaning *any* — and rows are keyed by `key||id` since a
-  pick has no spell key. The filter is three wrapped chip rows in the row's existing disclosure;
-  chips rather than selects **because empty-means-any is the same grammar `filterSpells` reads**,
-  where a select would need an explicit "any" option to keep in sync. A pick reads as its rule
-  ("Choose a spell · level 1st · Bard or Cleric list") in the row and as English in the summary
-  ("choose a 1st-level spell from the Bard or Cleric list and cast it per long rest") — two
-  renderings of one fact, deliberately. **A latent bug fell out:** `resolveGrants` passed a
-  hardcoded `null` where fixed grants pass `g.extra`, so a PICKED spell would have silently lost
-  its source's DC, attack and fixed cast level. Nothing in the data emitted a pick with `extra`
-  before this, so it had never shown. *Verified:* Silverquill Primer end to end — 96 matching
-  spells, the choice grouped under its source in "Choices to make", and the picked spell landing
-  in the casts list as "Healing Word (1st) · 1/LR · Silverquill Primer" carrying its note.
-  *Rejected:* exposing only level+class (Francesco's call — school is free, `filterSpells`
-  already supports it); a separate "choices" section apart from the spell list (one list, two
-  kinds of row, is how the source actually reads).
-  → **widened same day:** a choice also carries **`pick.swap`** — WHEN you may re-choose, which is
-  a **different clock** from how often you may cast. Silverquill uses a long rest for both, but
-  they are independent ("choose at dawn, cast twice per long rest" is legal, and a choice you can
-  never change is legal too). Closed list: chosen once / long rest / short rest / dawn / on level
-  up, defaulting to a long rest because that is what almost every such item uses and the row opens
-  expanded so it is seen rather than silently assumed. It rides the **desc**, so it reaches the
-  **Choices panel** — the one place you are actually deciding, and therefore the one place "when
-  can I change this?" belongs. The app's own `swappable` is derived from grant kind and could
-  never express it.
+  give you a spell picked from one or more lists, re-chosen on a long rest (Silverquill Primer);
+  5etools models none of it, so the shape can only be hand-authored. An entry is now **either a
+  named spell (`key`) or a choice (`pick`)** — `{take, level, class, school}`, empty meaning *any* —
+  and rows are keyed by `key||id`. The filter is three wrapped chip rows in the row's disclosure,
+  **because empty-means-any is the same grammar `filterSpells` reads**; a pick reads as its rule in
+  the row and as English in the summary. *Rejected:* exposing only level+class (Francesco's call —
+  school is free, `filterSpells` already supports it); a separate "choices" section apart from the
+  spell list (one list, two kinds of row, is how the source actually reads).
+  → **widened same day:** a choice also carries **`pick.swap`** — WHEN you may re-choose, a
+  **different clock** from how often you may cast (chosen once / long rest / short rest / dawn / on
+  level up, defaulting to long rest). It rides the **desc**, so it reaches the **Choices panel** —
+  the one place you are actually deciding. → body: `ARCHIVE.md#d81-d96-bodies`
 - **D95 (2026-08-27) HOW a spell is paid for belongs to the SPELL, and some uses never come
-  back** — two gaps D65's model couldn't express, both found by auditing the 5etools item
-  corpus and both now closed. ① **One source, several budgets.** D65 made `uses` a source-level
-  either/or — a shared pool OR per-spell uses — but **38 items carry more than one**:
-  Demonomicon of Iggwilv casts Tasha's Hideous Laughter *at will* AND spends an 8-charge pool;
-  Crook of Rao has a 6-charge pool AND Gate once ever; 26 of the 38 are "something + at will".
-  A source now simply **has a charge pool or doesn't** (`pool` blank = none) and each spell
-  carries **`pay:"pool"|"per"`**. The source-level select is gone — it would start *lying* the
-  moment one spell differed, which is the folded-state-disagrees-with-reality problem D94 was
-  about. The switch lives in the row's existing caret disclosure, and **no folded-state tag is
-  needed**: which budget a spell spends is always visible in its inline control. ② **Uses that
-  never reset.** 5etools' `limited` ("Once the spell has been cast three times, the bracelet can
-  no longer cast it") had no equivalent — every unit recharged. New **`total`** unit: "3 times
-  total", "once only". *Measured:* of the 332 items whose spell data is structured, expressible
-  went **268 → 295 → 312 (81% → 89% → 94%)**; the remaining 20 use `other`/`ritual`, which carry
-  no frequency data anywhere but prose, and 84 more items ship a flat spell list with no usage
-  data at all. **Legacy sources are read, never rewritten in place** — `csrcPay()` falls back
-  through the old `uses` enum, so a source saved before this resolves correctly without being
-  opened; the editor normalises and drops `uses` on open and on save. *Rejected:* keeping `uses`
-  as a source-level DEFAULT with per-spell overrides (same expressive power, but the rule line
-  and the chip would describe a shape the rows contradict); telling the user to make two sources
-  for one item (breaks the chip, the summary and "one item is one thing").
-  → `rechargeShort()` had to learn the new unit too: Gate rendered as a bare **"—"** in the
-  casts list, which reads as *no limit* — the exact opposite of once-ever.
+  back** — two gaps D65's model couldn't express. ① **One source, several budgets:** a source now
+  simply **has a charge pool or doesn't** (`pool` blank = none) and each spell carries
+  **`pay:"pool"|"per"`**; the source-level select is gone, because it would start lying the moment
+  one spell differed. ② **Uses that never reset:** a new **`total`** unit ("3 times total", "once
+  only"). **Legacy sources are read, never rewritten in place** — `csrcPay()` falls back through the
+  old `uses` enum, and the editor normalises on open and on save. *Rejected:* keeping `uses` as a
+  source-level DEFAULT with per-spell overrides (same expressive power, but the rule line and the
+  chip would describe a shape the rows contradict); telling the user to make two sources for one
+  item (breaks the chip, the summary and "one item is one thing").
+  → `rechargeShort()` had to learn the new unit too: Gate rendered as a bare **"—"**, which reads as
+  *no limit* — the exact opposite of once-ever. → body: `ARCHIVE.md#d81-d96-bodies`
 - **D94 (2026-08-27) The custom-source editor is PROGRESSIVE — the name and the spells are the
-  surface, everything else folds, and the foot says what you built** — the long-deferred design
-  session, settled against three mockups rendered in the app's own stylesheet
-  (`scratchpad/csrc-mockups.html`). The old modal stacked **five equally-loud fieldsets**, so
-  "Its own numbers" — three fields you almost never fill, permanently on screen to announce
-  *blank = use mine* — carried the same weight as the spell list, and two toggle rows (five chips)
-  stood between you and the content. Now: name + kind, then **one rule line** stating what the
-  source is (*"Cast without preparing · a shared pool of 10 charges, regains 1d6+4 at dawn"*) with
-  a **Change** button opening the toggles; then the spells; then **Its own numbers folded**, its
-  label carrying the state (*"set — DC 15, +7, Intelligence"*, in accent when set, "uses mine"
-  when not) so a fold can never hide something you changed. A spell row keeps only the control its
-  mode actually spends and folds the rare fixed-cast-level behind a per-row caret — a row that HAS
-  one shows an `at 5th` tag, for the same reason. **From C (Francesco: "also C is decent"): a live
-  summary sentence** at the foot — *"Staff of Fire — cast Burning Hands or Fireball without
-  preparing, spending from 10 charges (regains 1d6+4 at dawn). Saves are DC 15…"* — because the
-  model is subtle enough to build something you didn't mean and nothing else ever said what you
-  made. It stays quiet (dashed, no accent) until there is something to describe. **Scope: the
-  modal only** — the Character card's chips are unchanged. The MODEL (D55/D65) is untouched;
-  `customSourceGrants` and every downstream path still resolve exactly as before.
+  surface, everything else folds, and the foot says what you built** — settled against three mockups
+  rendered in the app's own stylesheet (`scratchpad/csrc-mockups.html`). Name + kind, then **one
+  rule line** stating what the source is with a **Change** button; then the spells; then
+  **"Spellcasting stat" folded**, its label carrying the state so a fold can never hide something
+  you changed; then a **live summary sentence** at the foot, because the model is subtle enough to
+  build something you didn't mean. **Scope: the modal only** — the MODEL (D55/D65) is untouched.
   *Rejected:* B, the whole form as an editable sentence (most distinctive, hardest to keep tidy as
   the model grows); C's two-pane layout and its always-visible toggles (that density is what made
   this a mess); reworking the card's chips or the casting surfaces (not what was complained about).
-  → **refined 2026-08-27 on Francesco's review:** the mode/uses **chips became two labelled
-  `<select>`s** side by side ("Casting" / "Uses") — five wrapping chips were most of the weight —
-  and the section lost its "How its spells work" heading to them. **"Its own numbers" → "Spellcasting
-  stat".** A spell row's unit control is **fixed-width with short labels** (`/LR`, `/SR`, `/dawn`,
-  `at will`) so the caret and × hold their column, and its count **greys out at will**, which has
-  no count to set. The expanded row **dropped the "Cast at" label** (it wrapped) for a select that
-  names its own options, at a fixed width, leaving the rest to a new **per-spell NOTE** — it rides
-  the grant as `note`, so D79's path renders it in the spell modal and on the table's source badge
-  with no new machinery ("Fireball · deals cold damage instead"). A folded row with a note shows a
-  spark, as one with a fixed level shows `at 5th`. The summary now **names the uses**: per-spell
-  cadences ("Bless 2× per long rest, Light at will") and pool costs ("Fireball (3)").
+  → **refined 2026-08-27 on Francesco's review:** mode/uses became two labelled `<select>`s, unit
+  controls are fixed-width with short labels, and a per-spell **note** rides the grant as `note`
+  (D79's path renders it). → body: `ARCHIVE.md#d81-d96-bodies`
 - **D93 (2026-08-27) Imported content lives in IndexedDB; only the LOAD and the SAVE are async**
-  — the digest was the one thing in localStorage large enough to matter (a full 5etools export is
-  ~2.3 MB before a single brew), which made D92's folder scan a way to *choose* books the app
-  then couldn't *store*. It now sits in **IndexedDB** — one database `spellForge`, store `kv` for
-  content and `handles` for D92's directory handle (the old separate `spellForgeFolder` DB is
-  deleted once, quietly). **`assembleData()` stays synchronous**: boot fills `IMPORT_CACHE` first
-  and every existing caller — a custom-spell edit, an apply, a source change — is untouched. The
-  whole boot block moved inside an async IIFE so nothing decides anything early; in particular
-  `maybeOnboard()` must not fire the welcome importer over a library still loading, which is the
-  same failure the "an empty stored import must not beat the baked data" gotcha describes.
-  Migration reads the legacy key, writes it to IndexedDB, and **only then** removes it — a
-  half-done move that loses the import is far worse than one that briefly stores it twice.
-  A private window that refuses IndexedDB falls back to localStorage and says so. **This closes
-  T7 and the standing IndexedDB backlog item.** *Measured:* localStorage's ceiling is 5 MB by
-  convention but is **not** universal — this Chromium took 36 MB and threw at 161 MB — so the
-  failure copy quotes no fixed number, only the real `storage.estimate()` figures.
-  *Rejected:* moving builds/sources/table layout too (kilobytes, and sync access is worth
-  keeping — with the digest gone they have the whole quota to themselves); storing the digest as
-  a JSON string in IndexedDB (a structured value skips a multi-MB string held twice at save time).
+  — one database `spellForge`, store `kv` for content and `handles` for D92's directory handle.
+  **`assembleData()` stays synchronous**: boot fills `IMPORT_CACHE` first and every existing caller
+  is untouched; the whole boot block moved inside an async IIFE so nothing decides anything early.
+  Migration reads the legacy key, writes it to IndexedDB and **only then** removes it. A private
+  window that refuses IndexedDB falls back to localStorage and says so. **Closes T7.** *Rejected:*
+  moving builds/sources/table layout too (kilobytes, and sync access is worth keeping — with the
+  digest gone they have the whole quota to themselves); storing the digest as a JSON string in
+  IndexedDB (a structured value skips a multi-MB string held twice at save time).
+  → body: `ARCHIVE.md#d81-d96-bodies`
 - **D92 (2026-08-27) A library is scanned BY BOOK, one file at a time — the folder is the unit,
-  not the zip** — a homebrew repository is filed by **category** (`spell/`, `class/`,
-  `collection/`…), so one brew's content scatters across folders and a *collection* brew keeps its
-  spells in `collection/` — which is why **D&D Beyond Drops** could not be found by browsing
-  (`collection/D&D Beyond; D&D Beyond Drops.json`, 8 spells + 10 feats). **Or scan a folder** walks
-  every `.json` once, keeps only a book index (name, creator from the `Author; Brew.json`
-  filename, per-type counts, which files), and **throws each parsed file away** — peak memory is
-  the largest single file (6 MB), not the library (316 MB / 1,314 files / 1,549 books, ~2 s local).
-  The list is **flat and search-first** with **grouping tools** (every book · by creator · by what
-  it holds) — Francesco's call. Ticking re-reads **only the ticked books' files** and hands them to
-  the normal staging flow, so D86's "Your books" panel and Apply still decide what is stored;
-  `planFromStage` gained an `only` argument so books riding along in the same file are **not**
-  kept. Reached two ways: `showDirectoryPicker` where it exists, with the handle **remembered in
-  IndexedDB** and re-granted on Rescan (permission never survives a reload — a lost folder says so
-  and offers the picker), and a `webkitdirectory` input everywhere else. `_img/` is skipped and
-  `zipWanted()` is reused rather than re-implemented. Two fixes fell out: `buildImport` rejected a
-  digest with **no spells or classes**, which killed a legitimate feats-only brew (D&D Beyond's
-  Expanded Racial Feats), and `renderSourceChecklist` gained an `opts` argument (group labels,
-  group order, row order) so this list **is** the shared checklist (D83) rather than a fork.
-  *Rejected:* grouping by creator or content as the primary shape (search wins at 1,000 rows);
-  File System Access as the only path (Chromium-only); importing everything scanned (316 MB has
-  nowhere to go — localStorage is ~5 MB).
-- **D91 (2026-08-27) A zip that can't work says why, and the lookup file is chosen by NAME**
-  — chasing "the homebrew zip won't import" turned up one UX failure and one silent data bug.
-  ① **The zip.** A GitHub "Download ZIP" of `TheGiddyLimit/homebrew` is **gigabytes** (the repo is
-  5.3 GB, mostly artwork); a complete 5etools `data` export zips to **24 MB**. `stageZip` echoed
-  the browser's raw `NotReadableError`, whose stock text blames *"permission problems"* — it is
-  size, not permissions. Now: a hard refuse above 512 MB naming the file's measured size, a
-  translated out-of-memory message, **ZIP64 detection** (past 4 GB or 65,535 entries the count and
-  directory offset are sentinels, so the old reader walked to garbage and called a valid archive
-  "not a .zip"), and the progress callback `unzipJsonFiles` had always accepted but **no caller
-  ever passed** — a 186-file unpack now reports every file instead of looking like a hang.
-  ② **The lookup.** TWO files in an export are lookup-SHAPED: `generated/gendata-spell-source-lookup.json`
-  (keys lowercased — what extract.py reads) and `spells/sources.json` (ORIGINAL case). Last one
-  won, and it was `sources.json`, whose keys missed the lowercase spell map entirely: **every zip
-  import produced 936 spells no class could cast.** The named file is authoritative now and keys
-  fold on use. ③ The import warning fired on "no lookup file staged" — false for homebrew, which
-  carries access inline (D58) — so it told every brew importer to add a file they don't need. It
-  counts **spells nothing can reach** instead. *Rejected:* raising the size cap instead of refusing
-  (no cap makes a 5 GB archive openable); merging both lookup files (duplicate access entries).
+  not the zip** — a homebrew repository is filed by category, so one brew's content scatters across
+  folders. **Or scan a folder** walks every `.json` once, keeps only a book index (name, creator,
+  per-type counts, which files) and **throws each parsed file away**, so peak memory is the largest
+  single file. The list is **flat and search-first** with grouping tools; ticking re-reads **only
+  the ticked books' files** into the normal staging flow (`planFromStage`'s `only`), so D86's panel
+  and Apply still decide what is stored. Reached via `showDirectoryPicker` (handle remembered in
+  IndexedDB, re-granted on Rescan) or a `webkitdirectory` input. *Rejected:* grouping by creator or
+  content as the primary shape (search wins at 1,000 rows); File System Access as the only path
+  (Chromium-only); importing everything scanned (316 MB has nowhere to go — localStorage is ~5 MB).
+  → body: `ARCHIVE.md#d81-d96-bodies`
+- **D91 (2026-08-27) A zip that can't work says why, and the lookup file is chosen by NAME** —
+  ① a hard refuse above 512 MB naming the file's measured size, a translated out-of-memory message,
+  **ZIP64 detection**, and real per-file unpack progress. ② TWO files in an export are
+  lookup-SHAPED: `generated/gendata-spell-source-lookup.json` (lowercased keys — what extract.py
+  reads) and `spells/sources.json` (ORIGINAL case). Last one won, and it was `sources.json`: **every
+  zip import produced 936 spells no class could cast.** The named file is authoritative now and keys
+  fold on use. ③ The import warning counts **spells nothing can reach** instead of demanding a
+  lookup file homebrew doesn't need (D58). *Rejected:* raising the size cap instead of refusing (no
+  cap makes a 5 GB archive openable); merging both lookup files (duplicate access entries).
+  → body: `ARCHIVE.md#d81-d96-bodies`
 - **D90 (2026-08-27) App icon / favicon — "Secret book" (Delapouite, game-icons.net, CC BY 3.0)
-  on the parchment-on-accent tile** — Francesco's pick "**for now**" from an 8-candidate
-  comparison rendered at 16/32/48 px in the app's palette (`scratchpad/icon-compare.html`).
-  Delivered as a **data-URI SVG favicon inline in `src/index.html`** (rounded #8a3324 tile,
-  #f4f1ea glyph — survives all three builds with no build.py change, keeps dist self-contained)
-  plus `docs/apple-touch-icon.png` (180 px, full-bleed — iOS masks its own corners; build.py never
-  wipes docs/, so the static file survives rebuilds). CC BY credit added to the footer beside the
-  SRD line; glyph source kept at `scratchpad/favicon.svg`. *Rejected:* spell-book (recommended —
-  literal name match, but Francesco's call), enlightenment (crispest at 16 px), book-aura;
-  gold-on-ink and ink-on-parchment treatments. **Provisional** — "for now" means revisiting is
-  fair game, but re-proposing the three rejected icons unprompted is not.
+  on the parchment-on-accent tile** — Francesco's pick "**for now**" from an 8-candidate comparison
+  (`scratchpad/icon-compare.html`); a data-URI SVG favicon inline in `src/index.html` plus
+  `docs/apple-touch-icon.png`, with CC BY credit in the footer. *Rejected:* spell-book (recommended
+  — literal name match, but Francesco's call), enlightenment (crispest at 16 px), book-aura;
+  gold-on-ink and ink-on-parchment treatments. **Provisional** — "for now" means revisiting is fair
+  game, but re-proposing the three rejected icons unprompted is not.
+  → body: `ARCHIVE.md#d81-d96-bodies`
 - **D89 (2026-08-27) D39 reaches the spell-PICK modal too** — the printed book left the eligible
-  list in D39 but stayed on the rows of the wizard's "copy into your book" and the Magical Secrets
-  picker, so two spell lists behaved differently for no reason a reader could infer. It is gone
-  there as well; the book lives in the spell modal's title line, one rule for both. *Rejected:*
-  keeping it where you are picking (defensible — the book is more interesting mid-pick — but
-  Francesco's call was one rule).
+  list in D39 but stayed on the wizard's "copy into your book" rows and the Magical Secrets picker;
+  it is gone there as well, and lives in the spell modal's title line, one rule for both.
+  *Rejected:* keeping it where you are picking (defensible — the book is more interesting mid-pick
+  — but Francesco's call was one rule). → body: `ARCHIVE.md#d81-d96-bodies`
 
 ### Settled — recorded so they aren't re-proposed
 Headline + rejected options only; reasoning → `ARCHIVE.md#rationale` (D7–D41) and
 `ARCHIVE.md#v7-decisions` (D43–D80). A `→ Gotcha` marks a rule that is enforced in code and
-written up in full in `GOTCHAS.md` — that is the copy to trust.
+written up in full in `GOTCHAS.md` — that is the copy to trust. Entries from D97 on carry their
+own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/clean`.
 - **D43** Every giver in "Choices to make" is a group — one choice and five get the same
   `.choicegroup` treatment. *Rejected:* a flat list with a quiet giver label; an accordion per
   giver (a pending choice can hide behind a fold).
@@ -563,175 +452,143 @@ written up in full in `GOTCHAS.md` — that is the copy to trust.
 - **D41** A crossed prerequisite is a one-click fix (species swaps; feats and options are added);
   unverifiable parts carry no "?". *Rejected:* auto-taking the prerequisite on select (silent
   state changes).
-- **D97 (2026-08-27)** A slot count has a **fourth** state, `none` — dimmed and dashed, for a
-  cap of **0**. Revises D44: a zero cap fell through to `need`, so a level-3 character's general
-  feats read as an urgent red `0/0` promising "0 of 0 left to choose". Nothing is owed, so
-  nothing is due. `budgetPill()` carries the same state (a cap of 0 used to read "filled").
-  *Rejected:* printing "—" instead of `0/0` (the column reads down; the ratio is true, only its
-  urgency was wrong); hiding the tile (its absence would read as a missing feature).
+- **D97 (2026-08-27)** A slot count has a **fourth** state, `none` — dimmed and dashed, for a cap
+  of **0**; `budgetPill()` carries it too. Revises D44: a zero cap fell through to `need`, so
+  nothing owed read as urgently due. *Rejected:* printing "—" instead of `0/0` (the column reads
+  down; the ratio is true, only its urgency was wrong); hiding the tile (its absence would read as
+  a missing feature). → body: `ARCHIVE.md#print-family-bodies`
 - **D98 (2026-08-27)** Print is **always the spell table**, whichever tab is on screen, over a
-  brief build summary that identifies it — Francesco's call. The Build tab is a set of controls,
-  not a document; the sheet you carry to a session is the spell list. A `.printhead` filled on
-  `beforeprint` names the character, version, level, classes and species, and calls out a level
-  preview, since on paper an unmarked preview reads as the character itself. `beforeprint` also
-  re-runs `renderTable()`, because `render()` refreshes the table only while its own tab shows.
-  Chrome and controls go, the light palette is forced onto white, and `renderTable` gained a real
-  `thead`/`tbody` so column names repeat on every page. *Rejected:* printing whichever tab you
-  are on (the first cut — the Build tab printed as a form with controls flattened out of it, and
-  needed a page of CSS to look like a document); a purpose-built play sheet (a third rendering of
-  the same rows to keep in sync).
-- **D99 (2026-08-27)** The published build **installs and runs offline**; `dist/` and `src/`
-  never register a worker. A service worker needs real files at a real origin — dist/ opens over
-  `file://` and serve.py sends `no-store` on purpose, so registering there would only cache the
-  file being edited. build.py writes `manifest.webmanifest`, `sw.js` and the icon set into
-  `docs/` alone, and registration is guarded on `__PUBLIC__`. Caching is
-  **stale-while-revalidate** with a build-stamped cache name: an update is deliberately one
-  reload behind, because the alternative is a 1 MB blocking download every time the app opens.
-  *Rejected:* network-first (defeats the point on a phone at a table); cache-first with no
-  revalidation (a deploy would never reach anyone); an "update available" banner (new UI for a
-  gap that closes itself on the next load).
+  brief build summary that identifies it — Francesco's call: the Build tab is a set of controls, the
+  sheet you carry to a session is the spell list. A `.printhead` filled on `beforeprint` names the
+  character, version, level, classes and species and calls out a level preview; `beforeprint` also
+  re-runs `renderTable()`, and `renderTable` gained a real `thead`/`tbody` so column names repeat on
+  every page. *Rejected:* printing whichever tab you are on (the first cut — the Build tab printed
+  as a form with controls flattened out of it, and needed a page of CSS to look like a document); a
+  purpose-built play sheet (a third rendering of the same rows to keep in sync).
+  → body: `ARCHIVE.md#print-family-bodies`
+- **D99 (2026-08-27)** The published build **installs and runs offline**; `dist/` and `src/` never
+  register a worker. build.py writes `manifest.webmanifest`, `sw.js` and the icon set into `docs/`
+  alone, registration is guarded on `__PUBLIC__`, and caching is **stale-while-revalidate** with a
+  build-stamped cache name — an update is deliberately one reload behind, because the alternative is
+  a 1 MB blocking download every time the app opens. *Rejected:* network-first (defeats the point on
+  a phone at a table); cache-first with no revalidation (a deploy would never reach anyone); an
+  "update available" banner (new UI for a gap that closes itself on the next load) — **that last one
+  was reversed → D137(d)**, which raises exactly such a notice on `controllerchange`.
+  → body: `ARCHIVE.md#print-family-bodies`
 - **D100 (2026-08-27)** A source's own numbers state only what the spell actually **rolls** —
-  `ownNumbers(sp,dc,atk)`: the save DC when the spell forces a save, the attack bonus when it
-  needs an attack roll, both only when it needs both. A Staff of Frost printed "DC 16 · +8" next
-  to Ray of Frost, quoting a DC nothing in that spell ever calls for. One helper, used by the
-  table's Ability column and by the per-spell rows in Slots & casts, so the two panels cannot
-  disagree; a **choice** row names no single spell, so there both numbers still stand. With no
-  spell record to check against, both are stated — an unverifiable case must not read as "there
-  is none" (D31). A spell that rolls neither falls through to the casting-ability chip like any
-  other row. *Rejected:* showing the numbers only in the tooltip (they are the reason that column
-  exists for an item); dropping the row's ability chip when a source has its own numbers.
+  `ownNumbers(sp,dc,atk)`: the save DC when the spell forces a save, the attack bonus when it needs
+  an attack roll, both only when it needs both. One helper, used by the table's Ability column and
+  by the per-spell rows in Slots & casts, so the two panels cannot disagree; a **choice** row names
+  no single spell, so there both still stand — an unverifiable case must not read as "there is none"
+  (D31). *Rejected:* showing the numbers only in the tooltip (they are the reason that column exists
+  for an item); dropping the row's ability chip when a source has its own numbers.
+  → body: `ARCHIVE.md#print-family-bodies`
 - **D101 (2026-08-27)** The sheet's anatomy is **summary → tracker → table → cards → notes**, and
-  the tracker is **boxes, not counts** — on screen a slot count is information; on paper it is the
-  one thing you cannot mark off mid-session. It covers everything the app already knows is
-  expendable: each spell slot, Pact Magic on its own line (short rest), each limited innate cast,
-  and each item's charge pool as **one** row (a shared pool listed per spell would double-count
-  it). Box counts read `rechargeShort()`'s output rather than re-parsing cadence strings, so the
-  tracker cannot disagree with the Casts column; a `chg` cadence means "paid from a pool", which
-  has its own row. Optional **all preparable spells, unticked** prints every spell a *daily*
-  caster could prepare with an empty box, so a Cleric or Druid list can be prepared on paper —
-  Francesco's addition. Level-swap casters are skipped (nothing to prepare) and so are wizards
-  (their preparable list is their spellbook, already on the sheet and already marked); anything
-  genuinely picked is pushed first, so the dedupe keeps its real marker.
+  the tracker is **boxes, not counts** — on paper a slot count is the one thing you cannot mark off
+  mid-session. It covers each spell slot, Pact Magic on its own line, each limited innate cast, and
+  each item's charge pool as **one** row; box counts read `rechargeShort()`'s output rather than
+  re-parsing cadence strings, so the tracker cannot disagree with the Casts column. Optional **all
+  preparable spells, unticked** prints every spell a *daily* caster could prepare (level-swap
+  casters and wizards skipped). → body: `ARCHIVE.md#print-family-bodies`
 - **D102 (2026-08-27)** Optional **spell cards** print the full rules text of every spell on the
-  sheet as a two-column appendix, and the table's spell names are **same-document links** into
-  them, which is what a PDF turns into clickable internal navigation; each card links back to its
-  first row. Cards carry the stat grid, every paragraph, the at-higher-levels clause, the book and
-  page, and any grant or casting-rule note. *Rejected:* compact cards (they truncate exactly the
-  spells that needed one); one card per page-width (half the sheet spent on unreadable line
-  lengths).
+  sheet as a two-column appendix, and the table's spell names are **same-document links** into them
+  — which is what a PDF turns into clickable internal navigation; each card links back to its first
+  row. *Rejected:* compact cards (they truncate exactly the spells that needed one); one card per
+  page-width (half the sheet spent on unreadable line lengths).
+  → body: `ARCHIVE.md#print-family-bodies`
 - **D103 (2026-08-27)** Print options live in a **remembered modal** (⋯ → Print / save as PDF…) —
-  colour (light on white / dark as on screen), page (portrait / landscape), and five toggles — and
-  the modal states what the current settings will cost, counted through the same code path that
-  builds the sheet. The **PDF filename is the build name**: browsers take it from `document.title`,
-  so it is swapped on `beforeprint` and restored on `afterprint`. Everything below the summary is
-  **built on `beforeprint` and torn down on `afterprint`**, so the screen never carries a 31-card
-  appendix around and ⌘P takes exactly the same path as the button. `@page` cannot be
-  selector-scoped, so page size gets its own injected rule element. *Rejected:* options in the ⋯
-  menu (five toggles and two selects is a form, not a menu); a print-only route that ⌘P bypasses.
+  colour, page orientation and five toggles — and the modal states what the current settings will
+  cost, counted through the same code path that builds the sheet. The **PDF filename is the build
+  name** (`document.title` swapped on `beforeprint`, restored on `afterprint`), and everything below
+  the summary is **built on `beforeprint` and torn down on `afterprint`**, so ⌘P takes exactly the
+  same path as the button. *Rejected:* options in the ⋯ menu (five toggles and two selects is a
+  form, not a menu); a print-only route that ⌘P bypasses.
+  → body: `ARCHIVE.md#print-family-bodies`
 - **D104 (2026-08-27)** Grouping by source groups by **where it came from**, and a subclass, a
   class feature and an invocation all came from the class — Light Domain is not a source separate
-  from Cleric, and splitting it out answers a question nobody asked at the table. Every grant
-  resolved inside a caster's loop is tagged with that caster's row (`srcIdx`, now on free casts as
-  well as always-prepared ones), and an optional feature — resolved outside the loop, since a feat
-  can grant one — is tagged by which class's progression opened the slot it fills. Only a genuinely
-  separate source keeps its own group: a feat, an item, your species. A feat that **adds to your
-  list** (a Dragonmark) is not one of those, and needs no special case: those spells are picked as
-  the class and already carry its row. The Source **column** still names the specific giver — the
-  folding is the group header only. *Rejected:* a hand-kept list of "class-ish" source names
-  (wrong the moment a book invents a new feature type).
+  from Cleric. Every grant resolved inside a caster's loop is tagged with that caster's row
+  (`srcIdx`), and an optional feature is tagged by which class's progression opened the slot it
+  fills; only a genuinely separate source — a feat, an item, your species — keeps its own group. The
+  Source **column** still names the specific giver; the folding is the group header only.
+  *Rejected:* a hand-kept list of "class-ish" source names (wrong the moment a book invents a new
+  feature type). → body: `ARCHIVE.md#print-family-bodies`
 - **D105 (2026-08-27)** A summon spell's stat blocks print, but only the forms this character
   **marks** — a star in the stat-block header, stored in the build so it travels with an export
-  (D55's rule). Find Familiar carries 65 forms; an appendix that prints all of them is not an
-  appendix. Marked forms also lead the carousel, since the form you use is the one you open the
-  spell to see. A spell with exactly **one** form prints it unmarked (marking the only option is
-  a chore, not a choice); a multi-form spell with nothing marked prints a line saying how to mark
-  them, rather than silently omitting the block. *Rejected:* printing the first N forms (the first
-  is alphabetical, not yours); a global favourites list (a familiar belongs to a character).
-- **D106 (2026-08-27)** The printed sheet is **hairlines only** — no box around the table, no card
-  borders; a row rule, a heading rule, and nothing else, because paper already has edges. The
-  tracker's slots and per-class numbers are **tables**, not flex rows: nine slot levels plus Pact
-  have to sit in one row of columns at any width, and only a table guarantees that without
-  shrinking the boxes below a tickable 3 mm. Past **6** uses the boxes become a ruled field and a
-  `/N` total — twenty 3 mm boxes are not tickable apart, and a written count is how a character
-  sheet has always done it. Each caster gets its prepared and cantrip counts plus **blank ruled
-  fields for spell attack and save DC**, which the app cannot compute (it models neither ability
-  scores nor proficiency) and must not guess. A **legend** prints only the marks the sheet
-  actually uses. *Rejected:* the per-class numbers in the group headers (they only exist when you
-  group by source; the block is always there and always right).
+  (D55's rule); marked forms also lead the carousel. A spell with exactly **one** form prints it
+  unmarked (marking the only option is a chore, not a choice); a multi-form spell with nothing
+  marked prints a line saying how to mark them. *Rejected:* printing the first N forms (the first is
+  alphabetical, not yours); a global favourites list (a familiar belongs to a character).
+  → body: `ARCHIVE.md#print-family-bodies`
+- **D106 (2026-08-27)** The printed sheet is **hairlines only** — a row rule, a heading rule, and
+  nothing else, because paper already has edges. The tracker's slots and per-class numbers are
+  **tables**, not flex rows, so nine slot levels plus Pact sit in one row of columns at any width
+  without shrinking the boxes below a tickable 3 mm; past **6** uses the boxes become a ruled field
+  and a `/N` total. Each caster gets **blank ruled fields for spell attack and save DC**, which the
+  app cannot compute and must not guess, and the **legend** prints only the marks the sheet actually
+  uses. *Rejected:* the per-class numbers in the group headers (they only exist when you group by
+  source; the block is always there and always right). → body: `ARCHIVE.md#print-family-bodies`
 - **D107 (2026-08-27)** Printing a daily caster's **whole** list means preparing on paper from
   scratch, so every one of that class's preparable rows gets the same empty box — marking today's
-  picks differently states a decision the sheet exists to let you re-make. Cantrips, always-prepared
-  grants and innate casts keep their own marks: none of them is yours to choose. A level-swap
-  caster (Warlock, Sorcerer, Bard) is untouched — it knows spells, it does not prepare them. The
-  two write-in fields are **boxes, not rules**: a rule is something a pen sits on top of.
+  picks differently states a decision the sheet exists to let you re-make. Cantrips,
+  always-prepared grants and innate casts keep their own marks; a level-swap caster is untouched.
+  The two write-in fields are **boxes, not rules**. → body: `ARCHIVE.md#print-family-bodies`
 - **D108 (2026-08-27)** The PDF's **filename and internal links belong to the browser's own
-  export**, and there is nothing in the page that can substitute for either. The name comes from
-  `document.title` at print time (set, and verified set) and the links from same-document anchors
-  (79 forward, 75 back, none broken, no duplicate ids, in-page navigation works). Chrome and Safari
-  honour both; an in-app PDF writer may ignore them and save under the host app's name. The print
-  modal says so rather than leaving it as a mystery. *Rejected:* generating the PDF in-page (a
-  bundled PDF library, for a file the browser already knows how to make); UA-sniffing the host.
+  export**, and nothing in the page can substitute for either: the name comes from `document.title`
+  at print time and the links from same-document anchors (verified — 79 forward, 75 back, none
+  broken). Chrome and Safari honour both; an in-app PDF writer may ignore them, and the print modal
+  says so. *Rejected:* generating the PDF in-page (a bundled PDF library, for a file the browser
+  already knows how to make); UA-sniffing the host. → body: `ARCHIVE.md#print-family-bodies`
 - **D109 (2026-08-27)** A **feature** can add forms to a familiar spell, and those forms are yours,
-  not the spell's. Pact of the Chain's Imp is a CR 1 fiend that survives none of D78's carried-
-  monster tests, and 5etools states the list only in the feature's prose — the bestiary's
-  `summonedBySpell` links a monster to a SPELL and cannot express "this feature widens that list",
-  so D50's rule (never parse `{@creature}` refs off a spell) does not reach the case. Both
-  extractors now emit `forms:[{spell,creatures,mode}]` on feats and optional features, parsed
-  narrowly: the sentence must name **forms** and carry `{@creature}` refs, and the record must
-  reference a spell. Across the 2024 corpus that is two records, and it picks up homebrew with the
-  same wording for free. At runtime the grant is live only while you hold the feature; a ref with
-  no book resolves to every book that prints the creature, so the app offers **one** copy — from a
-  book you have on, newest edition first. Granted forms are exempt from the stat-block book filter
-  (a form your feature adds is not an option from a book you don't use) and rank **second in the
-  carousel, after your marked favourites**. `mode:"only"` replaces the list instead of widening it.
-  *Rejected:* a hand-authored table in app.js (it would cover what I happened to write down, and
-  the extractors are where content gaps are filled — PROSE_GRANTS and CAST_MODS set the pattern).
+  not the spell's. The bestiary's `summonedBySpell` links a monster to a SPELL and cannot express
+  "this feature widens that list", so D50's rule (never parse `{@creature}` refs off a spell) does
+  not reach the case: both extractors emit `forms:[{spell,creatures,mode}]` on feats and optional
+  features, parsed narrowly (the sentence must name **forms** and carry `{@creature}` refs, and the
+  record must reference a spell). At runtime the grant is live only while you hold the feature;
+  granted forms are exempt from the stat-block book filter and rank **second in the carousel, after
+  your marked favourites**; `mode:"only"` replaces the list instead of widening it. *Rejected:* a
+  hand-authored table in app.js (it would cover what I happened to write down, and the extractors
+  are where content gaps are filled — PROSE_GRANTS and CAST_MODS set the pattern).
+  → body: `ARCHIVE.md#print-family-bodies`
 
 - **D110 (2026-08-27)** **The Library: one surface, two panes.** The import modal and the Sources
-  modal merge into one **Library** modal with a tab bar — **Sources** (the everyday on/off list)
-  and **Manage** (import, refresh, remove: the rare and destructive work). One toolbar **Library**
-  button replaces both the Sources button and the ⋯ Import entry; onboarding opens straight to
-  Manage. The split keeps a free visibility toggle from sitting next to a storage-destroying
-  untick. (AskUserQuestion, 6 rounds + mockups.) *Rejected:* a full one-list merge (both states on
-  one row is a trap without heavy row design); two sharpened modals (the two-door confusion only
-  shrinks); stacked sections (recreates today's long scroll, Apply below the fold); drill-in
-  (cleanest Sources but hides Manage, and Refresh must stay discoverable).
+  modal merge into one **Library** modal with a tab bar — **Sources** (the everyday on/off list) and
+  **Manage** (import, refresh, remove: the rare and destructive work). One toolbar **Library**
+  button replaces both old entry points; onboarding opens straight to Manage. The split keeps a free
+  visibility toggle from sitting next to a storage-destroying untick. *Rejected:* a full one-list
+  merge (both states on one row is a trap without heavy row design); two sharpened modals (the
+  two-door confusion only shrinks); stacked sections (recreates today's long scroll, Apply below the
+  fold); drill-in (cleanest Sources but hides Manage, and Refresh must stay discoverable).
+  → body: `ARCHIVE.md#library-bodies`
 - **D111 (2026-08-27)** **Refresh imported data = one click, then report.** Re-reads the
   remembered folder (or asks for input when there is none), re-parses with the **current**
-  extractor, re-imports exactly the books already kept, and reports a summary plus a parser
-  version stamp — the stamp answers "did the new parser actually run". Sits in the Manage
-  **bottom row** next to Apply, with the last-import stamp beside it (detail in a popover), plus
-  a ⋯-menu shortcut — it is the standing after-update chore. *Rejected:* review-before-apply (an
-  extra step on an action that only replaces same-key records); silent auto-refresh on version
-  change (permission re-grant needs a user gesture, and a background re-parse is a surprise);
-  a record-level diff in the report (a deep compare pass for a line that reads as noise).
+  extractor, re-imports exactly the books already kept, and reports a summary plus a **parser
+  version stamp** — the stamp answers "did the new parser actually run", and D137/D138 build on it.
+  Sits in the Manage bottom row next to Apply, with a ⋯-menu shortcut. *Rejected:*
+  review-before-apply (an extra step on an action that only replaces same-key records); silent
+  auto-refresh on version change (permission re-grant needs a user gesture, and a background
+  re-parse is a surprise); a record-level diff in the report (a deep compare pass for a line that
+  reads as noise). → body: `ARCHIVE.md#library-bodies`
 - **D112 (2026-08-27)** **Manage pane: one drop zone, one book list, parse on arrival.** The drop
-  zone takes a **.zip, JSON files, or a whole dragged folder** (dropped directories walk via
-  `getAsFileSystemHandle`, falling back to `webkitGetAsEntry`; a Chrome-dropped folder yields the
-  same rememberable handle as the picker). The *click* path stays two verbs — "browse files… ·
-  choose folder…" — because the native dialogs differ. Raw note: *"Can a single button work with
-  both? Either accepts a zip or a folder, depending on what I give. Otherwise, a compact
-  chooser."* Paste-JSON folds behind a disclosure. Files **parse on arrival** — the "Read staged
-  files" click is gone; chips remain for removing a bad file, nothing stored until Apply. The
-  folder-scan picker and "Your books" merge into **one three-state list** — kept (ticked) · new
-  (ticked, badged) · available in the scanned folder (unticked, dim) — and one Apply reconciles
-  all of it. A storage total line (`navigator.storage.estimate()`) sits in the footer. Onboarding
-  is the Manage tab plus a welcome banner; the Sources tab hides until content exists.
-  *Rejected:* folder-first or zip-first hierarchy (superseded by the universal zone); keeping
-  pick-then-plan (a third list); the explicit read step; a dedicated welcome screen (a second
-  surface that drifts); no storage info.
+  zone takes a **.zip, JSON files, or a whole dragged folder**; the *click* path stays two verbs
+  ("browse files… · choose folder…") because the native dialogs differ, and paste-JSON folds behind
+  a disclosure. Files **parse on arrival** — the "Read staged files" click is gone, nothing is
+  stored until Apply. The folder-scan picker and "Your books" merge into **one three-state list** —
+  kept · new · available in the scanned folder — reconciled by one Apply, with a storage total in
+  the footer. Onboarding is the Manage tab plus a welcome banner. *Rejected:* folder-first or
+  zip-first hierarchy (superseded by the universal zone); keeping pick-then-plan (a third list); the
+  explicit read step; a dedicated welcome screen (a second surface that drifts); no storage info.
+  → body: `ARCHIVE.md#library-bodies`
 - **D113 (2026-08-27)** **Sources pane: edition-first groups, actions behind the search bar.**
   Groups become **2024 core · 2014 core · Supplements · Settings & adventures · Homebrew & UA ·
-  Other** — the "(alternate)" jargon folds into its parents, and the 2024/2014 split is an
-  **app-side display remap** of the 2024 codes (XPHB/XDMG/XMM), not an extractor change, so
-  already-imported digests regroup without a re-import. The pane gains the **search field** the
-  other book lists have; **Enable all / Disable all move into a compact menu inline right of the
-  search**; the "2024 core only" button is gone — it is a group header's all-tick now. Bestiary-
-  only books (XMM, MM…) stay **invisible** in every book list: stat blocks follow the spells that
-  reference them (D86) and the carousel builds its own book filter (D107). *Rejected:* making
-  bestiary books first-class registry entries (the D107 trap in reverse — both extractors, the
-  carousel filter and the gotcha would all rework for display value); merging alternates only;
-  a flat searched list (loses the shelf feel); extra edition preset buttons.
+  Other** — the 2024/2014 split is an **app-side display remap** of the 2024 codes, not an extractor
+  change, so already-imported digests regroup without a re-import. The pane gains the shared search
+  field, Enable all / Disable all move into a compact menu beside it, and "2024 core only" is a
+  group header's all-tick now. **Bestiary-only books (XMM, MM…) stay invisible in every book list**
+  — stat blocks follow the spells that reference them and the carousel builds its own book filter.
+  *Rejected:* making bestiary books first-class registry entries (the D107 trap in reverse — both
+  extractors, the carousel filter and the gotcha would all rework for display value); merging
+  alternates only; a flat searched list (loses the shelf feel); extra edition preset buttons.
+  → body: `ARCHIVE.md#library-bodies`
 
 - **D114 (2026-08-28)** **An Epic Boon is a feat you take WITH a feat slot, not a bonus pick, and
   the slot's CHARACTER level is what qualifies it.** The old rule was one line —
@@ -808,28 +665,24 @@ written up in full in `GOTCHAS.md` — that is the copy to trust.
   save-as-version mechanism → (i) (its versions-not-stamps core is reaffirmed by (b)).
   Enforced by: prose + PLAN.md phase E task lines; once built, the E4 sweep is the guard.
   Affects: PLAN.md (phase E), CLAUDE.md + STATE.md non-goals wording, src/app.js when built.
-- **D116 (2026-08-28) Audit-batch dispositions** (two-lane audit, AskUserQuestion × 2 rounds;
-  the fix-safe findings needed no decision and shipped in v1.2.2 — `CHANGELOG.md` lists them):
+- **D116 (2026-08-28) Audit-batch dispositions** (two-lane audit, AskUserQuestion × 2 rounds; the
+  fix-safe findings needed no decision and shipped in v1.2.2 — `CHANGELOG.md` lists them):
   - **(a) The public build renames the 17 product-identity spells** to the licensed SRD names
-    5etools carries in `srd52` (Bigby's Hand → Arcane Hand …), applied over the whole
-    serialized subset so prose and grants follow; the full local digest keeps real names.
-    Raw note: *"Check the 5etools folders to see if there is already a series of SRD-only
-    documents and let's embed those. If not, rename manually to SRD names"* — the mirror has
-    no SRD-only documents; the `srd52` string is the mechanism. *Rejected:* dropping the 17
+    5etools carries in `srd52`; the full local digest keeps real names. *Rejected:* dropping the 17
     from the subset; accepting the license risk.
-  - **(b) `clearImport` is wired**, not deleted: a red armed "Remove imported data" row in the
-    Library's Manage footer (shown only when an import exists) — closes ARCHIVE's ⚑ and is the
-    manual recovery for a digest the boot guard set aside. *Rejected:* deleting the dead code.
-  - **(c) UA/prerelease books fold into "Homebrew & UA"** (`srcGroupOf` remap) — D113's shelf
-    name already promises them. *Rejected:* a sixth "Prerelease (UA)" shelf.
-  - **(d) `save()` skips identical writes**, so `meta.updated` means last EDITED — opening the
-    app no longer re-stamps the active build. *Rejected:* stamping only from mutating call
-    sites (one missed site lies the other way); relabeling to "opened".
+  - **(b) `clearImport` is wired**, not deleted — a red armed "Remove imported data" row in the
+    Library's Manage footer. *Rejected:* deleting the dead code.
+  - **(c) UA/prerelease books fold into "Homebrew & UA"** (`srcGroupOf` remap). *Rejected:* a sixth
+    "Prerelease (UA)" shelf.
+  - **(d) `save()` skips identical writes**, so `meta.updated` means last EDITED. *Rejected:*
+    stamping only from mutating call sites (one missed site lies the other way); relabeling to
+    "opened".
   - **(e) An item's own DC/attack print in the source GROUP HEADER** when the table groups by
-    source ("Staff of Frost · DC 16 · atk +8 · Cha") — the numbers are per-source constants,
-    the header is their altitude. *Rejected:* un-suppressing the Ability column; accepting.
+    source — the numbers are per-source constants, the header is their altitude. *Rejected:*
+    un-suppressing the Ability column; accepting.
   - **(f) The gap banner is sticky and the gapped pick chips carry the flag** (D42's visible
     contract at both altitudes). *Rejected:* auto-scrolling the column; accepting.
+  → body: `ARCHIVE.md#phase-refinement-bodies`
 - **D117 (2026-08-28) Versioning is MAJOR.MINOR.PATCH; the past is mapped, never rewritten.**
   Raw note: *"the versioning convention is moving the .X number too fast, we should make the
   versions 1.0.0, keep the first number for overhauls or massive reworks, the second number
@@ -908,190 +761,119 @@ written up in full in `GOTCHAS.md` — that is the copy to trust.
   F4 is the guard. Affects: PLAN.md (phase F), STATE.md next-action framing, src/app.js when built.
 
 - **D119 (2026-08-28) Timeline refinements, direct instruction while E6/E7 shipped.** Raw note:
-  *"in the timeline which inherited the level order system, only display two tiles (highest
-  spell/slots) if they diverge, otherwise only show one. Also make sure this feature supports and
-  makes it easy to swap lower level spells for higher ones, marking the state clearly."*
-  - **(a) The two casting tiles merge into one ("cast") when max spell level and top slot
-    agree** at a row — they split back into spell + slot exactly where multiclassing (or Pact
-    Magic) pulls the clocks apart. *Rejected:* always-two (repetitive at nearly every
-    single-class level); always-one (hides the two-clocks distinction D68 exists to keep).
-  - **(b) The swap flow is click-to-arm on a timeline chip, take-to-record.** *(Eligibility
-    superseded → D128: leveled-spell and cantrip trades are separate, per the verified 2024
-    class rules — "known-caster picks only, one per level" no longer describes it.)* Clicking an
-    eligible chip arms "− this pick at L{view}" (violet chip + a swapbar naming the level and
-    the loss, with *Choose replacement…* opening the class picker capped at that level's max);
-    the next take for that row and kind records the swap — the outgoing pick's POSITION keeps
-    its acquisition history, the event carries the trade (E1 shape). Eligibility is
-    RAW-shaped and explained on every chip's tip: known-caster picks only (a wizard's book
-    only grows), at a later level-up of that class, one swap per level, chains blocked until
-    the standing pill is cleared. States marked: armed chip, ⇄ on picks later traded away,
-    the pill at the swap level. This closed E3. *Rejected:* a chip context menu (one action
-    doesn't need one); swap-on-remove prompts in the cart (heavier, off the level surface).
-  Enforced by: src/app.js (renderTimeline chips, SWAPARM, toggle intercept). Affects: PLAN E3/E5.
+  *"in the timeline … only display two tiles (highest spell/slots) if they diverge … Also make sure
+  this feature supports and makes it easy to swap lower level spells for higher ones, marking the
+  state clearly."*
+  - **(a) The two casting tiles merge into one ("cast") when max spell level and top slot agree**
+    at a row, splitting back into spell + slot exactly where multiclassing (or Pact Magic) pulls the
+    clocks apart. *Rejected:* always-two (repetitive at nearly every single-class level); always-one
+    (hides the two-clocks distinction D68 exists to keep).
+  - **(b) The swap flow is click-to-arm on a timeline chip, take-to-record** — the outgoing pick's
+    POSITION keeps its acquisition history and the event carries the trade. *(Eligibility superseded
+    → D128: leveled-spell and cantrip trades are separate; the arm-then-take mechanism stands.)*
+    States marked: armed chip, ⇄ on picks later traded away, the pill at the swap level. *Rejected:*
+    a chip context menu (one action doesn't need one); swap-on-remove prompts in the cart (heavier,
+    off the level surface).
+  Enforced by: src/app.js (renderTimeline chips, SWAPARM, toggle intercept).
+  → body: `ARCHIVE.md#phase-refinement-bodies`
 
 - **D120 (2026-08-28) The stored build and the live state never share objects — `save()` and
-  `applyState` both detach.** Mechanism: E8 fresh-eyes gate (separate session, fable@high); found
-  while probing D115(e) reload behaviour — picks vanished on reload while other edits stuck.
-  Root cause: `serializeState()` returns the live sub-objects by reference, so after any full
-  save (or boot, which applies `activeBuild().state` itself) the D116(d) identical-write compare
-  diffed an object against itself and skipped every pure pick edit; localStorage silently went
-  stale (regression window v1.2.2 → v1.2.9). Fix: JSON round-trip at both boundaries — `save()`
-  stores a detached copy, `applyState` detaches what it reads. D116(d)'s intent is preserved
-  (a plain open still doesn't restamp `meta.updated`; verified both ways in-browser).
-  *Rejected:* comparing against a cached last-written string (a second cache that can drift from
-  what localStorage really holds); dropping the skip and always writing (reintroduces the exact
-  restamp D116(d) exists to stop); deep-copying in `serializeState` alone (leaves boot's shared
-  identity in place — the first edit after open still self-masks). → **Gotcha** (the enforced
-  copy lives in `GOTCHAS.md`). Enforced by: src/app.js `save()`/`applyState`. Affects: GOTCHAS.md.
-  E8 side notes, logged not fixed: `recordSwap()` has no callers (the toggle intercept writes
-  `state.swaps` directly, and the "only writers" comment above it is stale); a chained swap's
-  chip tip names the LAST event's level, not the chip's own trade (unreachable from the UI —
-  chains are blocked — import-only); Escape with the level picker open closes the timeline
-  UNDER it, and the picker itself only closes by ×/outside (pre-E5 behaviour, now more visible).
+  `applyState` both detach.** Found at the E8 fresh-eyes gate: `serializeState()` returned the live
+  sub-objects by reference, so after any full save (or boot) D116(d)'s identical-write compare
+  diffed an object against itself and skipped every pure pick edit — localStorage silently went
+  stale (regression window v1.2.2 → v1.2.9). Fix: JSON round-trip at both boundaries; D116(d)'s
+  intent is preserved. *Rejected:* comparing against a cached last-written string (a second cache
+  that can drift from what localStorage really holds); dropping the skip and always writing
+  (reintroduces the exact restamp D116(d) exists to stop); deep-copying in `serializeState` alone
+  (leaves boot's shared identity in place — the first edit after open still self-masks).
+  → **Gotcha** (the enforced copy lives in `GOTCHAS.md`). Enforced by: src/app.js
+  `save()`/`applyState`. Three E8 side notes were logged, not fixed (`recordSwap()` has no callers;
+  a chained swap's chip tip names the wrong level, import-only; Escape with the level picker open
+  closes the timeline under it) → body: `ARCHIVE.md#phase-refinement-bodies`
 
-- **D121 (2026-08-28) F1 status semantics: the frontier ignores class steps, and optional
-  steps never capture re-entry.** Mechanism: two calls surfaced while building F1's
-  `guideSteps()`/`guideResume()` (fixture E exposed both). ① `skipped` = unanswered below the
-  frontier — but class steps are pre-answered by the plan (D118(e)), so counting them dragged
-  the frontier to top and a hand-levelled build with no picks read ALL-skipped; the frontier now
-  tracks the highest level with a done NON-class step, so that build reads all-open and the
-  forward walk still leaves skipped ones honestly behind it. *Rejected:* keying the frontier on
-  `state.currentLevel` (conflates D115(e)'s "where the character stands" with "how far the
-  answers go"). ② The swap y/n step is `optional:true` and `guideResume()` passes it: "no swap"
-  is a legitimate answer the build cannot store (stateless, D118(j)), so an unanswered one would
-  trap re-entry at the first level-up forever. *Rejected:* storing an answered-no bit (the
-  stored wizard session D118(j) already rejected); dropping swap steps entirely (D118(k) names
-  swap y/n a structural choice of the chain). Enforced by: src/app.js `guideSteps`/`guideResume`.
-  Affects: PLAN F1/F2.
+- **D121 (2026-08-28) F1 status semantics: the frontier ignores class steps, and optional steps
+  never capture re-entry.** ① `skipped` = unanswered below the frontier, but class steps are
+  pre-answered by the plan (D118(e)), so the frontier now tracks the highest level with a done
+  NON-class step. *Rejected:* keying the frontier on `state.currentLevel` (conflates D115(e)'s
+  "where the character stands" with "how far the answers go"). ② The swap y/n step is
+  `optional:true` and `guideResume()` passes it — "no swap" is a legitimate answer the build cannot
+  store (stateless, D118(j)), so an unanswered one would trap re-entry forever. *Rejected:* storing
+  an answered-no bit (the stored wizard session D118(j) already rejected); dropping swap steps
+  entirely (D118(k) names swap y/n a structural choice of the chain). Enforced by: src/app.js
+  `guideSteps`/`guideResume`. → body: `ARCHIVE.md#phase-refinement-bodies`
 
-- **D122 (2026-08-29) Timeline refinements v2, direct instruction while F2 shipped.** Raw note:
-  *"remove the note next to timeline; fix visually the x button; turn the popover into a full
-  fledged modal; move the alert to reorder as a note inside an alert icon popover next to title;
-  instead of featuring the Cast/spell/slot option at every level, feature them only at the level
-  where they change, and not as highlighted but in their dimmed state, currently they have a too
-  important visual hierarchy and seem like buttons; let's evaluate if there's a change we can do
-  to the draggable list in multiclass: … there should be a visual aggregation that facilitates
-  moving levels only when moving them matter ideally."*
-  - **(a) The timeline is a FULL MODAL** (standard `.modal` chrome — which also gives it the
-    standard ×, closing the "fix the x button" note by construction). D115(j)'s raw note
-    anticipated exactly this ("we can consider turning it into a proper modal…"). The chip
-    anchoring, the rAF scroll re-anchor and the document-level outside-click closer are GONE —
-    backdrop click (strict `target===backdrop`, detached-target-proof), Escape and × close it.
-    → **Gotcha** (both E5 popover entries updated so the machinery isn't restored).
+- **D122 (2026-08-29) Timeline refinements v2, direct instruction while F2 shipped.**
+  - **(a) The timeline is a FULL MODAL** (standard `.modal` chrome, which also gives it the standard
+    ×). The chip anchoring, the rAF scroll re-anchor and the document-level outside-click closer are
+    GONE — backdrop click (strict `target===backdrop`), Escape and × close it. → **Gotcha**.
   - **(b) The header sub-note ("click a level…") is removed** — the rows teach themselves.
-  - **(c) E7's order-matters word moves into a GOLD FLAG beside the title**; the named reasons
-    and the "drag the rows" instruction live in its tip. Supersedes E7's gold-line surface;
-    E7's derivation (`orderMatters()`) is untouched.
-  - **(d) Casting tiles appear ONLY at the level that moved a clock, styled as dimmed notes**
-    (no border, no fill, no accent) — the tile's presence is the signal, and it can no longer
-    read as a control. In split mode only the clock that changed shows. *Rejected:* keeping
+  - **(c) E7's order-matters word moves into a GOLD FLAG beside the title**, with the reasons and
+    the "drag the rows" instruction in its tip; `orderMatters()` is untouched.
+  - **(d) Casting tiles appear ONLY at the level that moved a clock, styled as dimmed notes** — the
+    tile's presence is the signal, and it can no longer read as a control. *Rejected:* keeping
     per-row tiles in a dimmed state (the repetition was the complaint, not just the weight).
-  - **(e) Multiclass run aggregation:** consecutive levels of one class share a per-class
-    coloured left rail and close ranks (2px joins vs 6px between runs), so a run reads as one
-    block; and a row drop whose resulting plan is IDENTICAL (any move inside a same-class run,
-    including onto its own boundary) is **not a drop target at all** — no highlight, no
-    pretend-move. *Rejected:* collapsing a run into a single draggable block (kills the
-    per-level rows the timeline exists for — picks, flags, tiles live on them); allowing the
-    drop and flashing the refuse animation (a control that accepts a gesture only to refuse it
+  - **(e) Multiclass run aggregation:** consecutive levels of one class share a per-class coloured
+    left rail and close ranks, so a run reads as one block; a drop whose resulting plan is IDENTICAL
+    is **not a drop target at all**. *Rejected:* collapsing a run into a single draggable block
+    (kills the per-level rows the timeline exists for — picks, flags, tiles live on them); allowing
+    the drop and flashing the refuse animation (a control that accepts a gesture only to refuse it
     is worse than one that never lights up).
   Enforced by: src/index.html `#tlModal`, src/styles.css `.tlbox`/`.ordflag`/`.runc*`/`.lt`,
-  src/app.js `renderTimeline`/`openTimeline`. Affects: PLAN E5/E7 surface notes, GOTCHAS.md.
+  src/app.js `renderTimeline`/`openTimeline`. → body: `ARCHIVE.md#phase-refinement-bodies`
 
 - **D123 (2026-08-29) Tile semantics + metamagic tags, direct instruction while F3 shipped.**
-  Raw notes: *"when slot and spell are overlapping, write 'spell' in the tile, not 'cast'.
-  Also the word should be neutral color"* · *"pact slots should be measured differently in
-  these tiles (ex. 1st pact), ideally also with amount"* · *"some selected metamagic options
-  could be mentioned in the spell table rows when they affect only a specific type of spell
-  (ex. twinned)"*.
-  - **(a) The merged casting tile reads "spell" in the muted colour** — where the two clocks
-    agree, naming the merger ("cast") answered a question nobody asked; ~~split tiles keep
-    their 38% hue mix~~ **→ superseded 2026-08-29 (W4)**: Francesco, raw — *"spells, slots,
-    picks, and pact tiles should have the same base colors"* — every tile shares the muted
-    base now; only alert/highlight states differ.
-  - **(b) Pact Magic gets its OWN tile, measured as count × slot level** ("2× 2nd pact",
-    neutral), shown at levels where either number moves; it never merges with the spell clock.
-    `levelCasting` now returns `{pact,pactUp}` for pact casters instead of masquerading pact
-    level as a slot level.
-  - **(c) Metamagic applicability tags in the Spell table's name cell** (`METAMAGIC_WHEN`,
-    app-side hand table): when the build has a metamagic option selected, spells it can touch
-    carry a quiet neutral tag (twin, quicken, careful…) with the reason in the tip. Judged
-    from digest fields only (save/dmg/atk/tcat/rcat/durTxt/higher) — advisory (D31), scoped
-    to rows owned by the class whose progression grants Metamagic. **Twinned uses the XPHB
-    shape** (`higher` text matching "target one additional") — Scorching Ray's "one additional
-    ray" correctly does NOT tag. **Options that touch nearly everything (Subtle) are
-    deliberately absent** — a tag on every row says nothing (the note asked for "only a
-    specific type of spell"). *Rejected:* putting metamagic into the extractor `CAST_MODS`
-    table (applicability depends on the BUILD's selections, an app-side fact; and D85 mods
-    mark casting rules, not opportunity).
-  Enforced by: src/app.js `levelCasting`/`lvTile`/`METAMAGIC_WHEN`/`activeMetamagic`.
-  Affects: the timeline tiles, the Spell table name cell.
+  - **(a) The merged casting tile reads "spell" in the muted colour** — where the two clocks agree,
+    naming the merger ("cast") answered a question nobody asked; ~~split tiles keep their 38% hue
+    mix~~ **→ superseded 2026-08-29 (W4)**: Francesco, raw — *"spells, slots, picks, and pact tiles
+    should have the same base colors"* — every tile shares the muted base now.
+  - **(b) Pact Magic gets its OWN tile, measured as count × slot level** ("2× 2nd pact", neutral),
+    shown where either number moves and never merged with the spell clock; `levelCasting` returns
+    `{pact,pactUp}` instead of masquerading pact level as a slot level.
+  - **(c) Metamagic applicability tags in the Spell table's name cell** (`METAMAGIC_WHEN`, an
+    app-side hand table judged from digest fields only, advisory per D31) — ~~in the table~~
+    **→ moved into the spell details by D124(c)**; options that touch nearly everything (Subtle)
+    stay deliberately absent. *Rejected:* putting metamagic into the extractor `CAST_MODS` table
+    (applicability depends on the BUILD's selections, an app-side fact; and D85 mods mark casting
+    rules, not opportunity). → body: `ARCHIVE.md#phase-refinement-bodies`
 
-- **D124 (2026-08-29) Timeline separation + pick counts (decided); metamagic placement +
-  palette (OPEN).** Mechanism: mockup round (`scratchpad/tl-mockups2.html`) + AskUserQuestion;
-  the two open halves have their second mockup round in `scratchpad/mm-palette-mockups.html`.
-  - **(a) DECIDED — class separation = run divider labels TOGETHER WITH the rail.** Raw:
-    *"Run divider labels, together with current rail."* Each class block opens with a labelled
-    divider ("Bard · L4–L7" + colour dot) AND keeps its coloured left rail — whose colour is
-    now re-asserted after the zone tints, so the here/pin highlight can no longer eat it (the
-    bug that opened the question). *Rejected:* inset-bar-only (A); rail-less dividers (B
-    alone); coloured L-pills (C).
-  - **(b) DECIDED — pick counts = bare "+" ghost chips AND a count tile.** Raw: *"ghost chip
-    with only + to add spells, with also count tile. Also, the spell list shouldn't wrap but
-    bleed past the card, masked by it (like access in spell details)."* Open schedule slots
-    render as dashed "+" chips (click = jump the view there); a neutral "2/6 picks" tile
-    states wants/has wherever a level opens slots; and the chip row is ONE line that bleeds
-    under a right-edge mask and scrolls (the spell-details access pattern) instead of
-    wrapping. *Rejected:* counts in the gains line; ~~labelled "+ spell" ghosts~~ **→ the
-    label rejection was REVERSED 2026-08-29 (W4)**: Francesco, raw — *"add back the 'spell'
-    to the + spell button … write instead + cantrip if it's a cantrip"* — ghosts read
+- **D124 (2026-08-29) Timeline separation + pick counts; metamagic placement + palette.**
+  Mechanism: mockup rounds (`scratchpad/tl-mockups2.html`, `scratchpad/mm-palette-mockups.html`) +
+  AskUserQuestion.
+  - **(a) Class separation = run divider labels TOGETHER WITH the rail** — each class block opens
+    with a labelled divider ("Bard · L4–L7" + colour dot) AND keeps its coloured left rail, whose
+    colour is re-asserted after the zone tints. *Rejected:* inset-bar-only (A); rail-less dividers
+    (B alone); coloured L-pills (C).
+  - **(b) Pick counts = ghost chips AND a count tile** — open schedule slots render as dashed chips
+    (click jumps the view there), a neutral "2/6 picks" tile states wants/has, and the chip row is
+    ONE line that bleeds under a right-edge mask and scrolls instead of wrapping. *Rejected:* counts
+    in the gains line; ~~labelled "+ spell" ghosts~~ **→ REVERSED 2026-08-29 (W4)**: ghosts read
     "+ spell" / "+ cantrip" now; the bare "+" is gone.
-  - **(c) DECIDED — metamagic lives in the spell details as an Access-style row labelled
-    "Metamagic".** Raw: *"Access-style row, do not wrap title (perhaps only 'metamagic' is
-    enough)."* One row under Access, the one-word label, dashed neutral chips (twin ·
-    quicken · careful) with the reason in each tip; rendered only when a Metamagic-owning
-    class can take the spell AND at least one selected option's condition holds. The D123(c)
-    table tags are gone; `METAMAGIC_WHEN`/`activeMetamagic` feed this row now. *Rejected:*
-    meta-line badges (the line is dense and wraps on phones); a reasons line above the text
-    (repeats itself once learned); the two-word label ("Your metamagic" wrapped).
-  - **(d) DECIDED — the palette is P3 EMBER: keep the rust identity, widen the gap.**
-    Mechanism note: the first answer picked P1 Verdigris; Francesco reversed it — raw:
-    *"Try again, switch to ember instead of verdigris."* Applied across all five theme
-    blocks (light, two dark, print-light, print-dark): accent slides to terracotta
-    (light #8f4b2b, dark #d9915f), alerts to crimson (light #c1273b, dark #f0616e, print
-    #9c1f30). Separation = ΔH≈27–30° PLUS a lightness/chroma gap — improved, deliberately
-    not categorical; the analysis (and the caveat that gold sits ~18° from the dark accent)
-    is in `scratchpad/mm-palette-mockups.html`. The app icon keeps the old rust — it is
-    artwork, not a functional colour, and its PNGs are pre-rendered. *Rejected:* **P1
-    Verdigris** (picked once, then reversed — do not re-propose); **P2 Lapis & Gold**
-    (would force the swap/pact violet to move to plum).
-  Enforced by: src/app.js `timelinePicks`/`renderTimeline`, src/styles.css rails/dividers/
-  ghost/count/mask rules. Affects: the timeline; the Spell table name cell (tags removed).
+  - **(c) Metamagic lives in the spell details as an Access-style row labelled "Metamagic"** — one
+    row under Access, dashed neutral chips with the reason in each tip, rendered only when a
+    Metamagic-owning class can take the spell AND a selected option's condition holds; D123(c)'s
+    table tags are gone. *Rejected:* meta-line badges (the line is dense and wraps on phones); a
+    reasons line above the text (repeats itself once learned); the two-word label ("Your metamagic"
+    wrapped).
+  - **(d) The palette is P3 EMBER: keep the rust identity, widen the gap** — accent slides to
+    terracotta (light #8f4b2b, dark #d9915f), alerts to crimson (light #c1273b, dark #f0616e, print
+    #9c1f30), across all five theme blocks; the app icon keeps the old rust (artwork, pre-rendered).
+    *Rejected:* **P1 Verdigris** (picked once, then reversed — do not re-propose); **P2 Lapis &
+    Gold** (would force the swap/pact violet to move to plum).
+  → body: `ARCHIVE.md#phase-refinement-bodies`
 
-- **D125 (2026-08-29) The forward guide clamps its current pick step to the row's FIRST open
-  slot — found by the F4 fresh-eyes gate.** Mechanism: F4 gate session (fable@high, separate
-  from the F1–F3 build session), reviewing the shipped rail against D118(a–k). The hole: skip
-  an earlier pick slot of a row, jump to a later slot of the same row — the page pre-filtered
-  by the LATER slot's castMax, but a take always lands in the row's first open slot (the pick
-  arrays are dense, D115(b,h): push-at-end and `sliceInsertAt` both resolve there), so a
-  legal-looking pick could arrive at a slot whose cap it breaks. Reproduced: Bard 3, L2 slot
-  skipped, L3 step current ("level 1–2 is legal") — taking Invisibility (L2) landed in the
-  L2 slot (cap 1) and went red. The rail flagged it instantly and nothing was lost (D118(e,g)
-  held; the failure was only the pre-filter's honesty, D118(b)). Fix: `guideSync` retargets a
-  forward, not-done spell/cantrip step whose `pos` exceeds the filled count to the same
-  row+kind step at the filled count — the note and cap now always describe where the pick
-  really lands; once the earlier slot fills, a jump to the later step sticks. Reverse mode is
-  positional placement and needs no clamp. *Rejected:* letting the take honour the clicked
-  slot's position (a hole in a dense array is exactly the holding pen D118(g) rejected);
-  filtering by the landing slot while leaving `cur` on the clicked step (the rail would
-  highlight one step while the note described another). Side note, logged not fixed: in
-  reverse mode a step at `pos ≥ length` accepts a placement click as a silent no-op —
-  harmless (never deletes) and unreachable in a normal walk. Gate verdict: every other
-  clause of D118(a–k) verified in-browser this session (all three entries, chooser, both
-  walks, inline structural answers, phone sheet + whole-chain toggle, stateless close/resume,
-  skip/frontier semantics, 73 steps at Bard 20, reverse re-entry at the first illegal slot,
-  own-picks narrowing, flag-don't-prune). Enforced by: src/app.js `guideSync` clamp; the
-  cap/note text follows `guidePickStep()` so it cannot drift separately. Affects: PLAN.md F4
-  (done), STATE.md next-action.
+- **D125 (2026-08-29) The forward guide clamps its current pick step to the row's FIRST open slot
+  — found by the F4 fresh-eyes gate.** The hole: skip an earlier pick slot of a row, jump to a later
+  slot of the same row, and the page pre-filtered by the LATER slot's castMax — but a take always
+  lands in the row's first open slot (the pick arrays are dense, D115(b,h)), so a legal-looking pick
+  could arrive at a slot whose cap it breaks. Fix: `guideSync` retargets a forward, not-done
+  spell/cantrip step whose `pos` exceeds the filled count to the same row+kind step at the filled
+  count, so the note and cap always describe where the pick really lands. Reverse mode is positional
+  placement and needs no clamp. *Rejected:* letting the take honour the clicked slot's position (a
+  hole in a dense array is exactly the holding pen D118(g) rejected); filtering by the landing slot
+  while leaving `cur` on the clicked step (the rail would highlight one step while the note
+  described another). Gate verdict: every other clause of D118(a–k) verified in-browser this
+  session. Enforced by: src/app.js `guideSync` clamp.
+  → body: `ARCHIVE.md#phase-refinement-bodies`
 
 - **D126 (2026-08-29) DECIDED — THE GUIDED BUILDER BECOMES A FULL-SIZE PAGE (phase G):
   ground-up surface redesign; the D118 model stands, its (k) surface is superseded.**
@@ -1424,63 +1206,47 @@ written up in full in `GOTCHAS.md` — that is the copy to trust.
   Supersedes: D131(e)'s placement in the guide header. Affects: src/app.js `renderGuideChain`
   + `renderTimeline` + the shared row drag, src/styles.css, PLAN's phase I (I2).
 
-- **D133 (2026-08-31) DECIDED — GATE-FIX MECHANISMS (G4 + H5/I5, all three passed with
-  findings; fixes shipped v1.2.39).** Raw: coordinated session, from the two opus gate
-  reports — mechanism choices made while fixing, logged so they aren't re-litigated.
+- **D133 (2026-08-31) DECIDED — GATE-FIX MECHANISMS (G4 + H5/I5, all three passed with findings;
+  fixes shipped v1.2.39).** Mechanism choices made while fixing, logged so they aren't re-litigated.
   - **(a) Placement is a property of the CALL SITE, never of the walk.** `toggle`'s ambient
-    `GUIDE.reverse` intercept is deleted; `guidePlace` has exactly one caller — `gpickCommit`
-    in place mode, the guide's own pick modal. The shared take/drop writer behaves the same
-    inside a walk as outside it, `arr==="prep"` can never be read as a placement, `guideDrop`
-    drops. *Rejected:* keeping the intercept and gating it on `!GUIDE.aside` + refusing
-    `prep` (still ambient — the next surface that shares the writer inherits the bug);
-    a second placement writer beside `toggle` (forks the one-writer discipline).
-  - **(b) A `cpick` section always opens its picker in `take` mode** — a granted choice is
-    a SET with no acquisition order to reconstruct; mode derives from section kind, not
-    from the walk's direction alone.
+    `GUIDE.reverse` intercept is deleted; `guidePlace` has exactly one caller — `gpickCommit` in
+    place mode. *Rejected:* keeping the intercept and gating it on `!GUIDE.aside` + refusing `prep`
+    (still ambient — the next surface that shares the writer inherits the bug); a second placement
+    writer beside `toggle` (forks the one-writer discipline).
+  - **(b) A `cpick` section always opens its picker in `take` mode** — a granted choice is a SET
+    with no acquisition order to reconstruct; mode derives from section kind.
   - **(c) The pick modal's honesty clock is the LANDING section's level, set per SECTION in
-    `openGpickSec`** — pool, cap, hint and `sliceInsertAt` insert position all derive from
-    that one number. *Rejected:* shifting the preview in `guideGo` (the gate's own first
-    suggestion — wrong at step granularity: one step's two sections can land at two levels,
-    and a step-level shift would misplace the other section's take); widening
-    `guideEligible` to ignore `R.pool` (decouples the picker from the view — bigger, kept
-    as fallback, not needed).
-  - **(d) One `guideDownPlaceable` predicate answers all three Down-walk questions** —
-    whether the control is offered, where reverse re-entry lands (never the growth card),
-    what "from L{n}" names. Replaces `guideAnswered()` there, which counted things Down
-    cannot place.
-  - **(e) A row that cannot be dragged is not a drop target** — `wireRowDrag`'s row branch
-    gates over/drop on `opt.enabled` at both ends; the chip branch stays on `opt.onChip`
-    (a chip must still drop on a single-class row). *Rejected:* wiring the timeline's add
-    row to match the ghost (adds a gesture nobody asked for).
-  - **(f) The four duplicated inversion pieces are one owner, `levelColumn`** — extracted
-    the moment the I5 gate proved the copies byte-identical; card bodies stay per-surface,
-    `wireRowDrag` stays separate on plan indices. Supersedes the keep-in-step-by-hand rule
-    the I2 merge left (its Gotcha entry updated).
-  Affects: src/app.js (guide + timeline + `wireRowDrag`), src/styles.css (print list,
-  chain top margin), GOTCHAS (D132 entry), PLAN (G4/H5/I5 closed).
+    `openGpickSec`** — pool, cap, hint and `sliceInsertAt` all derive from that one number.
+    *Rejected:* shifting the preview in `guideGo` (the gate's own first suggestion — wrong at step
+    granularity: one step's two sections can land at two levels, and a step-level shift would
+    misplace the other section's take); widening `guideEligible` to ignore `R.pool` (decouples the
+    picker from the view — bigger, kept as fallback, not needed).
+  - **(d) One `guideDownPlaceable` predicate answers all three Down-walk questions** — whether the
+    control is offered, where reverse re-entry lands (never the growth card), what "from L{n}"
+    names.
+  - **(e) A row that cannot be dragged is not a drop target** — `wireRowDrag`'s row branch gates
+    over/drop on `opt.enabled`; the chip branch stays on `opt.onChip`. *Rejected:* wiring the
+    timeline's add row to match the ghost (adds a gesture nobody asked for).
+  - **(f) The four duplicated inversion pieces are one owner, `levelColumn`** — card bodies stay
+    per-surface, `wireRowDrag` stays separate on plan indices. Supersedes the keep-in-step-by-hand
+    rule the I2 merge left (its Gotcha entry updated).
+  → body: `ARCHIVE.md#phase-refinement-bodies`
 
-- **D134 (2026-08-31) DECIDED — the three gate questions, answered by Francesco**
-  (AskUserQuestion round at the gate session's close; shipped v1.2.40).
-  - **(a) The place-mode cast cap STAYS, plus one minimal alert.** Raw: *"Keep + add a
-    subtle alert, let's try to keep the copy and notes text to a minimum."* The H5 gate's
-    reading of D118(g) is confirmed: a too-high pick is never placeable into a low slot —
-    the repair is placing a legal pick and letting the offender drift later. What was
-    missing was one quiet line when the cap hides some of the section's own picks, now in
-    `renderGpick`: "N picks are above this slot's cap — they fit a later slot." (a
-    `gphint`, spells only — cantrips have no cap). *Rejected:* allowing over-cap placement
-    (manufactures the violation the walk exists to repair); keeping the list silent (the
-    short list reads as the whole of it).
-  - **(b) `PREVIEW.level` KEEPS surviving `closeGuide`.** Raw: *"Keep as is."* Exiting the
-    walk leaves the character view at the last-visited step's level; the level chip's
-    `.prevon` state makes it visible and one click clears it. *Rejected:* the gate's
-    snapshot-on-open/restore-on-close (exit as the exact inverse of entry); clearing
-    unconditionally. Neither may be re-proposed as a "fix" — this is decided behaviour.
-  - **(c) The pinned bar's TWO-LINE form is confirmed** — D130(e) annotated in place. The
-    measured case: one line needs ~430px of content in a 375px bar and would ellipsise the
-    step label, the half worth returning for. *Rejected:* one line everywhere; a
-    desktop-only one-line variant (two forms of one bar).
-  Affects: src/app.js `renderGpick` (the (a) alert), DECISIONS D130(e) annotation,
-  PLAN's H5 block (three ⚑ resolved).
+- **D134 (2026-08-31) DECIDED — the three gate questions, answered by Francesco** (shipped
+  v1.2.40).
+  - **(a) The place-mode cast cap STAYS, plus one minimal alert** — the H5 gate's reading of
+    D118(g) is confirmed; what was missing was one quiet `gphint` when the cap hides some of the
+    section's own picks ("N picks are above this slot's cap — they fit a later slot.", spells only).
+    *Rejected:* allowing over-cap placement (manufactures the violation the walk exists to repair);
+    keeping the list silent (the short list reads as the whole of it).
+  - **(b) `PREVIEW.level` KEEPS surviving `closeGuide`** — raw: *"Keep as is."* Exiting leaves the
+    character view at the last-visited step's level; the chip's `.prevon` state makes it visible.
+    *Rejected:* the gate's snapshot-on-open/restore-on-close (exit as the exact inverse of entry);
+    clearing unconditionally. Neither may be re-proposed as a "fix" — this is decided behaviour.
+  - **(c) The pinned bar's TWO-LINE form is confirmed** — D130(e) annotated in place; one line needs
+    ~430px of content in a 375px bar. *Rejected:* one line everywhere; a desktop-only one-line
+    variant (two forms of one bar).
+  → body: `ARCHIVE.md#phase-refinement-bodies`
 
 - **D135 (2026-08-31) DECIDED — invocations, and everything shaped like one, are wired**
   (Francesco's report: *"invocations do not seem to be wired correctly: agonizing and
