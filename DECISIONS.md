@@ -1691,7 +1691,11 @@ written up in full in `GOTCHAS.md` — that is the copy to trust.
   src/index.html (`#libParser`, `#buildExportAll`, the import note), src/styles.css
   (`.libparser`), GOTCHAS (the per-book stamp).
 
-- **D139 (2026-08-31) OPEN — the reported bug is NOT fixed, and the method was wrong**
+- **D139 (2026-08-31) DECIDED — bug since RESOLVED same day; the method rule stands**
+  *(Resolution: it was the stale-library branch — books the linked folder could not provide
+  for re-parsing stayed wrong until Francesco relinked them manually; the v1.4.0 per-book
+  stamps are what surfaced it. Confirmed on his browser. The rule below remains in force.)*
+  Original entry, logged while open:
   (Francesco: *"the problem wasn't solved"*, after v1.3.2, v1.3.3 and v1.4.0). Logged as a
   decision because the lesson is a working rule, not a bug: **do not ship a fix for a
   "works for you, not for me" report until the reporter's own reading is in hand.** The
@@ -1709,6 +1713,44 @@ written up in full in `GOTCHAS.md` — that is the copy to trust.
   default; `scratchpad/jsimport.js` exonerates the in-browser importer in one command).
   *Rejected:* shipping a fourth theory; treating "re-import" as an answer without evidence
   it ran and covered the books in question.
+
+- **D140 (2026-08-31) DECIDED — minor bumps need Francesco's approval, every time**
+  (Francesco: *"the versions are advancing too quickly, there was no big improvement between
+  1.2 to 1.4 — always review if it warrants a version bump and interview me to get my
+  approval"*). D117's "minor for larger batches that ship features" left the call to the
+  agent, and two single-session batches (D135 → v1.3.0, D138 → v1.4.0) took it — real
+  features, but not 1.2→1.4-sized in Francesco's judgment, and he is the versioning
+  authority. **New rule: patch stays the automatic per-commit default (the footer must name
+  the exact build — unchanged); a `--minor` or `--major` is never taken autonomously.** The
+  agent presents what shipped and why it might warrant the bump (AskUserQuestion), and it
+  stays a patch until Francesco says yes. Existing tags stand — the pre-semver rule that
+  tags are never rewritten applies to 1.3/1.4 too. *Rejected:* minor-at-phase-gates with
+  agent autonomy (still leaves the judgment call on the wrong side); retro-renumbering
+  1.3/1.4 (tags are never rewritten). Amends **D117**; enforced by CLAUDE.md § Versioning.
+
+- **D141 (2026-08-31) DECIDED — Francesco's UI calls on the guide and timeline** (his notes,
+  verbatim in quotes; shipped by the 2026-08-31 parallel batch):
+  - **(a) The direction arrow is an ORDER toggle, and both columns get one.** *"the guided
+    builder arrow isn't correctly changing the order of the entries in the side rail, high
+    level is always on top. Add the arrow option also in timeline."* The arrow now inverts
+    the rendered order of the level column (walk's starting end on top), on the chain rail
+    AND the timeline. Amends **D132**: highest-first stops being fixed and becomes the
+    toggle's default; D132's hard rule is UNCHANGED — display inverts, computation never
+    does, `wireRowDrag` stays on plan indices, `levelColumn` stays the one owner.
+  - **(b) The `?` before "⇇ Character view" goes.** *"remove the ? button before character
+    view, redundant."*
+  - **(c) The timeline has ONE current state.** *"remove the current level state from
+    timeline. Current state is always the clicked state of a row, they are not different
+    states."* The clicked row IS the current state; the separate pin state/control goes.
+    D134's Q2 (PREVIEW.level surviving closeGuide) is untouched.
+  - **(d) Alignment is measured, never eyeballed.** *"the text of the chip indicating the
+    class level on top isn't centered in the chip. This is a recurring issue, audit the page
+    and fix it everywhere it appears. Log the doublecheck for alignment on new ui elements."*
+    → the rule is in CLAUDE.md § How to work here (measure text-vs-container rect deltas at
+    1280 and 375 on every new/changed UI element); the audit itself rides the batch.
+  *Rejected:* keeping the arrow as a walk-direction-only control with a fixed highest-first
+  display (what D132 shipped — Francesco read the arrow as an order control, and the
+  control should do what it reads as).
 
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for

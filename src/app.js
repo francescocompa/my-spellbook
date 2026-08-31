@@ -935,7 +935,8 @@ function sliceInsertAt(row,arr,L){
   let n=0; ch[arr].forEach((_,i)=>{if(acqAt(sa,i,lvls)<=L)n++;});
   return n;
 }
-// feats: origin slots are character level 1; general/epic spends fill the build's slot
+// feats: origin slots arrive at level 1 (background/Human) or with the feature that
+// grants them; general/epic spends fill the build's slot
 // ── feat slots a FEATURE hands you (D135) ──────────────────────────────────
 // 5etools models these as `featProgression` and neither extractor read it, which is why
 // Lessons of the First Ones ("you gain one Origin feat of your choice") granted nothing.
@@ -946,28 +947,47 @@ const FEAT_SLOT_OF_CAT={O:"origin",G:"general",EB:"epic",
   FS:"fs","FS:P":"fs","FS:R":"fs","FS:B":"fs","FS:M":"fs"};
 function grantedFeatSlots(){
   const out={origin:0,general:0,epic:0,fs:0,from:[]};
-  const lv=Math.max(1,Math.min(20,charLevel()));
-  const add=rec=>{ if(!rec||!rec.featSlots)return;
+  // FULL-plan on purpose: the sweep (buildHealth) and the acquisition mappers read this,
+  // and neither may see the preview (D115(f)) — the old charLevel()/optFeatsAt() reads
+  // made the origin cap shrink under a preview, so the granted slot's feat read OVER
+  // "at level 1" and its guide step vanished mid-walk. View-sliced consumers filter
+  // `from` by each entry's `lv` instead.
+  const lv=Math.max(1,Math.min(20,topCharLevel()));
+  const add=(rec,alv)=>{ if(!rec||!rec.featSlots)return;
     (rec.featSlots||[]).forEach(p=>{ const n=(p.counts||[])[lv-1]||0; if(!n)return;
-      out[FEAT_SLOT_OF_CAT[(p.cats||[])[0]]||"origin"]+=n;
-      out.from.push({name:rec.name,n,slot:FEAT_SLOT_OF_CAT[(p.cats||[])[0]]||"origin"});});};
+      const slot=FEAT_SLOT_OF_CAT[(p.cats||[])[0]]||"origin";
+      out[slot]+=n;
+      out.from.push({name:rec.name,n,slot,lv:alv});});};
   // `state.feats` RAW, not featsAt(): the sliced reader walks featAcqLevels(), which asks
   // for the origin cap this feeds — one hop and it would recur. Nothing in the data grants
   // a feat slot FROM a feat today; when something does, that walk needs breaking first.
-  (state.feats||[]).forEach(fk=>add(FEAT_BY[baseKey(fk)]));
-  optFeatsAt().forEach(ok=>add(OPT_BY[baseKey(ok)]));
-  const sp=RACE_BY[state.speciesKey]; if(sp)add(sp);
+  (state.feats||[]).forEach(fk=>add(FEAT_BY[baseKey(fk)],1));
+  // a slot granted by an optional feature ARRIVES where the feature does — its slot on
+  // the full plan (optAcqLevels is preview-free and never walks back into feat land).
+  // Level 1 here is what put Lessons of the First Ones' origin feat before the
+  // invocation that grants it existed.
+  const oa=optAcqLevels();
+  (state.optFeats||[]).forEach(ok=>{const a=oa.get(ok);
+    add(OPT_BY[baseKey(ok)],a?a.lv:1);});
+  const sp=RACE_BY[state.speciesKey]; if(sp)add(sp,1);
   return out;
 }
-// The origin-feat cap, in ONE place. Three surfaces derived it independently — the budget
-// card, featAcqLevels()'s attribution walk and the guided chain's step list — which is
-// exactly the drift that lets them disagree about how many origin feats you owe.
-function originSlots(){
-  const race=RACE_BY[state.speciesKey];
-  return (state.classes.length?1:0)
-    +(/human/i.test((race&&race.name)||"")?1:0)
-    +grantedFeatSlots().origin;
+// The origin-feat cap, in ONE place — now one ARRIVAL LEVEL per slot (ascending). The
+// background's slot (and the Human's extra) is character level 1; a granted one arrives
+// with its giver. Three surfaces used to derive the cap independently — the budget card,
+// featAcqLevels()'s attribution walk and the guided chain's step list — which is exactly
+// the drift that lets them disagree about how many origin feats you owe.
+function originSlotLevels(full){
+  const out=[]; const race=RACE_BY[state.speciesKey];
+  if(state.classes.length)out.push(1);
+  if(/human/i.test((race&&race.name)||""))out.push(1);
+  grantedFeatSlots().from.forEach(x=>{
+    if(x.slot!=="origin")return; for(let i=0;i<x.n;i++)out.push(x.lv);});
+  out.sort((a,b)=>a-b);
+  if(full||PREVIEW.level==null)return out;
+  return out.filter(l=>l<=PREVIEW.level);
 }
+function originSlots(full){return originSlotLevels(full).length;}
 // levels in array order, earliest available slot first (best case, D18); anything past
 // the budget arrives at top — E4 flags it, nothing hides it (D31)
 // fk -> {lv, cat, over}. `over` means no slot in the build could pay for it — it still
@@ -975,11 +995,14 @@ function originSlots(){
 function featAcqLevels(){
   const slots=featSlotLevels(true), used=new Array(slots.length).fill(false);
   const top=topCharLevel(), out=new Map();
-  const originCap=originSlots();
+  // origin slots carry arrival levels too (D135(d)): spends fill them in array order,
+  // earliest slot first — so a feat on a granted slot lands at its giver's level, not 1
+  const oSlots=originSlotLevels(true);
   let origin=0;
   state.feats.forEach(fk=>{
     const cat=featSlotOf(fk)||"origin";
-    if(cat==="origin"){out.set(fk,{lv:1,cat,over:++origin>originCap});return;}
+    if(cat==="origin"){const i=origin++;
+      out.set(fk,{lv:i<oSlots.length?oSlots[i]:1,cat,over:i>=oSlots.length});return;}
     const min=cat==="epic"?19:1;
     let lv=null;
     for(let i=0;i<slots.length;i++)if(!used[i]&&slots[i]>=min){used[i]=true;lv=slots[i];break;}
@@ -1162,15 +1185,18 @@ function guideSteps(){
     label:"Species",multiLabel:race?race.name:"Species",
     sections:[gsec({id:"self",kind:"species",label:"Species",done:!!race,
       value:race?race.name:null})]}));
-  const originCap=originSlots();
+  // one step per origin slot, at the character level the SLOT arrives (D135(d)): the
+  // background's at 1, a granted one with its giver — full-plan, so a step never
+  // vanishes when the walk previews a level below its giver
+  const oSlots=originSlotLevels(true), originCap=oSlots.length;
   // an unrecorded spend defaults to origin, exactly as featAcqLevels() reads it
   const originSpent=state.feats.filter(fk=>(featSlotOf(fk)||"origin")==="origin");
-  for(let i=0;i<originCap;i++){const fk=originSpent[i], f=fk?FEAT_BY[baseKey(fk)]:null;
-    const st=add({key:"feat~"+i,lv:1,ord:3,kind:"feat",slot:"origin",pos:i,sub:"Origin feat",
-      label:"Origin feat",multiLabel:f?f.name:"Origin feat",
+  oSlots.forEach((slv,i)=>{const fk=originSpent[i], f=fk?FEAT_BY[baseKey(fk)]:null;
+    const st=add({key:"feat~"+i,lv:slv,ord:slv===1?3:6,kind:"feat",slot:"origin",pos:i,
+      sub:"Origin feat",label:"Origin feat",multiLabel:f?f.name:"Origin feat",
       sections:[gsec({id:"self",kind:"feat",label:"Origin feat",slot:"origin",pos:i,
         done:!!fk,value:f?f.name:null})]});
-    if(fk)hostBy.set("f"+fk+"@1",st);}
+    if(fk)hostBy.set("f"+fk+"@"+slv,st);});
   // one class step per character level — the wizard's "continue or multiclass" answer
   // (D118(e)); every level the plan holds is a decision already made
   const perClass=new Map();
@@ -7901,9 +7927,15 @@ function featBudget(){
   const slots=featSlotLevels();
   // …plus anything a FEATURE hands you (D135). An epic-boon slot from a feature is still a
   // feat slot, so it counts in `general` too — `epic` is a sub-limit, never a pool beside it.
+  // grantedFeatSlots() is full-plan now; the budget is the VIEW's, so granted slots count
+  // only once their giver has arrived (`lv` on each `from` entry) — same slicing
+  // featSlotLevels() does through the preview.
   const gs=grantedFeatSlots();
-  const general=slots.length+gs.general+gs.epic;        // every feat slot your build grants
-  const epic=slots.filter(l=>l>=19).length+gs.epic;     // …of those, the ones a boon may use
+  const view=PREVIEW.level==null?Infinity:PREVIEW.level;
+  const gAt=slot=>gs.from.filter(x=>x.slot===slot&&x.lv<=view).reduce((a,x)=>a+x.n,0);
+  const gEpic=gAt("epic");
+  const general=slots.length+gAt("general")+gEpic;      // every feat slot your build grants
+  const epic=slots.filter(l=>l>=19).length+gEpic;       // …of those, the ones a boon may use
   const race=RACE_BY[state.speciesKey];const isHuman=/human/i.test((race&&race.name)||"");
   const origin=originSlots();
   // attribution follows the slot the feat was SPENT from (D84), not its category: origin
@@ -7919,7 +7951,10 @@ function featBudget(){
 // a granted slot has to SAY where it came from, or the origin row silently reads 2/2 on a
 // build whose background gave one (D135)
 function grantedNote(gs,slot){
-  const mine=(gs.from||[]).filter(x=>x.slot===slot);
+  // the card is the VIEW's: a granted slot whose giver hasn't arrived at this level
+  // isn't in the cap, so its name doesn't belong in the tip either
+  const view=PREVIEW.level==null?Infinity:PREVIEW.level;
+  const mine=(gs.from||[]).filter(x=>x.slot===slot&&x.lv<=view);
   return mine.length?mine.map(x=>(x.n>1?x.n+" from ":"1 from ")+x.name).join(", ")+".":null;}
 function renderFeatBudget(){const b=featBudget();
   slotCount($("#originCnt"),b.originPicked,b.origin,grantedNote(b.granted,"origin"));

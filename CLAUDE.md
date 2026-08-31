@@ -81,10 +81,12 @@ page — including a printed sheet — names the code that made it.
 
 - **Every commit bumps it**: `python3 bump.py` (patch, 1.2.1 → 1.2.2), which also rebuilds.
   A version nothing was built with lies in the footer.
-- **MAJOR.MINOR.PATCH (D117)** — patch for day-to-day fixes and small batches (the
-  once-per-commit default); `--minor` for larger batches that ship features; `--major`
-  for overhauls and massive reworks only.
-- **The major only moves when Francesco says so.** Ask; never take `--major` on your own.
+- **MAJOR.MINOR.PATCH (D117, amended by D140)** — patch for day-to-day fixes and small
+  batches (the once-per-commit default); `--minor` for larger batches that ship features;
+  `--major` for overhauls and massive reworks only.
+- **Minor and major only move when Francesco says so (D140).** Present what shipped and why
+  it might warrant the bump, ask (AskUserQuestion), and take patch until he approves. Never
+  take `--minor` or `--major` on your own.
 - Commit messages lead with the version: `v1.2.2 — what changed`. Release commits are
   tagged (`git tag v1.2.2`) and tags are pushed.
 - The pre-semver lines are tagged in place, never rewritten: the pre-1.0 line (v4 → v7)
@@ -96,6 +98,10 @@ page — including a printed sheet — names the code that made it.
 - **Verify in the browser, don't ask Francesco to check.** Start `serve.py` via Bash, drive the
   page, screenshot the result. Print output is checked by lifting the `@media print` rules into
   a screen stylesheet — the browser pane has no print preview.
+- **Measure alignment on every new or changed UI element before calling it done.**
+  Off-center text in chips/tiles/badges is a recurring bug class (Francesco, 2026-08-31).
+  Don't eyeball it: compare the text node's `getBoundingClientRect` against its container's
+  in-browser and assert the deltas are symmetric, at both 1280 and 375.
 - **Never mutate Francesco's saved builds to test something.** Derived state (`R`, `PREVIEW`) is
   rebuilt on the next render and is safe to poke; `state.*` is his data. If a test must write,
   capture the value first and restore it, then verify the restore.

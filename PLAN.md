@@ -3,30 +3,22 @@
 > What is queued, and what is blocked on a decision. `STATE.md` says where things stand;
 > this says what comes next. Closed items → `ARCHIVE.md#closed-backlog`.
 >
-> **⚠ 2026-08-31: the one LIVE item is the open bug at the head of this file — it is
-> blocked on a reading from Francesco's browser, not on work.** Everything below it is the
-> standing backlog. All phases (E–I) are done and gated; its one 🔶 (magic items / rewards)
-> is ungated and awaits Francesco's call.
+> **2026-08-31: the open bug is RESOLVED** (stale imported library; sources the folder
+> could not provide were relinked manually by Francesco — see STATE's resolved block and
+> D139). All phases (E–I) are done and gated; what remains is the standing backlog below.
+> Its one 🔶 (magic items / rewards) is ungated and awaits Francesco's call.
 
-## ⚠ OPEN — the reported bug is not fixed (2026-08-31)
+## ✅ RESOLVED — the reported bug (2026-08-31)
 
-**This is the queue's only live item and it is BLOCKED ON A READING, not on work.**
-Great Old One's Hex still reads "at will" and Lessons of the First Ones grants no origin
-feat *on Francesco's browser*, at an updated version; both are correct in the agent's.
-The full account, what is verified, and what each possible reading would mean are in
-`STATE.md` — read that block before anything else.
-
-- [ ] **D1 — get the reading** ⚑ (owner: Francesco, 2026-08-31). `Done when` the snippet in
-  STATE (or ⋯ → Library → Manage) has been run on HIS browser and the five values are known:
-  `ver`, `imported`, `digestStamp`, `stale[]`, `hex.kind`. **Ship nothing before this.**
-- [ ] **D2 — act on what it says.** STATE maps each possible reading to a different place to
-  look. Only one of the branches ("`stale` empty but `hex.kind==="innate"`") is a new bug;
-  the rest are stale page or stale data.
-- [ ] **D3 — verify the fix the way this bug demands**: NOT on the agent's browser, which has
-  no imported library and therefore cannot reproduce it. Either drive a stale digest through
-  `IMPORT_CACHE` (two lines, in STATE) or have Francesco confirm on his own machine.
-  `node scratchpad/jsimport.js` asserts the in-browser importer's own output on the exact
-  records in question — it is the harness this bug needed and it now lives in the repo.
+- [x] **D1 — get the reading**: obtained the practical way — Francesco found the cause via
+  the v1.4.0 per-book stamps: his library was stale and the wrong books were ones the
+  linked folder could not provide for re-parsing.
+- [x] **D2 — act on what it says**: it was the "`stale` is a non-empty list" branch — no
+  code change owed; he relinked the missing sources manually and the refresh healed them.
+- [x] **D3 — verify on the reporter's environment**: confirmed by Francesco on his own
+  browser, 2026-08-31. Also verified live the same day: the SW serves the previous page
+  first by design and the v1.3.3 update notice appears and offers the reload (D137(d),
+  previously unverified).
 
 ## Phase E — a build at every level (D115, decided 2026-08-28)
 
