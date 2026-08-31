@@ -5244,6 +5244,36 @@ async function refreshImported(fromModal){
     refreshDone("Re-imported "+nBooks(n)+" with parser v"+(window.__VERSION__||"dev")+"."+caveat);
   }finally{ if(REFRESH_BUSY)refreshStop(); }
 }
+// ── the imported digest is older than the parser (D137) ────────────────────
+// `assembleData` hands the IMPORTED digest to the app WHOLE — `IMPORTED||BAKED` — so every
+// extractor fix is invisible until the books are re-read, even for records the bundle
+// already carries. That has now cost four rounds of "this is still wrong" (D127's `_copy`
+// twins, D135's designations and feat slots, D136's Hex and Synaptic Static): the app knew
+// which parser made its data (D111 stamps it) and said nothing. It says it here.
+// Version-aware and dismissible per version, so it names a real gap once and then stops.
+const LS_PARSER_NAG="spellForge.parserNag.v1";
+const verParts=v=>String(v||"").split(".").map(n=>parseInt(n,10)||0);
+function verLt(a,b){const A=verParts(a),B=verParts(b);
+  for(let i=0;i<Math.max(A.length,B.length,3);i++){const x=A[i]||0,y=B[i]||0;
+    if(x!==y)return x<y;}
+  return false;}
+function staleParserNotice(){
+  const app=window.__VERSION__; if(!app||!IMPORTED)return;
+  const made=(IMPORTED.meta||{}).parser||null;
+  // a digest from before D111 carries no stamp at all — that is as stale as it gets
+  if(made&&!verLt(made,app))return;
+  let seen=null; try{seen=localStorage.getItem(LS_PARSER_NAG);}catch(_){}
+  if(seen===app)return;                       // already said for this version, and dismissed
+  const n=appNotice(`Your imported books were read by ${made?"parser v"+made:"an older parser"}`
+    +` — this is v${app}. Refresh to re-read them and pick up the fixes since.`,"ask");
+  const act=el("button","anact","Refresh now");
+  act.onclick=()=>{ try{localStorage.setItem(LS_PARSER_NAG,app);}catch(_){}
+    n.remove(); refreshImported(false); };
+  n.insertBefore(act,n.querySelector(".anx"));
+  // the × means "not now", so it must not come back every boot on the same version
+  const x=n.querySelector(".anx");
+  if(x)x.addEventListener("click",()=>{try{localStorage.setItem(LS_PARSER_NAG,app);}catch(_){}});
+}
 let LIB_TAB="src";
 function setLibTab(t){LIB_TAB=t;
   $("#libTabSrc").classList.toggle("on",t==="src");
@@ -8704,4 +8734,5 @@ let BOOT_MODE="fresh";
   maybeOnboard();
   fillIcons(); wireHelpNotes();
   refreshAll();render();
+  staleParserNotice();
 })();

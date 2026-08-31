@@ -284,6 +284,12 @@ restate it. **The phase is CLOSED — H1/H2 (v1.2.27), H3 (v1.2.28), H4 (v1.2.31
   column drops the Constitution it never forces (the tag came from a penalty on the target's
   own concentration saves); and everything GRANTED is one row per spell with a badge per
   giver — the always-prepared branch used to read `grants[0]` and silently drop the rest.
+- [x] **An extractor fix never reached an importing user, and nothing said so**
+  (**shipped v1.3.2 → D137**; done-when verified in-browser by reproducing every reported
+  symptom from a v1.2.41-stamped digest and clearing them from a current one, plus the six
+  `verLt` cases, the no-import case, the no-stamp case, the × and the action button): the
+  boot notice compares the imported digest's parser stamp with the app version and offers
+  the inline refresh. **The reproduction is the thing to keep** — it is in GOTCHAS.
 - [ ] **`refreshAddFeat()` has the identical defect for `#epicRow`** (found while fixing the
   above, 2026-08-30 — HIGH CONFIDENCE from reading, NOT reproduced in the browser): it
   toggles `#epicRow` on `featBudget().epic`, which per D114 is a function of

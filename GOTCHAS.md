@@ -513,5 +513,17 @@
   reading `row.src` gets the joined label, and `cellFor("build")` draws a badge per giver.
   A PICK is deliberately NOT merged into them: its marker column and its prepare toggle
   belong to a class row.
+- **An imported digest REPLACES the bundle, so an extractor fix does not reach an importing
+  user until they re-read their books (D137).** `assembleData` is `IMPORTED||BAKED` — not a
+  merge (only `monsters` merges) — so with an import present NONE of the baked records are
+  used, including ones the bundle carries a corrected copy of. The practical consequence,
+  which has now been reported as a bug four times (D127, twice for D135/D136): ship an
+  extractor fix and the app-side half works while the data-side half silently does not.
+  **When a change touches extract.py / extract.js, the answer to "why is it still wrong"
+  is almost always a stale digest — check `IMPORTED.meta.parser` before hunting a
+  regression.** `staleParserNotice()` now says it at boot, and the reproduction is two
+  lines: hand `IMPORT_CACHE` a copy of `window.__DATA__` with the new fields stripped and a
+  stamp of the previous version, call `assembleData()`, and the old symptoms come back
+  exactly.
 - **History purge:** old data-bearing commits are unreachable on origin but GitHub may still serve
   them by exact SHA until it gc's. `backup/pre-purge-20260826` (local) has the original.

@@ -461,6 +461,12 @@
 .appnotice.busy{border-color:var(--line-strong)}
 .appnotice.ok{border-color:var(--good)}
 .appnotice.ask{border-color:var(--gold)}
+/* D137: the one notice that offers an ACTION rather than only stating a fact — it sits
+   before the ×, so "not now" stays the last thing on the bar */
+.appnotice .anact{flex:none;border:1px solid var(--gold);background:var(--gold-soft);
+  color:var(--gold);border-radius:7px;padding:3px 9px;font:inherit;font-size:11.5px;
+  font-weight:600;cursor:pointer;white-space:nowrap}
+.appnotice .anact:hover{background:var(--gold);color:var(--bg)}
 .appnotice .anspin,.appnotice .anicon:empty{display:none}
 .appnotice .anicon{flex:none;display:flex;align-items:center}
 .appnotice .anicon svg{width:14px;height:14px}

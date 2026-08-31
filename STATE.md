@@ -7,12 +7,12 @@
 > |---|---|
 > | `CLAUDE.md` | What this project is, its conventions, build/run, the verify gate, versioning |
 > | `PLAN.md` | The queue — what is next and what is gated |
-> | `DECISIONS.md` | Every decision D7–D136 and what was rejected |
+> | `DECISIONS.md` | Every decision D7–D137 and what was rejected |
 > | `GOTCHAS.md` | Traps that have already cost a session |
 > | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 > | `ARCHIVE.md` | Bodies of consumed phases and old rationale |
 
-## TL;DR (2026-08-31 · **v1.3.1**, committed · **not yet pushed** · app content = v1.3.1)
+## TL;DR (2026-08-31 · **v1.3.2**, committed · **not yet pushed** · app content = v1.3.2)
 - **State:** phases E–I all closed (every gate passed 2026-08-31). This session was
   Francesco's own bug report, taken as a **full audit of invocations and everything shaped
   like one** → **D135, shipped v1.3.0**. Four independent holes, every one a 5etools field
@@ -34,13 +34,22 @@
   drops the Constitution the spell never forces (the tag came from a penalty on the target's
   own concentration saves); and everything GRANTED is now one row per spell with a badge per
   giver — the always-prepared branch used to read `grants[0]` and silently drop the rest.
-- **Next action:** **push** (`git push && git push --tags`) — both commits are local. Then the
+  Then Francesco reported two of those as still broken on the new build, which turned out to
+  be the standing trap, not a regression → **D137, v1.3.2**: `assembleData` is
+  `IMPORTED||BAKED`, so an imported digest replaces the bundle WHOLE and an extractor fix
+  never reaches an importing browser until the books are re-read. Reproduced exactly from a
+  v1.2.41-stamped digest and cleared from a current one. The app has stamped `meta.parser`
+  since D111 and never read it; `staleParserNotice()` now says it at boot and offers the
+  inline refresh.
+- **Next action:** **push** (`git push && git push --tags`) — three commits are local. Then the
   standing queue in PLAN: the fattest small item is `refreshAddFeat()`'s `#epicRow`
   staleness (verify from a fresh load, then fix); the one 🔶 is magic items / rewards,
   awaiting Francesco. The live docs carry five finished phases inline — **`/clean` is still
   recommended** before the next substantive session.
 - **Manual for Francesco:** ⓪ **Refresh your imported data in each browser — still the top
-  item, and now it also carries D135's four fixes** — ⋯ → **Refresh imported data** (since
+  item, and since v1.3.2 the app ASKS you to (D137): a boot notice naming the parser gap,
+  with a "Refresh now" button.** It carries D135's and D136's fixes, which cannot reach an
+  importing browser any other way — ⋯ → **Refresh imported data** (since
   v1.2.23 it runs inline and SHOWS a green "Re-imported N books" / a red reason). A
   pre-**D127** digest still holds the unresolved `_copy` twins, which is why
   **Aberrant/Clockwork/Wild Magic appear twice**, why every **2014 subclass grants nothing**,
@@ -87,7 +96,8 @@ v1.2.39 → D133; the three gate questions answered by Francesco → D134, v1.2.
 pushed and live). No phase is open, no gate is owed, no ⚑ from the gates remains. On top of
 that, **D135 (v1.3.0) wired invocations and everything shaped like one** — designations,
 repeatable takes, a record's own casting notes, and feature-granted feat slots — and
-**D136 (v1.3.1)** fixed three wrong reads of the spell table. What
+**D136 (v1.3.1)** fixed three wrong reads of the spell table and **D137 (v1.3.2)** made the
+app say when its data is older than its parser. What
 remains is the standing queue/backlog in PLAN.
 v7 (saved builds) is complete → `ARCHIVE.md#v7-tasks`. Non-goals as narrowed by D115: no
 **authored** timeline (the level view is derived from the acquisition order; versions are

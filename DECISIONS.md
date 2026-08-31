@@ -1607,6 +1607,37 @@ written up in full in `GOTCHAS.md` — that is the copy to trust.
   (`tableRows` merge, `cellFor` mark/casts/build), src/styles.css (badge gap, print
   separator).
 
+- **D137 (2026-08-31) DECIDED — the app says when its data is older than its parser**
+  (Francesco, on the D135/D136 builds: *"the version is updated (and loaded in browser), but
+  I still see at will for hex and lessons of the first ones doesn't grant extra feat
+  slot"*). Not a regression — reproduced exactly by handing a v1.2.41-stamped digest to the
+  v1.3.1 app, and cleared exactly by handing it a current one. **`assembleData` uses
+  `IMPORTED||BAKED`: an imported digest replaces the bundled one WHOLE**, so every extractor
+  fix is invisible until the books are re-read, even for records the bundle already carries.
+  The merged-row half of D136 landed because it is app code; the two data halves did not.
+  That asymmetry has now cost four rounds of "this is still wrong" (D127's `_copy` twins,
+  D135's designations and feat slots, D136's Hex and Synaptic Static), and the app has known
+  the answer the whole time — D111 stamps `meta.parser` on every import and nothing read it.
+  - **A boot notice, version-aware and dismissible per version.** `staleParserNotice()`
+    compares the digest's stamp with `__VERSION__` through a numeric `verLt` (string
+    compare would read 1.2.9 as newer than 1.2.41) and says: *"Your imported books were read
+    by parser v1.2.41 — this is v1.3.1. Refresh to re-read them and pick up the fixes
+    since."* It carries the bar's first ACTION button, "Refresh now", wired to the same
+    inline `refreshImported(false)` the ⋯ menu uses (D129), and the × means "not now" — both
+    stamp the version so it says its piece once and then stops until the next release. A
+    digest from before D111 carries no stamp at all and counts as stale.
+  - **Nothing is auto-refreshed.** A refresh re-reads the local folder, needs a permission
+    gesture, and can fail in four ways a human must fix (D129) — doing it silently at boot
+    would be a long unasked-for job with no gesture behind it, and would fail invisibly on
+    every browser that has no folder handle. *Rejected:* auto-refresh on a version change;
+    blocking the app until the data is refreshed; a permanent banner (the ⋯ menu and the
+    Library footer already carry the stamp for anyone who wants to look).
+  - **The notice is silent where there is nothing to say**: no import at all (the public
+    build's default, and any browser using the bundle) and a stamp at the current version
+    both produce nothing.
+  Affects: src/app.js (`staleParserNotice`, `verLt`, the boot tail), src/styles.css
+  (`.appnotice .anact`), GOTCHAS (the `IMPORTED||BAKED` entry).
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives
