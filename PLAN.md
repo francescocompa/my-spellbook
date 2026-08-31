@@ -99,7 +99,7 @@ started until the four gated calls come back.
   timeline header is index.html:575 (`<h2>Timeline</h2>` + `#tlOrder`). D141 owns the arrow's
   behaviour (display inverts, computation never does) — this moves where it lives, not what
   it does.
-- [ ] **J10 · Settings menu — tidy and organise.** `#menuPop` (index.html:44-56) is ten flat
+- [x] **J10 · Settings menu grouped by object** (v1.4.11, D144(a)). Original note: `#menuPop` (index.html:44-56) is ten flat
   items with two separators. Needs grouping.
 
 ### Fallout from J6, flagged
@@ -112,7 +112,8 @@ started until the four gated calls come back.
 
 ### J11–J12 · ready to build, larger
 
-- [ ] **J11 · Custom spell builder — fit the page, and seed from a spell.** Its fields and
+- [x] **J11 · Custom spell builder fits the page, and seeds from a spell** (v1.4.11,
+  D144(b,c)). Original note: Its fields and
   checkboxes don't match the rest of the app. Plus: load an existing spell from the picker as
   a template. D94/D95 own the editor's model; this is presentation + one new entry path.
 - [ ] **J12 · Light theme — full contrast/accessibility audit.** Francesco: overall not

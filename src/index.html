@@ -38,20 +38,26 @@
       <div class="menupop bswpop hidden" id="bswPop"></div>
     </div>
     <span class="spacer"></span>
-    <button class="btn iconbtn ico" id="guideTopBtn" data-ico="spark" title="Guided builder: walk the build level by level" aria-label="Guided builder"></button>
+    <button class="btn iconbtn ico" id="guideTopBtn" data-ico="compass" title="Guided builder: walk the build level by level" aria-label="Guided builder"></button>
     <div class="tabs"><button id="tabBuild" class="on"><span class="tl" data-t="Build">Build</span></button><button id="tabTable"><span class="tl full" data-t="Spell table">Spell table</span><span class="tl short" data-t="Table">Table</span></button></div>
     <div class="menu">
       <button class="btn iconbtn ico" id="menuBtn" data-ico="dots" title="Settings" aria-label="Settings"></button>
+      <!-- J10 · D144: grouped by what each item ACTS ON. The first group is this
+           character and needs no header (the menu is opened from the build); CONTENT is
+           the one that had to be named, because "Custom spell…" and "Library…" were sitting
+           among build actions and read as things you do to the character. -->
       <div class="menupop hidden" id="menuPop">
         <button id="buildsBtn"><span class="mi ico" data-ico="stack"></span>Builds…</button>
         <button id="guideBtn"><span class="mi ico" data-ico="spark"></span>Guided builder…</button>
         <button id="testBtn"><span class="mi ico" data-ico="dice"></span>Random character</button>
+        <button id="printBtn"><span class="mi ico" data-ico="print"></span>Print / save as PDF…</button>
         <div class="sep"></div>
-        <button id="customBtn"><span class="mi ico" data-ico="pencil"></span>Custom spell…</button>
-        <button id="hbBtn"><span class="mi ico" data-ico="stack"></span>My homebrew…</button>
+        <div class="mopt colhead">Content</div>
         <button id="libBtn"><span class="mi ico" data-ico="book"></span>Library…</button>
         <button id="refreshBtn"><span class="mi ico" data-ico="download"></span>Refresh imported data</button>
-        <button id="printBtn"><span class="mi ico" data-ico="print"></span>Print / save as PDF…</button>
+        <button id="customBtn"><span class="mi ico" data-ico="pencil"></span>Custom spell…</button>
+        <button id="hbBtn"><span class="mi ico" data-ico="stack"></span>My homebrew…</button>
+        <div class="sep"></div>
         <button id="themeBtn"><span class="mi ico" data-ico="theme"></span>Toggle theme</button>
         <div class="sep"></div>
         <button id="resetBtn" class="danger"><span class="mi ico" data-ico="reset"></span>Reset build</button>

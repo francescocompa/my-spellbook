@@ -4751,7 +4751,7 @@ const DUR_OPTS=["Instantaneous","1 round","1 minute","10 minutes","1 hour","8 ho
 const SAVE_OPTS=[["","— none —"],["strength","Strength"],["dexterity","Dexterity"],["constitution","Constitution"],["intelligence","Intelligence"],["wisdom","Wisdom"],["charisma","Charisma"]];
 const LVL_OPTS=[["0","Cantrip"],["1","1st"],["2","2nd"],["3","3rd"],["4","4th"],["5","5th"],["6","6th"],["7","7th"],["8","8th"],["9","9th"]];
 const CSTEP_NAMES=["Identity","Mechanics","Lists & text"];
-let CFORM=null,CSTEP=0;
+let CFORM=null,CSTEP=0,CEDIT=false;
 function casterClassList(){const seen={};DATA.classes.forEach(c=>{if(!visible(c))return;
   const casterish=c.caster||(SUBS_OF[key(c.name,c.source)]||[]).some(s=>s.caster);
   if(casterish&&!seen[c.name])seen[c.name]=key(c.name,c.source);});
@@ -4760,8 +4760,36 @@ function customBlank(){return {name:"",level:0,school:"Evocation",ritual:false,t
   conc:false,v:true,s:false,m:false,mat:"",save:"",atk:false,dmg:"",classes:[],desc:"",higher:""};}
 function openCustom(prefill,editing){
   CFORM=Object.assign(customBlank(),prefill||{});
-  CSTEP=0; $("#customTitle").textContent=editing?"Edit custom spell":"New custom spell";
+  CSTEP=0; CEDIT=!!editing;
+  $("#customTitle").textContent=editing?"Edit custom spell":"New custom spell";
   $("#customModal").classList.remove("hidden"); renderCustomStep();}
+// J11: start from a spell that already exists. `customFromSpell` is the same converter the
+// homebrew Edit path uses, so a template and an edit fill the form identically — there is
+// one reader of a spell into this form, not two. Offered on a NEW spell only: on an edit it
+// would silently overwrite the thing being edited. The name takes a "(copy)" suffix because
+// a homebrew keyed `Name|HB` beside a real `Name|XPHB` reads as the same spell twice.
+function customTemplateRow(){
+  const wrap=el("div","ctpl c-full");
+  const row=el("div","csaddrow");
+  const inp=el("input");inp.type="search";inp.placeholder="start from an existing spell…";
+  inp.autocomplete="off";
+  const hits=el("div","ctplhits");
+  inp.oninput=()=>{
+    hits.innerHTML="";
+    const q=inp.value.trim().toLowerCase(); if(q.length<2)return;
+    DATA.spells.filter(sp=>visible(sp)&&sp.name.toLowerCase().includes(q)).slice(0,8)
+      .forEach(sp=>{
+        const r=el("button","cshit");
+        r.append(el("span",null,sp.name));
+        r.append(el("span","cshl",(sp.level===0?"cantrip":"level "+sp.level)+" · "+sp.school));
+        if(sp.source!==CORE)r.append(bookChip(sp.source,sp.page));
+        r.onclick=()=>{
+          CFORM=Object.assign(customBlank(),customFromSpell(sp),{name:sp.name+" (copy)"});
+          renderCustomStep();};
+        hits.append(r);});
+  };
+  row.append(inp); wrap.append(row); wrap.append(hits);
+  return wrap;}
 function cerr(msg){$("#customErr").textContent=msg||"";}
 function renderCustomStep(){
   cerr(""); const F=CFORM;
@@ -4777,6 +4805,7 @@ function renderCustomStep(){
   const chk=(label,val,on)=>{const l=el("label","cchk");const c=el("input");c.type="checkbox";c.checked=!!val;c.onchange=e=>on(e.target.checked);l.append(c);l.append(el("span",null,label));return l;};
   const g=el("div","cgrid");
   if(CSTEP===0){
+    if(!CEDIT)g.append(customTemplateRow());
     g.append(field("Name",inp(F.name,v=>F.name=v,"Ember Lash"),"c-2"));
     g.append(field("Level",sel(LVL_OPTS,String(F.level),v=>F.level=+v)));
     g.append(field("School",sel(SCHOOLS,F.school,v=>F.school=v),"c-2"));

@@ -1592,6 +1592,34 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     swept. *Rejected:* an app-wide em-dash sweep in the same pass, which would have touched
     print, modal and importer copy nobody asked about.
 
+- **D144 (2026-08-31) DECIDED — the menu is grouped by what each item acts on, and the
+  custom builder joins the rest of the page** (J10 + J11):
+  - **(a) The ⋯ menu groups by OBJECT: this character, then content, then the app.** Chosen
+    from three mocked groupings. Only **CONTENT** gets a header — the first group needs none
+    (the menu is opened from the build it acts on), and the last two are one item each.
+    "Print / save as PDF…" joins the character group, where it belongs; "Custom spell…" and
+    "My homebrew…" leave it, because sitting among build actions they read as things you do
+    to the character rather than to your library. *Rejected:* four labelled groups (four
+    headers on ten items is more chrome than the list is worth) and separators alone with no
+    headers (leans entirely on ordering to carry the grouping).
+  - **(b) The custom builder's fields were never styled, and the cause is one selector.**
+    `el("input")` sets no `type` ATTRIBUTE, and `input[type=text]` does not match an input
+    that merely behaves as text — so every text field in that builder fell through to the
+    browser's own 2px inset border and square corners at 22px, beside 34px selects. Fixed by
+    adding `input:not([type])` to the base rule rather than by touching each call site, so
+    forgetting the attribute again cannot bring the mismatch back. Two more of the same shape
+    found in passing: `.cfield.c-full` required BOTH classes, so `.cchips.c-full` (the class
+    list) and the new template row stayed half-width — the rule is `.cgrid>.c-full` now; and
+    a native checkbox only takes `accent-color` when CHECKED, so unchecked ones stayed the
+    browser's light box. Checkboxes are rebuilt on the app's own tokens, **app-wide** (34 of
+    them), because "fit the rest of the page" is not satisfied by fixing one modal.
+  - **(c) A custom spell can start from an existing one.** A search row at the top of step 1,
+    on a NEW spell only — on an edit it would silently overwrite what is being edited. It
+    fills the form through `customFromSpell()`, the same converter the homebrew Edit path
+    uses, so a template and an edit read a spell into this form identically. The name takes a
+    "(copy)" suffix: a homebrew keyed `Name|HB` beside a real `Name|XPHB` reads as the same
+    spell twice. Nothing is written until "Compile & add", as before.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives
