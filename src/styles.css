@@ -1,9 +1,20 @@
-:root{
-    --bg:#f4f1ea; --panel:#fffdf8; --panel-2:#f0ebe0; --ink:#241f1a; --muted:#7a7066;
-    --line:#e0d8ca; --line-strong:#cabfad; --accent:#8f4b2b; --accent-soft:#8f4b2b15;
-    --gold:#9c7a2e; --gold-soft:#9c7a2e18; --good:#3f6b4a; --good-soft:#3f6b4a14;
-    --free:#5b57a3; --free-soft:#5b57a314; --bad:#c1273b; --bad-soft:#c1273b16;
-    --radius:12px; --shadow:0 1px 2px #0000000f,0 6px 20px #0000000a;
+  /* D145 — the light theme, solved rather than picked. Every ink colour below was darkened
+     until it clears 4.7:1 against EVERY surface it can land on (bg, panel, panel-2) AND
+     against its own soft wash over each of those, which is where the old palette failed
+     quietly: gold read 3.37:1 on panel-2 and 3.55:1 on its own wash, and muted 4.07:1.
+     The borders were the other half, and the reason it "felt flat": `--line` sat at 1.25:1
+     against the page and `--line-strong` — the visual boundary of every input, button and
+     chip, which WCAG 1.4.11 wants at 3:1 — at 1.79:1. They are 2.2:1 and 3.0:1 now.
+     Depth comes from those borders and a three-layer shadow, NOT from darkening the paper:
+     pushing the surfaces apart buys separation at the direct cost of the text contrast on
+     them, which is the trade that made the first attempt worse. */
+  :root{
+    --bg:#eee8da; --panel:#fffdf8; --panel-2:#f2ecdf; --ink:#241f1a; --muted:#635b53;
+    --line:#b2aca1; --line-strong:#8c8478; --accent:#8d4a2a; --accent-soft:#8d4a2a1c;
+    --gold:#725921; --gold-soft:#7259211c; --good:#3b6546; --good-soft:#3b65461c;
+    --free:#57549c; --free-soft:#57549c1c; --bad:#ad2335; --bad-soft:#ad23351c;
+    --radius:12px;
+    --shadow:0 1px 2px #00000012,0 2px 6px #0000000d,0 10px 28px #00000012;
     --font:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
     --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     color-scheme:light;
@@ -839,9 +850,13 @@ table.spelltable td.cmp .l.iffy{color:var(--good);cursor:help;
 .abtile{font:inherit;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;
   padding:5px 9px;border-radius:8px;border:1px solid var(--line-strong);background:var(--panel);
   transition:background .12s,border-color .12s,opacity .12s}
-.abtile .abchip{font-size:9.5px;font-weight:700;letter-spacing:.05em;opacity:.6;
+/* the unselected veil is 0.85, not 0.6: this abbreviation is the tile's ONLY label
+   (D142(b)), so it has to stay readable rather than merely present — at 0.6 it measured
+   3.58:1 on the light theme. The selected tile is still the one that reads as answered,
+   through its border and fill. */
+.abtile .abchip{font-size:9.5px;font-weight:700;letter-spacing:.05em;opacity:.85;
   transition:opacity .12s}
-.abtile:hover .abchip{opacity:.9}
+.abtile:hover .abchip{opacity:1}
 .abtile.on .abchip{opacity:1}
 .abtile:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .abtile.str.on{border-color:var(--ab-str);background:color-mix(in srgb,var(--ab-str) 14%,transparent)}
@@ -1075,15 +1090,20 @@ table.spelltable td.hasast{cursor:pointer}
 
 /* ── v6: ability colours (monster-forge), text highlights, choices, pick popover ── */
 :root{
-  --ab-str:#c0392b;--ab-dex:#2f7bb0;--ab-con:#c0691e;--ab-int:#7b4fb0;--ab-wis:#3f8a57;--ab-cha:#c0568f;
+  /* D145: solved for the light theme the same way the main palette was — 5.3:1 at full
+     strength on bg / panel / panel-2 AND on the ability tile's own 14% tint, which leaves
+     4.6:1+ even under the unselected tile's 0.85 veil. The old values were picked for
+     stat-block text on a light panel and never re-checked; wis and cha measured 3.58:1 and
+     3.59:1 once D142(b) made them a control's only label. */
+  --ab-str:#922b21;--ab-dex:#205579;--ab-con:#794213;--ab-int:#623f8d;--ab-wis:#295b39;--ab-cha:#7e385e;
   --cc-dice:#2b7bb0;--cc-dc:#a9791f;--cc-dmg:#c0392b;--cc-cond:#7b4fb0;--cc-range:#2a8f86;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]){
-  --ab-str:#e05a5a;--ab-dex:#5fb4e6;--ab-con:#e88c3c;--ab-int:#a06ed6;--ab-wis:#5fa873;--ab-cha:#e878b4;
+  --ab-str:#e98a8a;--ab-dex:#5fb4e6;--ab-con:#e98f41;--ab-int:#b995e1;--ab-wis:#72b284;--ab-cha:#ea82ba;
   --cc-dice:#6bb6e6;--cc-dc:#e7c070;--cc-dmg:#e06a6a;--cc-cond:#b48ce6;--cc-range:#4db6ac;
 }}
 :root[data-theme=dark]{
-  --ab-str:#e05a5a;--ab-dex:#5fb4e6;--ab-con:#e88c3c;--ab-int:#a06ed6;--ab-wis:#5fa873;--ab-cha:#e878b4;
+  --ab-str:#e98a8a;--ab-dex:#5fb4e6;--ab-con:#e98f41;--ab-int:#b995e1;--ab-wis:#72b284;--ab-cha:#ea82ba;
   --cc-dice:#6bb6e6;--cc-dc:#e7c070;--cc-dmg:#e06a6a;--cc-cond:#b48ce6;--cc-range:#4db6ac;
 }
 /* casting-ability chips + group labels */
@@ -1125,8 +1145,12 @@ table.spelltable .pickcell.on:hover,table.spelltable .pickcell:hover{filter:brig
 /* ✦ = grants spells. It keeps the accent inside a now-neutral chip, so it still reads. */
 .chip .fmark{font-size:9px;color:var(--accent);margin-right:1px}
 /* per-level toolbar (eligible list): inline, brightens on hover */
-.lvltools{display:inline-flex;align-items:center;gap:8px;margin-left:auto;opacity:.6;transition:opacity .12s}
-.lvlgroup:hover .lvltools{opacity:1}
+/* D145: this used to be `opacity:.6`, which is a contrast cut no palette can repair —
+   `.lvltools-n` measured 2.68:1 on the light theme through it. The row is still quiet, but
+   it is quiet by COLOUR now (muted, already solved for 4.7:1) and gains its emphasis on
+   hover by taking ink instead of losing transparency. */
+.lvltools{display:inline-flex;align-items:center;gap:8px;margin-left:auto;transition:color .12s}
+.lvlgroup:hover .lvltools-n{color:var(--ink)}
 .lvltools-n{font-size:10.5px;color:var(--muted);text-transform:none;letter-spacing:0;font-weight:600}
 .lvltools-btn{font:inherit;font-size:10.5px;padding:2px 8px;border-radius:12px;border:1px solid var(--line-strong);background:var(--panel);color:var(--muted);cursor:pointer;text-transform:none;letter-spacing:0}
 .lvltools-btn:hover:not(:disabled){border-color:var(--bad);color:var(--bad)}
@@ -1472,7 +1496,8 @@ label.fld:has(.lockchip){display:flex;align-items:center;gap:0;min-width:0}
 label.fld .fldt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 
 /* ── custom spell sources (D55) ───────────────────────────────────────────── */
-.fld .fldnote{font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);opacity:.8;margin-left:4px}
+/* the `opacity:.8` here cost the same way (4.08:1) — `--muted` is already the quiet step */
+.fld .fldnote{font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);margin-left:4px}
 .chip.csrc{cursor:pointer}
 .chip.csrc:hover{border-color:var(--accent);color:var(--accent)}
 .chip.csrc .csn{font-size:10px;font-weight:700;color:var(--muted);background:var(--panel);

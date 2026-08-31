@@ -116,7 +116,9 @@ started until the four gated calls come back.
   D144(b,c)). Original note: Its fields and
   checkboxes don't match the rest of the app. Plus: load an existing spell from the picker as
   a template. D94/D95 own the editor's model; this is presentation + one new entry path.
-- [ ] **J12 · Light theme — full contrast/accessibility audit.** Francesco: overall not
+- [x] **J12 · Light theme solved** (v1.4.12, D145): 0 contrast failures across 698 rendered
+  text nodes in BOTH themes; the flatness was the border contrast (1.25:1 → 2.2:1, and the
+  control boundary 1.79:1 → 3.0:1). Original note: Francesco: overall not
   working, and "it all feels too flat". Every token in the light block (styles.css:975 ff.)
   measured for contrast; depth restored. Biggest item in the batch and the one most likely
   to want its own decision entry.

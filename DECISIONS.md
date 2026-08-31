@@ -1620,6 +1620,40 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     "(copy)" suffix: a homebrew keyed `Name|HB` beside a real `Name|XPHB` reads as the same
     spell twice. Nothing is written until "Compile & add", as before.
 
+- **D145 (2026-08-31) DECIDED — the light theme is SOLVED, not picked** (J12). Francesco:
+  *"the light theme is overall not working well, fully audit the colors, especially for
+  contrast and accessibility. It also all feels too flat."* Both halves turned out to be the
+  same measurement.
+  - **(a) Every ink colour is derived, not chosen.** Each was darkened along its own hue
+    until it clears **4.7:1 against every surface it can land on** — `--bg`, `--panel`,
+    `--panel-2` — *and* against its own soft wash over each of those, which is where the old
+    palette failed quietly: `--gold` measured **3.37:1** on `panel-2` and 3.55:1 on its own
+    wash, `--muted` **4.07:1**. The ability tokens got the same treatment at 5.3:1 (they need
+    the extra headroom because D142(b) made the three-letter chip a control's only label, and
+    an unselected tile veils it); `--ink` already passed at 10.8:1 and did not move; `--accent`
+    moved by one step and keeps the Ember identity.
+  - **(b) "Flat" was the border contrast, and it is measurable.** `--line` sat at **1.25:1**
+    against the page and `--line-strong` — the visual boundary of every input, button and
+    chip, which WCAG 1.4.11 wants at 3:1 — at **1.79:1**. They are 2.2:1 and 3.0:1 now, and
+    the shadow went from two layers to three. **Depth comes from the borders and the shadow,
+    never from darkening the paper**: a first attempt deepened `--bg` and `--panel-2` and made
+    things worse, because every point of surface separation is paid for directly out of the
+    text contrast on that surface. *Rejected:* that darker-paper approach, on measurement.
+  - **(c) A decorative `opacity` on a text container is a contrast cut no palette can repair.**
+    `.lvltools` (`opacity:.6`) put its label at **2.68:1** and `.fldnote` (`opacity:.8`) at
+    4.08:1. Both dropped: they are quiet by COLOUR now (`--muted`, already solved), and
+    `.lvltools` earns its emphasis on hover by taking ink rather than by losing transparency.
+    The same reasoning cut the unselected ability tile's veil from 0.6 to 0.85.
+  - **Result: 0 failures across 698 rendered text nodes, in BOTH themes** (WCAG AA, 4.5:1
+    normal / 3:1 large), measured against each element's real composited background including
+    translucent layers and inherited opacity. The dark theme's ability tokens were re-solved
+    to the same standard while there. **Print is untouched by construction** — its block
+    restates the whole palette rather than inheriting it.
+  - **Method note for the next audit:** flipping `data-theme` and measuring in the same
+    synchronous block reads STALE computed styles — it reported ~150 phantom failures at
+    1.3:1 in whichever theme was measured second. Measure one theme per pass, after a real
+    frame.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives
