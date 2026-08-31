@@ -1276,18 +1276,24 @@ function guideSteps(){
     if(sched.spells&&stp>sf)secs.push(gpickSec("spell",id,sf,stp,ch.spells||[],
       Math.max(1,maxLvlAt(sched.caster,cl,c)),
       sched.book?(stp-sf>1?"Spellbook spells":"Spellbook spell"):(stp-sf>1?"Spells":"Spell")));
-    if(secs.length)add({key:"cast~"+id+"~"+lv,lv,ord:4,kind:"cast",row:id,cl,
-      label:secs[0].label,multiLabel:"Spellcasting",sections:secs});
     // the level-up swap questions (D115(g)/D119(b)): the class taking this level may
     // trade one earlier LEVELED spell and one earlier CANTRIP, each only where its own
-    // rules grant it (SWAP_RULES) — two independent decisions, answered or passed
+    // rules grant it (SWAP_RULES). Still two independent decisions, answered or passed —
+    // J6 only changes where they are ASKED: they are sections of this level's spellcasting
+    // step now, not steps of their own. What you learn and what you give up at a level-up
+    // is one decision to a player, and splitting it made the walk ask twice about the same
+    // moment. D128's model is untouched: still per KIND, still read through swapAt.
     if(cl>=2){const rule=swapRule(row), ask=[];
-      if(rule.spell&&sched.spells&&!sched.book&&(ch.spells||[]).length)ask.push(["spell",7,"Swap a spell"]);
-      if(rule.cantrip==="levelup"&&sched.cant&&(ch.cantrips||[]).length)ask.push(["cantrip",8,"Swap a cantrip"]);
-      ask.forEach(([swkind,ord,label])=>{const ev=swapAt(lv,swkind);
-        add({key:"swap~"+lv+"~"+swkind,lv,ord,kind:"swap",swkind,row:id,label,
-          sections:[gsec({id:"self",kind:"swap",label,swkind,row:id,optional:true,done:!!ev,
-            value:ev?("− "+String(ev.out).split("|")[0]+" + "+String(ev.in).split("|")[0]):null})]});});}
+      if(rule.spell&&sched.spells&&!sched.book&&(ch.spells||[]).length)ask.push(["spell","Swap a spell"]);
+      if(rule.cantrip==="levelup"&&sched.cant&&(ch.cantrips||[]).length)ask.push(["cantrip","Swap a cantrip"]);
+      // ids must be unique WITHIN the step now that both can share one (`guideSecKey`)
+      ask.forEach(([swkind,label])=>{const ev=swapAt(lv,swkind);
+        secs.push(gsec({id:"swap-"+swkind,kind:"swap",label,swkind,row:id,optional:true,done:!!ev,
+          value:ev?("− "+String(ev.out).split("|")[0]+" + "+String(ev.in).split("|")[0]):null}));});}
+    // the step exists for a trade alone: a class can be able to trade at a level that
+    // grants it nothing new, and that question still has to be asked somewhere
+    if(secs.length)add({key:"cast~"+id+"~"+lv,lv,ord:4,kind:"cast",row:id,cl,
+      label:secs[0].label,multiLabel:"Spellcasting",sections:secs});
   });
   // general/epic feat slots at the character levels the plan puts them (D114); spends
   // attribute in array order, earliest slot first — same walk featAcqLevels() does
@@ -1348,7 +1354,7 @@ function guideSteps(){
       value:null,continueOf:top?plan[top-1]:null})]});
   // sections read in one order everywhere: the step's own answer, then the questions that
   // arrive with a default showing, then the groups you have to pick into
-  const band=x=>x.kind==="choice"?1:(x.kind==="pick"||x.kind==="cpick")?2:0;
+  const band=x=>x.kind==="choice"?1:(x.kind==="pick"||x.kind==="cpick")?2:x.kind==="swap"?3:0;
   steps.forEach(s=>{
     s.sections.sort((a,b)=>band(a)-band(b));
     if(s.sections.length>1&&s.multiLabel)s.label=s.multiLabel;
@@ -1737,7 +1743,7 @@ function guideWalkStrip(total,steps){
   const b=el("button","gwalkbtn");
   b.append(icoEl(down?"walkdn":"walkup"));
   b.setAttribute("aria-label","Walking "+(down?"down":"up")+" from L"+at
-    +" — switch the direction");
+    +". Click to switch the direction");
   // THE CLICK GOES ON BEFORE attachTip. It preserves an existing handler now, but the
   // order is the rule (it once ate the preview's "order…" button outright), and a tip
   // that swallowed this click would leave the walk with no way to turn around.
@@ -1796,7 +1802,7 @@ function guideSeverity(group,flags){
 // says what it is waiting for, or that it was skipped.
 const guideSecText=sec=>(sec.done&&sec.value)?sec.value
   :sec.need>1?(sec.have+" of "+sec.need+" chosen")
-  :(sec.value||(sec.status==="skipped"?"skipped — still open":"to decide"));
+  :(sec.value||(sec.status==="skipped"?"skipped, still open":"to decide"));
 function renderGuideChain(steps,cur){
   const box=$("#gChain"); if(!box)return;
   const keep=box.scrollTop; box.innerHTML="";
@@ -1853,7 +1859,14 @@ function renderGuideChain(steps,cur){
         const b=el("button","gcstep "+sec.status+(sec.optional?" optional":"")
           +(isCur?" cur":"")+(sec.ill?" gcill":""));
         const k=el("span","gck");
-        k.append(el("span","gcl",sec.label));
+        // J7: a label that only repeats the card's own title says nothing. The growth
+        // affordance is the case that made it obvious — its card reads "next level" and
+        // its one section was labelled "Next level" straight underneath. Same reasoning as
+        // the option-group relabel in guideSteps(): drop the line, keep the answer.
+        const headTitle=row?((c?c.name:"?")+" "+cl):"next level";
+        const dup=group.length===1&&st.sections.length===1
+          &&String(sec.label||"").toLowerCase()===headTitle.toLowerCase();
+        if(!dup)k.append(el("span","gcl",sec.label));
         k.append(el("span","gcv",guideSecText(sec)));
         b.append(k);
         const stx=el("span","gcs");
@@ -1915,7 +1928,7 @@ function renderGuideStage(steps,cur,rowOf){
     const card=el("div","gcard gdone");
     card.append(el("div","goptlab","nothing open"));
     card.append(el("div","gval",doneN>=need.length?"Every decision is answered."
-      :"No step is current — click one in the chain to pick the walk up."));
+      :"No step is current. Click one in the chain to pick the walk up."));
     st.append(card);
     // this card used to carry no control at all, which is a terminal state with no way
     // out of it but the header's × — the same complaint the dead end-of-walk button drew
@@ -1947,7 +1960,7 @@ function renderGuideStage(steps,cur,rowOf){
   let any=false;
   cur.sections.forEach(sec=>{const bl=guideSecBlock(cur,sec,rowOf);
     if(bl){card.append(bl);any=true;}});
-  if(!any)card.append(el("div","grhint","Nothing to answer here — Skip or Next moves the walk along."));
+  if(!any)card.append(el("div","grhint","Nothing to answer here. Skip or Next moves the walk along."));
   st.append(card);
   // Back · Skip · Next walk the chain; Next seeks the next open decision. Back is
   // HIDDEN where there is nowhere to go back to (D126(i)) — a dead control is worse
@@ -2012,11 +2025,11 @@ function renderGuideStage(steps,cur,rowOf){
     const skipN=rest.filter(x=>x.status==="skipped").length;
     const left=[openN?openN+" still open":null,skipN?skipN+" skipped":null].filter(Boolean).join(" and ");
     st.append(el("p","gend",left
-      ? "That is the end of the walk — nothing open ahead of here. "+left
+      ? "That is the end of the walk, and nothing is open ahead of it. "+left
         +" behind you: the button takes you to the first, or click any step in the chain."
       : doneN>=need.length
       ? "That is the end of the walk, and every decision this build carries is answered."
-      : "That is the end of the walk — this step is the last one still open, and its answer is on the card above."));
+      : "That is the end of the walk. This step is the last one still open, and its answer is on the card above."));
   }
 }
 // What Next would LOCK before it advances — Francesco, raw: *"If I click 'next' after a
@@ -2152,7 +2165,7 @@ function guideSecBlock(step,sec,rowOf){
     // build — "only what <class> can legally take here is listed…" and "these belong to
     // the feature that granted them" — reference prose, now behind the header's `?`.
     if(sec.ill)b.append(hint("A spell here is above what the class could cast when this slot "
-      +"arrived — the chain marks it. Placing the pick that really was learned here is what clears it."));
+      +"arrived, and the chain marks it. Placing the pick that really was learned here is what clears it."));
     return guideSecWrap(step,sec,b);
   }
   if(sec.kind==="choice"){ b.append(choiceRow(sec.choice)); return guideSecWrap(step,sec,b); }
@@ -2186,7 +2199,7 @@ function guideSecBlock(step,sec,rowOf){
     const btn=guideOptBtn(sec.pool,sec.done?"Change it…"
       :"Choose "+String(sec.label).replace(/s$/,"").toLowerCase()+"…",sec.done?"":" on gbig");
     if(btn)b.append(btn);
-    else b.append(hint("This slot's progression has no chooser of its own — its options are on the character view, under Optional features."));
+    else b.append(hint("This slot's progression has no chooser of its own. Its options are on the character view, under Optional features."));
     return guideSecWrap(step,sec,b);
   }
   if(sec.kind==="class"){
@@ -2248,7 +2261,7 @@ function guideSecBlock(step,sec,rowOf){
       const x=xBtn("gtx",()=>{clearSwap(sec.lv,sec.swkind);refreshAll();render();});
       attachTip(x,tipBlock("Undo the trade",
         "Clears this level's "+kind+" trade. The replacement stays where it is and nothing is "
-        +"deleted — the same thing clearing the pill in the timeline does."));
+        +"deleted. It is the same thing clearing the pill in the timeline does."));
       und.append(x,el("span","gtul","Undo the trade"));
       b.append(und);
       return guideSecWrap(step,sec,b);
@@ -2267,7 +2280,7 @@ function guideSecBlock(step,sec,rowOf){
     ((kind==="cantrip"?ch.cantrips:ch.spells)||[]).forEach((k2,i)=>{
       if(acqAt(sa,i,lvls)<sec.lv)opts.push(unswap([k2],sec.row,kind,sec.lv-1)[0]);});
     if(!opts.length){b.append(hint(
-      "No "+kind+" was learned before this level — there is nothing to trade away yet."));
+      "No "+kind+" was learned before this level, so there is nothing to trade away yet."));
       return guideSecWrap(step,sec,b);}
     const cm=guideSwapMax(row,sec.lv);
     // what is LEFT of the old paragraph is the only half that was state: the cap this
@@ -2470,7 +2483,7 @@ function gpickFoot(){
   b.disabled=owed>0;
   b.classList.toggle("on",!owed);
   b.textContent=owed?"Choose "+owed+" more"
-    :"Done — "+(gpickMore()?"next section":"next step");
+    :"Done, "+(gpickMore()?"next section":"next step");
 }
 // the walk's advance, in the shape the stage's Next uses: forward seeks the next open
 // decision, reverse walks every step (review is the point). Nothing new — `guideStepAfter`
@@ -2527,7 +2540,7 @@ function renderGpick(){
   h.append(el("span","gcnt"+(sec.done?" full":""),sec.have+" of "+sec.need));
   list.append(h);
   if(g.mode==="take"&&land!==sec)list.append(el("div","gphint",land
-    ? "A pick taken here fills the still-open L"+land.lv+" slot first — that is where it lands."
+    ? "A pick taken here fills the still-open L"+land.lv+" slot first. That is where it lands."
     : "Every slot of this kind is filled. Click one you hold to drop it first."));
   if(g.mode==="place"&&sec.kind==="pick")list.append(gpickSlots(sec));
   // D134(a): in place mode the cap can hide some of the build's OWN picks — without one
@@ -2537,7 +2550,7 @@ function renderGpick(){
     const over=(((state.chosen[sec.row]||{}).spells)||[])
       .map(k=>SPELL_BY[k]).filter(sp=>sp&&sp.level>cap).length;
     if(over)list.append(el("div","gphint",over+(over===1?" pick is":" picks are")
-      +" above this slot's cap — they fit a later slot."));
+      +" above this slot's cap, so they fit a later slot."));
   }
   const all=guideEligible(sec,g.mode,cap);
   const items=all.filter(sp=>!q||sp.name.toLowerCase().includes(q));
@@ -2575,7 +2588,7 @@ function gpickSection(host,sec,items,held,mode,q){
     host.append(el("div","empty",q?"No eligible spell matches that name."
       :noList?listUnknownWhy(R.casters.find(r=>r.idx===sec.row))+" There is nothing to offer here."
       :mode==="place"?"This class holds no pick that could sit in these slots."
-      :"Nothing legal is left to take here — widen your books in Sources, or skip the step."));
+      :"Nothing legal is left to take here. Widen your books in Sources, or skip the step."));
     return;}
   const byLvl={}; items.forEach(sp=>{(byLvl[sp.level]=byLvl[sp.level]||[]).push(sp);});
   // DESCENDING (D126(f)): the level you most want is the one you just unlocked

@@ -1560,6 +1560,38 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     a laptop), and leaving it uncapped.
   - **Scope:** the familiar picker only for now; the spell and feat pickers are not touched.
 
+- **D143 (2026-08-31) DECIDED — the guided builder asks about a level-up once, in its own
+  words** (J6 + J7 of the 2026-08-31 notes batch):
+  - **(a) The trade is a SECTION of the level's spellcasting step, not a step of its own.**
+    *"when you get to choose spells/cantrips, fold the choices and the swap option into one
+    spellcasting step rather than two."* What you learn and what you give up at a level-up is
+    one moment to a player, and the walk was asking about it twice. The `swap~<lv>~<kind>`
+    steps are gone; their sections join `cast~<row>~<lv>`, sorted LAST (a new band in the
+    section sort) so you take what the level grants before deciding what to give up. **D128
+    is untouched** — trades are still per KIND, still written and read through
+    `swapAt`/`clearSwap`, and a level that grants nothing new but still allows a trade gets
+    the step for the trade alone. Section ids had to become `swap-<kind>`: two swaps can now
+    share a step, and `guideSecKey` is `step#id`.
+    - **Known consequence, deliberately not worked around: D125's clamp now covers the
+      trade.** A forward take lands in the row's first open slot, so the walk clamps to the
+      step owning that slot — and with the trade inside a step that also holds picks, a
+      trade at L4 is clamped to L1 while the L1 picks are unfilled. It could not be before,
+      when the trade was its own pick-free step. This only bites on a part-built character
+      (picks filled in order never trigger it), and un-merging that half would undo what
+      this decision is for. ⚑ If it turns out to matter in use, the fix is to carry the
+      clicked section through `guideGo` and skip the clamp for a swap.
+  - **(b) The guided builder's own copy loses its em dashes, and a label that only repeats
+    its card's title is deleted.** *"clean up the text removing AI tells like em dashes.
+    Remove pointless notes (ex note under next level section)."* Fourteen strings rewritten:
+    where the dash joined two clauses the sentence splits, where it separated a label from a
+    status it becomes a comma. `"—"` as an EMPTY-VALUE glyph stays — that is a symbol, not
+    punctuation. The "pointless note" is the chain rail's section label when a single-section
+    card's label equals its own head: the growth card read "next level" and then "NEXT LEVEL"
+    directly under it. Suppressed for that shape only; a multi-section card keeps every label
+    (verified: 13 of them on L1). Scope is the guide's own copy — the rest of the app was not
+    swept. *Rejected:* an app-wide em-dash sweep in the same pass, which would have touched
+    print, modal and importer copy nobody asked about.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

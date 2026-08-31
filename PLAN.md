@@ -81,10 +81,11 @@ started until the four gated calls come back.
 
 ### J6–J10 · ready to build
 
-- [ ] **J6 · Guided builder — one spellcasting step.** Fold the spell/cantrip choices and the
+- [x] **J6 · Guided builder — one spellcasting step** (v1.4.10, D143(a)). Original note: Fold the spell/cantrip choices and the
   swap option into a single step instead of two. Touches `guideSteps()`; D128 (swaps are per
   KIND) and D131(a) (one picker per section) both constrain it — cite, don't re-derive.
-- [ ] **J7 · Guided builder — copy pass.** Strip AI tells (em dashes) and drop pointless
+- [x] **J7 · Guided builder — copy pass** (v1.4.10, D143(b)): 14 strings de-em-dashed, 0 left
+  in the guide view; the growth card's duplicated section label removed. Original note: Strip AI tells (em dashes) and drop pointless
   notes, starting with the one under the "Next level" section. Note: D131(c) already removed
   the guide's explanatory prose, so this is the remainder.
 - [x] **J8 · Random build is official, guided took its place** (v1.4.9). Original note: `#testBtn` (index.html:41,
@@ -100,6 +101,14 @@ started until the four gated calls come back.
   it does.
 - [ ] **J10 · Settings menu — tidy and organise.** `#menuPop` (index.html:44-56) is ten flat
   items with two separators. Needs grouping.
+
+### Fallout from J6, flagged
+
+- [ ] **D125's clamp now covers the trade.** With the swap inside a step that also holds
+  picks, a trade at L4 is clamped to L1 while the L1 picks are unfilled — it could not be
+  when the trade was its own pick-free step. Only bites on a part-built character. Fix if it
+  matters in use: carry the clicked section through `guideGo` and skip the clamp for a swap.
+  ⚑ (owner: Francesco, 2026-08-31)
 
 ### J11–J12 · ready to build, larger
 
