@@ -950,6 +950,10 @@ def _feat_record(f):
               in low or bool(filters) or bool(spells) or ("spell" in (f.get("name") or "").lower()))
     return {"name": f.get("name"), "level": f.get("level"), "spells": spells,
             "filters": filters, "grants": bool(grants), "note": _mod_note(txt),
+            # the feature's own rules text, for the class/subclass detail modal (D147).
+            # `_walk_text`'s buf is a flat word soup for the regexes above; the modal needs
+            # paragraphs, so it is flattened a second time rather than reusing that.
+            "desc": flatten_entries(f.get("entries")),
             "alwaysPrepared": bool(AP_RE.search(txt)) and not FREECAST_RE.search(txt)}
 
 SUBFEAT_INDEX = {}   # (className, subclassShortName, subclassSource) -> [feature records]
@@ -981,7 +985,9 @@ def feature_list(recs, drop_prefix=None):
             nm = nm[len(drop_prefix):].strip(" :-—")
         k = (lv, nm.lower())
         if k in seen: continue
-        seen.add(k); out.append({"level": lv, "name": nm})
+        # first record of a (level, name) wins, its prose with it — the dedupe is what
+        # collapses a feature a class reprints, and the two copies say the same thing
+        seen.add(k); out.append({"level": lv, "name": nm, "desc": f.get("desc") or []})
     # case-insensitive, to match extract.js's localeCompare (parity is byte-for-byte)
     return sorted(out, key=lambda x: (x["level"], x["name"].lower()))
 
@@ -1487,6 +1493,7 @@ for ft in _featdata.get("feat", []):
                   "featSlots": feat_progression(ft),     # a feature that hands you a feat slot (D135)
                   "prereq": _prereq_text(ft, cat, _featcats),
                   "prereqs": _prereq_blocks(ft, cat, _featcats),
+                  "desc": flatten_entries(ft.get("entries")),   # D147: what the feat DOES
                   "grants": parse_grants(ft.get("additionalSpells")) if has_spells else empty_grants()})
     feats[-1]["grants"]["marks"] = parse_marks(ft)
     _apply_own_note(feats[-1]["grants"], _own_note_blocks(ft))
@@ -1512,6 +1519,7 @@ for o in (load(_optpath).get("optionalfeature", []) if os.path.exists(_optpath) 
                      "repeatable": _repeatable(o),       # "You can gain this invocation more than once"
                      "featSlots": feat_progression(o),   # Lessons of the First Ones → an Origin feat
                      "prereq": _prereq_text(o), "prereqs": _prereq_blocks(o),
+                     "desc": flatten_entries(o.get("entries")),   # D147
                      "hasSpells": has_spells,
                      "grants": parse_grants(o.get("additionalSpells")) if has_spells else empty_grants()})
     optfeats[-1]["grants"]["marks"] = parse_marks(o)
@@ -1524,7 +1532,7 @@ for o in (load(_optpath).get("optionalfeature", []) if os.path.exists(_optpath) 
 # species (ALL, even without spells; split lineages that carry named blocks)
 races = []
 def emit_species(name, source, blocks, srd=False, page=None, base=None, lineage=None,
-                 reprint=False, superseded=None, note=None):
+                 reprint=False, superseded=None, note=None, desc=None):
     """`base` is the parent species a lineage hangs off — the picker groups on it (D46).
 
     A species that splits into lineages emits SEVERAL records, and the reprint stamp
@@ -1534,15 +1542,20 @@ def emit_species(name, source, blocks, srd=False, page=None, base=None, lineage=
     if not isinstance(name, str) or not name.strip(): return   # see valid_name
     start = len(races)
     named = [b for b in (blocks or []) if b.get("name")]
+    # D147: every lineage split off ONE record carries that record's traits — the lineage's
+    # own paragraph lives inside them (XPHB Elf's three lineages are rows of its "Elven
+    # Lineage" trait, not separate entries), so there is nothing per-lineage to split out.
     if len(named) > 1:
         for b in named:
             races.append({"name": f"{name} — {b['name']}", "source": source, "group": bgroup(source),
                           "book": bname(source), "srd": srd, "page": page,
-                          "base": name, "lineage": b["name"], "grants": parse_grants([b])})
+                          "base": name, "lineage": b["name"], "desc": list(desc or []),
+                          "grants": parse_grants([b])})
     else:
         races.append({"name": name, "source": source, "group": bgroup(source), "book": bname(source),
                       "srd": srd, "page": page,
                       "base": base or name, "lineage": (lineage or name) if base else "",
+                      "desc": list(desc or []),
                       "grants": parse_grants(blocks)})
     for r in races[start:]:
         r["reprinted"] = bool(reprint); r["supersededBy"] = superseded
@@ -1553,14 +1566,15 @@ for rc in rd.get("race", []):
     if not valid_name(rc): continue
     emit_species(rc["name"], rc.get("source", ""), rc.get("additionalSpells"), bool(rc.get("srd52")),
                  rc.get("page"), reprint=reprinted(rc), superseded=superseded_by(rc),
-                 note=_own_note_blocks(rc))
+                 note=_own_note_blocks(rc), desc=flatten_entries(rc.get("entries")))
 for rc in rd.get("subrace", []) if isinstance(rd.get("subrace"), list) else []:
     base = rc.get("raceName", ""); nm = rc.get("name") or ""
     if not rc.get("additionalSpells"):   # skip spell-less subraces (noise)
         continue
     emit_species(f"{base} ({nm})" if nm else base, rc.get("source", ""), rc.get("additionalSpells"),
                  bool(rc.get("srd52")), rc.get("page"), base=base or None, lineage=nm or None,
-                 reprint=reprinted(rc), superseded=superseded_by(rc), note=_own_note_blocks(rc))
+                 reprint=reprinted(rc), superseded=superseded_by(rc), note=_own_note_blocks(rc),
+                 desc=flatten_entries(rc.get("entries")))
 
 # ---- source registry (for the settings selector) ---------------------------
 src_counter = defaultdict(lambda: {"spells": 0, "classes": 0, "subclasses": 0, "feats": 0, "species": 0})

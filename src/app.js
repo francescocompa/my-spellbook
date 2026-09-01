@@ -93,7 +93,8 @@ function fillIcons(root){(root||document).querySelectorAll("[data-ico]").forEach
 
 const ABIL={int:"Intelligence",wis:"Wisdom",cha:"Charisma",str:"Strength",dex:"Dexterity",con:"Constitution"};
 const ABIL_SHORT={int:"Int",wis:"Wis",cha:"Cha",str:"Str",dex:"Dex",con:"Con"};
-const CORE="XPHB";
+// D147 removed the last reader of a bare `CORE`: nothing suppresses a book chip any more,
+// so the code is only ever a member of the 2024 core SET below.
 const CORE_2024=["XPHB","XDMG","XMM"];   // the 2024 core books, for the "2024 core only" shortcut
 
 // ── content assembly: baked bundle (window.__DATA__) ⊕ imported 5etools ⊕ custom homebrew ──
@@ -2194,8 +2195,10 @@ function guideSubSelect(rowId,rowOf){
   // the same trap the class step's "another class…" prompt below is written around
   const p=el("option",null,row.subKey?"change the subclass…":"choose a subclass…");
   p.value=""; sel.append(p);
+  // D147: a menu option names its book unconditionally — unlike a closed select, a
+  // dropdown row has the width for it, and here nothing else in the guide states it
   subs.forEach(sc=>{const k2=key(sc.name,sc.source);
-    const o=el("option",null,(sc.shortName||sc.name)+(k2===row.subKey?" ✓":""));
+    const o=el("option",null,(sc.shortName||sc.name)+` (${sc.source})`+(k2===row.subKey?" ✓":""));
     o.value=k2;sel.append(o);});
   sel.onchange=()=>{const v=sel.value; sel.value="";
     if(!v||v===row.subKey)return; row.subKey=v;save();refreshAll();render();};
@@ -2374,7 +2377,7 @@ function guideSecBlock(step,sec,rowOf){
       // value is its own TEXT, and re-selecting it would open a class row named after it
       const p=el("option",null,shown.size?"another class…":"choose a class");
       p.value=""; sel.append(p);
-      rest.forEach(c=>{const o=el("option",null,c.name+(c.source!==CORE?` (${c.source})`:""));
+      rest.forEach(c=>{const o=el("option",null,c.name+` (${c.source})`);   // D147
         o.value=key(c.name,c.source);sel.append(o);});
       sel.onchange=()=>{const ck=sel.value; sel.value=""; if(ck)guideTakeClass(ck);};
       b.append(sel);
@@ -3532,7 +3535,12 @@ function grantPreview(grants){
   const p=[];
   // a fixed entry with no source is an extract artifact (innate cadence key misparsed
   // as a spell name, e.g. "Daily"/"Rest") — skip it here.
-  (grants.fixed||[]).forEach(g=>{const nm=g.spell&&g.spell.name;if(nm&&g.spell.source&&!p.includes(nm))p.push(nm);});
+  // D147: name the spell the way the BOOK prints it. A grant reference arrives lowercased
+  // and the extractors title-case it, which writes "Tasha'S Hideous Laughter" / "Hunger Of
+  // Hadar" — harmless while this string was a one-line preview, wrong now that a modal
+  // states it. `grantRec` already resolves case-insensitively, so the real record answers.
+  (grants.fixed||[]).forEach(g=>{const raw=g.spell&&g.spell.name;if(!raw||!g.spell.source)return;
+    const rec=grantRec(raw), nm=(rec&&rec.name)||raw; if(!p.includes(nm))p.push(nm);});
   // the same ask the guide and the Choices card compose (G3) — it already says the count,
   // so the raw "2× " prefix is only needed on the descs it can't compose
   (grants.picks||[]).forEach(pk=>p.push(cap1(guidePickAsk(pk)
@@ -3632,9 +3640,12 @@ function renderEntityList(){
     const on = ENT.kind==="species"?curSel===k:n>0;
     const row=el("div","entrow"+(on?" on":"")+(pr.state==="no"?" blocked":""));
     const main=el("div","entmain");
-    const nm=el("div","entname");nm.append(document.createTextNode(label||it.name));
+    const nm=el("div","entname");
+    // D147: the NAME is the link — hover for the tip, click for the modal. The row keeps
+    // its own job (its take button) because attachEntity stops the click there.
+    nm.append(attachEntity(Object.assign(el("span","entnm"),{textContent:label||it.name}),it,ENT.kind));
     if(n>1)nm.append(el("span","entcount","×"+n));
-    if(it.source!==CORE)nm.append(bookChip(it.source,it.page));
+    nm.append(bookChip(it.source,it.page));   // D147: every book, core included
     if(ENT.kind==="feat"&&(ENT.catList||[]).length>1)
       nm.append(Object.assign(el("span","entcat"),{textContent:featCatLabel(it)}));
     if(grantsAny(it.grants))nm.append(icoEl("spark","fmark"));
@@ -4510,7 +4521,7 @@ function renderCsrcHits(){
       const r=el("button","cshit");
       r.append(el("span",null,sp.name));
       r.append(el("span","cshl",(sp.level===0?"cantrip":"level "+sp.level)+" · "+sp.school));
-      if(sp.source!==CORE)r.append(bookChip(sp.source,sp.page));
+      r.append(bookChip(sp.source,sp.page));   // D147
       // a new spell defaults to whichever budget the source actually has (D95)
       r.onclick=()=>{CSRC.spells.push({key:key(sp.name,sp.source),count:1,cost:1,unit:"lr",
                                        pay:csrcHasPool(CSRC)?"pool":"per"});
@@ -4655,7 +4666,7 @@ function openPrqPop(anchorEl,pick){
   cands.slice(0,8).forEach(o=>{
     const row=el("div","prqrow");
     row.append(el("span","prqnm",o.name));
-    if(o.source!==CORE)row.append(bookChip(o.source,o.page));
+    row.append(bookChip(o.source,o.page));   // D147
     const b=el("button","tk ico-only");b.append(icoEl("check"));
     const plbl=cur?"Switch to it":"Select";
     b.setAttribute("aria-label",plbl); b.title=plbl;
@@ -4933,7 +4944,7 @@ function customTemplateRow(){
         const r=el("button","cshit");
         r.append(el("span",null,sp.name));
         r.append(el("span","cshl",(sp.level===0?"cantrip":"level "+sp.level)+" · "+sp.school));
-        if(sp.source!==CORE)r.append(bookChip(sp.source,sp.page));
+        r.append(bookChip(sp.source,sp.page));   // D147
         r.onclick=()=>{
           CFORM=Object.assign(customBlank(),customFromSpell(sp),{name:sp.name+" (copy)"});
           renderCustomStep();};
@@ -6466,8 +6477,11 @@ function levelGains(row,cl,charLv,open){
   const c=CLS_BY[row.clsKey]; if(!c)return [];
   const sub=subOfRow(row);
   const g=[], push=(t,pick)=>g.push(pick?{t,pick}:{t});
-  (c.features||[]).forEach(f=>{if(f.level===cl)push(f.name);});
-  if(sub&&cl>=(c.subclassLevel||3))(sub.features||[]).forEach(f=>{if(f.level===cl)push(f.name);});
+  // D147: a named feature carries the record that owns its text, so the gains line can be
+  // the door into it. `pick` still means "undecided" and the two never coexist.
+  const feat=(f,giver,gkind)=>g.push({t:f.name,feat:f,giver,gkind});
+  (c.features||[]).forEach(f=>{if(f.level===cl)feat(f,c,"class");});
+  if(sub&&cl>=(c.subclassLevel||3))(sub.features||[]).forEach(f=>{if(f.level===cl)feat(f,sub,"sub");});
   if(c.subclassLevel===cl&&!sub)push("Subclass — not chosen",{kind:"subclass",row:row.id});
   // a feat slot at this CHARACTER level is open when no non-origin feat maps to it —
   // asked of featAcqLevels, the same mapper the chips and the sweep read (D114)
@@ -6903,6 +6917,12 @@ function renderTimeline(){
       const gl=el("div","logains");
       gains.forEach((g,gi)=>{
         if(gi)gl.append(document.createTextNode(" · "));
+        if(g.feat){   // D147: a real feature — hover for its text, click for the modal
+          const a=el("span","nmlink",g.t);
+          a.onclick=e=>{e.stopPropagation();hideTip();openFeatureModal(g.feat,g.giver,g.gkind);};
+          attachTip(a,tipBlock(g.t,((g.feat.desc||[]).find(x=>!isDescTitle(x))||"")
+            .slice(0,220)||"No text for this feature in the imported data."));
+          gl.append(a);return;}
         if(!g.pick){gl.append(document.createTextNode(g.t));return;}
         // an undecided gain is quietly clickable — a dashed underline, not a button —
         // and it opens the app's OWN chooser for that thing (never a copy of one)
@@ -7580,7 +7600,7 @@ const descP=p=>isDescTitle(p)?`<p class="spttl">${esc(p.replace(/\.\s*$/,""))}</
 function accessHTML(sp){
   const ded=(arr,keyf,labf,srcf)=>{const best={};(arr||[]).forEach(x=>{const k=keyf(x).toLowerCase();if(!best[k]||srcRank(srcf(x))>srcRank(srcf(best[k])))best[k]=x;});
     return Object.values(best).map(x=>({t:labf(x),src:srcf(x)})).sort((a,b)=>a.t.localeCompare(b.t));};
-  const chip=(x,k)=>`<span class="achip ${k}"${x.src&&x.src!==CORE?` title="${esc(bookName(x.src))}"`:""}>${esc(x.t)}</span>`;
+  const chip=(x,k)=>`<span class="achip ${k}"${x.src?` title="${esc(bookName(x.src))}"`:""}>${esc(x.t)}</span>`;   // D147
   const cats=[
     ["Classes",   ded(sp.cls,  x=>x[0],          x=>x[0],               x=>x[1]), "cls"],
     ["Subclasses",ded(sp.sub,  x=>x[0]+"|"+x[1], x=>`${x[1]} · ${x[0]}`, x=>x[2]), "sub"],
@@ -7940,7 +7960,9 @@ function modalHTML(sp){
   const eff=compEffect(sp,modsForSpell(sp,null));
   const grid=[["Casting time",esc(cap1(sp.time))],["Range",esc(sp.range)],["Components",compModalHTML(sp,eff)],
               ["Duration",(sp.conc?"Concentration, up to ":"")+esc(sp.durTxt)]];
-  const bk=sp.source!==CORE?` <span class="bchip" data-book="${esc(sp.source)}"${sp.page?` data-page="${esc(String(sp.page))}"`:""}>${esc(sp.source)}</span>`:"";
+  // D147: the book is named on EVERY element, core included — an unlabelled row used to
+  // mean "XPHB", which is a fact you had to know the convention to read
+  const bk=` <span class="bchip" data-book="${esc(sp.source)}"${sp.page?` data-page="${esc(String(sp.page))}"`:""}>${esc(sp.source)}</span>`;
   return `<div class="box"><button class="x ico" type="button" title="Close" aria-label="Close">${ICONS.x}</button>`
     +`<div class="mh"><h3>${esc(sp.name)}${bk}</h3>`
     +`<div class="sub">${metaLine(sp)}</div></div><div class="mb">`
@@ -8092,6 +8114,132 @@ function attachCreature(elm,c){elm.classList.add("nmlink");
   elm.addEventListener("mouseleave",hideTip);
   elm.addEventListener("click",e=>{e.stopPropagation();openCreatureModal(c);});}
 
+// ── entity detail: hover tip + click modal (D147) ──────────────────────────
+// Everything you can CHOOSE now answers the way a spell does: hover the NAME for a tip,
+// click it for a modal. ONE renderer for all five kinds — feat, optional feature, species,
+// class, subclass — because they answer the same three questions ("what is it, what does
+// it need, which book is it in"), and five renderers would be five surfaces to keep in
+// step. It borrows SPMODAL like the creature modal does (D142(d)), so the `.spmodal`-scoped
+// `.grid` / `.spttl` / `.gnote` rules need no widening: the block is inside a `.spmodal`.
+// 5etools' optional-feature type codes have no name in the digest. Same three-step fallback
+// `featCatLabel` uses: what THIS build's progression calls the slot, then this hand table,
+// then the raw code — so a book that invents a type still reads as something.
+const OPT_TYPE_NAME={EI:"Eldritch Invocation","MV:B":"Battle Master Maneuver",MV:"Maneuver",
+  MM:"Metamagic",ED:"Elemental Discipline",AI:"Artificer Infusion",AS:"Arcane Shot",
+  PB:"Pact Boon",RN:"Rune",RP:"House Renown","FS:F":"Fighting Style","FS:R":"Fighting Style",
+  "FS:P":"Fighting Style","FS:B":"Fighting Style","FS:M":"Fighting Style"};
+function optTypeLabel(o){
+  const slots=optSlots();
+  const names=(o.types||[]).map(t=>{
+    const sl=slots.find(s=>(s.types||[]).indexOf(t)>=0);
+    return (sl&&sl.name.replace(/s$/,""))||OPT_TYPE_NAME[t]||t;});
+  return [...new Set(names)].join(" · ")||"Optional feature";}
+// what to call this kind of thing, in the modal's subtitle and its tip
+function entLabel(it,kind){
+  if(kind==="feat"){const l=featCatLabel(it);return /boon|style/i.test(l)?l:l+" feat";}
+  if(kind==="opt")return optTypeLabel(it);
+  if(kind==="species")return it.base&&it.base!==it.name?`${it.base} lineage`:"Species";
+  if(kind==="class")return "Class";
+  if(kind==="sub")return `${it.className||"Class"} subclass`;
+  return "";}
+const entName=(it,kind)=>kind==="sub"?(it.shortName||it.name):it.name;
+// a species record leads with its trait NAMES ("Darkvision."), which say nothing in a
+// one-line tip — so the tip takes the first real sentence, never a heading
+const firstProse=arr=>(arr||[]).find(p=>!isDescTitle(p))||"";
+// class and subclass carry no prose of their own: what they GIVE is the feature list
+const entFeatures=(it,kind)=>(kind==="class"||kind==="sub")?(it.features||[]):[];
+function entTipBody(it,kind){
+  const p=firstProse(it.desc);
+  if(p)return p;
+  const f=entFeatures(it,kind);
+  if(f.length){const lv=f.map(x=>x.level);
+    return `${f.length} feature${f.length===1?"":"s"}, level ${Math.min(...lv)} to ${Math.max(...lv)}: `
+      +f.slice(0,4).map(x=>x.name).join(", ")+(f.length>4?"…":"");}
+  return "";}
+function entTipHTML(it,kind){
+  const body=entTipBody(it,kind);
+  return `<h4>${esc(entName(it,kind))}</h4>`
+    +`<div class="sub">${esc(entLabel(it,kind))} · ${esc(bookName(it.source))}</div>`
+    +(it.prereq?`<div class="line"><b>Requires</b> ${esc(it.prereq)}</div>`:"")
+    +(body?`<p>${ccText(body.slice(0,240))}${body.length>240?"…":""}</p>`:"")
+    +`<p style="color:var(--muted);font-size:11px">click for full details</p>`;}
+// the facts that are not prose, as the spell modal's own two-column grid
+function entGrid(it,kind){
+  const g=[];
+  if(kind==="sub"&&it.name&&it.name!==entName(it,kind))g.push(["Full name",esc(it.name)]);
+  if(kind==="sub"&&it.className)g.push(["Class",esc(it.className)]);
+  if(kind==="species"&&it.base&&it.base!==it.name)g.push(["Species",esc(it.base)]);
+  if(kind==="class")g.push(["Subclass at",`Level ${it.subclassLevel||3}`]);
+  if(it.caster&&it.ability)g.push(["Casting",abChip(it.ability)]);
+  if(it.prereq)g.push(["Requires",esc(it.prereq)]);
+  if(it.repeatable)g.push(["Repeatable","You can take this more than once"]);
+  return g;}
+// D147: the modal never renders an empty body. Where 5etools carries no text for a record
+// — 17 setting-book species that are `_copy` records whose edits we do not replay, and 75
+// subclass features with no `entries` at all — it says so, rather than showing a blank box
+// that reads as "this feat does nothing".
+const ENT_NOTEXT=`<p class="entnotext">The books’ own text for this isn’t in the imported data.`
+  +` What it grants and where it is printed are below.</p>`;
+function entModalHTML(it,kind){
+  const bk=it.source?` <span class="bchip" data-book="${esc(it.source)}"`
+    +(it.page?` data-page="${esc(String(it.page))}"`:"")+`>${esc(it.source)}</span>`:"";
+  const grid=entGrid(it,kind);
+  const desc=(it.desc||[]).map(descP).join("");
+  const feats=entFeatures(it,kind).map(f=>
+    `<div class="entfeat"><div class="entfeath"><b>${esc(f.name)}</b>`
+    +`<span class="entfeatlv">Level ${f.level}</span></div>`
+    +((f.desc||[]).length?(f.desc||[]).map(descP).join("")
+      :`<p class="entnotext">No text for this feature in the imported data.</p>`)+`</div>`).join("");
+  const prev=grantPreview(it.grants);
+  return `<div class="box"><button class="x ico" type="button" title="Close" aria-label="Close">${ICONS.x}</button>`
+    +`<div class="mh"><h3>${esc(entName(it,kind))}${bk}</h3>`
+    +`<div class="sub">${esc(entLabel(it,kind))} · ${esc(bookName(it.source))}</div></div><div class="mb">`
+    +(grid.length?`<div class="grid">${grid.map(([k,v])=>`<b>${k}</b><span>${v}</span>`).join("")}</div>`:"")
+    +(desc||feats?desc+feats:ENT_NOTEXT)
+    +(prev?`<div class="gnote"><b>Spells it gives you</b><p>${esc(prev)}</p></div>`:"")
+    +`</div></div>`;}
+function openEntityModal(it,kind){
+  hideTip(); SPMODAL.innerHTML=entModalHTML(it,kind);
+  SPMODAL.querySelectorAll(".bchip[data-book]").forEach(x=>attachTip(x,bookTip(x.dataset.book,x.dataset.page)));
+  SPMODAL.classList.remove("hidden");}
+// the spell-name contract again: the NAME is the link, the row/chip around it keeps its
+// own job (taking the pick, dropping it). `stopPropagation` is what enforces that split.
+function attachEntity(elm,it,kind){
+  if(!it)return elm;
+  elm.classList.add("nmlink");
+  elm.addEventListener("mouseenter",e=>{SPTIP.innerHTML=entTipHTML(it,kind);SPTIP.classList.add("show");posTip(e);});
+  elm.addEventListener("mousemove",posTip);
+  elm.addEventListener("mouseleave",hideTip);
+  elm.addEventListener("click",e=>{e.stopPropagation();openEntityModal(it,kind);});
+  return elm;}
+// D147: a <select> can hold neither a chip nor a link, so the two facts its row cannot
+// state — which book the selection is from, and how to read what it gives — live on the
+// LABEL beside it. Same split the picker rows use, moved one element over.
+function fldDetail(lbl,it,kind){
+  if(!it||!it.source)return lbl;
+  lbl.classList.add("fldwd");
+  lbl.append(bookChip(it.source,it.page));
+  const b=el("button","fldinfo ico");
+  b.type="button"; b.append(icoEl("book"));
+  b.setAttribute("aria-label",`${entName(it,kind)} — read what it gives`);
+  // attachTip makes the node's own click the tip unless one is already set (its own rule)
+  b.onclick=e=>{e.stopPropagation();hideTip();openEntityModal(it,kind);};
+  attachTip(b,entTipHTML(it,kind));
+  lbl.append(b);
+  return lbl;}
+// the one-feature modal the timeline's gains line opens: same box, the feature's own text
+function openFeatureModal(f,giver,kind){
+  hideTip();
+  const src=giver&&giver.source;
+  const bk=src?` <span class="bchip" data-book="${esc(src)}"`
+    +((giver&&giver.page)?` data-page="${esc(String(giver.page))}"`:"")+`>${esc(src)}</span>`:"";
+  SPMODAL.innerHTML=`<div class="box"><button class="x ico" type="button" title="Close" aria-label="Close">${ICONS.x}</button>`
+    +`<div class="mh"><h3>${esc(f.name)}${bk}</h3>`
+    +`<div class="sub">${esc(giver?entName(giver,kind):"Feature")} · level ${f.level}</div></div>`
+    +`<div class="mb">${(f.desc||[]).length?(f.desc||[]).map(descP).join(""):ENT_NOTEXT}</div></div>`;
+  SPMODAL.querySelectorAll(".bchip[data-book]").forEach(x=>attachTip(x,bookTip(x.dataset.book,x.dataset.page)));
+  SPMODAL.classList.remove("hidden");}
+
 function attachSpell(elm,sp){elm.classList.add("nmlink");
   elm.addEventListener("mouseenter",e=>showTip(sp,e));elm.addEventListener("mousemove",posTip);
   elm.addEventListener("mouseleave",hideTip);
@@ -8164,18 +8312,26 @@ function takenClasses(except){
   return t;}
 // `keep` is a class key that must stay selectable even if its book is off — otherwise the
 // select silently falls back to its first option and rewrites the row (T2)
+// D147: a <select> states the book only where the LIST would otherwise be ambiguous — two
+// printings of one name. The book itself is never lost: `fldDetail` puts a chip on the row's
+// label, unconditionally and with room for it, which is what a 90px-wide closed select could
+// never do (a permanent " (XPHB)" clipped every class name to "Warlock (XI").
+function dupNames(names){
+  const n=new Map(); names.forEach(x=>n.set(x,(n.get(x)||0)+1));
+  return new Set([...n.entries()].filter(([,c])=>c>1).map(([x])=>x));}
 function classOptions(keep){
   const taken=takenClasses(keep);
-  return DATA.classes.filter(c=>(visible(c)&&!taken.has(c.name.toLowerCase()))||key(c.name,c.source)===keep)
-    .sort((a,b)=>a.name.localeCompare(b.name)||a.source.localeCompare(b.source))
-    .map(c=>({v:key(c.name,c.source),t:c.name+(c.source!==CORE?` (${c.source})`:"")+(c.caster?"":" ·")}));}
+  const list=DATA.classes.filter(c=>(visible(c)&&!taken.has(c.name.toLowerCase()))||key(c.name,c.source)===keep)
+    .sort((a,b)=>a.name.localeCompare(b.name)||a.source.localeCompare(b.source));
+  const dup=dupNames(list.map(c=>c.name));
+  return list.map(c=>({v:key(c.name,c.source),t:c.name+(dup.has(c.name)?` (${c.source})`:"")+(c.caster?"":" ·")}));}
 function renderClassRows(){
   CASTMODS=activeCastMods();          // a class row names what it changed about your casting
   const wrap=$("#classRows");wrap.innerHTML="";
   state.classes.forEach((row,idx)=>{const c=CLS_BY[row.clsKey]||{name:"?"};
     const div=el("div","classrow");
     // class name is a select — change it to swap class (subclass resets, level stays)
-    const cl=el("div");cl.append(el("label","fld","Class"));
+    const cl=el("div");cl.append(fldDetail(el("label","fld","Class"),c.source?c:null,"class"));   // D147
     const cs=el("select");classOptions(row.clsKey).forEach(o=>cs.append(new Option(o.t,o.v)));cs.value=row.clsKey;
     if(c.source&&!visible(c))cs.classList.add("gapped");
     cs.onchange=()=>{if(cs.value===row.clsKey)return;row.clsKey=cs.value;row.subKey=null;delete state.chosen[row.id];dropRowSwaps(row.id);save();renderClassRows();render();};
@@ -8185,14 +8341,16 @@ function renderClassRows(){
     const sc=el("div");const sl=el("label","fld");
     sl.append(el("span","fldt","Subclass"));      // its own span so it can ellipsize
     if(locked)sl.append(lockChip(subLvl,"The subclass"));
+    fldDetail(sl,subOfRow(row),"sub");            // D147 — only once one is chosen
     sc.append(sl);
     const ss=el("select",needsSub?"alert":"");ss.dataset.sub=String(row.id);
     // the timeline's "Subclass — not chosen" affordance focuses THIS select (never a
     // second chooser of its own), so the row has to be findable from outside
     ss.append(new Option(locked?"— locked —":"— none —",""));
-    (SUBS_OF[key(c.name,c.source)]||[]).filter(x=>visible(x)||key(x.name,x.source)===row.subKey)
-      .sort((a,b)=>a.shortName.localeCompare(b.shortName))
-      .forEach(s=>ss.append(new Option(s.shortName+(s.source!==CORE?` (${s.source})`:"")+(s.caster?" ✦":""),key(s.name,s.source))));
+    const subList=(SUBS_OF[key(c.name,c.source)]||[]).filter(x=>visible(x)||key(x.name,x.source)===row.subKey)
+      .sort((a,b)=>a.shortName.localeCompare(b.shortName));
+    const subDup=dupNames(subList.map(x=>x.shortName));   // D147 — same rule as the class list
+    subList.forEach(s=>ss.append(new Option(s.shortName+(subDup.has(s.shortName)?` (${s.source})`:"")+(s.caster?" ✦":""),key(s.name,s.source))));
     ss.value=row.subKey||"";ss.disabled=locked;if(locked)ss.style.opacity=".55";
     ss.onchange=()=>{row.subKey=ss.value||null;save();renderClassRows();render();};sc.append(ss);
     div.append(sc);
@@ -8221,8 +8379,13 @@ function refreshSpecies(){const r=state.speciesKey?RACE_BY[state.speciesKey]:nul
   // a species whose book is off is KEPT and flagged (T2) — only a species that no longer
   // exists at all is dropped, and that is `pruneState`'s job, not this one
   if(state.speciesKey&&!r)state.speciesKey="";
+  // D147: the label carries the book and the way into the species' own traits. It is
+  // REBUILT, not appended to — refreshSpecies runs on every render and a decorator that
+  // only ever appends would stack a chip per pass.
+  const sfld=$("#speciesFld");
+  if(sfld){sfld.className="fld";sfld.textContent="Species / lineage";fldDetail(sfld,r,"species");}
   const lbl=$("#speciesBtnLbl");
-  if(lbl){lbl.textContent=r?(r.name+(r.source!==CORE?` (${r.source})`:"")):"— none —";
+  if(lbl){lbl.textContent=r?r.name:"— none —";   // D147: the label's chip names the book
     const btn=$("#speciesBtn");if(btn)btn.classList.toggle("gapped",!!(r&&!visible(r)));
     if(r&&!visible(r))lbl.textContent=r.name+" · "+r.source+" is off";}
   if(!ENT)return; if($("#entityModal")&&!$("#entityModal").classList.contains("hidden")&&ENT.kind==="species")renderEntityList();}
@@ -8550,8 +8713,9 @@ function renderOptFeats(){
       const c=el("span","chip"+(grantsAny(o.grants)?" hasspell":"")+(pr.state==="no"?" unmet":""));
       if(pr.state==="no"){const w=icoEl("warn","warn");
         attachTip(w,tipBlock("Prerequisite not met",`${o.name} needs ${pr.why}. Kept in the build — nothing is removed.`));c.append(w);}
-      c.append(el("span",null,o.name));
+      c.append(attachEntity(el("span",null,o.name),o,"opt"));   // D147
       if(ord>1)c.append(el("span","chipn","#"+ord));
+      c.append(bookChip(o.source,o.page));
       const b=xBtn(null,()=>{const i=state.optFeats.indexOf(k);if(i>=0)dropOptAt(i);save();refreshAll();render();});
       c.append(b);chips.append(c);});
     box.append(chips);
@@ -8567,8 +8731,9 @@ function renderFeatChips(){const box=$("#featChips");box.innerHTML="";FCHIP_ORD.
     +(pr.state==="no"?" unmet":""));
   if(pr.state==="no"){const w=icoEl("warn","warn");attachTip(w,tipBlock("Prerequisite not met",`${f.name} needs ${pr.why}. Kept in the build — nothing is removed.`));c.append(w);}
   if(grantsAny(f.grants))c.append(icoEl("spark","fmark"));
-  c.append(el("span",null,f.name));
+  c.append(attachEntity(el("span",null,f.name),f,"feat"));   // D147
   if(ord>1)c.append(el("span","chipn","#"+ord));   // a repeatable feat taken again (D135)
+  c.append(bookChip(f.source,f.page));
   const b=xBtn(null,()=>{dropFeatAt(i);renderFeatChips();render();});
   c.append(b);box.append(c);});
   renderFeatBudget();}

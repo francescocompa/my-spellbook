@@ -1698,6 +1698,70 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
   - **→ Gotcha.** The rule about where holes may live is enforced in code and copied to
     `GOTCHAS.md`; that is the version to trust.
 
+- **D147 (2026-09-01) DECIDED — every buildable element carries its own text and names its
+  book.** Francesco: *"I want to include in the site the source of all character building
+  elements that we can choose (ex. feats). Update the parser to account for that and include
+  the feat modal (and whatever other content the first audit finds), and show this modal like
+  we did for spells."* The audit found the gap was **rules text, not source codes**: `source`,
+  `book` and `page` were already on every array, but **nothing outside `spells` carried a
+  `desc`** — a feat, an invocation, a species and a subclass were a name, a prerequisite line
+  and a one-line grant preview, and PLAN's J4 had already parked this (*"there is no
+  feat-detail renderer … that one is its own task"*).
+  - **(a) The parser carries the prose, in both extractors.** `desc` (via the existing
+    `flatten_entries` / `flattenEntries`, so `descP`'s heading and bullet handling works
+    unchanged) on **feats** (276/276), **optional features** (213/213), **species** (198/215)
+    and on every entry of a class's or subclass's `features` list (438/438 class features,
+    2143/2283 subclass). `_feat_record` keeps the flattened entries so `feature_list` can pass
+    them through; the `(level, name)` dedupe still decides which copy wins, its prose with it.
+    Parity is exact — 0 whole-record diffs across all six arrays.
+  - **(b) One modal for all five kinds, borrowing SPMODAL.** `entModalHTML` renders feat,
+    optional feature, species, class and subclass: name + book chip, a "what kind of thing"
+    subtitle, the non-prose facts as the spell modal's own `.grid`, the rules text, then a
+    `.gnote` naming the spells it gives you. A class or subclass has no prose of its own, so
+    its body is its FEATURES, each with its level. Reached the way a spell is — hover the NAME
+    for a tip, click for the modal (D142(d)'s contract, third use). *Rejected:* a renderer per
+    kind (five surfaces to keep in step, for one shared question); a preview pane beside the
+    picker (mocked and rejected once already, D142(d)).
+  - **(c) Entry points: the picker rows, the builder chips, and the timeline's gains line**
+    (Francesco's call was rows + chips; the gains line came with the class/subclass half,
+    because it is the only place a class FEATURE is named). `attachEntity` stops the click,
+    so the row keeps taking the pick and the chip keeps dropping it. A `<select>` can hold
+    neither a chip nor a link, so class, subclass and species state both on their **label**:
+    a book chip and a small book-icon button beside it (`fldDetail`). *Rejected:* wiring every
+    surface that names a feat (the guide's cards carry their own click behaviour, each needing
+    the nested-interactive check); picker rows only (the chips are where you re-read a pick).
+  - **(d) The book is named on every element, core included — but a closed `<select>` states
+    it on its label, not in its option text.** The `source !== CORE` suppression is gone from
+    all nine sites it lived at, and `CORE` itself with it. Taken literally in the class and
+    subclass selects it clipped every name — a permanent `" (XPHB)"` turned "Warlock (XPHB)"
+    into **"Warlock (XI"** in a ~90px control — so an option list suffixes the book only where
+    two options share a name (`dupNames`), and the label's chip carries it unconditionally, in
+    a place with room. A dropdown that is a MENU (the guide's class and subclass choosers)
+    suffixes every option: it has the width, and nothing else there states the book.
+  - **(e) A record with no text says so.** 17 setting-book species are 5etools `_copy` records
+    whose `_mod` edits `resolve_copies` deliberately refuses to replay, and 75 subclass feature
+    records carry no `entries` at all. Those get a plain sentence, never an empty box.
+    *Rejected:* inheriting the base record's text through a `_copy` (it would print the
+    lineage the setting REPLACED — wrong rules text is worse than none); porting `_mod`.
+  - **A granted spell is named the way the book prints it.** `spell_ref` title-cases a
+    lowercased grant reference, which writes "Tasha'S Hideous Laughter" and "Hunger Of Hadar".
+    Harmless while that string was a one-line preview; wrong once a modal states it.
+    `grantPreview` resolves through `grantRec` (already case-insensitive) and shows the real
+    record's name — fixed at the display, not in the extractors, so no parity risk.
+  - **Cost, measured:** `data.json` 2516 KB → 4051 KB, `dist/index.html` 3461 KB → 4913 KB
+    (local, double-click). The public build barely moves: the SRD subset is 17 feats, 29
+    optional features, 9 species and 12+12 classes/subclasses, so `docs/index.html` goes
+    1529 KB → 1611 KB (**+5%**). Accepted for the local build; the public one was never in
+    question.
+  - **Verified:** 0 contrast failures across 42 measured nodes dark / 59 light (min 5.17:1 and
+    5.57:1); `.fldinfo` centred to 0.00px on both axes at 1280 and 375, `.bchip` and
+    `.entfeatlv` within 0.5px (the sub-pixel their line-height already carried elsewhere);
+    the class row's three labels share an exact baseline again after the decorated ones grew
+    (`align-items:end` had dropped "Lvl" 3.5px); clicking a name in the picker leaves
+    `state.feats` byte-identical and the picker open; Escape closes the detail modal and not
+    the picker under it; `refreshSpecies` ×3 and `renderClassRows` ×2 stack no chips; the
+    whole session left `state` byte-identical.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

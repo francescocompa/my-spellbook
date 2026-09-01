@@ -285,6 +285,10 @@ function featRecord(f){ const buf=[]; walkText(f.entries,buf); const txt=buf.joi
     if(kv.length)filters.add(kv.sort((a,b)=>a[0]<b[0]?-1:1).map(x=>x[0]+"="+x[1]).join("|"));}
   const grants=(low.indexOf("spellbook")>=0&&low.indexOf("add")>=0)||low.indexOf("always have")>=0||low.indexOf("have the following")>=0||filters.size>0||spells.size>0||String(f.name||"").toLowerCase().indexOf("spell")>=0;
   return {name:f.name,level:f.level,spells,filters,grants:!!grants,note:modNote(txt),
+          // the feature's own rules text, for the class/subclass detail modal (D147).
+          // `walkText`'s buf is a flat word soup for the regexes above; the modal needs
+          // paragraphs, so it is flattened a second time rather than reusing that.
+          desc:flattenEntries(f.entries),
           alwaysPrepared:AP_RE.test(txt)&&!FREECAST_RE.test(txt)}; }
 function resolveFeatureRec(feats,at,s){ if(!feats||!feats.length)return null;
   const gf=feats.filter(f=>f.grants); if(!gf.length)return null;
@@ -571,7 +575,9 @@ function featureList(recs,dropPrefix){
     if(dropPrefix&&nm.toLowerCase().startsWith(dropPrefix.toLowerCase()+" "))
       nm=nm.slice(dropPrefix.length).replace(/^[\s:\-—]+/,"");
     const k=lv+"|"+nm.toLowerCase(); if(seen.has(k))return;
-    seen.add(k); out.push({level:lv,name:nm});});
+    // first record of a (level, name) wins, its prose with it — the dedupe is what
+    // collapses a feature a class reprints, and the two copies say the same thing
+    seen.add(k); out.push({level:lv,name:nm,desc:(f&&f.desc)||[]});});
   return out.sort((a,b)=>a.level-b.level||a.name.localeCompare(b.name));}
 function parseBlock(block,feats){const ft=block.name;
   const b={fixed:[],picks:[],expansions:[],ability:normAbility(block.ability)};
@@ -845,6 +851,7 @@ function buildDigest(files){
           category:cat,fsClass:({"FS:R":"Ranger","FS:P":"Paladin","FS":"Fighter"})[cat]||null,hasSpells,
           catName:featCatName(cat,featCats),      // what the picker calls this category
           optFeatures:optProgression(ft),prereq:prereqText(ft,cat,featCats),prereqs:prereqBlocks(ft,cat,featCats),
+          desc:flattenEntries(ft.entries),         // D147: what the feat DOES
           repeatable:repeatableFlag(ft),           // Magic Initiate, Elemental Adept… (D135)
           featSlots:featProgression(ft),           // a feature that hands you a feat slot (D135)
           grants:hasSpells?parseGrants(ft.additionalSpells):{fixed:[],picks:[],expansions:[],optionGroups:[],ability:null},
@@ -854,7 +861,9 @@ function buildDigest(files){
       (j.optionalfeature||[]).forEach(o=>{if(!validName(o)){report.errors.push(f.name+": unnamed optional feature skipped");return;}
         const hasSpells="additionalSpells"in o;
         optfeats.push({name:o.name,source:o.source||"",group:bgroup(o.source||""),book:bname(o.source||""),
-          reprinted:reprinted(o),supersededBy:supersededBy(o),page:o.page??null,types:o.featureType||[],prereq:prereqText(o),prereqs:prereqBlocks(o),hasSpells,
+          reprinted:reprinted(o),supersededBy:supersededBy(o),page:o.page??null,types:o.featureType||[],prereq:prereqText(o),prereqs:prereqBlocks(o),
+          desc:flattenEntries(o.entries),          // D147
+          hasSpells,
           repeatable:repeatableFlag(o),            // "You can gain this invocation more than once"
           featSlots:featProgression(o),            // Lessons of the First Ones → an Origin feat
           grants:hasSpells?parseGrants(o.additionalSpells):{fixed:[],picks:[],expansions:[],optionGroups:[],ability:null},
@@ -867,19 +876,22 @@ function buildDigest(files){
       // after the call (so a split species flagged only its last lineage) and the subrace
       // loop never stamped at all — which is why the Gith and Half-Elf twins read as
       // originals and showed up twice in the picker.
-      const emitSpecies=(name,source,blocks,page,base,lineage,reprint,superseded,note)=>{ page=page??null;
+      const emitSpecies=(name,source,blocks,page,base,lineage,reprint,superseded,note,desc)=>{ page=page??null;
         if(typeof name!=="string"||!name.trim()){report.errors.push(f.name+": unnamed species skipped");return;}
         const start=races.length;
         const named=(blocks||[]).filter(b=>b.name);
-        if(named.length>1)named.forEach(b=>races.push({name:`${name} — ${b.name}`,source,group:bgroup(source),book:bname(source),page,base:name,lineage:b.name,grants:parseGrants([b])}));
-        else races.push({name,source,group:bgroup(source),book:bname(source),page,base:base||name,lineage:base?(lineage||name):"",grants:parseGrants(blocks)});
+        // D147: every lineage split off ONE record carries that record's traits — the
+        // lineage's own paragraph lives inside them (XPHB Elf's three lineages are rows of
+        // its "Elven Lineage" trait), so there is nothing per-lineage to split out.
+        if(named.length>1)named.forEach(b=>races.push({name:`${name} — ${b.name}`,source,group:bgroup(source),book:bname(source),page,base:name,lineage:b.name,desc:(desc||[]).slice(),grants:parseGrants([b])}));
+        else races.push({name,source,group:bgroup(source),book:bname(source),page,base:base||name,lineage:base?(lineage||name):"",desc:(desc||[]).slice(),grants:parseGrants(blocks)});
         for(let i=start;i<races.length;i++){races[i].reprinted=!!reprint;races[i].supersededBy=superseded??null;
           applyOwnNote(races[i].grants,note);}};
       (j.race||[]).forEach(rc=>{emitSpecies(rc.name,rc.source||"",rc.additionalSpells,rc.page,undefined,undefined,
-        reprinted(rc),supersededBy(rc),ownNoteBlocks(rc));});
+        reprinted(rc),supersededBy(rc),ownNoteBlocks(rc),flattenEntries(rc.entries));});
       (Array.isArray(j.subrace)?j.subrace:[]).forEach(rc=>{const base=rc.raceName||"",nm=rc.name||"";
         if(!rc.additionalSpells)return;emitSpecies(nm?`${base} (${nm})`:base,rc.source||"",rc.additionalSpells,rc.page,base||null,nm||null,
-          reprinted(rc),supersededBy(rc),ownNoteBlocks(rc));});
+          reprinted(rc),supersededBy(rc),ownNoteBlocks(rc),flattenEntries(rc.entries));});
     }catch(e){report.errors.push(f.name+": "+e.message);}
   });
 

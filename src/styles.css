@@ -2241,3 +2241,38 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
 #famList .famown h3{color:var(--muted);border-bottom-color:var(--line)}
 #famList .famown .entrow{opacity:.72}
 #famList .famown .entrow:hover,#famList .famown .entrow.on{opacity:1}
+
+/* ── D147: every choosable element names its book and opens its own text ─────
+   Three new pieces, no new pattern: the picker/chip NAME becomes a `.nmlink` (the same
+   contract spells and creatures already use), a `<select>`'s row states on its LABEL what
+   the select cannot, and the modal grows a block for a class or subclass feature. */
+.entname .entnm{min-width:0}
+/* the label of a select carries the book chip and the read-it button, on one line at any
+   width: the label TEXT gives way, never the row (the rule `label.fld:has(.lockchip)`
+   already sets for the lock chip) */
+.fld.fldwd{display:flex;align-items:center;gap:0;min-width:0}
+/* the class row's three labels share ONE height. A decorated label is taller than a bare
+   one, and `.classrow{align-items:end}` lines up their BOTTOMS — which dropped "Lvl" 3.5px
+   below "Class" the moment Class grew a chip and a button. */
+.classrow label.fld{display:flex;align-items:center;min-height:20px}
+.fld.fldwd .bchip{margin-left:5px;flex:0 0 auto}
+.fldinfo{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;
+  width:20px;height:20px;margin-left:2px;padding:0;border:none;background:none;
+  color:var(--muted);cursor:pointer;border-radius:5px}
+.fldinfo:hover,.fldinfo:focus{color:var(--accent);background:var(--panel-2);outline:none}
+.fldinfo svg{width:12px;height:12px}
+/* a feat / optional-feature chip now ends in its book, so the ✕ needs the gap back */
+.chip .bchip{margin-left:1px}
+/* the timeline's gains line: a named feature is a link to its own text */
+.logains .nmlink{color:var(--ink)}
+.logains .nmlink:hover,.logains .nmlink:focus{color:var(--accent);outline:none}
+/* what the books don't give us — said plainly rather than left as an empty box */
+.spmodal .entnotext{color:var(--muted);font-style:italic}
+/* one class/subclass feature inside the modal: its own level, then its own text */
+.spmodal .entfeat{margin-top:14px;padding-top:11px;border-top:1px dashed var(--line)}
+.spmodal .entfeat:first-child{margin-top:0;padding-top:0;border-top:none}
+.spmodal .entfeath{display:flex;align-items:baseline;gap:8px;margin-bottom:5px}
+.spmodal .entfeath b{font-family:var(--font);font-size:14px;font-weight:600;color:var(--ink)}
+.spmodal .entfeatlv{margin-left:auto;flex:0 0 auto;font-size:9.5px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.05em;color:var(--muted);
+  background:var(--panel-2);border:1px solid var(--line);border-radius:7px;padding:0 5px}

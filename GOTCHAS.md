@@ -17,6 +17,36 @@
   "empty selection shows all" fallback. `wireCreatureNav` now builds its own source map from the
   FORMS and defaults an unknown book to on — unknown must never read as excluded (D31). Any future
   creature-side filter has to do the same.
+- **A permanent book suffix does not fit a closed `<select>` (D147).** Naming the source on
+  every element is right, but taken literally in the class/subclass selects it clipped the
+  thing being named: `" (XPHB)"` on a ~90px control rendered **"Warlock (XI"**, and a native
+  select cannot be told to ellipsize only part of its option text. The rule that works: an
+  option list suffixes the book only where two options SHARE a name (`dupNames`), and the
+  row's LABEL carries the chip unconditionally, where there is room. A dropdown that is a
+  MENU rather than a closed control (the guide's choosers) suffixes everything — it has the
+  width, and nothing else there states the book. Same trap for any future per-option badge.
+- **A label that grows a control breaks the row's baseline (D147).** `.classrow` is
+  `align-items:end`, which lines up the BOTTOMS of its columns. The moment Class and Subclass
+  grew a chip and a 20px button their labels went 16.5px → 20px, and "Lvl" — still 16.5px —
+  sat 3.5px lower than its neighbours while the selects under it stayed perfectly aligned.
+  Bottom alignment hides this: the controls look right and only the labels are wrong. Fixed
+  with one shared `min-height` on `.classrow label.fld`; measure label TEXT rects, not the
+  labels, or an equal-height row still reads as misaligned.
+- **5etools `_copy` records carry `_mod` edits this project deliberately does not replay
+  (D147(e)).** `resolve_copies` refuses any `_copy` with `_mod`/`_templates` and records it in
+  `COPY_UNRESOLVED`. That was invisible while only grants were extracted — a copy carries its
+  own `additionalSpells` — and became visible the moment text was: **17 setting-book species
+  have no `desc`** because their prose lives on the parent under a `replaceArr`/`appendArr`
+  edit. Inheriting the parent's text would print the very lineage the setting REPLACED, so
+  those records say the text is missing instead. 75 `subclassFeature` records have no
+  `entries` at all in the mirror — a source gap, not ours. Anything new that reads prose off
+  a 5etools record hits both.
+- **A grant reference is lowercased in the source and title-cased by the extractors**, which
+  writes "Tasha'S Hideous Laughter" and "Hunger Of Hadar" into `grants.fixed[].spell.name`
+  (`spell_ref` / `spellRef`). Every LOOKUP is case-insensitive (`grantRec` lowercases), so
+  this only ever hurt display — and it hid for as long as that string was a one-line preview.
+  Resolve through `grantRec` before showing a granted spell's name; do not "fix" the
+  extractors, where the string is a key.
 - **Content assembly:** `window.__DATA__` (baked) is optional now. `assembleData()` picks
   imported > baked > empty, merges custom homebrew, calls `buildIndexes()`. Indexes
   (CLS_BY, SPELL_BY, …) are `let`, rebuilt on every content change — never captured.
