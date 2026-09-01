@@ -2275,10 +2275,23 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
 .spmodal .ent-class{max-width:840px}          /* the progression table needs the width */
 .spmodal .entblk{margin-top:18px}
 .spmodal .entblk:first-child{margin-top:0}
-.spmodal .entblkh{display:flex;align-items:center;gap:10px;font-family:var(--sans);
-  font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
-  color:var(--muted);padding-bottom:6px;margin-bottom:10px;border-bottom:1px solid var(--line)}
-.spmodal .entfoldall{margin-left:auto;border:1px solid var(--line-strong);background:none;
+.spmodal .entblkh{display:flex;align-items:center;gap:10px;
+  padding-bottom:6px;margin-bottom:10px;border-bottom:1px solid var(--line)}
+/* D149: the title IS the fold control. It sits inside the header row rather than wrapping
+   it, because the Features block hangs a second button (Collapse all) off that row and a
+   button may not contain a button. */
+.spmodal .entblkt{display:flex;align-items:center;gap:8px;flex:1;min-width:0;
+  border:none;background:none;padding:0;cursor:pointer;text-align:left;
+  font-family:var(--sans);font-size:10px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.06em;color:var(--muted)}
+.spmodal .entblkt:hover,.spmodal .entblkt:focus{color:var(--accent);outline:none}
+.spmodal .entblkt .entcaret{margin-left:0}
+.spmodal .entblk[data-exp="0"]>.entblkh{margin-bottom:0}
+.spmodal .entblk[data-exp="0"]>.entblkh .entcaret{transform:rotate(-45deg) translate(-1px,1px)}
+.spmodal .entblk[data-exp="0"]>.entblkb{display:none}
+/* a folded block hides its own tools too — "Collapse all" acts on nothing while shut */
+.spmodal .entblk[data-exp="0"] .entfoldall{display:none}
+.spmodal .entfoldall{flex:0 0 auto;border:1px solid var(--line-strong);background:none;
   color:var(--muted);font:inherit;font-size:9.5px;letter-spacing:.04em;border-radius:7px;
   padding:1px 7px;cursor:pointer}
 .spmodal .entfoldall:hover,.spmodal .entfoldall:focus{color:var(--accent);border-color:var(--accent);outline:none}
@@ -2287,7 +2300,12 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
 .spmodal .entfacts li{margin:0 0 3px}
 .spmodal .entfacts li::marker{color:var(--line-strong)}
 .spmodal .entfacts b{color:var(--muted);font-weight:600;margin-right:4px}
-.spmodal .abgain{display:inline-flex;align-items:center;gap:5px;vertical-align:-2px}
+/* D149: NOT inline-flex. An inline-flex box takes its baseline from its first flex item,
+   and `align-items:center` moves that item off the text baseline — measured 3.5px low. A
+   plain inline wrapper has no baseline of its own, so the chips inside sit on the line's,
+   which is the whole point. Chips carry their own spacing. */
+.spmodal .abgain{display:inline}
+.spmodal .abgain .abchip{margin:0 1px}
 /* a level group, and a section inside it — the same disclosure at two scopes */
 .spmodal .entlvl{border:1px solid var(--line);border-radius:10px;background:var(--panel-2);
   margin-bottom:8px;overflow:hidden}
@@ -2316,7 +2334,9 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
 .spmodal .entsech:focus{outline:none}
 .spmodal .entsecn{font-family:var(--font);font-size:14px;font-weight:600;color:var(--ink)}
 .spmodal .entsec>.entsecn{margin-bottom:3px}
-.spmodal .entfacts .abchip{vertical-align:-1px}
+/* an inline-block's baseline IS its last line box's baseline, so a chip aligns with the
+   text around it on its own — the `vertical-align:-1px` that used to be here was the 1px
+   it was measured out by. Measure, never nudge. */
 .spmodal .entsecb{padding-top:3px}
 /* the progression table: scrolls inside itself, never widens the page */
 .spmodal .cttwrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
@@ -2345,5 +2365,12 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
   border-radius:7px;padding:1px 6px;white-space:nowrap;align-self:start;line-height:1.5;
   text-align:center}
 .spmodal .egsp{line-height:1.55}
+/* D149: the choices an element carries, answered from its own modal. The rows are the
+   app's own `.choicerow`s, so they need the Choices card's own widths in a narrower box. */
+.spmodal .entchbody .choicerow{padding:6px 0}
+.spmodal .entchbody .choicerow+.choicerow{border-top:1px solid var(--line)}
+.spmodal .entchbody .choicegroup{border:none;padding:0}
+/* the picker, when it was opened from inside a detail modal (`.spmodal` is z 70) */
+.modal.over{z-index:75}
 /* a condition that explains itself (D148) */
 .cc-cond.hascond{border-bottom:1px dotted currentColor;cursor:help}

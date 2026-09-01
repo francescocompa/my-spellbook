@@ -3274,6 +3274,9 @@ function render(){ maybeOnboard(); renderGapBar(); CASTMODS=activeCastMods(); R=
   refreshAddFeat();
   if(GPICK)renderGpick();                // the open pick modal follows every change (G3)
   if(TL.open)renderTimeline();           // the open timeline follows every change (E5)
+  // D149: and so does the open detail modal — but only its CHOICES block. Rebuilding the
+  // whole modal would throw away every disclosure the reader had opened and their scroll.
+  if(ENTM&&!SPMODAL.classList.contains("hidden"))renderEntChoices();
   if(curTab==="table")renderTable(); save(); }
 
 // ── choices panel ──────────────────────────────────────────────────────────
@@ -3443,6 +3446,10 @@ function openPick(choice){ FOLDED.pick.clear(); PICK={...choice,levelSet:new Set
     :"Choose "+choice.count+(choice.count>1?" spells":" spell");
   const ask=guidePickAsk(choice)||fmtDesc(choice.desc);
   $("#pickSub").textContent=choice.giver+(ask?" · "+cap1(ask):"");
+  // D149: opened from a detail modal, it has to sit ABOVE it — `.spmodal` is z 70 and a
+  // plain `.modal` is z 50, so without this the picker opens underneath and reads as a
+  // dead button. Only ever set while that modal is actually open.
+  $("#pickModal").classList.toggle("over",!SPMODAL.classList.contains("hidden"));
   $("#pickModal").classList.remove("hidden"); renderPickList(); }
 // Magical Secrets: the same one-click add the wizard's spellbook has, scoped to the lists
 // the feature opens up rather than to a spell level (D80).
@@ -7495,7 +7502,10 @@ function mkEmpty(){const e=el("div","empty");
 // ── spell detail: hover tooltip + click modal ──────────────────────────────
 const SPTIP=el("div","sptip");document.body.appendChild(SPTIP);
 const SPMODAL=el("div","spmodal hidden");document.body.appendChild(SPMODAL);
-SPMODAL.onclick=e=>{if(e.target===SPMODAL||e.target.classList.contains("x"))SPMODAL.classList.add("hidden");};
+// one closer for the modal, so `ENTM` can never outlive what it points at
+function closeSpModal(){SPMODAL.classList.add("hidden");ENTM=null;
+  const pm=$("#pickModal"); if(pm)pm.classList.remove("over");}
+SPMODAL.onclick=e=>{if(e.target===SPMODAL||e.target.classList.contains("x"))closeSpModal();};
 document.addEventListener("keydown",e=>{if(e.key!=="Escape")return;
   // the guide's pick modal is the topmost layer while it is open, so Escape belongs to
   // it alone — closing what sits UNDER a modal is the trap D120 logged against the
@@ -7503,7 +7513,13 @@ document.addEventListener("keydown",e=>{if(e.key!=="Escape")return;
   if(GPICK){closeGpick();return;}
   // the forms chooser is the topmost layer while it is open, for the same reason
   if(FAM){closeFam();return;}
-  SPMODAL.classList.add("hidden");hideTip();closeBswMenus();closeTimeline();});
+  // D149: the spell picker opened FROM a detail modal is raised above it, so it is the
+  // topmost layer too — Escape must take it before the modal it was opened from, or one
+  // key press closes both and loses the reader's place.
+  const pm=$("#pickModal");
+  if(pm&&pm.classList.contains("over")&&!pm.classList.contains("hidden")){
+    pm.classList.add("hidden");pm.classList.remove("over");return;}
+  closeSpModal();hideTip();closeBswMenus();closeTimeline();});
 document.addEventListener("click",()=>hideTip(),true);   // a tap elsewhere dismisses a tapped tip
 function esc(s){return (s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));}
 // ── spell text highlighting (monster-forge cc-* convention, read-only) ──────
@@ -8246,11 +8262,20 @@ function classTraitsHTML(it){
   const ar=profText(t.armor); if(ar)rows.push(["Armor",esc(ar)]);
   const to=profText(t.tools); if(to)rows.push(["Tools",esc(to)]);
   if(it.ability)rows.push(["Spellcasting ability",abChip(it.ability)]);
-  rows.push(["Subclass at",`Level ${it.subclassLevel||3}`]);
   if(t.equipment)rows.push(["Starting equipment",esc(t.equipment)]);
   if(!rows.length)return "";
-  return `<div class="entblk"><div class="entblkh">Core traits</div>`
-    +`<div class="grid">${rows.map(([k,v])=>`<b>${k}</b><span>${v}</span>`).join("")}</div></div>`;}
+  return entBlk("Core traits",
+    `<div class="grid">${rows.map(([k,v])=>`<b>${k}</b><span>${v}</span>`).join("")}</div>`);}
+// D149: a block is a DISCLOSURE. Every one folds; only the progression table starts shut,
+// because it is twenty rows of numbers you consult rather than read, and it pushed the
+// features — the thing you opened a class for — a screen and a half down.
+function entBlk(title,body,opts){
+  opts=opts||{};
+  const open=opts.shut?"0":"1";
+  return `<div class="entblk" data-exp="${open}">`
+    +`<div class="entblkh"><button class="entblkt" type="button" aria-expanded="${open==="1"}">`
+    +`<span>${esc(title)}</span><span class="entcaret"></span></button>`
+    +(opts.tools||"")+`</div><div class="entblkb">${body}</div></div>`;}
 // the level-by-level progression table. Level, Proficiency Bonus and Features are the
 // app's own three columns (the digest deliberately carries none of them — D148); the rest
 // are whatever `classTableGroups` holds, group titles spanning their own columns.
@@ -8274,8 +8299,9 @@ function classTableHTML(it){
       +groups.map(g=>{const r=(g.rows||[])[L-1]||[];
         return g.cols.map((_,i)=>`<td>${esc(r[i]==null?"—":r[i])}</td>`).join("");}).join("")+`</tr>`);
   }
-  return `<div class="entblk"><div class="entblkh">Progression</div>`
-    +`<div class="cttwrap"><table class="cttable">${titleRow}${head}${rows.join("")}</table></div></div>`;}
+  return entBlk("Progression",
+    `<div class="cttwrap"><table class="cttable">${titleRow}${head}${rows.join("")}</table></div>`,
+    {shut:true});}
 // features grouped by level, each level and each feature its own disclosure — Francesco's
 // note: "grouped by level and more clearly separated, with each level and section
 // collapsible". Both open by default: the modal is opened to READ, and a body that starts
@@ -8297,8 +8323,8 @@ function featuresHTML(it,kind){
         +`<div class="entsecb">${(f.desc||[]).length?descBlocks(f.desc)
             :`<p class="entnotext">No text for this feature in the imported data.</p>`}</div></div>`).join("")
       +`</div></div>`;}).join("");
-  return `<div class="entblk"><div class="entblkh">Features`
-    +`<button class="entfoldall" type="button" data-all="0">Collapse all</button></div>${body}</div>`;}
+  return entBlk("Features",body,
+    {tools:`<button class="entfoldall" type="button" data-all="0">Collapse all</button>`});}
 // what a feat asks of you and what it hands back, before a word of its prose (Francesco:
 // "a starting bullet list with requirements, ASI grant if present etc.")
 function entFactsHTML(it,kind){
@@ -8315,7 +8341,12 @@ function entFactsHTML(it,kind){
   if(it.repeatable)add("Repeatable","You can take this more than once");
   if((it.featSlots||[]).length)add("Also grants","a feat slot");
   if(!li.length)return "";
-  return `<ul class="entfacts">${li.join("")}</ul>`;}
+  // D149: the same anatomy as every other modal — a titled, foldable block. The facts stay
+  // a bullet list inside it (D148(c)); what was off-canon was the list sitting loose in the
+  // body while a class's facts sat in a block.
+  return entBlk("At a glance",`<ul class="entfacts">${li.join("")}</ul>`);}
+// what to call the prose block, per kind — a feat gives BENEFITS, a species has TRAITS
+const ENT_PROSE_TITLE={feat:"Benefits",opt:"What it does",species:"Traits",sub:"About",class:"About"};
 // "Spells it gives you", BY THE LEVEL YOU GET THEM (Francesco). `atLevel` is on every
 // grant shape already — it is what the acquisition walk reads — so the section states it
 // instead of flattening a subclass's four tiers into one comma run.
@@ -8337,8 +8368,7 @@ function entGrantsHTML(it){
   const rows=lvls.map(L=>`<div class="egrow"><span class="eglv">${L?"Level "+L:"Always"}</span>`
     +`<span class="egsp">${esc(byLv.get(L).join(" · "))}</span></div>`).join("")
     +opts.map(o=>`<div class="egrow"><span class="eglv">Choose</span><span class="egsp">${esc(o)}</span></div>`).join("");
-  return `<div class="entblk"><div class="entblkh">Spells it gives you</div>`
-    +`<div class="egrid">${rows}</div></div>`;}
+  return entBlk("Spells it gives you",`<div class="egrid">${rows}</div>`);}
 // D147: the modal never renders an empty body. Where 5etools carries no text for a record
 // — 17 setting-book species that are `_copy` records whose edits we do not replay, and 75
 // subclass features with no `entries` at all — it says so, rather than showing a blank box
@@ -8349,11 +8379,28 @@ function entBodyHTML(it,kind){
   if(kind==="class")
     return classTraitsHTML(it)+classTableHTML(it)+featuresHTML(it,kind)+entGrantsHTML(it);
   if(kind==="sub")
-    return entFactsHTML(it,kind)+featuresHTML(it,kind)+entGrantsHTML(it);
+    return entFactsHTML(it,kind)+featuresHTML(it,kind)+entGrantsHTML(it)+entChoicesHTML(it,kind);
   const facts=entFactsHTML(it,kind);
-  const desc=(it.desc||[]).length?descBlocks(it.desc):"";
-  return facts+(desc||(grantsAny(it.grants)?"":ENT_NOTEXT))+entGrantsHTML(it)
-    +(desc?"":(grantsAny(it.grants)?ENT_NOTEXT:""));}
+  const prose=(it.desc||[]).length?descBlocks(it.desc):"";
+  const body=prose?entBlk(ENT_PROSE_TITLE[kind]||"About",prose)
+                  :entBlk(ENT_PROSE_TITLE[kind]||"About",ENT_NOTEXT);
+  return facts+body+entGrantsHTML(it)+entChoicesHTML(it,kind);}
+// the shell only — `renderEntChoices` fills it, because a choice row is DOM (it carries
+// live handlers) and this function builds a string
+function entChoicesHTML(it,kind){
+  if(kind==="class")return "";
+  return entBlk("Your choices",`<div class="entchbody"></div>`)
+    .replace('<div class="entblk"','<div class="entblk entchoices hidden"');}
+// D149: Francesco — "detail modals that include choice-based elements (ex. Fey Touched)
+// should let you pick inside the modal". The choices are the build's OWN (`R.choices`), so
+// this only appears once the element is in your build: before that a choice has no id, no
+// slot and nothing to write to, and the "Spells it gives you" block already states what it
+// will ask. Matched on name+source, never on the owner id — a repeatable feat's copies
+// carry `##N` and they are all this element's.
+function entChoicesOf(it,kind){
+  if(!R||!R.choices||kind==="class"||!it)return [];
+  return R.choices.filter(c=>c.owner&&c.owner.name===it.name&&c.owner.src===it.source);
+}
 function entModalHTML(it,kind){
   // D148: the book is the TAG and nothing else. It used to be said twice — once as the
   // chip and again spelled out in the subtitle — and the tag's own popover already names
@@ -8372,6 +8419,12 @@ function wireEntFolds(root){
   root.querySelectorAll(".entlvlh,.entsech").forEach(b=>{
     b.onclick=e=>{e.stopPropagation();
       const w=b.parentElement, open=w.dataset.exp!=="1";
+      w.dataset.exp=open?"1":"0"; b.setAttribute("aria-expanded",String(open));};});
+  // a block's title sits INSIDE its header row (a button may not contain a button — the
+  // `.bswrow` trap), so its fold target is the grandparent, not the parent
+  root.querySelectorAll(".entblkt").forEach(b=>{
+    b.onclick=e=>{e.stopPropagation();
+      const w=b.closest(".entblk"), open=w.dataset.exp!=="1";
       w.dataset.exp=open?"1":"0"; b.setAttribute("aria-expanded",String(open));};});
   const all=root.querySelector(".entfoldall");
   if(all)all.onclick=e=>{e.stopPropagation();
@@ -8392,10 +8445,26 @@ function wireCondTips(root){
     if(n.dataset.wired)return;
     const html=condTip(n.dataset.cond); if(!html)return;
     n.dataset.wired="1"; n.classList.add("hascond"); attachTip(n,html);});}
+// which element the open detail modal is showing, so `render()` can refresh the one part
+// of it that is live — the same contract the timeline and the guide's pick modal have
+// ("the open X follows every change"). Cleared when the modal closes.
+let ENTM=null;
+function renderEntChoices(){
+  const host=SPMODAL.querySelector(".entchbody"); if(!host||!ENTM)return;
+  const list=entChoicesOf(ENTM.it,ENTM.kind);
+  const blk=host.closest(".entblk");
+  if(blk)blk.classList.toggle("hidden",!list.length);
+  host.innerHTML="";
+  // the app's OWN choice row (D30/D43), not a copy of one — so a pick made here and a pick
+  // made on the Choices card are the same control with the same writer
+  list.forEach(c=>host.append(choiceRow(c)));
+  host.querySelectorAll(".pickfield").forEach(maskOverflow);
+}
 function openEntityModal(it,kind){
-  hideTip(); SPMODAL.innerHTML=entModalHTML(it,kind);
+  hideTip(); ENTM={it,kind};
+  SPMODAL.innerHTML=entModalHTML(it,kind);
   SPMODAL.querySelectorAll(".bchip[data-book]").forEach(x=>attachTip(x,bookTip(x.dataset.book,x.dataset.page)));
-  wireEntFolds(SPMODAL); wireCondTips(SPMODAL);
+  wireEntFolds(SPMODAL); wireCondTips(SPMODAL); renderEntChoices();
   SPMODAL.classList.remove("hidden");}
 // the spell-name contract again: the NAME is the link, the row/chip around it keeps its
 // own job (taking the pick, dropping it). `stopPropagation` is what enforces that split.
@@ -9097,8 +9166,12 @@ $("#prepPrev").onclick=()=>{if(PREP&&PREP.step>0){PREP.step--;PREP.search="";ren
 $("#prepNext").onclick=()=>{if(PREP&&PREP.step<PREP.steps.length-1){PREP.step++;PREP.search="";renderPrepStep();}};
 $("#prepSearch").oninput=e=>{if(PREP){PREP.search=e.target.value;renderPrepList();}};
 $("#prepLevelBtn").onclick=e=>{e.stopPropagation();toggleMenu("#prepLevelPop");};
-$("#pickClose").onclick=()=>$("#pickModal").classList.add("hidden");
-$("#pickModal").onclick=e=>{if(e.target.id==="pickModal")$("#pickModal").classList.add("hidden");};
+// D149: `.over` lifts the picker above `.spmodal` (z 70) for the one case it is opened
+// from inside a detail modal. It is dropped on every close, so the class can never be
+// left on and put the picker over a modal that is not there.
+function closePickModal(){const m=$("#pickModal");m.classList.add("hidden");m.classList.remove("over");}
+$("#pickClose").onclick=closePickModal;
+$("#pickModal").onclick=e=>{if(e.target.id==="pickModal")closePickModal();};
 $("#pickSearch").oninput=renderPickList;
 // the guide's pick modal (G3 · D126(f)). The backdrop closer is a STRICT equality on the
 // backdrop node itself — a click that re-renders detaches its own target, and a

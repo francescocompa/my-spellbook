@@ -1831,6 +1831,69 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     disclosure toggle both ways. Parity exact: 51 checks, 0 fail, 0 whole-record diffs
     including the new `traits`, `table`, `ability`, block `desc` and `conditions`.
 
+- **D149 (2026-09-01) DECIDED — the detail modal is a stack of disclosures, and a choice is
+  answered where it is read.** Francesco's notes on 1.5.1. Four decided; the fifth is mocked
+  and open.
+  - **(a) Every block is a disclosure, and the progression table starts SHUT.** Raw: *"the
+    feature table should be collapsible and start out collapsed"* — read as the progression
+    table, which is twenty rows of numbers you consult rather than read and which pushed the
+    features, the thing a class modal is opened for, a screen and a half down. Core traits
+    and Features stay open. The title is the fold control and sits INSIDE the header row
+    rather than wrapping it, because the Features block hangs a second button off that row
+    and a button may not contain a button (the `.bswrow` trap, D142(d)). ⚑ If "feature table"
+    meant the Features BLOCK, the default is one word to flip.
+  - **(b) "Subclass at · Level 3" is gone from Core traits.** It is the one row that describes
+    a relationship rather than the class itself, and it is about to be answered by whatever
+    (e) becomes.
+  - **(c) The feat modal follows the canon.** Its facts list was sitting loose in the body
+    while a class's facts sat in a titled block, so the two modals read as different objects.
+    Every kind is now the same stack: a titled, foldable block per section — "At a glance",
+    then the prose under a kind-appropriate title (Benefits · What it does · Traits), then
+    the grants, then the choices. The bullet list itself stays (D148(c)); what was off-canon
+    was its framing.
+  - **(d) An ability chip sits on the text baseline, measured — never nudged.** Two real
+    faults: `vertical-align:-1px` on the chip (a guess, and exactly 1px wrong), and
+    `.abgain` as an `inline-flex` with `align-items:center`, which takes its baseline from
+    its first flex item and put the chip **3.5px** low. An inline-block's baseline IS its
+    last line box's baseline, so a chip aligns on its own; the wrapper is a plain `inline`
+    now. Measured with a zero-size inline-block probe — whose bottom margin edge sits on the
+    line's baseline — inside the chip and beside it: **0.00px** at every site, both themes.
+  - **(e) A choice is answered inside the modal that explains it.** Raw: *"detail modals that
+    include choice-based elements (ex. fey touched) should let you pick inside the modal"*.
+    The rows are the app's **own** `choiceRow` (D30/D43) — never a copy — so a pick made here
+    and a pick made on the Choices card are one control with one writer. Option and ability
+    choices resolve fully inline; a spell pick opens the app's one picker, **raised above the
+    detail modal** (`.modal.over`, z 75 over `.spmodal`'s 70) because a plain `.modal` is z 50
+    and would otherwise open underneath and read as a dead button. Escape takes the raised
+    picker first, then the modal. The block appears **only when the element is in your build**:
+    before that a choice has no id, no slot and nothing to write to, and the "Spells it gives
+    you" block already states what it will ask. Matched on name+source, never on the owner id,
+    so a repeatable feat's `##N` copies all belong to it. `render()` refreshes **only** that
+    block — rebuilding the modal would throw away every disclosure the reader had opened.
+    *Rejected:* closing the detail modal to open the picker (loses your place, and the reason
+    to be in the modal at all); a second inline spell list (a copy of the one picker, which
+    this project has refused every time it came up).
+  - **(f) 🔶 OPEN — the class ⊕ subclass merge.** Three variants mocked against the real
+    stylesheet with real digest content, at `scratchpad/mockups/class-subclass.html`
+    (gitignored; regenerate with `python3 scratchpad/mkmerge.py`). **A · one spine, the
+    subclass marked** (recommended): one Features list in level order holding both, the
+    subclass told apart by an accent rule and its own tag rather than by position, and the
+    progression table's Features column marking its entries the same way — so "what do I get
+    at level 6" is one place, and it costs nothing at 375. **B · two bands**: the class runs
+    to its end, then the subclass arrives as its own tinted band; safest to read and easiest
+    for "what does the subclass add", but a per-level question means two places and the
+    "Features" header repeats. **C · paired rail**: one level spine, class left and subclass
+    right in its own tint; the most explicit, the only one that shows a level where the
+    subclass gives nothing — which is most of them — and it collapses to one column under
+    720px, exactly where the distinction it is built on disappears. Awaiting Francesco.
+  - **Verified:** 0 contrast failures across **372 nodes** (class, every block forced open)
+    and 21 (Fey Touched) in dark, same counts in light — min 5.66:1. Ability-chip baseline
+    delta 0.00px at every site in both themes. The full choice loop: pick in the raised
+    picker → `state.choices` written → the modal's own row refreshed to 1/1 with its chip →
+    picker closed, `over` cleared, detail modal still open on the same scroll and the same
+    folds (0,1,1,1 before and after). Escape closes the picker then the modal, and `ENTM`
+    is cleared so a later `render()` cannot revive a modal that is gone.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

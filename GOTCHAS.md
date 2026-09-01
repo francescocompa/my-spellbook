@@ -73,6 +73,25 @@
   that set it. `staleBooks()` then reports "all current" for a digest missing everything
   added after. Not a bug to fix — bumping is what re-arms it — but do not read a clean
   `staleBooks()` mid-batch as proof the import matches the working tree.
+- **`vertical-align` on a chip is a guess; an inline-block already knows its baseline
+  (D149(d)).** An inline-block's baseline IS its last line box's baseline, so a padded chip
+  aligns with the text around it on its own. Two ways that was broken at once: a hand-tuned
+  `vertical-align:-1px` (wrong by exactly the 1px it was measuring), and an `inline-flex`
+  wrapper with `align-items:center`, whose baseline comes from its first flex item after
+  centring has moved it — **3.5px** low. Measure with a zero-size inline-block probe: its
+  bottom margin edge sits ON the line's baseline, so `probeIn(chip) - probeAfter(chip)` is
+  the real error. Never nudge a chip by eye; a wrapper around inline chips must stay `inline`.
+- **A `.modal` opened from inside a `.spmodal` opens UNDERNEATH it (D149(e)).** The picker
+  is z 50 and the detail modal is z 70, so the button worked, the state changed, and nothing
+  appeared — the exact shape of a dead control. `.modal.over` (z 75) is set only while the
+  detail modal is actually open and dropped on every close, and Escape has to take the raised
+  layer FIRST or one key press closes both. Any future modal-from-a-modal needs both halves.
+- **Refresh the LIVE part of an open modal, not the modal (D149(e)).** The detail modal joins
+  the "open X follows every change" contract that the timeline and the guide's pick modal
+  already have — but it re-renders only its choices block. Rebuilding the whole body would
+  throw away every disclosure the reader had opened and their scroll position, which is the
+  same class of loss D120 logged for the timeline. Its `ENTM` pointer is cleared by the one
+  closer, so a later `render()` can never revive a modal that is gone.
 - **Content assembly:** `window.__DATA__` (baked) is optional now. `assembleData()` picks
   imported > baked > empty, merges custom homebrew, calls `buildIndexes()`. Indexes
   (CLS_BY, SPELL_BY, …) are `let`, rebuilt on every content change — never captured.
