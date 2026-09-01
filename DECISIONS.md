@@ -2133,6 +2133,48 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     Ability to remove ONE book, D42's nothing-prunes rule, and D138's per-book stamps all
     survive by construction and are named in the tasks.
 
+- **D155 (2026-09-01) DECIDED — the calls K1 had to make that D154 did not cover.** Building
+  the one page (phase K1) raised five questions the design session had not been asked. Each
+  is small, each is now enforced in code, and none of them re-opens a D154 call.
+  - **(a) The per-group “all” tick is gone from the Library, and nothing replaces it in the
+    header.** The shared checklist (D27/D83) hangs an all/some/none tick off every group
+    heading, and D113 retired the "2024 core only" quick action *because* that tick covered
+    it. The approved mockup's group heading is a plain label, and a modal being quieted does
+    not gain a control back. The capability survives intact through the selection bar: search
+    a family, **Select shown**, then the bar's own enabled switch. *Rejected:* keeping the
+    group tick (a third meaning on a page whose whole point was that two were one too many);
+    dropping the capability outright (it is one search away, so nothing had to be lost).
+  - **(b) The Library gets its OWN row renderer; `renderSourceChecklist` is untouched.** An
+    R3 row carries two independent controls and a chip; the shared checklist is one line, one
+    tick, one meaning, and every picker in the app depends on exactly that. Two renderers,
+    one per shape, beats one renderer with a mode flag. The pickers' list is byte-identical
+    to what it was.
+  - **(c) The origin chip has a fourth value, `custom`, for the homebrew pseudo-book.** D154(c)
+    names three — `web` / `file` / `built-in`. `HB` is none of them: it is the custom spell
+    editor's own source, it lives in localStorage, and it is neither imported nor shipped.
+    Calling it `file` would be a lie about where it came from and would offer a Remove that
+    cannot work. *Rejected:* hiding the HB row (it is a real book on the everyday list and
+    always has been); reusing `built-in`.
+  - **(d) “Remove imported data” dies in K1, not K4.** D154(i) drops it because select-all →
+    Remove is the reset, and that path exists the moment the selection bar does — so keeping a
+    standing red button for one more release would have shipped two removal paths on purpose.
+    The one thing it did that the plan cannot is empty the digest completely (`applyPlan`
+    refuses a keep-set of nothing, by design), so an all-books Remove takes the drop path
+    instead and says so.
+  - **(e) ＋ Add files is ONE button with a caret, not a split button.** The mockup draws a
+    split; the four ways in are all equal (a zip, JSON files, a folder, a paste) and a split
+    button has to promote one of them to its primary half. D154(f) and the K1 task line both
+    write the control as “＋ Add files ▾”, which is what shipped. *Rejected:* split with
+    Upload .json as the primary (it makes the menu's own first two entries near-duplicates
+    of the button beside them).
+  - **Transitional, and named so in the code:** until K3 lands the automatic re-parse, the
+    three verbs it makes unnecessary (Refresh imported data, Rescan folder, Forget folder)
+    live in the Actions menu under a separator, and the staged files + keep-plan + Apply stay
+    as a block above the status strip — that block is what K2 turns into the tray. Both
+    carry a `TRANSITIONAL (K2/K4)` comment naming what deletes them. **Drag-and-drop is gone
+    now, not later** (D154(f) rejected drop-anywhere and killed the drop zone with the Manage
+    tab), and with it the `webkitGetAsEntry` walker that only the drop handler used.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

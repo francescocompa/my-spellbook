@@ -5107,7 +5107,12 @@ function renderImportStage(){const box=$("#importStaged");if(!box)return;box.inn
     tog.onclick=()=>{STAGE_EXP=!STAGE_EXP;renderImportStage();};
     box.append(lbl,chips,tog);
   }
-  const cb=$("#importClear");if(cb)cb.classList.toggle("hidden",!n);}
+  const cb=$("#importClear");if(cb)cb.classList.toggle("hidden",!n);
+  libStageVis();}
+// TRANSITIONAL (K2 turns this into the pending-import tray, D154(h)): the staged block
+// exists only while there is something staged or a scanned folder to pick from.
+function libStageVis(){const box=$("#libStage");
+  if(box)box.classList.toggle("hidden",!(IMPORT_STAGE.length||SCAN));}
 // D112: files parse on arrival. Staging is bursty (a zip unpacks 180 files, FileReaders land
 // out of order), so the parse runs once the burst settles rather than per file.
 let BUILD_TIMER=null;
@@ -5250,13 +5255,9 @@ async function webSync(){
   }catch(e){rep.innerHTML="Couldn’t fetch from 5etools online: "+esc(e.message||String(e));}
   finally{WEB_BUSY=false; if(btn){btn.disabled=false;btn.classList.remove("busy");} webSyncSub();}
 }
-// the row's status: what you have, and where a non-default fetch would come from
-function webSyncSub(){const s=$("#webSyncSub"); if(!s)return;
-  const rec=webSyncRec(), repo=webRepo(), bits=[];
-  if(rec&&rec.version)bits.push("you have v"+rec.version
-    +(rec.syncedAt?" · fetched "+new Date(rec.syncedAt).toLocaleDateString():""));
-  if(repo!==WEB_REPO_DEFAULT)bits.push("from "+repo);
-  s.textContent=bits.join(" · ");}
+// what you have and where a non-default fetch would come from now live in the status strip
+// (D154(b)) — one line, not a row of its own.
+function webSyncSub(){renderLibStatus();}
 // boot: is the repo ahead of the last applied fetch? Quiet unless the answer is yes —
 // offline, CDN down, never fetched, or already dismissed for that version all say nothing.
 async function webUpdateNotice(){
@@ -5264,12 +5265,15 @@ async function webUpdateNotice(){
   if(navigator.onLine===false)return;
   let latest=null;
   try{latest=await webResolve(rec.repo||webRepo());}catch(_){return;}
-  if(!latest||!verLt(rec.version,latest))return;
+  if(!latest)return;
+  WEB_LATEST=latest; WEB_LATEST_TRIED=true;
+  if(!verLt(rec.version,latest))return;
   let seen=null; try{seen=localStorage.getItem(LS_WEB_NAG);}catch(_){}
   if(seen===latest)return;
+  WEB_LATEST=latest; WEB_LATEST_TRIED=true;   // the status strip's own comparison, already paid for
   const n=appNotice("5etools has newer data — v"+latest+" is out; you have v"+rec.version+".","ask");
   const b=el("button","anact","Fetch it now");
-  b.onclick=()=>{n.remove();openImport(false,"man");webSync();};
+  b.onclick=()=>{n.remove();openImport(false);webSync();};
   n.insertBefore(b,n.querySelector(".anx"));
   const x=n.querySelector(".anx");
   if(x)x.addEventListener("click",()=>{try{localStorage.setItem(LS_WEB_NAG,latest);}catch(_){}});
@@ -5345,7 +5349,8 @@ function filterDigest(d,keep){
     // the CURRENT version — so a partial refresh read as "all current" again, the exact
     // false success D138(a) closed. applyPlan overwrites these for the books it re-parsed.
     if(was.parser)out.sources[src].parser=was.parser;
-    if(was.parsedAt)out.sources[src].parsedAt=was.parsedAt;});
+    if(was.parsedAt)out.sources[src].parsedAt=was.parsedAt;
+    if(was.origin)out.sources[src].origin=was.origin;});   // D154(c), same survival rule
   return out;
 }
 const digestSize=d=>DIGEST_ARRAYS.reduce((n,a)=>n+((d[a]||[]).length),0);
@@ -5394,6 +5399,7 @@ function planShown(map){
 }
 function renderImportPlan(){
   const box=$("#importPlan"); if(!box)return;
+  libStageVis();
   if(!PLAN)planFromStage(null,null);
   const map=libMap();
   if(!Object.keys(map).length){box.classList.add("hidden");renderImportPlanFoot();return;}
@@ -5649,8 +5655,12 @@ async function applyPlan(rep,refreshed){
   const now=new Date().toISOString(), pv=window.__VERSION__||"dev";
   out.meta=Object.assign({},out.meta,{importedAt:now,parser:pv});
   const parsed=Object.keys(((PLAN.incoming||{}).sources)||{});
+  // D154(c): where a book came from, stamped alongside the parser stamp and on the same
+  // rule — only the books that came through the parser THIS time are re-stamped, so a
+  // hand-added brew keeps saying `file` when a web fetch lands beside it.
+  const origin=WEB_PENDING?"web":"file";
   parsed.forEach(c=>{ if(out.sources[c])out.sources[c]=Object.assign({},out.sources[c],
-    {parser:pv,parsedAt:now}); });
+    {parser:pv,parsedAt:now,origin}); });
   const btn=$("#importApply"); if(btn)btn.disabled=true;
   rep.textContent="Storing…";
   const err=await importSave(out);
@@ -5670,8 +5680,7 @@ async function applyPlan(rep,refreshed){
   assembleData();pruneState();
   IMPORT_STAGE=[];renderImportStage();
   planFromStage(null,PLAN.report); renderImportPlan();
-  refreshAll();render();renderLibFoot();
-  $("#libTabSrc").classList.toggle("hidden",!hasContent());   // onboarding hid it; content is here now
+  refreshAll();render();renderLibList();
   const nb=Object.keys(out.sources).length;
   const head=refreshed?`Re-imported ${nb} book${nb===1?"":"s"} with parser v${window.__VERSION__||"dev"}.`
     :`<b style="color:var(--good)">Applied.</b> ${nb} book${nb===1?"":"s"} ·`;
@@ -5733,8 +5742,8 @@ function refreshFail(msg){ refreshStop();
   if(!RMODAL)appNotice(msg,""); }
 // the modal is the surface that can actually fix this one — say why it opened, in both places
 function refreshAsk(report,notice){ refreshStop();
-  if(RMODAL){setLibTab("man");renderImportPlan();}   // re-render: the miss marks may have changed
-  else openImport(false,"man");                      // openImport closes the ⋯ menu (and renders the plan)
+  if(RMODAL)renderImportPlan();                      // re-render: the miss marks may have changed
+  else openImport(false);                      // openImport closes the ⋯ menu (and renders the plan)
   const rep=$("#importReport"); if(rep)rep.innerHTML=report;
   if(!RMODAL)appNotice(notice,"ask"); }
 const nBooks=n=>n+" book"+(n===1?"":"s");
@@ -5803,7 +5812,7 @@ async function refreshImported(fromModal){
     // to the remedy (Manage's drop zone / folder chooser), not end at the diagnosis.
     const missCodes=stored.filter(c=>!SCAN.books[c]);
     refreshMissRemember(missCodes);
-    renderLibFoot();   // applyPlan painted #libParser before the miss memory changed
+    renderLibList();   // applyPlan painted #libParser before the miss memory changed
     const head="Re-imported "+nBooks(n)+" with parser v"+(window.__VERSION__||"dev")+".";
     if(!missCodes.length)return refreshDone(head);
     const names=missCodes.slice(0,3).map(bookName).join(", ")
@@ -5819,7 +5828,7 @@ async function refreshImported(fromModal){
       // undone (D129's own rule) — it waits, and its action opens the surface that fixes it
       const bar=appNotice(head+caveat+` Re-add ${one?"it":"them"} in the Library to bring ${one?"it":"them"} current.`,"ask");
       const act=el("button","anact","Open Library");
-      act.onclick=()=>{bar.remove();openImport(false,"man");};
+      act.onclick=()=>{bar.remove();openImport(false);};
       bar.insertBefore(act,bar.querySelector(".anx"));
     }
   }finally{ if(REFRESH_BUSY)refreshStop(); }
@@ -5887,69 +5896,26 @@ function staleParserNotice(){
       n.remove(); fn(); };
     n.insertBefore(b,n.querySelector(".anx"));};
   if(!allMiss)act("Refresh now",()=>refreshImported(false));
-  if(miss.length)act("Open Library",()=>openImport(false,"man"));
+  if(miss.length)act("Open Library",()=>openImport(false));
   // the × means "not now", so it must not come back every boot on the same version
   const x=n.querySelector(".anx");
   if(x)x.addEventListener("click",()=>{try{localStorage.setItem(LS_PARSER_NAG,app);}catch(_){}});
 }
-let LIB_TAB="src";
-function setLibTab(t){LIB_TAB=t;
-  $("#libTabSrc").classList.toggle("on",t==="src");
-  $("#libTabMan").classList.toggle("on",t==="man");
-  $("#libSrcPane").classList.toggle("hidden",t!=="src");
-  $("#libManPane").classList.toggle("hidden",t!=="man");
-  if(t==="src")renderLibSources(); else renderLibFoot();
-}
-function openImport(welcome,tab){closeMenu();const r=$("#importReport");
-  if(r)r.textContent=IMPORTED?"Adding files ADDS to what you have — only identical entries are replaced.":"";
-  const w=$("#importWelcome");if(w)w.classList.toggle("hidden",!welcome);
-  // no content yet → the Sources tab has nothing to toggle; open straight into Manage
-  const bare=!hasContent();
-  $("#libTabSrc").classList.toggle("hidden",bare);
-  setLibTab(bare?"man":(tab||(welcome?"man":"src")));
-  planFromStage(null,null); renderImportPlan();
-  renderImportStage(); renderLibFoot(); webSyncSub();
+function openImport(welcome){closeMenu();
+  const r=$("#importReport"); if(r)r.textContent="";
+  const w=$("#importWelcome"); if(w)w.classList.toggle("hidden",!welcome);
+  // the page opens at rest: no selection carried in from last time, no stale search
+  LIB_SEL.clear(); SRC_Q=""; const q=$("#libSrcSearch"); if(q)q.value="";
+  planFromStage(null,null); renderImportPlan(); renderImportStage(); renderLibList();
   $("#importModal").classList.remove("hidden");
   // A remembered folder is recalled SILENTLY — `false` means never prompt for permission here,
-  // because a permission request outside a user gesture is refused anyway. The Rescan button
-  // asks for real when it is clicked.
+  // because a permission request outside a user gesture is refused anyway. Rescan asks for
+  // real when it is clicked.
   folderButtons();
   if(FSA()&&!FOLDER)folderRecall().then(async h=>{
     if(h&&await folderUsable(h,false)){FOLDER=h;folderButtons();}
-    else if(h){FOLDER=h;folderButtons();          // known but not yet granted — Rescan will ask
-      const p=$("#folderProgress"); if(p&&!p.textContent)p.textContent="Folder remembered — press “Rescan folder” to re-open it.";}
+    else if(h){FOLDER=h;folderButtons();}         // known but not yet granted — Rescan will ask
   });}
-// the Manage footer: storage total (D112) and the last-import stamp (D111)
-function renderLibFoot(){
-  const st=$("#libStore"); if(!st)return;
-  const meta=(IMPORTED&&IMPORTED.meta)||{};
-  // nothing imported → nothing to remove; the danger row earns its place only when real
-  const wipe=$("#importWipe"); if(wipe)wipe.classList.toggle("hidden",!IMPORTED);
-  const stamp=$("#importRefresh");
-  if(stamp){const when=meta.importedAt?new Date(meta.importedAt).toLocaleDateString():null;
-    stamp.title=when?`Last import ${when} · parser v${meta.parser||"?"}`:"Nothing imported yet";}
-  st.textContent="";
-  // D138: the parser stamp was reachable only by hovering a button, which is no use when
-  // the question being asked is "why is my data still wrong". It is a visible line now,
-  // and it counts the books that are actually behind rather than trusting one stamp.
-  const behind=staleBooks(), nsrc=Object.keys((IMPORTED&&IMPORTED.sources)||{}).length;
-  const line=$("#libParser");
-  if(line){ line.classList.toggle("hidden",!IMPORTED);
-    if(IMPORTED){ line.classList.toggle("stale",!!behind.length);
-      // a book the folder cannot provide is not healed by Refresh — say which remedy applies
-      const miss=refreshMissed();
-      line.textContent=behind.length
-        ? `${behind.length} of ${nsrc} book${nsrc===1?"":"s"} still read by an older parser — `
-          +(miss.length&&miss.length===behind.length
-              ?`the linked folder doesn’t hold ${miss.length===1?"it; drop the file above":"them; drop the files above"}`
-              :miss.length?`Refresh re-reads them (${nBooks(miss.length)} not in the folder — re-add above)`
-              :"Refresh re-reads them")
-        : `all ${nsrc} book${nsrc===1?"":"s"} read by parser v${meta.parser||"?"}`; } }
-  if(navigator.storage&&navigator.storage.estimate)
-    navigator.storage.estimate().then(e=>{ if(!e||!e.usage)return;
-      const mb=e.usage/1048576;
-      st.textContent=`imported data ≈ ${mb<1?"<1":Math.round(mb)} MB in this browser`;}).catch(()=>{});
-}
 async function clearImport(){await importDrop();assembleData();pruneState();refreshAll();render();}
 // no-content build (public deploy): pop the import modal in welcome mode, once
 let onboardShown=false;
@@ -9240,17 +9206,194 @@ function srcQuick(sel,onChange,codes){
           none:()=>{pool.forEach(c=>sel.delete(c));onChange();},
           core:()=>{pool.forEach(c=>sel.delete(c));CORE_2024.filter(has).forEach(c=>sel.add(c));onChange();}};
 }
-// D113: the Library's Sources tab — the old Sources modal with a search field
+// ── the Library's one list (D154(c,d,e)) ───────────────────────────────────
+// ONE row now carries both meanings the two tabs used to hold apart: the switch at the
+// right edge is "the planner uses this book" (the old Sources tick, `SRC`), the checkbox
+// at the left is "this row is selected" (`LIB_SEL`) and selection is what removal acts on.
+// The resemantization is deliberate and was made with its cost stated — see D154(e).
+// The shared checklist (D27/D83) is NOT used here: it is one line per book with one
+// meaning, and every picker still depends on it exactly as it is.
 let SRC_Q="";
-function renderLibSources(){
-  const total=Object.keys(DATA.sources).length;
+const LIB_SEL=new Set();          // selected rows — display state, never saved
+// where a book came from (D154(c)). `origin` is stamped per book at import (web fetch vs
+// hand-added files); a pre-K1 digest has none, and a stored book is a hand-added one by
+// construction — the web fetch is younger than the stamp. Nothing is imported → the books
+// on screen are the bundle's own.
+function libOrigin(code){
+  const s=(IMPORTED&&IMPORTED.sources||{})[code];
+  if(s)return s.origin==="web"?"web":"file";
+  if(code===HB_SRC)return "custom";   // your own spells, not a book that was imported
+  return "baked";
+}
+const LIB_OCHIP={web:"web",file:"file",baked:"built-in",custom:"custom"};
+// a built-in book is not stored, and the homebrew source is the custom editor's, not an
+// import's — neither is a thing Remove can take away
+function libRemovable(code){return code!==HB_SRC&&!!(IMPORTED&&(IMPORTED.sources||{})[code]);}
+const LIB_KINDS=[["spells","spell"],["classes","class"],["subclasses","subclass"],
+                 ["feats","feat"],["species","species"]];
+function libKinds(code){
+  const c=((DATA.sources[code]||{}).counts)||{};
+  const bits=LIB_KINDS.filter(([k])=>c[k]).map(([k,one])=>c[k]+" "+(c[k]===1?one:k));
+  return bits.join(" · ")||"no spells, classes, feats or species";
+}
+function libSwitch(on,aria,onChange){
+  const sw=el("span","libsw"), i=el("input");
+  i.type="checkbox"; i.checked=on; i.setAttribute("aria-label",aria);
+  i.onchange=()=>onChange(i.checked);
+  sw.append(i); sw.append(el("span","libswk"));
+  return sw;
+}
+function libRow(code,s){
+  const on=SRC.has(code), sel=LIB_SEL.has(code);
+  const row=el("label","librow"+(on?"":" off")+(sel?" sel":""));
+  const cb=el("input"); cb.type="checkbox"; cb.checked=sel;
+  cb.setAttribute("aria-label","Select "+(s.name||code));
+  cb.onchange=()=>{cb.checked?LIB_SEL.add(code):LIB_SEL.delete(code);renderLibList();};
+  row.append(cb);
+  const main=el("span","libmain");
+  main.append(el("span","libnm",s.name||code));
+  main.append(el("small","libkinds",libKinds(code)));
+  row.append(main);
+  const o=libOrigin(code);
+  row.append(el("span","libchip libo-"+o,LIB_OCHIP[o]));
+  // the switch is a real focusable control INSIDE the label; clicking it does not fall
+  // through to the label's own checkbox, which is what keeps the two meanings apart
+  row.append(libSwitch(on,(s.name||code)+" enabled",v=>{
+    v?SRC.add(code):SRC.delete(code); afterSourceChange();}));
+  return row;
+}
+function libShown(){
   const q=SRC_Q.trim().toLowerCase();
-  const codes=q?new Set(Object.keys(DATA.sources).filter(c=>c.toLowerCase().includes(q)
-    ||String((DATA.sources[c]||{}).name||"").toLowerCase().includes(q))):null;
-  const list=$("#srcList");
-  const n=renderSourceChecklist(list,SRC,afterSourceChange,codes);
-  if(!n){list.innerHTML="";list.append(el("div","empty","No book matches that."));}
-  $("#srcSub").textContent=`${SRC.size} of ${total} enabled`;
+  return Object.entries(DATA.sources).filter(([c,s])=>!q||c.toLowerCase().includes(q)
+    ||String(s.name||"").toLowerCase().includes(q));
+}
+function renderLibList(){
+  const list=$("#srcList"); if(!list)return;
+  // a book that has gone (removed, or replaced by an import) must not stay selected
+  [...LIB_SEL].forEach(c=>{if(!DATA.sources[c])LIB_SEL.delete(c);});
+  list.innerHTML="";
+  const rows=libShown();
+  // nothing to search through yet — the empty state is the whole page (D154(a))
+  const find=$("#libFind");
+  if(find)find.classList.toggle("hidden",!Object.keys(DATA.sources).length);
+  if(!rows.length){
+    list.append(el("div","empty",Object.keys(DATA.sources).length?"No book matches that."
+      :"No books yet — Update data, or ＋ Add files."));
+  }else{
+    // G1 edition groups (D154(d)): the origin chip answers "where did this come from" at
+    // row level, so the shelves stay edition-first — the same remap the pickers use.
+    const byGroup={};
+    rows.forEach(([c,s])=>{const g=srcGroupOf(c,s);(byGroup[g]=byGroup[g]||[]).push([c,s]);});
+    Object.keys(byGroup).sort((a,b)=>{const ia=GROUP_ORDER.indexOf(a),ib=GROUP_ORDER.indexOf(b);
+      return (ia<0?9:ia)-(ib<0?9:ib);}).forEach(g=>{
+      const gd=el("div","srcgroup");
+      gd.append(el("h4",null,GROUP_NAME[g]||g));
+      const box=el("div","libgroup");
+      byGroup[g].sort((a,b)=>(((b[1].counts||{}).spells)||0)-(((a[1].counts||{}).spells)||0))
+        .forEach(([c,s])=>box.append(libRow(c,s)));
+      gd.append(box); list.append(gd);});
+  }
+  renderLibSelBar(); renderLibStatus();
+}
+// D154(e): the bar rises only while something is selected — count · Clear · one switch for
+// the whole selection · Remove, armed. It is the ONLY removal path in the app.
+function renderLibSelBar(){
+  const bar=$("#libSelBar"); if(!bar)return;
+  const n=LIB_SEL.size;
+  bar.classList.toggle("hidden",!n);
+  bar.innerHTML=""; if(!n)return;
+  bar.append(el("b",null,n+" selected"));
+  const clear=el("button","btn","Clear");
+  clear.type="button"; clear.onclick=()=>{LIB_SEL.clear();renderLibList();};
+  bar.append(clear);
+  bar.append(el("span","prepnav-sp"));
+  const lab=el("label"); lab.append(el("span",null,"enabled"));
+  // all on → the switch turns them off; anything off → it turns the selection on
+  const allOn=[...LIB_SEL].every(c=>SRC.has(c));
+  lab.append(libSwitch(allOn,"Enable the selected books",v=>{
+    LIB_SEL.forEach(c=>v?SRC.add(c):SRC.delete(c)); afterSourceChange();}));
+  bar.append(lab);
+  const rm=[...LIB_SEL].filter(libRemovable);
+  const del=el("button","btn danger",rm.length===n?"Remove":`Remove ${rm.length}`);
+  del.type="button";
+  if(!rm.length){del.disabled=true;
+    del.title="Built-in books and your own homebrew aren’t stored imports — there is nothing to remove.";}
+  else armConfirm(del,null,()=>libRemove(rm));
+  bar.append(del);
+}
+// Removal reuses the D86 plan wholesale: the stored digest with the selected books dropped
+// from the keep-set, written by the one Apply path. D42 still holds — a pick whose book is
+// gone is FLAGGED, never deleted.
+async function libRemove(codes){
+  if(REFRESH_BUSY||SCAN_BUSY)return;
+  const rep=$("#importReport");
+  cancelBuild();
+  planFromStage(null,null);
+  codes.forEach(c=>PLAN.keep.delete(c));
+  const n=codes.length, what=`${n} book${n===1?"":"s"}`;
+  // D154(i): "Remove imported data" is gone — select all → Remove IS the reset, and the
+  // plan refuses an empty digest, so the whole-library case takes the drop path instead.
+  if(!PLAN.keep.size){
+    await clearImport();
+    IMPORT_STAGE=[]; WEB_PENDING=null; LIB_SEL.clear();
+    planFromStage(null,null); renderImportPlan(); renderImportStage(); renderLibList();
+    if(rep)rep.textContent="Removed every imported book — the app is back on what it ships with. "
+      +"Builds and homebrew are untouched; picks from removed books are kept and flagged.";
+    return;}
+  const err=await applyPlan(rep);
+  LIB_SEL.clear(); renderLibList();
+  if(!err&&rep)rep.textContent=`Removed ${what}. Picks from them are kept and flagged, never deleted.`;
+}
+// D154(b): the status strip — what you have, how it compares to the repository, and what it
+// costs in this browser. The four scattered status surfaces fold into this line.
+let WEB_LATEST=null, WEB_LATEST_TRIED=false, LIB_STORE="";
+function renderLibStatus(){
+  const strip=$("#libStatus"), line=$("#libStatLine"); if(!line)return;
+  const nb=Object.keys(DATA.sources).length;
+  const rec=webSyncRec();
+  const stale=!!(rec&&rec.version&&WEB_LATEST&&verLt(rec.version,WEB_LATEST));
+  const txt=t=>line.append(document.createTextNode(t));
+  line.innerHTML="";
+  line.append(el("b",null,`${nb} book${nb===1?"":"s"}`));
+  if(rec&&rec.version){
+    txt(" · ");
+    if(stale){line.append(el("b","new","5etools v"+WEB_LATEST+" is out"));
+      txt(" — you have v"+rec.version);}
+    else txt("5etools v"+rec.version+(WEB_LATEST?" (latest)":""));
+  }else txt(" · no 5etools release fetched yet");
+  if(webRepo()!==WEB_REPO_DEFAULT)txt(" · from "+webRepo());
+  if(LIB_STORE)txt(" · "+LIB_STORE);
+  if(strip)strip.classList.toggle("stale",stale);
+  const btn=$("#webSyncBtn"); if(btn)btn.classList.toggle("on",stale);
+  renderLibParser();
+  // one resolve per session, and only when there is a fetched version to compare against
+  if(rec&&rec.version&&!WEB_LATEST&&!WEB_LATEST_TRIED&&navigator.onLine!==false){
+    WEB_LATEST_TRIED=true;
+    webResolve(rec.repo||webRepo()).then(v=>{WEB_LATEST=v;renderLibStatus();}).catch(()=>{});}
+  if(navigator.storage&&navigator.storage.estimate)
+    navigator.storage.estimate().then(e=>{ if(!e||!e.usage)return;
+      const mb=e.usage/1048576;
+      const was=LIB_STORE;
+      LIB_STORE=`≈ ${mb<1?"<1":Math.round(mb)} MB in this browser`;
+      if(was!==LIB_STORE)renderLibStatus();}).catch(()=>{});
+}
+// D138: which parser read your books, said out loud. K3 refits this into the automatic
+// re-parse; until then it is the honest statement of what is behind.
+function renderLibParser(){
+  const line=$("#libParser"); if(!line)return;
+  line.classList.toggle("hidden",!IMPORTED);
+  if(!IMPORTED)return;
+  const meta=IMPORTED.meta||{};
+  const behind=staleBooks(), nsrc=Object.keys(IMPORTED.sources||{}).length;
+  line.classList.toggle("stale",!!behind.length);
+  const miss=refreshMissed();
+  line.textContent=behind.length
+    ? `${behind.length} of ${nsrc} book${nsrc===1?"":"s"} still read by an older parser — `
+      +(miss.length&&miss.length===behind.length
+          ?`the linked folder doesn’t hold ${miss.length===1?"it; add the file again":"them; add the files again"}`
+          :miss.length?`Refresh re-reads them (${nBooks(miss.length)} not in the folder — add again)`
+          :"Refresh re-reads them")
+    : `all ${nsrc} book${nsrc===1?"":"s"} read by parser v${meta.parser||"?"}`;
 }
 function afterSourceChange(){
   // T2: turning a book OFF no longer strips what it gave you. Picks are kept and flagged by
@@ -9259,7 +9402,7 @@ function afterSourceChange(){
   // a newly enabled book must not stay invisible behind a stale filter override
   if(state.filters.books)SRC.forEach(c=>state.filters.books.add(c));
   saveSources(); save();               // sources are global; the build records what it saw
-  refreshAll();renderLibSources();render();
+  refreshAll();renderLibList();render();
 }
 function refreshAll(){CASTMODS=activeCastMods();refreshSpecies();refreshAddFeat();renderClassRows();renderFeatChips();renderOptFeats();renderFormPins();renderCustomSources();}
 
@@ -9367,74 +9510,29 @@ $("#libBtn").onclick=()=>openImport(false);
 // the ⋯ menu runs it inline and reports into the notice bar; the Library's own button reports
 // in place (D129) — one pipeline, two surfaces, told apart by this flag alone
 $("#refreshBtn").onclick=()=>refreshImported(false);
-$("#importRefresh").onclick=()=>refreshImported(true);
-// the one "back to bundled" path (closes ARCHIVE's standing ⚑, and it is now also the
-// manual recovery for a digest the boot guard set aside). armed, never a native confirm (D53)
-armConfirm($("#importWipe"),null,async()=>{
-  await clearImport();
-  IMPORT_STAGE=[]; cancelBuild(); WEB_PENDING=null;
-  planFromStage(null,null); renderImportPlan(); renderImportStage(); renderLibFoot();
-  const rep=$("#importReport");
-  if(rep)rep.textContent="Imported data removed — the app is back on its built-in books. Builds and homebrew are untouched; picks from removed books are kept and flagged.";
-});
-$("#libTabSrc").onclick=()=>setLibTab("src");
-$("#libTabMan").onclick=()=>setLibTab("man");
-$("#libSrcSearch").oninput=e=>{SRC_Q=e.target.value;renderLibSources();};
+$("#importRefresh").onclick=()=>{closeMenu();refreshImported(true);};
+$("#libSrcSearch").oninput=e=>{SRC_Q=e.target.value;renderLibList();};
 $("#srcActBtn").onclick=e=>{e.stopPropagation();toggleMenu("#srcActPop");};
 {const q=()=>srcQuick(SRC,afterSourceChange);
  $("#srcAll").onclick=()=>{closeMenu();q().all();};
- $("#srcNone").onclick=()=>{closeMenu();q().none();};}
-$("#pasteTog").onclick=()=>{const b=$("#pasteBox"),open=b.classList.toggle("hidden");
-  $("#pasteTog").setAttribute("aria-expanded",String(!open));
-  if(!open)$("#importPaste").focus();};
-$("#importClose").onclick=()=>$("#importModal").classList.add("hidden");
-$("#importModal").onclick=e=>{if(e.target.id==="importModal")$("#importModal").classList.add("hidden");};
-$("#importPick").onclick=e=>{e.stopPropagation();$("#importFiles").click();};
+ $("#srcNone").onclick=()=>{closeMenu();q().none();};
+ // "shown" is what the search has left on screen — search plus one click selects a family
+ $("#srcSelAll").onclick=()=>{closeMenu();Object.keys(DATA.sources).forEach(c=>LIB_SEL.add(c));renderLibList();};
+ $("#srcSelShown").onclick=()=>{closeMenu();libShown().forEach(([c])=>LIB_SEL.add(c));renderLibList();};}
+// D154(f): acquisition is the footer's ＋ Add files ▾ — four ways in, one door. The permanent
+// drop zone died with the Manage tab, and drop-anywhere was offered and NOT taken, so there
+// is no drag-and-drop path at all.
+$("#libAddBtn").onclick=e=>{e.stopPropagation();toggleMenu("#libAddPop");
+  $("#libAddBtn").setAttribute("aria-expanded",String(!$("#libAddPop").classList.contains("hidden")));};
+{const pick=accept=>{const inp=$("#importFiles"); inp.accept=accept; closeMenu(); inp.click();};
+ $("#addZip").onclick=()=>pick(".zip,application/zip");
+ $("#addJson").onclick=()=>pick(".json,application/json");}
 $("#importFiles").onchange=e=>{stageFiles(e.target.files);e.target.value="";};
-// D112: ONE drop zone. A .zip or JSON files stage; a dragged FOLDER scans — in Chrome it
-// yields the same rememberable handle the picker gives (so Refresh works from a drop), and
-// elsewhere webkitGetAsEntry walks it for this session.
-{const drop=$("#importDrop");
- drop.ondragover=e=>{e.preventDefault();drop.classList.add("drag");};
- drop.ondragleave=()=>drop.classList.remove("drag");
- drop.ondrop=e=>{e.preventDefault();drop.classList.remove("drag");
-   const items=[...((e.dataTransfer&&e.dataTransfer.items)||[])].filter(i=>i.kind==="file");
-   if(items.length&&items[0].getAsFileSystemHandle){
-     // handles must be requested synchronously, before the DataTransfer goes stale
-     const hps=items.map(i=>i.getAsFileSystemHandle());
-     (async()=>{
-       const hs=(await Promise.all(hps)).filter(Boolean);
-       const files=await Promise.all(hs.filter(h=>h.kind==="file").map(h=>h.getFile()));
-       if(files.length)stageFiles(files);
-       for(const d of hs.filter(h=>h.kind==="directory"))await scanHandle(d,true);
-     })().catch(err=>{$("#importReport").textContent="Couldn’t read that drop: "+(err.message||err);});
-     return;}
-   if(items.length&&items[0].webkitGetAsEntry){
-     const entries=items.map(i=>i.webkitGetAsEntry()).filter(Boolean);
-     const dirs=entries.filter(en=>en&&en.isDirectory);
-     if(dirs.length){
-       (async()=>{
-         const out=[];
-         for(const d of dirs)await entryWalk(d,"",out);
-         await scanEntries(out,dirs[0].name||"folder");
-       })().catch(err=>{$("#importReport").textContent="Couldn’t read that folder: "+(err.message||err);});
-       const loose=[...e.dataTransfer.files].filter((_,i)=>entries[i]&&!entries[i].isDirectory);
-       if(loose.length)stageFiles(loose);
-       return;}}
-   stageFiles(e.dataTransfer.files);};}
-// the webkitGetAsEntry walker: same {path,getFile} shape as folderEntries, same skips
-async function entryWalk(entry,base,out){
-  if(!entry||entry.name==="_img"||entry.name.charAt(0)===".")return;
-  if(entry.isFile){
-    if(/\.json$/i.test(entry.name))
-      out.push({path:base+entry.name,getFile:()=>new Promise((res,rej)=>entry.file(res,rej))});
-    return;}
-  if(entry.isDirectory){
-    const readAll=dir=>new Promise(res=>{const r=dir.createReader();const acc=[];
-      const step=()=>r.readEntries(es=>{if(!es.length)return res(acc);acc.push(...es);step();});step();});
-    const kids=await readAll(entry);
-    for(const k of kids)await entryWalk(k,base+entry.name+"/",out);}
-}
+$("#pasteTog").onclick=()=>{closeMenu();const b=$("#pasteBox");b.classList.remove("hidden");
+  $("#importPaste").focus();};
+$("#importClose").onclick=()=>$("#importModal").classList.add("hidden");
+$("#libClose").onclick=()=>$("#importModal").classList.add("hidden");
+$("#importModal").onclick=e=>{if(e.target.id==="importModal")$("#importModal").classList.add("hidden");};
 $("#importPasteAdd").onclick=()=>{const t=$("#importPaste").value.trim();if(!t)return;
   try{IMPORT_STAGE.push({name:"pasted "+(IMPORT_STAGE.length+1),json:JSON.parse(t)});$("#importPaste").value="";$("#importReport").textContent="";renderImportStage();scheduleBuild();}
   catch(e){$("#importReport").textContent="Pasted text isn’t valid JSON.";}};
@@ -9443,7 +9541,7 @@ $("#importClear").onclick=()=>{IMPORT_STAGE=[];cancelBuild();WEB_PENDING=null;re
 $("#importApply").onclick=applyImport;
 // D153: the online fetch and its editable repository address
 $("#webSyncBtn").onclick=()=>webSync();
-$("#webSrcTog").onclick=()=>{const b=$("#webSrcBox"),open=!b.classList.toggle("hidden");
+$("#webSrcTog").onclick=()=>{closeMenu();const b=$("#webSrcBox"),open=!b.classList.toggle("hidden");
   $("#webSrcTog").setAttribute("aria-expanded",String(open));
   if(open){const f=$("#webSrcRepo");f.value=webRepo()===WEB_REPO_DEFAULT?"":webRepo();f.focus();}};
 $("#webSrcRepo").onchange=e=>{const v=e.target.value.trim();
@@ -9454,14 +9552,15 @@ $("#webSrcRepo").onchange=e=>{const v=e.target.value.trim();
 // ── folder scan wiring (D92) ───────────────────────────────────────────────────
 // Two ways in. showDirectoryPicker gives a handle we can REMEMBER between sessions; where it
 // doesn't exist (Safari, Firefox) a webkitdirectory input does the same scan for one session.
+// the two folder verbs live in the Actions menu until K3 makes them unnecessary; they show
+// only once a folder is actually remembered.
 function folderButtons(){
   const remembered=!!FOLDER;
   const r=$("#folderRescan"), f=$("#folderForget");
-  if(r)r.classList.toggle("hidden",!remembered);
+  if(r){r.classList.toggle("hidden",!remembered);
+    if(remembered)r.textContent="Rescan "+(FOLDER.name||"folder");}
   if(f)f.classList.toggle("hidden",!remembered);
-  const p=$("#folderPick"); if(p)p.textContent=remembered?"choose another folder…":"choose folder…";
-  const sub=$("#folderSub");
-  if(sub)sub.textContent=remembered?(FOLDER.name||"remembered folder"):(FSA()?"":"one session at a time in this browser");
+  const p=$("#folderPick"); if(p)p.textContent=remembered?"Choose another folder…":"Choose a folder…";
 }
 async function scanHandle(h,remember){
   if(remember)await folderRemember(h);
@@ -9470,6 +9569,7 @@ async function scanHandle(h,remember){
   await scanEntries(await folderEntries(h),h.name||"folder");
 }
 $("#folderPick").onclick=async()=>{
+  closeMenu();
   if(SCAN_BUSY||REFRESH_BUSY)return;   // a refresh owns the scan between its own busy windows
   if(!FSA()){$("#folderInput").click();return;}
   try{const h=await window.showDirectoryPicker({id:"spellbookLibrary",mode:"read"});
@@ -9478,6 +9578,7 @@ $("#folderPick").onclick=async()=>{
     $("#folderProgress").textContent="Couldn’t open that folder: "+(e.message||e);}
 };
 $("#folderRescan").onclick=async()=>{
+  closeMenu();
   if(SCAN_BUSY||REFRESH_BUSY)return;
   const prog=$("#folderProgress");
   // A remembered handle is not a granted one — permission dies with the session, and asking
@@ -9490,7 +9591,7 @@ $("#folderRescan").onclick=async()=>{
   catch(e){prog.textContent="Couldn’t read that folder: "+(e.message||e);
     await folderForget(); folderButtons();}
 };
-$("#folderForget").onclick=async()=>{if(REFRESH_BUSY)return; await folderForget();SCAN=null;
+$("#folderForget").onclick=async()=>{closeMenu();if(REFRESH_BUSY)return; await folderForget();SCAN=null;
   $("#folderProgress").textContent="";renderImportPlan();folderButtons();};
 $("#folderInput").onchange=e=>{const l=e.target.files;
   if(l&&l.length)scanEntries(inputEntries(l),l[0].webkitRelativePath?l[0].webkitRelativePath.split("/")[0]:"folder");

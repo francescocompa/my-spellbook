@@ -7,44 +7,47 @@
 > |---|---|
 > | `CLAUDE.md` | What this project is, its conventions, build/run, the verify gate, versioning |
 > | `PLAN.md` | The queue — what is next, what is flagged for Francesco |
-> | `DECISIONS.md` | Every decision D7–D152 and what was rejected |
+> | `DECISIONS.md` | Every decision D7–D155 and what was rejected |
 > | `GOTCHAS.md` | Traps that have already cost a session |
 > | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 > | `ARCHIVE.md` | Bodies of consumed phases, decisions and old rationale |
 
-## TL;DR (2026-09-01 · **v1.5.6** live · `ce85e82` · D153 shipped, D154 designed, phase K queued)
+## TL;DR (2026-09-01 · **v1.5.7** built · D154 designed, **phase K1 SHIPPED**, K2 next)
 
-- **v1.5.6 · D153 — the app follows the 5etools repo itself.** "Fetch 5etools data online"
-  (Library → Manage) pulls the current release via the jsDelivr CDN — file list from the
-  GitHub tree API, filtered through the REAL `zipWanted()` — into the same staging as a
-  dropped zip; on Apply the release is recorded and a boot check offers each new one
-  (dismissible per release, silent offline). The repo address is editable (mirror orgs
-  rotate). A file failure is FATAL and owns the report (seen live: jsDelivr 403'd one file
-  mid-burst and the worker fleet painted progress over the error — `dead` flag now).
-  Pushed, LIVE, and already used: Francesco re-imported his 44 books with it.
-- **D154 — the Library REDESIGNED, build not started.** Five AskUserQuestion rounds with
-  real-stylesheet mockups (`scratchpad/mockups/library4.html` is the approved final;
-  `mklib{,2,3,4}.py` regenerate). One page, no tabs; status strip owns **Update data**;
-  R3 two-line rows (select-checkbox · kind counts · origin chip · enable switch, off =
-  dimmed, no badge) in edition groups; monster-forge's selection bar for removal (checkbox
-  now means SELECT); footer **＋ Add files ▾**; pending-import tray; **raw-stash + web
-  refetch retires every refresh verb** (auto re-parse on a parser bump, one notice after);
-  the standing Remove button and the drop zone are gone. monster-forge's "Preset
-  libraries" was agent-investigated and deliberately aligned with — his request, not
-  cross-contamination. **D154 owns every call and every rejected option.**
-- The phase-J method lesson held again: he took B over the recommended A, and the
-  selection bar over the recommended storage mode — **mock it, lead with his reading.**
-- **Next action: phase K, K1 first** (the one-page shell) — task lines in PLAN, D154 is
-  the spec. Not gated; starts when Francesco opens a build session for it.
+- **v1.5.7 · K1 — the Library is ONE page (D154(a–f,i) + D155).** Sources|Manage tabs gone;
+  status strip owns **Update data** (books · 5etools version vs latest · storage, accent
+  border when a release is out); R3 two-line rows in G1 edition groups (select-checkbox ·
+  name over kind counts · origin chip `web`/`file`/`built-in`/`custom` · enable switch, off
+  = dimmed, no badge); the selection bar is the only removal path (Clear · one switch ·
+  Remove, armed) and **select all → Remove is the reset**; footer **＋ Add files ▾** (zip ·
+  JSON · folder · paste). Drop zone and drag-and-drop are gone by decision. Onboarding is
+  the page's own empty state. Origin is stamped per book at import beside the D138 parser
+  stamp. Verified in a real browser: 16/16 functional checks, 0 contrast failures in both
+  themes, alignment 0.00px at 1280 and 375.
+- **D155 — the five calls K1 had to make** that D154 was never asked: the group all-tick is
+  gone (search → Select shown → the bar's switch replaces it); the Library gets its own row
+  renderer and `renderSourceChecklist` is untouched; the origin chip gains `custom` for the
+  homebrew pseudo-book; "Remove imported data" dies in K1 rather than K4; ＋ Add files is
+  one button with a caret, not a split. Read it before touching the page.
+- **Still transitional, and commented so in the code:** the staged files + keep-plan +
+  Apply block above the strip (K2 turns it into the tray) and Refresh / Rescan / Forget
+  under a separator in Actions (K3 makes them unnecessary, K4 deletes them).
+- **Next action: K2 — the pending-import tray** (D154(h)); then K3 (raw-stash + web
+  refetch), then K4. Task lines in PLAN.
+- **This container has no 5etools mirror and no `data/`** (both gitignored). `data/data.json`
+  was reconstructed from the SRD digest inlined in `docs/index.html` so `build.py` runs —
+  verified byte-identical output at the same VERSION before any edit. Consequence:
+  **`node scratchpad/cparity.js` cannot run here.** Neither extractor was touched by K1, so
+  parity is unaffected; run the gate in full on a machine with the mirror before the next
+  extractor change.
 - **Manual for Francesco:** ① the four ⚑ copy/model calls in PLAN — the `…`-placeholder
   family; the chain rail's CSS `· optional` (styles.css:1822); `sbFav` edition tolerance;
   the orphaned ability-score note. ② D125's clamp now covers the trade (⚑, fix written
   down if it annoys). ③ Build "v2" health ⚠ at L1–L4 is real. ④ Print from Chrome or
   Safari (D108). ⑤ XMM on in Sources for Find Familiar's 2024 forms (D81). ⑥ Optionally
-  ask GitHub Support to gc the pre-purge SHAs. ⑦ Nothing new from this session.
-- Housekeeping: this block had lagged for five releases (v1.4.14 → v1.5.5 shipped from
-  worktree sessions that never restamped it) — restamped now; the v1.5.x story is in
-  CHANGELOG and D147–D152.
+  ask GitHub Support to gc the pre-purge SHAs. ⑦ **New:** phase K is landing in patch
+  releases (D140 — minor is your call). When K4 closes, the whole Library rebuild may be
+  worth a `--minor`; say the word and it takes one.
 
 ## What this is
 
@@ -75,8 +78,8 @@ moved to `ARCHIVE.md` — every one leaving a stub, every `*Rejected:*` clause k
 
 Phase J's own task bodies are still live in `PLAN.md` (ticked, with the original notes kept
 under each). They are the natural next thing to archive — worth a `/clean` once the flags
-below are answered, not before. **Phase K (the Library rebuild, D154) is queued in PLAN**
-with tasks K1–K4; nothing of it is built.
+below are answered, not before. **Phase K (the Library rebuild, D154) is in PLAN with tasks
+K1–K4: K1 is built and shipped, K2–K4 are open.**
 
 ⟳ Rename previous session → "Web sync and the Library redesign"  · session: resolve by
 cwd + latest

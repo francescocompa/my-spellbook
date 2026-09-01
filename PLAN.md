@@ -152,16 +152,18 @@ Francesco's own reading** — see each D142 sub-entry's *Rejected:* clause befor
   PROGRESSION table (D149(a)). If it meant the Features BLOCK, the default is one word to
   flip. ⚑ (owner: Francesco, 2026-09-01)
 
-## Phase K — the Library redesigned (D154, decided 2026-09-01, QUEUED)
+## Phase K — the Library redesigned (D154, decided 2026-09-01 · K1 SHIPPED, K2 next)
 
 The design is LOCKED — one page, one list, selection bar, no refresh verbs; the approved
 mockup is `scratchpad/mockups/library4.html` (`python3 scratchpad/mklib4.py` regenerates)
 and **D154 owns every call and every rejected option — cite it, don't re-derive.** Order
 matters: K1/K2 are UI over the existing model; K3 changes the model and K4 deletes what K3
-obsoletes.
+obsoletes. **K1 is shipped (v1.5.7); K2 is next.** The five build-time calls K1 had to make
+are **D155** — read it before touching the page.
 
-- [ ] **K1 · The one-page shell.** Kill the Sources|Manage tabs; status strip (books ·
-  5etools version vs latest · storage · **Update data**, accent-bordered when a release is
+- [x] **K1 · The one-page shell** — shipped v1.5.7, **D155** owns the five calls D154 had
+  not been asked. Kill the Sources|Manage tabs; status strip (books · 5etools version vs
+  latest · storage · **Update data**, accent-bordered when a release is
   out) + search/Actions + G1 edition groups + R3 two-line rows (select-checkbox · name over
   kind counts · origin chip web/file/built-in · enable switch; disabled = dimmed, no badge)
   + selection bar (Clear · enabled switch · Remove, armed) + footer Close · ＋ Add files ▾
@@ -170,6 +172,10 @@ obsoletes.
   the same page's empty state. *Done when:* every current capability except the retired
   verbs is reachable on the new page; a book can be enabled, disabled and removed singly
   and in bulk; alignment measured at 1280 and 375 in both themes.
+  **Also delivered early:** the standing "Remove imported data" button (K4's list) — its
+  one job that select-all → Remove cannot do is emptying the digest outright, and that path
+  is wired instead (D155(d)). **Still transitional** until K2/K4: the staged files +
+  keep-plan + Apply block above the strip, and Refresh / Rescan / Forget inside Actions.
 - [ ] **K2 · The pending-import tray.** Staged files render as a tray above the status
   strip, only while staged: chips · new-book ticks · Discard / **Add N books**. Replaces
   `#importPlan` as a standing surface; D86/D112 merge semantics unchanged underneath.
@@ -184,9 +190,9 @@ obsoletes.
   everything without a prompt and the footer stamp matches; a stashless legacy book is
   named, not silently stale.
 - [ ] **K4 · Retire the old machinery.** Remove: Refresh imported data (both surfaces),
-  Rescan/Forget folder + the linked-folder row (folder picker stays as input), the
-  standing Remove-imported-data button, Clear staged (the tray's Discard covers it), the
-  stale-parser boot nag (refitted by K3), and their wiring/notices. GOTCHAS entries touching
+  Rescan/Forget folder + the linked-folder row (folder picker stays as input), ~~the
+  standing Remove-imported-data button~~ (gone in K1, D155(d)), Clear staged (the tray's
+  Discard covers it), the stale-parser boot nag (refitted by K3), and their wiring/notices. GOTCHAS entries touching
   `refreshImported`/folder recall get updated, not deleted — they explain history.
   *Done when:* the six old verbs are gone, `rg` finds no dead handlers, and the D42
   nothing-prunes contract still holds on a book removal (picks flagged, never deleted).
