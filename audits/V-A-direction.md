@@ -426,3 +426,18 @@ a standing non-goal not grepped, in a report that otherwise grepped everything. 
 re-ranking, the top of the board is unchanged in substance (finish K, fix the pooling bug) and
 better ordered underneath, because the two cheapest items on it, the open-flag batch and the PWA
 check, were ranked 25th and 8th in a map whose stated frame is Francesco first.
+
+## Addendum, session check of the Notion claims (2026-09-01)
+
+The verifier's session had no Notion access; the coordinating session does, and read the three
+pages read-only.
+
+| Claim | Verdict | Evidence |
+|---|---|---|
+| 47 · Character Ideas: level-by-level plans, struck-through swaps, Arcane Spy V1/V2, three Heavenly Archer drafts, "Background … ASI +2/+1", "Agonizing Blast (True Strike)" | CONFIRMED | Page 2d029a9d…, last edited 2026-05-01. "LV7: … ~~Charm Person~~ Hold Person, Suggestion" under Controller; "Arcane Spy" carries V1 and V2; "Heavenly Archer" appears as three full blocks, the third with per-level Warlock spell lines to LV20 and Epic Boons; every entry opens with six stats and a Background block with "+2 X, +1 Y". |
+| 48 · Character Sheet DB: scores, HP, AC, Save/Skill/Tool Prof., languages; class option "Savant"; species Kintsujin, Memento, Silf, Silvano, Saru | CONFIRMED (schema); row count not re-queried | Data source 68a965f9…: Strength…Charisma numbers, Hit Points, Armor Class, Save Prof., Skill Prof., Tool Prof., Lingue; Classe options include Savant; Specie options include Kintsujin, Memento, Silf, Silvano, Saru; two campaigns (Foglie Silenti, Squadra Zero). |
+| 49 · "Player Characters" links a Magic Items page and a Spellcasting Progression table | PLAUSIBLE | Player Characters (11c29a9d…) links Character Sheet, Conteggio Dadi, Magic Items and Cassa comune. The Spellcasting Progression database lives under "Altro / Possibili personaggi / Character Sheet DB", a different page, not under Player Characters. The substance (both exist, both are his) holds; the attribution is off by one page. |
+
+So the six opportunity rows resting on Notion (A-02, A-03, A-04, A-05, A-09, A-13) keep their
+value claims. The usage column of the feature inventory stays unknown: the browser profile every
+agent and this session received was empty, so usage has to come from Francesco at triage.
