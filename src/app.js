@@ -5975,8 +5975,7 @@ function maybeOnboard(){
   if(onboardShown)return; onboardShown=true;
   openImport(true);}
 
-// ── table view ─────────────────────────────────────────────────────────────
-// ── spell-table columns (D29) ──────────────────────────────────────────────
+// ── table view: spell-table columns (D29) ──────────────────────────────────
 // The registry is the single source of truth: order, label, and how a cell renders.
 // The player's order + hidden set is a GLOBAL preference (not part of a build), so it
 // lives under its own localStorage key.
@@ -6154,7 +6153,6 @@ function addPreparableRows(push,rows){
 }
 function renderTable(){
   renderTableCastMods();
-  TABLE_MM=activeMetamagic();
   const rows=tableRows();
   if(PRINT_MODE)PRINT_ROWS=rows;
 
@@ -6296,7 +6294,6 @@ const METAMAGIC_WHEN={
 };
 // the taken metamagic options with a predicate, and the class rows whose own
 // progressions grant Metamagic — tags only make sense on that class's spells
-let TABLE_MM=null;
 function activeMetamagic(){
   const taken=state.optFeats.map(k=>OPT_BY[baseKey(k)])
     .filter(o=>o&&(o.types||[]).includes("MM")&&METAMAGIC_WHEN[o.name]);
@@ -10132,7 +10129,6 @@ function pruneState(){
 // anything. It matters that nothing below runs early: `maybeOnboard()` pops the welcome
 // importer when the app has no content, and firing that over a library still loading is the
 // same failure the "empty import must not beat baked data" gotcha describes.
-let BOOT_MODE="fresh";
 (async()=>{
   try{ await importLoad(); }catch(_){}
   dropLegacyFolderDb();
@@ -10142,7 +10138,7 @@ let BOOT_MODE="fresh";
   catch(e){ IMPORT_CACHE=null; assembleData();
     appNotice("Imported data was unreadable, so the app started on its bundled data — your builds are untouched. Use ⋯ → Refresh imported data (or re-import) to restore the library. ("+((e&&e.message)||e)+")"); }
   loadSources();
-  BOOT_MODE=loadBuilds();              // "loaded" | "migrated" | "fresh"
+  loadBuilds();                        // "loaded" | "migrated" | "fresh" — return value unused
   applyState(activeBuild().state);
   // newly-available content sources default to on (homebrew, a fresh import)
   if(CUSTOM&&CUSTOM.spells&&CUSTOM.spells.length&&!SRC.has(HB_SRC)){SRC.add(HB_SRC);saveSources();}

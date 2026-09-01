@@ -1,0 +1,14 @@
+{
+  "name": "my-spellbook",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Lint-only tooling for the no-build vanilla-JS app (see CLAUDE.md). Not published, not part of the runtime build.",
+  "scripts": {
+    "lint": "eslint src/app.js src/extract.js docs/sw.js"
+  },
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "eslint": "^9.39.5",
+    "globals": "^15.15.0"
+  }
+}
