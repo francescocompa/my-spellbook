@@ -213,13 +213,14 @@ read them before touching the page.
   through the real UI** — remove a book and its picks are still in `state`, survive a reload,
   and are named by the gap bar.
 
-## Phase L — ability scores (D161, 2026-09-01) — L1–L4 SHIPPED (v1.5.12), L5 needs the Mac
+## Phase L — ability scores (D161, 2026-09-01) — L1–L4 SHIPPED (v1.5.12) · L6 is next (his notes), L5 needs the Mac
 
 The design is settled in two rounds; **D161 owns every call and every rejected option.** The
 model is a **stack of contributions** — each knows its giver and its level — so per-level truth
 is a slice, and a source nobody has modelled yet is a new contributor rather than a new model.
 Order matters: L1 is the model and can ship alone; L2 is the surface; L3–L4 are what the scores
-drive; L5 is the one piece that needs the mirror. **L1–L4 shipped as v1.5.12; only L5 is open.**
+drive; L5 is the one piece that needs the mirror. **L1–L4 shipped as v1.5.12. L6 — Francesco's
+five notes on that build — is the next thing to do, and it is what the merge is waiting on.**
 
 - [x] **L1 · The model** — shipped v1.5.12. `state.abilities` = `{method, base:{…}, origin:{…}}` plus the
   contributions derived from what is already in the build (feats' structured `ability` blocks,
@@ -245,6 +246,38 @@ drive; L5 is the one piece that needs the mirror. **L1–L4 shipped as v1.5.12; 
   purpose. Plus 2024's 13-in-each-primary-ability check, advisory, in the consistency sweep.
   *Done when:* the printed sheet carries real numbers, and a Wizard 5 / Paladin 3 with STR 10
   is flagged and not blocked.
+- [ ] **L6 · Francesco's five notes on the shipped editor — MOCKED, AWAITING HIS PICK.**
+  He reviewed v1.5.12 in a private artifact copy
+  (<https://claude.ai/code/artifact/03d84f4d-c239-41ba-bf15-30df1cb7cc49>) and **withheld the
+  merge** pending these. Verbatim:
+  > - the rolled results should appear in the dropdown
+  > - dropdowns should allow me to input also already inputed numbers (but marked). On input
+  >   of the same value in std array for example the system should alert you to fix it
+  > - dropdowns should start with empty state rather than random number
+  > - the current design show redundantly twice the ability score. Try a version with two rows
+  >   of tiles one per ability instead of the current vertical distribution
+  > - there should be a more elegant solution to apply background bonuses
+
+  **Round-3 mockups are built and sent** — `scratchpad/mkabil2.py` → `mockups/abil2.html`
+  (gitignored, real stylesheet, at the modal's real 440px). **The questions below were put to
+  him and are UNANSWERED; ask before building.**
+  - **Note 4 · the panel:** **A1** two rows of three tiles, the base edited inside the tile and
+    the big number the TOTAL · **A2** one compact row of six, stack in the tooltip · **A3** a
+    pool of values you assign by tapping (pick a value, tap an ability), no dropdowns at all.
+  - **Note 5 · the origin bonus:** **B1** three points on ONE tile row — the same control as an
+    ASI, one point wider, so +2/+1 and +1/+1/+1 both fall out of it with no mode to choose ·
+    **B2** a row per amount (+2 row, +1 row) · **B3** the bonus placed onto the score tiles as
+    a badge, no origin block at all.
+  - **Also open, raised by note 2:** point buy currently **hard-blocks** the + button at 27.
+    If a duplicate array value is "named, never blocked" (D31), consistency says the budget
+    should warn and let you pass it. Ask.
+  - **Notes 1–3 are instructions, not questions** — build them as mocked: every rolled value is
+    its own entry (**today's bug: `abPool()` runs the pool through `new Set`, so a rolled pair
+    of 13s offers ONE**); every pool value stays selectable and names who holds it; a value
+    taken twice is flagged in gold, never prevented; and nothing is pre-filled — **point buy
+    currently opens with six 8s**, which reads as an answer nobody gave.
+  *Done when:* the five notes are answered in the app, the editor is measured at 1280 and 375
+  in both themes, and Francesco has seen it again.
 - [ ] **L5 · Prerequisite pass/fail — NEEDS THE MIRROR.** `p.ability` is parsed and then
   flattened to "CHA 13+" in `checks[]`, where D31 can only ever say "maybe". Keeping it
   structured is an edit to **`extract.py` and `src/extract.js` both**, proved by

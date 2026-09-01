@@ -59,6 +59,15 @@ Content at runtime = baked/SRD bundle ⊕ imported 5etools (IndexedDB) ⊕ custo
 - Data refresh: `python3 extract.py` (mirror default `~/Documents/D&D/5etool_mirror/…/data`),
   then `python3 build.py`.
 - Deploy: commit + push `main`; Pages builds `main:/docs` (which has `.nojekyll`).
+- **Showing Francesco the app without deploying it** — publish `docs/index.html` as a private
+  Artifact. It is wrapped in a `<!doctype><head>…</head><body>` skeleton at publish time, so
+  the file handed over must be BODY CONTENT: strip `<!doctype>`, `<html>` and `<head>`, keep
+  the page's own `<title>` and `<style>`, drop the manifest / apple-touch-icon / favicon links
+  (no files at that origin) and set `window.__PUBLIC__=0` so it does not ask for a service
+  worker. Verify by wrapping it back up and loading it headless — `document.compatMode` must
+  read `CSS1Compat`, or the page is in quirks mode. **What the sandbox refuses:** any external
+  fetch (so "Update data" cannot work there) and every download (build export, backup). It
+  gets its own storage, so it always opens as a first visit with the SRD subset alone.
 
 ## Verify gate — run before declaring anything done
 
