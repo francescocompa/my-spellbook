@@ -173,6 +173,10 @@ Francesco's own reading** — see each D142 sub-entry's *Rejected:* clause befor
   "Character view" (D141(b)) deleted its disclosure, and *"Ability scores aren't tracked, so
   ASI = skip the step"* is the one line in it with no remaining surface. Re-home it (the ASI
   step card is the natural place) or drop it. ⚑ (owner: Francesco, 2026-08-31)
+- [ ] **`.tlswapc` and `.tlalert` now differ in KIND** (D152): the trade state is still a
+  translucent TINT, the alert state is an opaque plate. `.tlswapc` passes AA on its own, so
+  aligning it would be a restyle rather than a fix — flagged only in case the mismatch reads
+  wrong in use. ⚑ (owner: Francesco, 2026-09-01)
 
 ## Queue — open work
 

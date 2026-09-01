@@ -7,7 +7,7 @@
 > |---|---|
 > | `CLAUDE.md` | What this project is, its conventions, build/run, the verify gate, versioning |
 > | `PLAN.md` | The queue — what is next, what is flagged for Francesco |
-> | `DECISIONS.md` | Every decision D7–D150 and what was rejected |
+> | `DECISIONS.md` | Every decision D7–D152 and what was rejected |
 > | `GOTCHAS.md` | Traps that have already cost a session |
 > | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 > | `ARCHIVE.md` | Bodies of consumed phases, decisions and old rationale |

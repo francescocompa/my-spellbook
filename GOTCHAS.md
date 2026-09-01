@@ -707,6 +707,16 @@
     form, and a naive `match(/[\d.]+/g)` reads `0.835` as 0.835/255 — pure black. That
     alone invented five failures at 1.45:1 in a modal that had four real ones.
 
+- **And before you assume the INK is the lever, sweep the whole mix — the fix is often the
+  BACKGROUND.** `.tlalert` was deferred a whole version on the belief that its red had to be
+  greyed toward `--muted` to pass, at the cost of the alert reading as an alert. Sweeping
+  `--bad`→`--muted` in 10% steps showed **every value fails** on a `.here` card, pure
+  `--muted` included, at 4.49:1: the ink could not have fixed it at any price. A translucent
+  soft token over a dark card composites to a MID ground (`--bad-soft` on `.here` → #4c3128)
+  that supports nothing of that lightness above it. D152 darkened the TILE to an opaque plate
+  instead and the number went to FULL `--bad` — more saturated than the version that failed.
+  Two minutes of sweeping is cheaper than one deferral, and an opaque fill has a second
+  payoff: the element stops having one contrast number per card variant underneath it.
 - **A dev server that "started" may not be yours.** `python3 serve.py 8000` from a worktree
   dies with `OSError: [Errno 48] Address already in use` when another checkout already holds
   the port — backgrounded, that traceback goes to a log nobody reads, and the browser happily
@@ -724,8 +734,14 @@
   v1.5.0 that writes "D148" and bumps to 1.5.1 collides silently with whatever `main` took
   meanwhile — `git tag` only fails at the very end, after the changelog and the decision are
   already written. Before numbering anything, read `git show main:VERSION` and `main`'s
-  highest D-id, not your own base's. And **never `pkill -f serve.py`**: it kills every other
-  worktree's dev server too. Kill the PID you started.
+  highest D-id, not your own base's — and `git tag --list "v1.5.*"` plus `git branch -a`,
+  because a sibling's tag exists the moment it tags, whether or not its branch is merged and
+  whether or not `main` has moved. **It happened, both ways, on 2026-09-01:** two sessions
+  each read `VERSION` as 1.5.3, each took 1.5.4, and each numbered its decision D151. The
+  second only noticed at the very end — `git status` is clean in a worktree that knows
+  nothing about a sibling's commits. Renumbering costs a find-and-replace across seven files
+  plus a rebuild: cheap before the commit, worthless after a push. (The `pkill` rule has its
+  own entry above; the short version is kill the PID you started.)
 
 - **A pick array's POSITION is the acquisition slot, so a `splice` is a re-dating (D146).**
   This bit for real: on a clean Sorcerer 5, dropping the L1 pick moved five of the eight

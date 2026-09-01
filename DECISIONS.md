@@ -1970,6 +1970,59 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
   - **Numbering note:** this work was done in a parallel worktree off v1.5.0 and was first
     written up as D148 / v1.5.1. `main` had meanwhile taken D148–D150 and v1.5.1–v1.5.3, so
     it was renumbered on landing. Nothing about the finding changed.
+- **D152 (2026-09-01) DECIDED — the timeline's alert tile is a PLATE, and `--muted` was never
+  the lever.** D148 left the "0/2 PICKS" tile (`.lt-count.tlalert`) as the one remaining
+  contrast failure in the timeline modal: **3.85:1** for the number and **4.01:1** for the
+  label on a `.here` card, 4.26/4.44 on a normal one — 24 nodes failing in dark, 0 in light.
+  It was deferred as a PALETTE defect (D145(a) territory) on the assumption that the fix was
+  to raise the `--muted` share of the ink, which would wash out the red the tile is FOR.
+  - **(a) That assumption was wrong, and measuring it is what unlocked the fix.** Sweeping the
+    whole `--bad`→`--muted` mix in 10% steps, **every value fails on a `.here` card** — pure
+    `--muted`, no red left at all, still reaches only **4.49:1**. The ink was never the thing
+    holding the tile down. A translucent `--bad-soft` over a dark card composites to a MID
+    background (**#4c3128** on `.here`, #402c25 on a normal card), and in a dark theme nothing
+    of that lightness supports a mid red above it. Contrast had to come from the TILE.
+  - **(b) So the tile darkens instead of the ink washing out.** The fill becomes an opaque
+    plate, `color-mix(in srgb,var(--bad) 9%,var(--bg))`, and the number takes `--bad` at
+    **full strength** — it was `bad 62% + muted` before, so this is *more* red than it was,
+    not less. The label sits where the number used to (`bad 60% + muted`), which keeps the
+    internal hierarchy the size difference alone was carrying. **Measured 5.23:1 / 5.38:1
+    dark and 4.87:1 / 5.25:1 light**, on the real composited background.
+  - **(c) An opaque plate also deletes the `.here` variant.** Because the fill no longer lets
+    the card through, the tile composites **identically** over a current-level card and a
+    normal one (both #2b1b18 dark, #e8d6cb light) — one background to reason about instead of
+    two, and the worst case is no longer whichever card the alert happens to land on.
+  - **Cost, named:** the two picks-tile states now differ in KIND — a trade is still a TINT
+    (`.tlswapc`, `--free-soft`), an alert is a plate. The CSS comment above them said "both a
+    TINT and nothing more" and has been amended to say which is which. Aligning `.tlswapc`
+    is NOT done here: it passes, and changing a passing state to match a failing one's fix is
+    a restyle, not an accessibility fix. ⚑ Francesco's call if the mismatch reads wrong in use.
+  - *Rejected:* **1 · brighter ink** (`bad 65% + --ink`, 5.07:1 dark) — passes, and keeps the
+    wash pattern shared with the trade tile, but the ink reads salmon-pink rather than red in
+    dark, which is the identity loss the whole deferral was protecting against;
+    **3 · both, halfway** (lighter wash at alpha `0e` + `bad 75% + --ink`, 4.99:1) — moves two
+    variables for the least headroom of the three; **4 · leave it and document it** — the
+    plate costs nothing the alert needed, so there was no trade to accept.
+  - **Print is untouched, by construction and by check:** the print block hides `.modal,
+    .spmodal` with `display:none!important`, so the timeline never reaches paper. (Worth
+    knowing if that ever changes: print sets `--bad-soft:transparent` precisely so soft tints
+    spend no ink, and this plate — being a `color-mix` on `--bg`, not a soft token — would
+    print as a filled tint.)
+  - **Verified:** 24/24 alert nodes pass in both themes; the tile's text measures symmetric to
+    **0.01px** at 1280 and 375, and contrast holds at 375. Verify gate green, `cparity` 0 fail.
+  - **Found while measuring, and already fixed in parallel — see D151.** The sweep also
+    caught `.logains.dim` (`opacity:.6`, the italic *"No new features"* line on a level card)
+    failing in **both** themes at **3.01:1** dark / **2.52:1** light — a fourth instance of
+    D145(c)'s decorative-opacity class. A concurrent session had independently found and
+    fixed it as **D151 (v1.5.4, branch `claude/gallant-hermann-2c8e28`)**, measuring the
+    identical 3.01/2.52 on a lived card and going further than this session would have:
+    `.locard.zplan`'s `opacity:.82` was load-bearing for it (a plan card multiplies `.82`
+    into `.dim`'s `.6`) and was holding a whole family of `--muted` text at 4.44:1 besides.
+    Nothing is owed here. Recorded because two independent measurements agreeing on the same
+    numbers is the strongest evidence the method in GOTCHAS actually works.
+  - **This decision was renumbered D151 → D152 and its version 1.5.4 → 1.5.5** after that
+    branch was found holding both. Parallel worktrees do not reserve a `VERSION` or a D-id:
+    check `git tag` and the other branches before claiming either.
 
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for

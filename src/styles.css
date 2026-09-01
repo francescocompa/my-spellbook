@@ -1469,14 +1469,23 @@ table.spelltable .pickcell{cursor:help}
    longer reading ("2×2nd") just widens the tile past its min-width, the row wraps
    nothing (the smaller-type variant read as a different kind of tile and sat off
    the shared baseline — Francesco, 2026-08-31) */
-/* the picks tile states, both a TINT and nothing more — the number keeps its size and
-   the tile never becomes a control. A trade adds a slot here, so the tile wears the
-   trade colour; a level off its schedule wears the alert one, and outranks it. */
+/* the picks tile states — the number keeps its size and the tile never becomes a control.
+   A trade adds a slot here, so the tile wears the trade colour as a TINT; a level off its
+   schedule wears the alert one as a PLATE (D152, below), and outranks it. */
 .lt-count.tlswapc{border-radius:7px;background:var(--free-soft)}
 .lt-count.tlswapc b,.lt-count.tlswapc small{color:color-mix(in srgb,var(--free) 55%,var(--muted))}
-.lt-count.tlalert{border-radius:7px;background:var(--bad-soft)}
-.lt-count.tlalert b{color:color-mix(in srgb,var(--bad) 62%,var(--muted))}
-.lt-count.tlalert small{color:color-mix(in srgb,var(--bad) 40%,var(--muted))}
+/* D152 — the ALERT state is a PLATE, not a wash, and its number takes --bad at FULL strength.
+   A translucent `--bad-soft` over a dark card composites to a MID background (#4c3128 on a
+   `.here` card), and no mid red on it can clear AA in the dark theme: the entire `--bad`→
+   `--muted` mix fails, and pure `--muted` — no red left at all — still reaches only 4.49:1.
+   Raising the muted share was never a lever, only a way to lose the red for nothing. So the
+   TILE darkens instead of the ink washing out. The plate is opaque, which also makes the tile
+   read identically over a `.here` card and a normal one, and the number goes from 62% bad to
+   100% — this is MORE red than before, not less. Worst case 5.23:1 dark / 4.87:1 light; the
+   label sits where the number used to (60% bad) so the internal hierarchy survives. */
+.lt-count.tlalert{border-radius:7px;background:color-mix(in srgb,var(--bad) 9%,var(--bg))}
+.lt-count.tlalert b{color:var(--bad)}
+.lt-count.tlalert small{color:color-mix(in srgb,var(--bad) 60%,var(--muted))}
 
 /* ── build export / import (T5) ───────────────────────────────────────────── */
 /* the base .importdrop is a centred row for the big data drop zone — this one is a
