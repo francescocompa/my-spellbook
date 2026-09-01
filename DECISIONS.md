@@ -1873,7 +1873,7 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     *Rejected:* closing the detail modal to open the picker (loses your place, and the reason
     to be in the modal at all); a second inline spell list (a copy of the one picker, which
     this project has refused every time it came up).
-  - **(f) 🔶 OPEN — the class ⊕ subclass merge.** Three variants mocked against the real
+  - **(f) DECIDED → D150 (2026-09-01), variant A — the class ⊕ subclass merge.** Three variants mocked against the real
     stylesheet with real digest content, at `scratchpad/mockups/class-subclass.html`
     (gitignored; regenerate with `python3 scratchpad/mkmerge.py`). **A · one spine, the
     subclass marked** (recommended): one Features list in level order holding both, the

@@ -5,12 +5,16 @@ A one-page, offline tool for planning a D&D 2024 character's spells: it works ou
 across multiclassing, subclass grants, feats, species, and their choices.
 
 Open **`dist/index.html`** in any browser (double-click). Fully self-contained,
-no internet, no install. Also publishable as-is (single file).
+no internet, no install. Also publishable as-is (single file). The public build is
+live at <https://francescocompa.github.io/my-spellbook/>.
 
 ## What it does
 
-- **2024 (XPHB) rules.** A **Sources** panel (⋯ menu) enables/disables any book,
-  5etools-style; the *Editions* filter hides reprinted legacy entries by default.
+- **2024 (XPHB) rules.** The **Library** (⋯ menu) is one page listing every book: a
+  status strip (books · 5etools version vs latest · storage · **Update data**, a web
+  fetch from the 5etools repo), search, rows with an enable switch per book, ＋ Add
+  files (zip / JSON files / a folder / paste JSON), and a selection bar for removal.
+  The *Editions* filter hides reprinted legacy entries by default.
 - **Build** any character: class + subclass + level rows (true multiclass;
   non-caster classes allowed), species, spell-granting feats, manual extras.
 - **Saved builds**: many characters, each with several versions, from one manager
@@ -40,8 +44,8 @@ no internet, no install. Also publishable as-is (single file).
   5etools [homebrew](https://github.com/TheGiddyLimit/homebrew) (D&D Beyond drops
   included) and [prerelease](https://github.com/TheGiddyLimit/unearthed-arcana)
   repositories alongside your core data — their books appear under "Homebrew & UA"
-  in Sources. Stage core data and brews together: building an import replaces the
-  previous one.
+  in the Library. An import **merges** into what you already have (keyed by book);
+  nothing is stored until you commit the staged tray.
 - **Casting ability** is resolved per source (defaults to your shared class stat;
   lets you choose where the source allows) and is a grouping option in the table.
 - **Spell table** tab: streamlined rows (name, school, time, range, duration,
@@ -65,14 +69,20 @@ no internet, no install. Also publishable as-is (single file).
 ## Repo layout
 
 ```
-src/index.html   HTML shell (dev: links styles.css, app.js, ../data/data.js)
-src/styles.css   all styling
+src/index.html    HTML shell (dev: links styles.css, app.js, ../data/data.js)
+src/styles.css    all styling
 src/app.js        the engine + UI (vanilla JS, no framework/build system)
+src/extract.js    in-browser port of extract.py (the importer)
 data/data.json    the digest (spells, classes, subclasses, feats, species, sources)
 data/data.js      window.__DATA__ = … (generated for the dev page)
-extract.py        5etools mirror → data/data.json
-build.py          data.json → data/data.js  +  dist/index.html (self-contained)
-dist/index.html   the built, offline, single-file deliverable
+data/data-srd.json  the SRD 5.2 subset, committed and inlined into docs/
+extract.py        5etools mirror → data/data.json + data/data-srd.json
+build.py          inlines everything into dist/index.html and docs/index.html
+serve.py          dev server (see Develop, below)
+bump.py           bumps VERSION and rebuilds
+VERSION           single source of truth for the version tag
+dist/index.html   the built, offline, single-file deliverable (local only)
+docs/             the public GitHub Pages build (SRD 5.2 inlined; more imported at runtime)
 ```
 
 ### Develop
@@ -82,8 +92,8 @@ python3 serve.py 8000            # then open http://localhost:8000/src/index.htm
 ```
 
 Use `serve.py`, **not** `python3 -m http.server` — the latter evaluates `os.getcwd()`
-at argparse time, which the preview sandbox blocks. Hard-reload after editing
-`src/index.html` or `src/styles.css`; the static server caches them.
+at argparse time, which the preview sandbox blocks. `serve.py` sends
+`Cache-Control: no-store`, so a plain reload always picks up edits.
 
 ### Update the data (after refreshing your 5etools mirror) & rebuild
 
@@ -113,8 +123,4 @@ Built to match the `monster-forge` / `character-forge` house style: vanilla JS,
   ability scores.
 - High Elf's swappable cantrip shows as prepared (●) but is swapped in the
   Choices panel, not toggled in the table.
-- An import replaces the previously imported data rather than merging into it, so
-  adding one homebrew file means re-staging your core data with it.
-- Imported data lives in localStorage, which a full multi-book import can overflow;
-  IndexedDB is the fix.
 - No custom-spell manager (homebrew is edited one spell at a time, from its modal).

@@ -92,6 +92,4 @@ to archive — **`PLAN.md` is past 300 lines and a full `/clean` is now worth ru
 once phase K is finished rather than mid-phase. **Phase K (the Library rebuild, D154) is OPEN**: K1
 shipped in v1.5.7 and K2 in v1.5.8; K3–K4 are queued in PLAN.
 
-⟳ Rename previous session → "One-page Library and the import tray"  · session: resolve by
-cwd + latest
 

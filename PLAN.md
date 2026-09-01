@@ -21,7 +21,7 @@ merge notes) are archived.
 | **G** | the guide as a full-size page | D126(a–i) | `ARCHIVE.md#phase-g` |
 | **H** | guided builder v2 | D130(a–h) | `ARCHIVE.md#phase-h` |
 | **I** | guided builder v3 | D131(a–h) + D132 | `ARCHIVE.md#phase-i` |
-| **J** | Francesco's notes batch | D142 + D143 + D144 + D145 | still live below |
+| **J** | Francesco's notes batch | D142 + D143 + D144 + D145 | `ARCHIVE.md#phase-j` |
 
 → archived 2026-08-31: the W1–W5 wave batch — `ARCHIVE.md#wave-batch`; the 2026-08-31 bug's
 task lines — `ARCHIVE.md#bug-0831`; closed one-off bugs and batches (v1.3.0 → v1.4.3,
@@ -30,139 +30,11 @@ D135–D138 + the third-caster clock) — `ARCHIVE.md#closed-oneoffs-0831`.
 Optional follow-up, never scoped: D76's Magical Secrets narrowing could report the EXACT
 window for ordered picks instead of best-case.
 
-## Phase J — the 2026-08-31 notes batch — ✅ DONE (v1.4.8 → v1.4.12)
-
-Six surfaces, eighteen items, all shipped. The models are **D142** (masked chip fields, ability
-tiles, the filter icon + active-filter chips, the familiar picker), **D143** (one spellcasting
-step, the guide's copy), **D144** (the menu grouping, the custom builder) and **D145** (the light
-theme). Cite those rather than re-deriving; the bodies below keep each original note under its
-ticked line and are the natural next thing a `/clean` archives.
-
-The four mockups that settled J1–J4 are at `scratchpad/mockups/index.html` (gitignored, built
-against the real `styles.css`). **Three of the four recommendations were rejected in favour of
-Francesco's own reading** — see each D142 sub-entry's *Rejected:* clause before re-proposing.
-
-### J1–J4 · ✅ shipped (were gated on the mockup review)
-
-- [x] **J1 · Choices — the chip field is masked behind its button** (v1.4.8, D142(a)).
-  *Shipped as the masked one-line field, not the stacked row — see D142(a).* Original note: Description goes full width; chips wrap
-  on a second row with the button on it. Measured in the mockup: today a four-chip run is
-  **574px inside a 374px card — 228px past the edge** (`.choicerow>.picks{flex:0 0 auto}` sets
-  its width to max-content, so `flex-wrap` on `.picks` can never fire). Two variants: **A1**
-  button right-aligned (recommended), **A2** button leads the row. 🔶
-- [x] **J2 · Casting ability — chip-only tiles** (v1.4.8, D142(b)). Original note: One tile per eligible ability, wearing
-  that ability's key colour. The tokens already exist (`--ab-str`…`--ab-cha`, used by
-  `.abchip`/`.savechip`), so no new palette. Variants: **B1** chip + full name (recommended),
-  **B2** chip only. Six-wide worst case wraps to two rows at 396px. 🔶
-- [x] **J3 · Filters became an icon; the active ones became a masked chip row** (v1.4.8,
-  D142(c)). **The height cap was NOT part of what was decided** and is still open — see the
-  Queue below. Original note: (i) drop the
-  `activeFilterCount()` badge (app.js:7094) for a filtered/not-filtered state on the button
-  plus a clear that never opens the panel — **C1** segmented ✕ beside Filters (recommended)
-  or **C2** a status line saying "128 of 411". (ii) cap the list height and scroll inside it,
-  level headers sticky. 🔶
-- [x] **J4 · Familiar picker — search, filters, rename, and stat blocks like spells**
-  (v1.4.8, D142(d)). No preview pane. Original note: Add the search + filter row
-  the other pickers have; rename *"Find Familiar's own forms"* → **Other familiars**
-  (app.js:7513); split into list + collapsible stat-block preview reusing `sbBodyHTML()`.
-  **Investigated (asked for):** spell pickers can do the same via the existing `modalHTML(sp)`;
-  creatures via `sbBodyHTML(b)`; **feats/optional features cannot yet** — there is no
-  feat-detail renderer, only a one-line `.entprev`, so that one is its own task.
-  One real cost: the `.sb*` rules are scoped under `.spmodal` and need the scope widened. 🔶
-
-### J5 · ✅ shipped — a v1.4.5 regression
-
-- [x] **The Chain/Decision toggle showed on desktop and did nothing** — fixed in v1.4.8. — **REGRESSION FROM
-  v1.4.5, cause found.** `.btn:has(>.lbl-ico){display:inline-flex}` (styles.css:49, added as
-  the `.lbl-ico` baseline-centering fix) has specificity 0-2-0 and beats
-  `.gh-toggle{display:none}` (styles.css:1844, 0-1-0); `renderGuide()` wraps the label in a
-  `.lbl-ico` span (app.js:1628), so the button matches. Verified at 1280px:
-  `getComputedStyle(#ghToggle).display === "flex"`. Fix: raise both the base rule and the
-  ≤820px rule to `.btn.gh-toggle`. Then re-check every other `display` rule a `.lbl-ico`
-  button could be losing.
-
-### Closed out of J3
-
-- [x] **The eligible list is capped at ~55vh and scrolls inside itself** (v1.4.9, D142(e)) —
-  two-column layout only; level headers sticky; print unaffected (`#secSpells` is hidden there).
-
-### J6–J10 · ✅ shipped
-
-- [x] **J6 · Guided builder — one spellcasting step** (v1.4.10, D143(a)). Original note: Fold the spell/cantrip choices and the
-  swap option into a single step instead of two. Touches `guideSteps()`; D128 (swaps are per
-  KIND) and D131(a) (one picker per section) both constrain it — cite, don't re-derive.
-- [x] **J7 · Guided builder — copy pass** (v1.4.10, D143(b)): 14 strings de-em-dashed, 0 left
-  in the guide view; the growth card's duplicated section label removed. Original note: Strip AI tells (em dashes) and drop pointless
-  notes, starting with the one under the "Next level" section. Note: D131(c) already removed
-  the guide's explanatory prose, so this is the remainder.
-- [x] **J8 · Random build is official, guided took its place** (v1.4.9). Original note: `#testBtn` (index.html:41,
-  the 🎲) currently sits in the header and is `remove()`d on the public build (app.js:8975).
-  Swap it for a guided-builder button in the header, move random into `#menuPop` beside
-  "Guided builder…", and stop stripping it from the public build.
-- [x] **J9 · Timeline arrow + "from level" moved to the header right** (v1.4.9). It is
-  parked rather than sticky now, with a `min-width` on the host so a shorter label cannot
-  drag the arrow sideways: measured 0px movement on flip. Original note: `tlOrderStrip()`
-  (app.js:6844) currently emits into the column head via `col.head(...)` (app.js:6826); the
-  timeline header is index.html:575 (`<h2>Timeline</h2>` + `#tlOrder`). D141 owns the arrow's
-  behaviour (display inverts, computation never does) — this moves where it lives, not what
-  it does.
-- [x] **J10 · Settings menu grouped by object** (v1.4.11, D144(a)). Original note: `#menuPop` (index.html:44-56) is ten flat
-  items with two separators. Needs grouping.
-
-### Fallout from J6, flagged
-
-- [ ] **D125's clamp now covers the trade.** With the swap inside a step that also holds
-  picks, a trade at L4 is clamped to L1 while the L1 picks are unfilled — it could not be
-  when the trade was its own pick-free step. Only bites on a part-built character. Fix if it
-  matters in use: carry the clicked section through `guideGo` and skip the clamp for a swap.
-  ⚑ (owner: Francesco, 2026-08-31)
-
-### J11–J12 · ✅ shipped
-
-- [x] **J11 · Custom spell builder fits the page, and seeds from a spell** (v1.4.11,
-  D144(b,c)). Original note: Its fields and
-  checkboxes don't match the rest of the app. Plus: load an existing spell from the picker as
-  a template. D94/D95 own the editor's model; this is presentation + one new entry path.
-- [x] **J12 · Light theme solved** (v1.4.12, D145): 0 contrast failures across 698 rendered
-  text nodes in BOTH themes; the flatness was the border contrast (1.25:1 → 2.2:1, and the
-  control boundary 1.79:1 → 3.0:1). Original note: Francesco: overall not
-  working, and "it all feels too flat". Every token in the light block (styles.css:975 ff.)
-  measured for contrast; depth restored. Biggest item in the batch and the one most likely
-  to want its own decision entry.
-
-## Closed in v1.4.7
-
-- [x] **`refreshAddFeat()` had the identical defect for `#epicRow`** — REPRODUCED and FIXED
-  in **v1.4.7**; the toggle joins the render pass beside `renderOptFeats()`. Both directions
-  were wrong (18 → 19 hid a slot that existed; 19 → 18 offered one that did not), and the
-  class-remove and `#addClass` paths carried it too. Original note: it toggles `#epicRow` on
-  `featBudget().epic`, which per D114 is a function of `featSlotLevels()` →
-  `classLevelPlan()` → class levels, yet it runs only inside `refreshAll()`. So stepping a
-  class across the level where an Epic Boon slot arrives should leave the row showing the
-  previous answer. Verify from a fresh load, then fix. The other three `refreshAll()`
-  members are clean (`refreshSpecies`, `renderCustomSources`, `renderFeatChips` read
-  `state.*`, not class levels). *(Sibling defects fixed v1.2.29 and v1.4.2.)*
-
-## Closed in v1.4.14
-
-- [x] **A drop re-dated every pick below it** (v1.4.14, **D146**). Reported by Francesco as
-  *"removing a spell moves all other spells out of place, resulting in a broken build"* and
-  reproduced exactly: one drop at L1 on a clean Sorcerer 5 moved five of eight survivors and
-  created two illegal slots. A drop leaves an **empty slot** now; the model, the four pick
-  arrays, the guide, the timeline, the fork and the exporter all carry it. Cite D146 and the
-  GOTCHAS entry before touching a raw pick array — `.length` on one is almost always the
-  wrong question now (`nFilled` counts what is answered, `firstOpen` finds what is owed).
-
-## Closed in v1.5.3
-
-- [x] **The class ⊕ subclass merge** — 🔶 answered: **variant A**, plus "subclass expands
-  together with other features in expand all" (**D150**, v1.5.3). Three variants were mocked
-  against the real stylesheet at `scratchpad/mockups/class-subclass.html` (gitignored —
-  `python3 scratchpad/mkmerge.py` regenerates); B and C keep their *Rejected:* clauses in
-  D150(a) so neither is re-proposed.
-- [ ] **⚑ "The feature table should be collapsible and start out collapsed"** was read as the
-  PROGRESSION table (D149(a)). If it meant the Features BLOCK, the default is one word to
-  flip. ⚑ (owner: Francesco, 2026-09-01)
+→ archived 2026-09-01: Phase J body (J1–J4, J5, "Closed out of J3", J6–J10, J11–J12, all
+eighteen items, models D142–D145) — `ARCHIVE.md#phase-j`; "Closed in v1.4.7"
+(`refreshAddFeat()`'s `#epicRow` defect) — `ARCHIVE.md#closed-v1-4-7`; "Closed in v1.4.14"
+(a drop re-dating every pick below it, D146) — `ARCHIVE.md#closed-v1-4-14`; "Closed in
+v1.5.3" (the class ⊕ subclass merge, D150) — `ARCHIVE.md#closed-v1-5-3`.
 
 ## Phase K — the Library redesigned (D154, decided 2026-09-01) — ⏳ K1 + K2 SHIPPED, K3–K4 OPEN
 
@@ -230,6 +102,14 @@ obsoletes.
 
 ## Open ⚑ — calls for Francesco
 
+- [ ] **D125's clamp now covers the trade.** With the swap inside a step that also holds
+  picks, a trade at L4 is clamped to L1 while the L1 picks are unfilled — it could not be
+  when the trade was its own pick-free step. Only bites on a part-built character. Fix if it
+  matters in use: carry the clicked section through `guideGo` and skip the clamp for a swap.
+  ⚑ (owner: Francesco, 2026-08-31)
+- [ ] **⚑ "The feature table should be collapsible and start out collapsed"** was read as the
+  PROGRESSION table (D149(a)). If it meant the Features BLOCK, the default is one word to
+  flip. ⚑ (owner: Francesco, 2026-09-01)
 - [ ] **The `…`-placeholder family needs one call** (H6, left as scoped): "+ add a class…",
   "cantrip leaving…", "its replacement…", "filter books…", "note — e.g. …" — plus the
   same-shaped "no filter" options the audit had missed, `all schools` / `all classes`
