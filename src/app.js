@@ -109,7 +109,7 @@ const PACT=[[1,1],[2,1],[2,2],[2,2],[2,3],[2,3],[2,4],[2,4],[2,5],[2,5],
 const HB_SRC="HB";   // homebrew source code
 const LS_CUSTOM="spellForge.custom.v1", LS_IMPORT="spellForge.import.v1";
 const BAKED = (typeof window!=="undefined" && window.__DATA__) || null;
-const emptyDigest=()=>({meta:{},sources:{},spells:[],classes:[],subclasses:[],feats:[],races:[],optfeats:[],fullMc:FULL_MC,pact:PACT});
+const emptyDigest=()=>({meta:{},sources:{},spells:[],classes:[],subclasses:[],feats:[],races:[],optfeats:[],conditions:{},fullMc:FULL_MC,pact:PACT});
 function loadJSON(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null;}catch(e){return null;}}
 
 // ── imported content lives in IndexedDB (D93) ──────────────────────────────────
@@ -306,6 +306,9 @@ function assembleData(){
     // an older import (built before creature sets existed) doesn't blank the summon blocks
     // the app already shipped with; the import's own map wins where they collide.
     monsters:Object.assign({},(BAKED&&BAKED.monsters)||{},base.monsters||{}),
+    // D148: same merge rule as the stat blocks — an import made before conditions existed
+    // must not blank the ones the app already shipped with; the import's own map wins.
+    conditions:Object.assign({},(BAKED&&BAKED.conditions)||{},base.conditions||{}),
     fullMc:base.fullMc||FULL_MC,pact:base.pact||PACT};
   const csp=(CUSTOM&&CUSTOM.spells)||[];
   if(csp.length){ DATA.spells=DATA.spells.concat(csp);
@@ -5186,6 +5189,7 @@ function mergeDigests(base,add){
   const out={meta:Object.assign({},base.meta,add.meta,{imported:true}),
     sources:mergeSources(base.sources,add.sources),
     monsters:Object.assign({},base.monsters||{},add.monsters||{}),
+    conditions:Object.assign({},base.conditions||{},add.conditions||{}),   // D148
     fullMc:add.fullMc||base.fullMc||FULL_MC, pact:add.pact||base.pact||PACT};
   DIGEST_ARRAYS.forEach(a=>{const kf=ENT_KEY[a],at={},order=[];
     (base[a]||[]).forEach(e=>{const k=kf(e);if(!(k in at))order.push(k);at[k]=e;});
@@ -5196,7 +5200,9 @@ function mergeDigests(base,add){
 // keep only the books in `keep`, then RE-COUNT — a source registry that still claims the
 // spells you just removed is worse than no registry
 function filterDigest(d,keep){
-  const out={meta:d.meta,sources:{},monsters:{},fullMc:d.fullMc,pact:d.pact};
+  // conditions are not a book's content — they are the rules vocabulary the text uses, so
+  // they survive any book filter (D148). Same reasoning as a referenced stat block.
+  const out={meta:d.meta,sources:{},monsters:{},conditions:d.conditions||{},fullMc:d.fullMc,pact:d.pact};
   DIGEST_ARRAYS.forEach(a=>{out[a]=(d[a]||[]).filter(e=>keep.has(e.source));});
   // A stat block is NOT filtered by its own book: a bestiary source never reaches the
   // registry (it has no spells or classes to count), so keying on it would drop every
@@ -7511,15 +7517,19 @@ function ccText(str){
     {re:/\bDC\s*\d+\b/gi,cls:"cc-dc"},
     {re:new RegExp("\\b(?:Strength|Dexterity|Constitution|Intelligence|Wisdom|Charisma)\\s+saving throw\\b","gi"),cls:"cc-save"},
     {re:new RegExp("\\b("+TY+")\\b(?=(?:[ ,;/]+(?:or|and|"+TY+"))*[ ,;/]+damage\\b)","gi"),cls:"cc-dmg"},
-    {re:new RegExp("\\b("+CC_CONDS.join("|")+")\\b","gi"),cls:"cc-cond"},
+    {re:new RegExp("\\b("+CC_CONDS.join("|")+")\\b","gi"),cls:"cc-cond",cond:true},
     {re:/\b\d+(?:\/\d+)?[- ]?(?:ft\.?|feet|foot)\b/gi,cls:"cc-range"},
     {re:/\b\d+-foot(?:[ -](?:cone|cube|line|sphere|radius|emanation|cylinder))?\b/gi,cls:"cc-range"},
   ];
   const hits=[];
-  cats.forEach(cat=>{cat.re.lastIndex=0;let m;while((m=cat.re.exec(str))){hits.push({s:m.index,e:m.index+m[0].length,cls:cat.cls,txt:m[0]});if(m.index===cat.re.lastIndex)cat.re.lastIndex++;}});
+  cats.forEach(cat=>{cat.re.lastIndex=0;let m;while((m=cat.re.exec(str))){hits.push({s:m.index,e:m.index+m[0].length,cls:cat.cls,cond:cat.cond,txt:m[0]});if(m.index===cat.re.lastIndex)cat.re.lastIndex++;}});
   hits.sort((a,b)=>a.s-b.s||b.e-a.e);
   let out="",pos=0;
-  hits.forEach(h=>{if(h.s<pos)return; out+=esc(str.slice(pos,h.s)); out+=`<span class="${h.cls}">${esc(h.txt)}</span>`; pos=h.e;});
+  hits.forEach(h=>{if(h.s<pos)return; out+=esc(str.slice(pos,h.s));
+    // D148: a condition carries its own key, so `wireCondTips` can hang the rules text on
+    // it after render. The attribute is inert everywhere it is not wired — print included.
+    const da=h.cond?` data-cond="${esc(h.txt.toLowerCase())}"`:"";
+    out+=`<span class="${h.cls}"${da}>${esc(h.txt)}</span>`; pos=h.e;});
   out+=esc(str.slice(pos)); return out;
 }
 // coloured casting-ability chip (monster-forge palette)
@@ -7592,8 +7602,31 @@ const isDescTitle=p=>_TITLE_RE.test(p)&&p.split(/\s+/).length<=5;
 // 5etools writes a sub-heading as its own paragraph and a list item as a paragraph that
 // happens to start with a bullet. Marking the second kind is what stops Thaumaturgy's six
 // options printing as six loose sentences.
-const descP=p=>isDescTitle(p)?`<p class="spttl">${esc(p.replace(/\.\s*$/,""))}</p>`
-  :/^\s*[•\u2022]/.test(p)?`<p class="bul">${ccText(p)}</p>`:`<p>${ccText(p)}</p>`;
+// a paragraph, with no guessing about headings: `descBlocks` already knows which strings
+// are sections, because D148 made that DATA instead of a regex
+const descPara=p=>/^\s*[\u2022•]/.test(p)?`<p class="bul">${ccText(p)}</p>`:`<p>${ccText(p)}</p>`;
+const descP=p=>isDescTitle(p)?`<p class="spttl">${esc(p.replace(/\.\s*$/,""))}</p>`:descPara(p);
+// D148: a buildable element's `desc` is a BLOCK list — plain paragraphs and named sections
+// — so a heading is data now. Spells keep the flat array and `isDescTitle`'s guess; only
+// the new kinds changed shape. Inside a section the body is still flat (one nesting level
+// is all these records use), so `descP`'s heuristic still earns its place there.
+function descBlocks(arr,opts){
+  opts=opts||{};
+  // An import made before D148 carries the OLD flat shape — every heading is a string
+  // ending in "." — and D137's nag is what gets it re-read. Until it is, fall back to
+  // `descP`'s heuristic rather than printing every heading as body text (the app has
+  // never blanked on an older digest and must not start here).
+  const legacy=!(arr||[]).some(b=>b&&typeof b==="object");
+  if(legacy)return (arr||[]).map(descP).join("");
+  return (arr||[]).map((b,i)=>{
+    if(typeof b==="string")return descPara(b);
+    const body=(b.e||[]).map(descP).join("");
+    if(!opts.fold)return `<div class="entsec"><div class="entsecn">${esc(b.n)}</div>${body}</div>`;
+    // foldable: the section states its own name and opens on click
+    return `<div class="entsec fold" data-exp="1"><button class="entsech" type="button" aria-expanded="true">`
+      +`<span class="entsecn">${esc(b.n)}</span><span class="entcaret"></span></button>`
+      +`<div class="entsecb">${body}</div></div>`;
+  }).join("");}
 // who grants access to this spell. Collapsed by default: a single scrollable row of all
 // sources inline with the label, an expander at the end reveals the per-category line-up.
 // Edition duplicates collapsed (prefer newest source via srcRank).
@@ -7999,6 +8032,7 @@ function openSpellModal(sp){hideTip();SPMODAL.innerHTML=modalHTML(sp);
   wireCreatureNav(sp);
   // chips written as markup still get the popover treatment
   SPMODAL.querySelectorAll(".bchip[data-book]").forEach(c=>attachTip(c,bookTip(c.dataset.book,c.dataset.page)));
+  wireCondTips(SPMODAL);   // D148 — a spell names conditions more than anything else does
   if(sp.source===HB_SRC){const mb=SPMODAL.querySelector(".mb");if(mb){const row=el("div","hbtools");
     row.append(el("span","hbtag","Homebrew"));const sp2=el("span");sp2.style.flex="1";row.append(sp2);
     const e=el("button","btn","Edit");e.onclick=()=>{SPMODAL.classList.add("hidden");openCustom(customFromSpell(sp),true);};
@@ -8105,6 +8139,7 @@ function creatureModalHTML(c){
 function openCreatureModal(c){
   hideTip(); SPMODAL.innerHTML=creatureModalHTML(c);
   SPMODAL.querySelectorAll(".bchip[data-book]").forEach(x=>attachTip(x,bookTip(x.dataset.book,x.dataset.page)));
+  wireCondTips(SPMODAL);   // D148
   SPMODAL.classList.remove("hidden");}
 // the spell-name contract, for a creature: the NAME is the link, so the row around it keeps
 // doing its own job (here, toggling the mark) — same split `mkSpell` uses
@@ -8143,9 +8178,16 @@ function entLabel(it,kind){
   if(kind==="sub")return `${it.className||"Class"} subclass`;
   return "";}
 const entName=(it,kind)=>kind==="sub"?(it.shortName||it.name):it.name;
-// a species record leads with its trait NAMES ("Darkvision."), which say nothing in a
-// one-line tip — so the tip takes the first real sentence, never a heading
-const firstProse=arr=>(arr||[]).find(p=>!isDescTitle(p))||"";
+// The tip wants the first real SENTENCE. `desc` is a block list now (D148), so a heading is
+// an object and skipping one is a type check rather than `isDescTitle`'s guess — and where
+// a record opens with a lead-in ("You gain the following benefits.") the first section's
+// own text is what actually says something.
+function firstProse(arr){
+  for(const b of arr||[]){
+    if(typeof b==="string"){ if(!isDescTitle(b))return b; }
+    else if(b&&(b.e||[]).length)return b.e.find(x=>!isDescTitle(x))||b.e[0];
+  }
+  return "";}
 // class and subclass carry no prose of their own: what they GIVE is the feature list
 const entFeatures=(it,kind)=>(kind==="class"||kind==="sub")?(it.features||[]):[];
 function entTipBody(it,kind){
@@ -8163,44 +8205,197 @@ function entTipHTML(it,kind){
     +(it.prereq?`<div class="line"><b>Requires</b> ${esc(it.prereq)}</div>`:"")
     +(body?`<p>${ccText(body.slice(0,240))}${body.length>240?"…":""}</p>`:"")
     +`<p style="color:var(--muted);font-size:11px">click for full details</p>`;}
-// the facts that are not prose, as the spell modal's own two-column grid
-function entGrid(it,kind){
-  const g=[];
-  if(kind==="sub"&&it.name&&it.name!==entName(it,kind))g.push(["Full name",esc(it.name)]);
-  if(kind==="sub"&&it.className)g.push(["Class",esc(it.className)]);
-  if(kind==="species"&&it.base&&it.base!==it.name)g.push(["Species",esc(it.base)]);
-  if(kind==="class")g.push(["Subclass at",`Level ${it.subclassLevel||3}`]);
-  if(it.caster&&it.ability)g.push(["Casting",abChip(it.ability)]);
-  if(it.prereq)g.push(["Requires",esc(it.prereq)]);
-  if(it.repeatable)g.push(["Repeatable","You can take this more than once"]);
-  return g;}
+// ── the detail modal, one layout per kind (D148) ───────────────────────────
+// D147 shipped ONE body for all five kinds. Francesco, seeing it: a class was missing its
+// two tables, features ran together, a feat's facts were buried in prose. So the shell
+// stays shared — box, title, book tag, subtitle — and the BODY is per kind, because the
+// five answer different questions: a class is a contract (traits, progression, features),
+// a feat is a benefit list behind a requirement, a species and an invocation are prose.
+const ABIL_FULL={str:"Strength",dex:"Dexterity",con:"Constitution",
+  int:"Intelligence",wis:"Wisdom",cha:"Charisma"};
+// D148: an ability is always a coloured chip — the `--ab-*` tokens D142(b) already solved
+// to 5.3:1 in both themes — never a bare word, wherever it is a FACT rather than prose.
+const abChips=(list)=>(list||[]).map(a=>abChip(a)).join(" ");
+function abilityGainHTML(gain){
+  return (gain||[]).map(g=>{
+    const amt=(g.amount>0?"+":"")+g.amount;
+    return g.choose
+      ? `<span class="abgain">${esc(amt)} to one of ${abChips(g.abils)}</span>`
+      : `<span class="abgain">${esc(amt)} ${abChips(g.abils)}</span>`;
+  }).join(" · ");}
+const cap1w=s=>String(s||"").replace(/^[a-z]/,c=>c.toUpperCase());
+// D148: a prerequisite names abilities as bare three-letter codes ("level 4, CHA 13+").
+// They are FACTS, so they get the same coloured chip everything else does — the text
+// around them is escaped first, so this is the only markup that reaches the output.
+const _PRQ_AB=/\b(STR|DEX|CON|INT|WIS|CHA)\b/g;
+const prereqHTML=t=>esc(t||"").replace(_PRQ_AB,m=>abChip(m.toLowerCase()));
+// "Choose 2: Arcana, History, …" / "simple weapons" — a proficiency list as one sentence
+function profText(p){
+  if(!p)return "";
+  const out=(p.fixed||[]).map(x=>cap1w(x));
+  (p.choices||[]).forEach(c=>out.push(`Choose ${c.count}: ${(c.from||[]).map(cap1w).join(", ")}`));
+  return out.join(" · ");}
+// the "Core Traits" block a 2024 class opens with — the table Francesco found missing
+function classTraitsHTML(it){
+  const t=it.traits||{}, rows=[];
+  if((t.primary||[]).length)rows.push(["Primary ability",abChips(t.primary)]);
+  if(t.hd)rows.push(["Hit point die",esc(t.hd)+" per level"]);
+  if((t.saves||[]).length)rows.push(["Saving throws",abChips(t.saves)]);
+  const sk=profText(t.skills); if(sk)rows.push(["Skills",esc(sk)]);
+  const wp=profText(t.weapons); if(wp)rows.push(["Weapons",esc(wp)]);
+  const ar=profText(t.armor); if(ar)rows.push(["Armor",esc(ar)]);
+  const to=profText(t.tools); if(to)rows.push(["Tools",esc(to)]);
+  if(it.ability)rows.push(["Spellcasting ability",abChip(it.ability)]);
+  rows.push(["Subclass at",`Level ${it.subclassLevel||3}`]);
+  if(t.equipment)rows.push(["Starting equipment",esc(t.equipment)]);
+  if(!rows.length)return "";
+  return `<div class="entblk"><div class="entblkh">Core traits</div>`
+    +`<div class="grid">${rows.map(([k,v])=>`<b>${k}</b><span>${v}</span>`).join("")}</div></div>`;}
+// the level-by-level progression table. Level, Proficiency Bonus and Features are the
+// app's own three columns (the digest deliberately carries none of them — D148); the rest
+// are whatever `classTableGroups` holds, group titles spanning their own columns.
+const PB_AT=L=>2+Math.floor((L-1)/4);
+function classTableHTML(it){
+  const groups=(it.table||[]).filter(g=>(g.cols||[]).length);
+  const byLv=new Map();
+  (it.features||[]).forEach(f=>{const a=byLv.get(f.level)||[];a.push(f.name);byLv.set(f.level,a);});
+  if(!groups.length&&!byLv.size)return "";
+  const span=groups.map(g=>g.cols.length);
+  const titleRow=groups.some(g=>g.title)
+    ? `<tr><th colspan="3"></th>`+groups.map((g,i)=>
+        `<th colspan="${span[i]}" class="ctgrp">${g.title?esc(g.title):""}</th>`).join("")+`</tr>`
+    : "";
+  const head=`<tr><th>Level</th><th>PB</th><th class="ctfeat">Features</th>`
+    +groups.map(g=>g.cols.map(c=>`<th>${esc(c)}</th>`).join("")).join("")+`</tr>`;
+  const rows=[];
+  for(let L=1;L<=20;L++){
+    const feats=(byLv.get(L)||[]).join(", ")||"—";
+    rows.push(`<tr><td class="ctlv">${L}</td><td>+${PB_AT(L)}</td><td class="ctfeat">${esc(feats)}</td>`
+      +groups.map(g=>{const r=(g.rows||[])[L-1]||[];
+        return g.cols.map((_,i)=>`<td>${esc(r[i]==null?"—":r[i])}</td>`).join("");}).join("")+`</tr>`);
+  }
+  return `<div class="entblk"><div class="entblkh">Progression</div>`
+    +`<div class="cttwrap"><table class="cttable">${titleRow}${head}${rows.join("")}</table></div></div>`;}
+// features grouped by level, each level and each feature its own disclosure — Francesco's
+// note: "grouped by level and more clearly separated, with each level and section
+// collapsible". Both open by default: the modal is opened to READ, and a body that starts
+// folded shut is a second click before the first word.
+function featuresHTML(it,kind){
+  const list=entFeatures(it,kind); if(!list.length)return "";
+  const byLv=new Map();
+  list.forEach(f=>{const a=byLv.get(f.level)||[];a.push(f);byLv.set(f.level,a);});
+  const lvls=[...byLv.keys()].sort((a,b)=>a-b);
+  const body=lvls.map(L=>{
+    const fs=byLv.get(L);
+    return `<div class="entlvl" data-exp="1"><button class="entlvlh" type="button" aria-expanded="true">`
+      +`<span class="entlvlt">Level ${L}</span>`
+      +`<span class="entlvln">${fs.length} feature${fs.length===1?"":"s"}</span>`
+      +`<span class="entcaret"></span></button><div class="entlvlb">`
+      +fs.map(f=>`<div class="entsec fold" data-exp="1">`
+        +`<button class="entsech" type="button" aria-expanded="true">`
+        +`<span class="entsecn">${esc(f.name)}</span><span class="entcaret"></span></button>`
+        +`<div class="entsecb">${(f.desc||[]).length?descBlocks(f.desc)
+            :`<p class="entnotext">No text for this feature in the imported data.</p>`}</div></div>`).join("")
+      +`</div></div>`;}).join("");
+  return `<div class="entblk"><div class="entblkh">Features`
+    +`<button class="entfoldall" type="button" data-all="0">Collapse all</button></div>${body}</div>`;}
+// what a feat asks of you and what it hands back, before a word of its prose (Francesco:
+// "a starting bullet list with requirements, ASI grant if present etc.")
+function entFactsHTML(it,kind){
+  const li=[];
+  const add=(k,v)=>{if(v)li.push(`<li><b>${k}</b> ${v}</li>`);};
+  if(kind==="feat")add("Category",esc(featCatLabel(it)));
+  if(kind==="opt")add("Type",esc(optTypeLabel(it)));
+  if(kind==="species"&&it.base&&it.base!==it.name)add("Species",esc(it.base));
+  if(kind==="sub"){ if(it.className)add("Class",esc(it.className));
+    if(it.name&&it.name!==entName(it,kind))add("Full name",esc(it.name)); }
+  add("Requires",it.prereq?prereqHTML(it.prereq):"");
+  if((it.ability||[]).length)add("Ability score",abilityGainHTML(it.ability));
+  if(it.caster&&it.ability&&typeof it.ability==="string")add("Spellcasting ability",abChip(it.ability));
+  if(it.repeatable)add("Repeatable","You can take this more than once");
+  if((it.featSlots||[]).length)add("Also grants","a feat slot");
+  if(!li.length)return "";
+  return `<ul class="entfacts">${li.join("")}</ul>`;}
+// "Spells it gives you", BY THE LEVEL YOU GET THEM (Francesco). `atLevel` is on every
+// grant shape already — it is what the acquisition walk reads — so the section states it
+// instead of flattening a subclass's four tiers into one comma run.
+function entGrantsHTML(it){
+  if(!grantsAny(it.grants))return "";
+  const g=it.grants, byLv=new Map();
+  const put=(lv,txt)=>{if(!txt)return;const k=lv==null?0:lv;const a=byLv.get(k)||[];
+    if(a.indexOf(txt)<0)a.push(txt);byLv.set(k,a);};
+  (g.fixed||[]).forEach(x=>{const raw=x.spell&&x.spell.name;if(!raw||!x.spell.source)return;
+    const rec=grantRec(raw); put(x.atLevel,(rec&&rec.name)||raw);});
+  (g.picks||[]).forEach(pk=>put(pk.atLevel,cap1(guidePickAsk(pk)
+    ||((pk.count>1?pk.count+"× ":"")+(fmtDesc(pk.desc)||"a spell")))));
+  (g.expansions||[]).forEach(x=>put(x.atLevel,"Expanded spell list"));
+  // an option group is a choice BETWEEN blocks, not a level's worth of spells — it keeps
+  // its own line rather than being filed under a level it does not have
+  const opts=(g.optionGroups||[]).map(og=>og.options.map(o=>o.name).join(" / ")).filter(Boolean);
+  const lvls=[...byLv.keys()].sort((a,b)=>a-b);
+  if(!lvls.length&&!opts.length)return "";
+  const rows=lvls.map(L=>`<div class="egrow"><span class="eglv">${L?"Level "+L:"Always"}</span>`
+    +`<span class="egsp">${esc(byLv.get(L).join(" · "))}</span></div>`).join("")
+    +opts.map(o=>`<div class="egrow"><span class="eglv">Choose</span><span class="egsp">${esc(o)}</span></div>`).join("");
+  return `<div class="entblk"><div class="entblkh">Spells it gives you</div>`
+    +`<div class="egrid">${rows}</div></div>`;}
 // D147: the modal never renders an empty body. Where 5etools carries no text for a record
 // — 17 setting-book species that are `_copy` records whose edits we do not replay, and 75
 // subclass features with no `entries` at all — it says so, rather than showing a blank box
 // that reads as "this feat does nothing".
 const ENT_NOTEXT=`<p class="entnotext">The books’ own text for this isn’t in the imported data.`
   +` What it grants and where it is printed are below.</p>`;
+function entBodyHTML(it,kind){
+  if(kind==="class")
+    return classTraitsHTML(it)+classTableHTML(it)+featuresHTML(it,kind)+entGrantsHTML(it);
+  if(kind==="sub")
+    return entFactsHTML(it,kind)+featuresHTML(it,kind)+entGrantsHTML(it);
+  const facts=entFactsHTML(it,kind);
+  const desc=(it.desc||[]).length?descBlocks(it.desc):"";
+  return facts+(desc||(grantsAny(it.grants)?"":ENT_NOTEXT))+entGrantsHTML(it)
+    +(desc?"":(grantsAny(it.grants)?ENT_NOTEXT:""));}
 function entModalHTML(it,kind){
+  // D148: the book is the TAG and nothing else. It used to be said twice — once as the
+  // chip and again spelled out in the subtitle — and the tag's own popover already names
+  // the book in full and says where it is printed.
   const bk=it.source?` <span class="bchip" data-book="${esc(it.source)}"`
     +(it.page?` data-page="${esc(String(it.page))}"`:"")+`>${esc(it.source)}</span>`:"";
-  const grid=entGrid(it,kind);
-  const desc=(it.desc||[]).map(descP).join("");
-  const feats=entFeatures(it,kind).map(f=>
-    `<div class="entfeat"><div class="entfeath"><b>${esc(f.name)}</b>`
-    +`<span class="entfeatlv">Level ${f.level}</span></div>`
-    +((f.desc||[]).length?(f.desc||[]).map(descP).join("")
-      :`<p class="entnotext">No text for this feature in the imported data.</p>`)+`</div>`).join("");
-  const prev=grantPreview(it.grants);
-  return `<div class="box"><button class="x ico" type="button" title="Close" aria-label="Close">${ICONS.x}</button>`
+  return `<div class="box entmodal ent-${esc(kind)}">`
+    +`<button class="x ico" type="button" title="Close" aria-label="Close">${ICONS.x}</button>`
     +`<div class="mh"><h3>${esc(entName(it,kind))}${bk}</h3>`
-    +`<div class="sub">${esc(entLabel(it,kind))} · ${esc(bookName(it.source))}</div></div><div class="mb">`
-    +(grid.length?`<div class="grid">${grid.map(([k,v])=>`<b>${k}</b><span>${v}</span>`).join("")}</div>`:"")
-    +(desc||feats?desc+feats:ENT_NOTEXT)
-    +(prev?`<div class="gnote"><b>Spells it gives you</b><p>${esc(prev)}</p></div>`:"")
-    +`</div></div>`;}
+    +`<div class="sub">${esc(entLabel(it,kind))}</div></div>`
+    +`<div class="mb">${entBodyHTML(it,kind)}</div></div>`;}
+// every disclosure in the modal, wired once. A level and a section are the same control
+// with different scopes, so one handler serves both — and "Collapse all" addresses the
+// level groups, which is the fold that actually shortens a twenty-level class.
+function wireEntFolds(root){
+  root.querySelectorAll(".entlvlh,.entsech").forEach(b=>{
+    b.onclick=e=>{e.stopPropagation();
+      const w=b.parentElement, open=w.dataset.exp!=="1";
+      w.dataset.exp=open?"1":"0"; b.setAttribute("aria-expanded",String(open));};});
+  const all=root.querySelector(".entfoldall");
+  if(all)all.onclick=e=>{e.stopPropagation();
+    const fold=all.dataset.all==="0";
+    all.dataset.all=fold?"1":"0"; all.textContent=fold?"Expand all":"Collapse all";
+    root.querySelectorAll(".entlvl").forEach(w=>{w.dataset.exp=fold?"0":"1";
+      const h=w.querySelector(".entlvlh"); if(h)h.setAttribute("aria-expanded",String(!fold));});};}
+// D148: a condition named in rules text explains itself. `ccText` already marks them —
+// this hangs the book's own wording off the mark, wherever that text was rendered.
+function condTip(key){
+  const c=(DATA.conditions||{})[key]; if(!c)return null;
+  const body=(c.desc||[]).map(b=>typeof b==="string"?`<p>${esc(b)}</p>`
+    :`<div class="line"><b>${esc(b.n)}</b> ${esc((b.e||[]).join(" "))}</div>`).join("");
+  return `<h4>${esc(c.name)}</h4><div class="sub">${c.kind==="status"?"Status":"Condition"}`
+    +` · ${esc(c.source)}</div>${body}`;}
+function wireCondTips(root){
+  root.querySelectorAll(".cc-cond[data-cond]").forEach(n=>{
+    if(n.dataset.wired)return;
+    const html=condTip(n.dataset.cond); if(!html)return;
+    n.dataset.wired="1"; n.classList.add("hascond"); attachTip(n,html);});}
 function openEntityModal(it,kind){
   hideTip(); SPMODAL.innerHTML=entModalHTML(it,kind);
   SPMODAL.querySelectorAll(".bchip[data-book]").forEach(x=>attachTip(x,bookTip(x.dataset.book,x.dataset.page)));
+  wireEntFolds(SPMODAL); wireCondTips(SPMODAL);
   SPMODAL.classList.remove("hidden");}
 // the spell-name contract again: the NAME is the link, the row/chip around it keeps its
 // own job (taking the pick, dropping it). `stopPropagation` is what enforces that split.
@@ -8218,7 +8413,9 @@ function attachEntity(elm,it,kind){
 function fldDetail(lbl,it,kind){
   if(!it||!it.source)return lbl;
   lbl.classList.add("fldwd");
-  lbl.append(bookChip(it.source,it.page));
+  // D148: no book chip here. Francesco, seeing it: a tag on the chip and on the label was
+  // the same fact three times over (label, option text, modal) — the modal's tag keeps it,
+  // and this button is the way to reach it.
   const b=el("button","fldinfo ico");
   b.type="button"; b.append(icoEl("book"));
   b.setAttribute("aria-label",`${entName(it,kind)} — read what it gives`);
@@ -8233,11 +8430,12 @@ function openFeatureModal(f,giver,kind){
   const src=giver&&giver.source;
   const bk=src?` <span class="bchip" data-book="${esc(src)}"`
     +((giver&&giver.page)?` data-page="${esc(String(giver.page))}"`:"")+`>${esc(src)}</span>`:"";
-  SPMODAL.innerHTML=`<div class="box"><button class="x ico" type="button" title="Close" aria-label="Close">${ICONS.x}</button>`
+  SPMODAL.innerHTML=`<div class="box entmodal"><button class="x ico" type="button" title="Close" aria-label="Close">${ICONS.x}</button>`
     +`<div class="mh"><h3>${esc(f.name)}${bk}</h3>`
     +`<div class="sub">${esc(giver?entName(giver,kind):"Feature")} · level ${f.level}</div></div>`
-    +`<div class="mb">${(f.desc||[]).length?(f.desc||[]).map(descP).join(""):ENT_NOTEXT}</div></div>`;
+    +`<div class="mb">${(f.desc||[]).length?descBlocks(f.desc):ENT_NOTEXT}</div></div>`;
   SPMODAL.querySelectorAll(".bchip[data-book]").forEach(x=>attachTip(x,bookTip(x.dataset.book,x.dataset.page)));
+  wireCondTips(SPMODAL);
   SPMODAL.classList.remove("hidden");}
 
 function attachSpell(elm,sp){elm.classList.add("nmlink");
@@ -8715,7 +8913,6 @@ function renderOptFeats(){
         attachTip(w,tipBlock("Prerequisite not met",`${o.name} needs ${pr.why}. Kept in the build — nothing is removed.`));c.append(w);}
       c.append(attachEntity(el("span",null,o.name),o,"opt"));   // D147
       if(ord>1)c.append(el("span","chipn","#"+ord));
-      c.append(bookChip(o.source,o.page));
       const b=xBtn(null,()=>{const i=state.optFeats.indexOf(k);if(i>=0)dropOptAt(i);save();refreshAll();render();});
       c.append(b);chips.append(c);});
     box.append(chips);
@@ -8733,7 +8930,6 @@ function renderFeatChips(){const box=$("#featChips");box.innerHTML="";FCHIP_ORD.
   if(grantsAny(f.grants))c.append(icoEl("spark","fmark"));
   c.append(attachEntity(el("span",null,f.name),f,"feat"));   // D147
   if(ord>1)c.append(el("span","chipn","#"+ord));   // a repeatable feat taken again (D135)
-  c.append(bookChip(f.source,f.page));
   const b=xBtn(null,()=>{dropFeatAt(i);renderFeatChips();render();});
   c.append(b);box.append(c);});
   renderFeatBudget();}

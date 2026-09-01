@@ -47,6 +47,32 @@
   this only ever hurt display — and it hid for as long as that string was a one-line preview.
   Resolve through `grantRec` before showing a granted spell's name; do not "fix" the
   extractors, where the string is a key.
+- **A heading recovered by regex is a guess, and it guessed wrong (D148(b)).** `flatten_entries`
+  folds a named entry's name into a paragraph ending in ".", so the renderer had to recover
+  headings with `isDescTitle` — "≤5 words, capitalised, ends in a period". That reads
+  *"You gain the following benefits."* as a heading, which is how nearly every 2024 feat
+  opens. Structure that exists in the source must not be thrown away and re-derived:
+  `entry_blocks`/`entryBlocks` keep it as `{n, e}`. Spells still use the flat list and the
+  heuristic — they have no sections — so both shapes are live and `descBlocks` detects which
+  it was handed. Any new consumer of `desc` has to do the same.
+- **`overflow-x:auto` makes overflow-y `auto` too, which kills a sticky header inside it
+  (D148).** The progression table sits in an `overflow-x:auto` wrapper so it scrolls
+  sideways instead of widening the page. `position:sticky;top:0` on its `<th>`s sticks them
+  to THAT box — which never scrolls vertically — not to the modal that does. Inert at best,
+  clipped at worst. If a table inside a scrolling modal ever needs a sticky header, the
+  sticky has to live in the element that actually scrolls.
+- **`display:contents` on a grid row makes its children stretch to the COLUMN width
+  (D148).** The "Spells it gives you" grid uses `.egrow{display:contents}` so its two cells
+  join the parent grid. Every level chip then stretches to the widest one ("Level 10"), and
+  left-aligned text inside a stretched box put "Level 3" **5.63px off centre** — invisible
+  by eye, caught by measuring the TEXT rect against its box. `text-align:center` keeps the
+  equal-width rail and lands the text symmetrically. Measure text, never the box.
+- **A digest's parser stamp is a VERSION, so a parser change inside an unbumped tree is
+  invisible to D137's nag (D148).** An import taken mid-session is stamped with the version
+  in `VERSION` at that moment, even though the extractors have moved on since the commit
+  that set it. `staleBooks()` then reports "all current" for a digest missing everything
+  added after. Not a bug to fix — bumping is what re-arms it — but do not read a clean
+  `staleBooks()` mid-batch as proof the import matches the working tree.
 - **Content assembly:** `window.__DATA__` (baked) is optional now. `assembleData()` picks
   imported > baked > empty, merges custom homebrew, calls `buildIndexes()`. Indexes
   (CLS_BY, SPELL_BY, …) are `let`, rebuilt on every content change — never captured.

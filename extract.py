@@ -208,6 +208,37 @@ def flatten_entries(entries, strip=None):
                 elif isinstance(it, dict): out.append("• " + strip(it.get("name", "")) + " " + " ".join(flatten_entries(it.get("entries") or it.get("entry") and [it["entry"]] or [], strip)))
     return [x for x in out if x]
 
+def entry_blocks(entries, strip=None):
+    """Structured prose for the detail modals (D148). `flatten_entries` throws away the
+       one thing a layout needs — where a SECTION starts — by folding a named entry's name
+       into a paragraph ending in ".", which the app then has to guess back with a regex
+       (and got wrong on "You gain the following benefits."). This keeps it:
+
+         [ "a loose paragraph", {"n": "Section name", "e": ["its", "paragraphs"]} ]
+
+       Only the top level is structured; a section's own sub-sections flatten into `e`,
+       because two levels is as deep as these records ever meaningfully go.
+       **Keep identical to extract.js's entryBlocks.**"""
+    strip = strip or rich_strip
+    out = []
+    for e in entries or []:
+        if isinstance(e, str):
+            t = strip(e)
+            if t: out.append(t)
+        elif isinstance(e, dict):
+            if e.get("name"):
+                body = flatten_entries(e.get("entries"), strip)
+                for it in e.get("items", []):
+                    body += flatten_entries([it], strip)
+                out.append({"n": strip(e["name"]), "e": body})
+            else:
+                # an unnamed wrapper is a container, not a section — splice it in place so
+                # its own named children still read as sections of the parent
+                out += entry_blocks(e.get("entries"), strip)
+                for it in e.get("items", []):
+                    out += flatten_entries([it], strip)
+    return out
+
 # 5etools' `savingThrow` tags EVERY save the text mentions, including one the spell never
 # forces: Synaptic Static reads "…subtracts 1d6 from … any Constitution saving throws to
 # maintain Concentration", which is a PENALTY applied to the target's own later saves, not a
@@ -597,6 +628,97 @@ def _form_grants(rec):
 referenced = {k for sp in spells.values() for k in sp.get("creatures", [])}
 
 # ---- classes (casters AND non-casters) -------------------------------------
+# ---- the facts a class states before its features (D148) -------------------
+ABIL_ORDER = ["str", "dex", "con", "int", "wis", "cha"]
+def ability_gain(o):
+    """A feat's ability increase, normalised for display (D148):
+       [{"abils": ["cha"], "amount": 1, "choose": false}] — a fixed bump — or
+       [{"abils": ["str","dex"], "amount": 1, "choose": true}] — pick one of these.
+       5etools' `hidden` marks the entry the 2024 ASI feat uses to spend two points on
+       one score; it is a duplicate of the pair beside it and would print the option twice.
+       **Keep identical to extract.js's abilityGain.**"""
+    out = []
+    for blk in (o.get("ability") or []):
+        if not isinstance(blk, dict) or blk.get("hidden"): continue
+        ch = blk.get("choose")
+        if isinstance(ch, dict):
+            frm = [a for a in (ch.get("from") or []) if a in ABIL_ORDER]
+            if frm: out.append({"abils": frm, "amount": ch.get("amount", 1), "choose": True})
+        else:
+            for a in ABIL_ORDER:
+                if blk.get(a): out.append({"abils": [a], "amount": blk[a], "choose": False})
+    return out
+
+def _prof_list(v):
+    """startingProficiencies entries are strings, {choose:{from,count}} or tagged refs."""
+    fixed, choices = [], []
+    for x in v or []:
+        if isinstance(x, str): fixed.append(rich_strip(x))
+        elif isinstance(x, dict):
+            ch = x.get("choose")
+            if isinstance(ch, dict):
+                choices.append({"from": [rich_strip(str(y)) for y in (ch.get("from") or [])],
+                                "count": ch.get("count", 1)})
+            elif x.get("proficiency"): fixed.append(rich_strip(str(x["proficiency"])))
+            else:
+                # {"full": "..."} and friends — one readable string beats dropping it
+                for k in ("full", "special", "displayName"):
+                    if x.get(k): fixed.append(rich_strip(str(x[k]))); break
+    return {"fixed": fixed, "choices": choices}
+
+def class_traits(c):
+    """The "Core Traits" block a 2024 class opens with, as data (D148)."""
+    hd = c.get("hd") or {}
+    sp = c.get("startingProficiencies") or {}
+    eq = c.get("startingEquipment") or {}
+    prim = []
+    for blk in (c.get("primaryAbility") or []):
+        if isinstance(blk, dict):
+            for a in ABIL_ORDER:
+                if blk.get(a) and a not in prim: prim.append(a)
+    return {"hd": (f"{hd.get('number', 1)}d{hd['faces']}" if hd.get("faces") else None),
+            "primary": prim,
+            "saves": [a for a in (c.get("proficiency") or []) if a in ABIL_ORDER],
+            "skills": _prof_list(sp.get("skills")),
+            "armor": _prof_list(sp.get("armor")),
+            "weapons": _prof_list(sp.get("weapons")),
+            "tools": _prof_list(sp.get("tools")),
+            "equipment": " ".join(flatten_entries(eq.get("entries"))) or None}
+
+def _cell(v):
+    """One classTableGroups cell as a display string. 5etools mixes bare values with
+       typed objects; an unknown type falls back to its own text rather than vanishing.
+       **Keep identical to extract.js's tableCell.**"""
+    if v is None or v == "": return "\u2014"
+    if isinstance(v, (int, float)): return "\u2014" if v == 0 else str(v)
+    if isinstance(v, str): return rich_strip(v) or "\u2014"
+    if isinstance(v, dict):
+        t = v.get("type")
+        if t == "bonus": return f"+{v.get('value', 0)}"
+        if t == "bonusSpeed": return f"+{v.get('value', 0)} ft."
+        if t == "dice":
+            r = v.get("toRoll") or []
+            return " + ".join(f"{d.get('number', 1)}d{d.get('faces', 6)}" for d in r) or "\u2014"
+        for k in ("value", "entry", "entries"):
+            if k in v: return _cell(v[k]) if k != "entries" else (" ".join(flatten_entries(v[k])) or "\u2014")
+    if isinstance(v, list): return " ".join(flatten_entries(v)) or "\u2014"
+    return str(v)
+
+def class_table(groups):
+    """Every classTableGroup as {title, cols, rows[20][]} of display strings (D148).
+       The Level, Proficiency Bonus and Features columns are NOT here — the app already
+       owns those three (level is the row index, PB is arithmetic, features come from
+       `features`), and duplicating them into the digest would be a second source."""
+    out = []
+    for g in groups or []:
+        rows = g.get("rowsSpellProgression") or g.get("rows") or []
+        cols = [rich_strip(x) for x in (g.get("colLabels") or [])]
+        if not cols and not rows: continue
+        out.append({"title": rich_strip(g.get("title") or "") or None,
+                    "cols": cols,
+                    "rows": [[_cell(c) for c in (r or [])] for r in rows]})
+    return out
+
 def slot_table(groups):
     for g in groups or []:
         if "Spell Slots per Spell Level" in (g.get("title") or ""):
@@ -953,7 +1075,7 @@ def _feat_record(f):
             # the feature's own rules text, for the class/subclass detail modal (D147).
             # `_walk_text`'s buf is a flat word soup for the regexes above; the modal needs
             # paragraphs, so it is flattened a second time rather than reusing that.
-            "desc": flatten_entries(f.get("entries")),
+            "desc": entry_blocks(f.get("entries")),
             "alwaysPrepared": bool(AP_RE.search(txt)) and not FREECAST_RE.search(txt)}
 
 SUBFEAT_INDEX = {}   # (className, subclassShortName, subclassSource) -> [feature records]
@@ -1086,6 +1208,8 @@ for f in glob.glob(os.path.join(MIRROR, "class", "class-*.json")):
             "bonusChoices": [],           # extra-cantrip order features etc.
             "optFeatures": opt_progression(c),   # invocations / metamagic / boons (D28)
             "features": feature_list(CLSFEAT_INDEX.get((c["name"], c.get("source", "")))),
+            "traits": class_traits(c),                          # D148: the Core Traits block
+            "table": class_table(c.get("classTableGroups")),    # D148: the progression table
         })
 
 # 2024 order features that grant an extra cantrip (text-only in the source),
@@ -1119,6 +1243,7 @@ for f in glob.glob(os.path.join(MIRROR, "class", "class-*.json")):
                           SUBFEAT_INDEX.get((sc.get("className", ""),
                                              sc.get("shortName", sc.get("name", "")), sc.get("source", "")))),
                "optFeatures": opt_progression(sc),
+               "table": class_table(sc.get("subclassTableGroups")),   # D148 — a few carry one
                "features": feature_list(
                    SUBFEAT_INDEX.get((sc.get("className", ""),
                                       sc.get("shortName", sc.get("name", "")), sc.get("source", ""))),
@@ -1493,7 +1618,8 @@ for ft in _featdata.get("feat", []):
                   "featSlots": feat_progression(ft),     # a feature that hands you a feat slot (D135)
                   "prereq": _prereq_text(ft, cat, _featcats),
                   "prereqs": _prereq_blocks(ft, cat, _featcats),
-                  "desc": flatten_entries(ft.get("entries")),   # D147: what the feat DOES
+                  "desc": entry_blocks(ft.get("entries")),     # D147: what the feat DOES
+                  "ability": ability_gain(ft),                  # D148: the ASI it hands you
                   "grants": parse_grants(ft.get("additionalSpells")) if has_spells else empty_grants()})
     feats[-1]["grants"]["marks"] = parse_marks(ft)
     _apply_own_note(feats[-1]["grants"], _own_note_blocks(ft))
@@ -1519,7 +1645,7 @@ for o in (load(_optpath).get("optionalfeature", []) if os.path.exists(_optpath) 
                      "repeatable": _repeatable(o),       # "You can gain this invocation more than once"
                      "featSlots": feat_progression(o),   # Lessons of the First Ones → an Origin feat
                      "prereq": _prereq_text(o), "prereqs": _prereq_blocks(o),
-                     "desc": flatten_entries(o.get("entries")),   # D147
+                     "desc": entry_blocks(o.get("entries")),   # D147
                      "hasSpells": has_spells,
                      "grants": parse_grants(o.get("additionalSpells")) if has_spells else empty_grants()})
     optfeats[-1]["grants"]["marks"] = parse_marks(o)
@@ -1566,7 +1692,7 @@ for rc in rd.get("race", []):
     if not valid_name(rc): continue
     emit_species(rc["name"], rc.get("source", ""), rc.get("additionalSpells"), bool(rc.get("srd52")),
                  rc.get("page"), reprint=reprinted(rc), superseded=superseded_by(rc),
-                 note=_own_note_blocks(rc), desc=flatten_entries(rc.get("entries")))
+                 note=_own_note_blocks(rc), desc=entry_blocks(rc.get("entries")))
 for rc in rd.get("subrace", []) if isinstance(rd.get("subrace"), list) else []:
     base = rc.get("raceName", ""); nm = rc.get("name") or ""
     if not rc.get("additionalSpells"):   # skip spell-less subraces (noise)
@@ -1574,7 +1700,26 @@ for rc in rd.get("subrace", []) if isinstance(rd.get("subrace"), list) else []:
     emit_species(f"{base} ({nm})" if nm else base, rc.get("source", ""), rc.get("additionalSpells"),
                  bool(rc.get("srd52")), rc.get("page"), base=base or None, lineage=nm or None,
                  reprint=reprinted(rc), superseded=superseded_by(rc), note=_own_note_blocks(rc),
-                 desc=flatten_entries(rc.get("entries")))
+                 desc=entry_blocks(rc.get("entries")))
+
+# ---- conditions, for the in-text popovers (D148) ---------------------------
+# Keyed by LOWERCASE name so the app's own text scanner can look one up without knowing
+# which book it came from. 2024 (XPHB) wins where both editions print one, matching the
+# app's default reprint filter; `status` rides along because Concentration and Surprised
+# read as conditions in spell text and are tagged the same way.
+conditions = {}
+_cdpath = os.path.join(MIRROR, "conditionsdiseases.json")
+if os.path.exists(_cdpath):
+    _cd = load(_cdpath)
+    for _key in ("condition", "status"):
+        for _c in _cd.get(_key, []):
+            if not valid_name(_c): continue
+            _k = _c["name"].strip().lower()
+            _src = _c.get("source", "")
+            if _k in conditions and conditions[_k]["source"] == "XPHB" and _src != "XPHB":
+                continue
+            conditions[_k] = {"name": _c["name"], "source": _src, "page": _c.get("page"),
+                              "kind": _key, "desc": entry_blocks(_c.get("entries"))}
 
 # ---- source registry (for the settings selector) ---------------------------
 src_counter = defaultdict(lambda: {"spells": 0, "classes": 0, "subclasses": 0, "feats": 0, "species": 0})
@@ -1605,7 +1750,7 @@ digest = {
     "meta": {"mirror": os.path.basename(os.path.dirname(MIRROR)), "spellCount": len(spells)},
     "sources": sources, "spells": list(spells.values()), "classes": classes,
     "subclasses": subclasses, "feats": feats, "races": races, "optfeats": optfeats,
-    "monsters": monsters, "fullMc": FULL_MC, "pact": PACT,
+    "monsters": monsters, "fullMc": FULL_MC, "pact": PACT, "conditions": conditions,
 }
 out_path = os.path.join(os.path.dirname(__file__), "data", "data.json")
 with open(out_path, "w", encoding="utf-8") as f:
@@ -1644,7 +1789,9 @@ def _srd_subset():
     srdsrc = {src: {"name": bname(src), "group": bgroup(src), "counts": c} for src, c in cnt.items()}
     return {"meta": {"srd": True, "spellCount": len(ss)}, "sources": srdsrc,
             "spells": ss, "classes": sc, "subclasses": ssub, "feats": sf, "races": sr,
-            "optfeats": so, "monsters": smon, "fullMc": FULL_MC, "pact": PACT}
+            "optfeats": so, "monsters": smon, "fullMc": FULL_MC, "pact": PACT,
+            # D148: the SRD conditions only — the public build's text names them too
+            "conditions": {k: v for k, v in conditions.items() if v["source"] == "XPHB"}}
 
 srd = _srd_subset()
 # Product-identity names: SRD 5.2 renames 17 spells (Bigby's Hand → Arcane Hand …) and

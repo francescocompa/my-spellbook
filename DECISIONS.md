@@ -1762,6 +1762,75 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     the picker under it; `refreshSpecies` ×3 and `renderClassRows` ×2 stack no chips; the
     whole session left `state` byte-identical.
 
+- **D148 (2026-09-01) DECIDED — one detail layout per KIND, and the book is the tag alone.**
+  Francesco's notes on D147, in his order. Four of the five are corrections to what D147
+  shipped; the fifth is new.
+  - **(a) The book is stated ONCE, as the tag.** Raw: *"remove the book tag in the chip or
+    field label"* and *"remove the book mention in detail modals, leave only the tag"*. It
+    was being said three times over — the chip beside a feat's name, the chip on a class
+    row's label, and again spelled out in the modal's subtitle beside the kind. The `.bchip`
+    keeps it, and its popover already names the book in full and says where the element is
+    printed (D51), so nothing is lost. The label keeps only the button that opens the modal.
+    Consequence, accepted: D147(d) justified dropping the select's `" (SRC)"` suffix by
+    pointing at the label's chip. The suffix rule is unchanged (duplicate names only) — the
+    modal's tag is now what states the book for a class or subclass.
+  - **(b) Prose is STRUCTURED at the extractor, not guessed at the renderer.** `desc` was a
+    flat paragraph list, so `isDescTitle` — "≤5 words, capitalised, ends in a period" — had
+    to guess which paragraphs were headings, and it read *"You gain the following benefits."*
+    as one, which is exactly the "sits in a weird way" Francesco named. `entry_blocks` /
+    `entryBlocks` now emit `["a paragraph", {"n": "Section", "e": [...]}]`, so a heading is
+    DATA. Spells are untouched — they keep the flat array and the heuristic, because a spell
+    has no sections to find. A section's own body stays flat (one nesting level is all these
+    records use). *Rejected:* a sentinel prefix on heading strings (a shape everything
+    downstream would have to strip); widening `isDescTitle`'s regex (a better guess is still
+    a guess, and the next book breaks it).
+  - **(c) A layout per kind, because the five answer different questions.** A **class** is a
+    contract: its Core Traits block (primary ability, hit die, saves, skills, weapons, armor,
+    tools, starting equipment) and its 20-row progression table, neither of which D147 had at
+    all. A **feat** is a benefit list behind a requirement, so it opens with a bullet list of
+    facts — category, prerequisite, the ASI it grants, repeatable — before a word of prose. A
+    **subclass** is its features. A **species** and an **optional feature** are prose. The
+    shell (box, title, tag, subtitle) stays shared. *Rejected:* one body for all five (what
+    D147 shipped, and what these notes are about).
+  - **(d) Features group by level, and every group and section is a disclosure.** Both open
+    by default with one "Collapse all" for the level groups — the modal is opened to READ,
+    and a body that starts folded is a click before the first word. The level column, the
+    proficiency bonus and the Features column are composed by the APP, not carried in the
+    digest: level is the row index, PB is arithmetic, and features already exist. Only what
+    `classTableGroups` actually holds is extracted.
+  - **(e) An ability is always a coloured chip where it is a FACT** — primary ability, saving
+    throws, casting ability, a feat's ASI, and the three-letter codes inside a prerequisite
+    string. Reusing D142(b)'s `--ab-*` tokens, already solved to 5.3:1 in both themes.
+    *Rejected:* chipping every ability mentioned in running prose (a paragraph of "Charisma
+    (Deception or Performance)" becomes a chip salad, and the word there is grammar, not a
+    fact).
+  - **(f) "Spells it gives you" divides by the level you get them.** Every grant shape
+    already carries `atLevel` — it is what the acquisition walk reads — so a subclass states
+    "Level 3 · Level 5 · Level 7 · Level 9 · Level 10" instead of flattening four tiers into
+    one comma run. An option group keeps its own "Choose" row: it is a choice BETWEEN blocks,
+    not a level's worth of spells.
+  - **(g) A condition explains itself, in place.** `conditionsdiseases.json` becomes a
+    `conditions` map in the digest (18 records: the 15 XPHB conditions plus the statuses that
+    read like them — Concentration, Surprised, Bloodied). `ccText` already marked conditions
+    for colour, so the mark gains a `data-cond` key and `wireCondTips` hangs the book's own
+    wording on it — in the spell modal, the creature modal and every detail modal. 2024 wins
+    where both editions print one, matching the default reprint filter. Conditions survive a
+    book filter: they are the rules vocabulary the text uses, not a book's content.
+    The parity harness gained a whole-record diff and a census for the new map — a top-level
+    map with no check is the shape that let the lookup clobber and the foundry stubs hide
+    (D82 · D91).
+  - **An older import still renders.** `desc` from a pre-D148 digest is flat, and a class
+    from one has no `traits` or `table`; the modal falls back to `descP`'s heuristic and
+    composes the progression table from `features` alone. D137's nag is what gets the books
+    re-read. Verified against a real stale import: 5 paragraphs, 3 headings, 0 blank bodies,
+    21 table rows.
+  - **Verified:** 0 contrast failures across **373 nodes** (class), 47 (subclass) and 13
+    (feat) in dark, and 374 / 48 / 9 in light — min 5.66:1. At 375 the page has **0**
+    horizontal overflow and the progression table scrolls inside its own container. Every
+    new chip and control measured symmetric to ≤0.5px at 1280 and 375. Collapse-all and each
+    disclosure toggle both ways. Parity exact: 51 checks, 0 fail, 0 whole-record diffs
+    including the new `traits`, `table`, `ability`, block `desc` and `conditions`.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

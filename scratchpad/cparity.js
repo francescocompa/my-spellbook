@@ -145,6 +145,20 @@ const gkey={classes:e=>e.name+"|"+e.source,
   const diff=shared.filter(k=>jm[k]!==pm[k]);
   cmp(`whole-record diff · monsters (of ${shared.length})`,diff.length,0);
   if(diff.length)diff.slice(0,3).forEach(k=>showDiff(k,jm[k],pm[k]));
+  // D148: `conditions` is a second top-level MAP, and a map with no check is exactly the
+  // shape that let the lookup clobber and the foundry stubs hide (D82 · D91). Same
+  // canonical whole-record diff, plus the census — an extractor that silently stopped
+  // reading conditionsdiseases.json would otherwise still pass every other line here.
+  const jc={},pc={};
+  Object.entries(digest.conditions||{}).forEach(([k,v])=>{jc[k]=canon(v);});
+  Object.entries(py.conditions||{}).forEach(([k,v])=>{pc[k]=canon(v);});
+  cmp("conditions",Object.keys(jc).length,Object.keys(pc).length);
+  const csh=Object.keys(jc).filter(k=>k in pc);
+  const cdiff=csh.filter(k=>jc[k]!==pc[k]);
+  cmp(`whole-record diff · conditions (of ${csh.length})`,cdiff.length,0);
+  if(cdiff.length)cdiff.slice(0,3).forEach(k=>showDiff(k,jc[k],pc[k]));
+  cmp("conditions only one side has",
+      Object.keys(jc).filter(k=>!(k in pc)).length+Object.keys(pc).filter(k=>!(k in jc)).length,0);
 }
 // ── D127: `_copy` resolution + the reprint pointer ─────────────────────────
 // 5etools re-attaches every classic subclass to its 2024 class as a `_copy` record. Left

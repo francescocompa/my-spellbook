@@ -66,6 +66,88 @@ function flattenEntries(entries,strip){const out=[];strip=strip||richStrip;
         else if(it&&typeof it==="object")out.push("• "+strip(it.name||"")+" "+flattenEntries(it.entries||(it.entry?[it.entry]:[]),strip).join(" "));});
     }});
   return out.filter(Boolean);}
+// Structured prose for the detail modals (D148). `flattenEntries` throws away the one
+// thing a layout needs — where a SECTION starts — by folding a named entry's name into a
+// paragraph ending in ".", which the app then has to guess back with a regex (and got
+// wrong on "You gain the following benefits."). This keeps it:
+//   [ "a loose paragraph", {n:"Section name", e:["its","paragraphs"]} ]
+// Only the top level is structured; a section's sub-sections flatten into `e`.
+// **Keep identical to extract.py's entry_blocks.**
+function entryBlocks(entries,strip){const out=[];strip=strip||richStrip;
+  (entries||[]).forEach(e=>{
+    if(typeof e==="string"){const t=strip(e); if(t)out.push(t);}
+    else if(e&&typeof e==="object"){
+      if(e.name){
+        const body=flattenEntries(e.entries,strip);
+        (e.items||[]).forEach(it=>flattenEntries([it],strip).forEach(x=>body.push(x)));
+        out.push({n:strip(e.name),e:body});
+      }else{
+        // an unnamed wrapper is a container, not a section — splice it in place so its
+        // own named children still read as sections of the parent
+        entryBlocks(e.entries,strip).forEach(x=>out.push(x));
+        (e.items||[]).forEach(it=>flattenEntries([it],strip).forEach(x=>out.push(x)));
+      }
+    }});
+  return out;}
+// ---- the facts a class states before its features (D148) -------------------
+const ABIL_ORDER=["str","dex","con","int","wis","cha"];
+// A feat's ability increase, normalised for display. `hidden` marks the duplicate entry
+// the 2024 ASI feat carries; printing it would state the option twice.
+// **Keep identical to extract.py's ability_gain.**
+function abilityGain(o){const out=[];
+  (o.ability||[]).forEach(blk=>{
+    if(!blk||typeof blk!=="object"||blk.hidden)return;
+    const ch=blk.choose;
+    if(ch&&typeof ch==="object"){
+      const frm=(ch.from||[]).filter(a=>ABIL_ORDER.indexOf(a)>=0);
+      if(frm.length)out.push({abils:frm,amount:ch.amount??1,choose:true});
+    }else ABIL_ORDER.forEach(a=>{if(blk[a])out.push({abils:[a],amount:blk[a],choose:false});});});
+  return out;}
+function profList(v){const fixed=[],choices=[];
+  (v||[]).forEach(x=>{
+    if(typeof x==="string")fixed.push(richStrip(x));
+    else if(x&&typeof x==="object"){
+      const ch=x.choose;
+      if(ch&&typeof ch==="object")choices.push({from:(ch.from||[]).map(y=>richStrip(String(y))),count:ch.count??1});
+      else if(x.proficiency)fixed.push(richStrip(String(x.proficiency)));
+      else{for(const k of ["full","special","displayName"]) if(x[k]){fixed.push(richStrip(String(x[k])));break;}}
+    }});
+  return{fixed,choices};}
+function classTraits(c){const hd=c.hd||{},sp=c.startingProficiencies||{},eq=c.startingEquipment||{};
+  const prim=[];
+  (c.primaryAbility||[]).forEach(blk=>{if(blk&&typeof blk==="object")
+    ABIL_ORDER.forEach(a=>{if(blk[a]&&prim.indexOf(a)<0)prim.push(a);});});
+  return{hd:hd.faces?`${hd.number??1}d${hd.faces}`:null,primary:prim,
+    saves:(c.proficiency||[]).filter(a=>ABIL_ORDER.indexOf(a)>=0),
+    skills:profList(sp.skills),armor:profList(sp.armor),weapons:profList(sp.weapons),
+    tools:profList(sp.tools),
+    equipment:flattenEntries(eq.entries).join(" ")||null};}
+// One classTableGroups cell as a display string; an unknown type falls back to its own
+// text rather than vanishing. **Keep identical to extract.py's _cell.**
+function tableCell(v){
+  if(v==null||v==="")return "\u2014";
+  if(typeof v==="number")return v===0?"\u2014":String(v);
+  if(typeof v==="string")return richStrip(v)||"\u2014";
+  if(Array.isArray(v))return flattenEntries(v).join(" ")||"\u2014";
+  if(typeof v==="object"){
+    if(v.type==="bonus")return "+"+(v.value??0);
+    if(v.type==="bonusSpeed")return "+"+(v.value??0)+" ft.";
+    if(v.type==="dice")return (v.toRoll||[]).map(d=>`${d.number??1}d${d.faces??6}`).join(" + ")||"\u2014";
+    if("value"in v)return tableCell(v.value);
+    if("entry"in v)return tableCell(v.entry);
+    if("entries"in v)return flattenEntries(v.entries).join(" ")||"\u2014";
+  }
+  return String(v);}
+// Every classTableGroup as {title, cols, rows} of display strings (D148). Level,
+// Proficiency Bonus and Features are NOT here — the app already owns those three.
+function classTable(groups){const out=[];
+  (groups||[]).forEach(g=>{
+    const rows=g.rowsSpellProgression||g.rows||[];
+    const cols=(g.colLabels||[]).map(x=>richStrip(x));
+    if(!cols.length&&!rows.length)return;
+    out.push({title:richStrip(g.title||"")||null,cols,
+      rows:rows.map(r=>(r||[]).map(tableCell))});});
+  return out;}
 const uniqSort=a=>[...new Set(a||[])].sort();
 const spellKey=(n,s)=>`${String(n).toLowerCase()}|${String(s).toLowerCase()}`;
 const reprinted=o=>!!(o&&o.reprintedAs);
@@ -288,7 +370,7 @@ function featRecord(f){ const buf=[]; walkText(f.entries,buf); const txt=buf.joi
           // the feature's own rules text, for the class/subclass detail modal (D147).
           // `walkText`'s buf is a flat word soup for the regexes above; the modal needs
           // paragraphs, so it is flattened a second time rather than reusing that.
-          desc:flattenEntries(f.entries),
+          desc:entryBlocks(f.entries),
           alwaysPrepared:AP_RE.test(txt)&&!FREECAST_RE.test(txt)}; }
 function resolveFeatureRec(feats,at,s){ if(!feats||!feats.length)return null;
   const gf=feats.filter(f=>f.grants); if(!gf.length)return null;
@@ -764,6 +846,7 @@ function buildDigest(files){
   scanFormRefs(files);            // additive: a folder scan never went through unzipJsonFiles
   const books={};
   const spells={}; const classes=[]; const subclasses=[]; const feats=[]; const races=[]; const optfeats=[];
+  const conditions={};   // D148: name -> {name, source, page, kind, desc}
   let lookup=null,lookupNamed=false;
   const report={spells:0,classes:0,subclasses:0,feats:0,species:0,books:0,lookup:false,files:0,errors:[]};
 
@@ -820,6 +903,8 @@ function buildDigest(files){
           spellbook:c.spellsKnownProgressionFixed??null,slots:slotTable(c.classTableGroups)??null,
           grants:parseGrants(c.additionalSpells,clsfeatIdx[c.name+"|"+(c.source||"")]),grantsFightingStyle:null,bonusChoices:[],
           optFeatures:optProgression(c),
+          traits:classTraits(c),                        // D148: the Core Traits block
+          table:classTable(c.classTableGroups),         // D148: the progression table
           features:featureList(clsfeatIdx[c.name+"|"+(c.source||"")])};
         const okey=c.name+"|"+(c.source||"");
         if(ORDER_CANTRIP[okey])rec.bonusChoices.push(ORDER_CANTRIP[okey]);
@@ -836,6 +921,7 @@ function buildDigest(files){
         className:sc.className||"",classSource:sc.classSource||"",
         grants:parseGrants(sc.additionalSpells,subfeatIdx[(sc.className||"")+"|"+(sc.shortName||sc.name||"")+"|"+(sc.source||"")]),
         optFeatures:optProgression(sc),
+        table:classTable(sc.subclassTableGroups),   // D148 — a few carry one
         features:featureList(subfeatIdx[(sc.className||"")+"|"+(sc.shortName||sc.name||"")+"|"+(sc.source||"")],
                              sc.shortName||"")};
         if(sc.casterProgression){rec.caster=sc.casterProgression;rec.ability=sc.spellcastingAbility;
@@ -851,7 +937,8 @@ function buildDigest(files){
           category:cat,fsClass:({"FS:R":"Ranger","FS:P":"Paladin","FS":"Fighter"})[cat]||null,hasSpells,
           catName:featCatName(cat,featCats),      // what the picker calls this category
           optFeatures:optProgression(ft),prereq:prereqText(ft,cat,featCats),prereqs:prereqBlocks(ft,cat,featCats),
-          desc:flattenEntries(ft.entries),         // D147: what the feat DOES
+          desc:entryBlocks(ft.entries),            // D147: what the feat DOES
+          ability:abilityGain(ft),                 // D148: the ASI it hands you
           repeatable:repeatableFlag(ft),           // Magic Initiate, Elemental Adept… (D135)
           featSlots:featProgression(ft),           // a feature that hands you a feat slot (D135)
           grants:hasSpells?parseGrants(ft.additionalSpells):{fixed:[],picks:[],expansions:[],optionGroups:[],ability:null},
@@ -862,7 +949,7 @@ function buildDigest(files){
         const hasSpells="additionalSpells"in o;
         optfeats.push({name:o.name,source:o.source||"",group:bgroup(o.source||""),book:bname(o.source||""),
           reprinted:reprinted(o),supersededBy:supersededBy(o),page:o.page??null,types:o.featureType||[],prereq:prereqText(o),prereqs:prereqBlocks(o),
-          desc:flattenEntries(o.entries),          // D147
+          desc:entryBlocks(o.entries),             // D147
           hasSpells,
           repeatable:repeatableFlag(o),            // "You can gain this invocation more than once"
           featSlots:featProgression(o),            // Lessons of the First Ones → an Origin feat
@@ -888,12 +975,25 @@ function buildDigest(files){
         for(let i=start;i<races.length;i++){races[i].reprinted=!!reprint;races[i].supersededBy=superseded??null;
           applyOwnNote(races[i].grants,note);}};
       (j.race||[]).forEach(rc=>{emitSpecies(rc.name,rc.source||"",rc.additionalSpells,rc.page,undefined,undefined,
-        reprinted(rc),supersededBy(rc),ownNoteBlocks(rc),flattenEntries(rc.entries));});
+        reprinted(rc),supersededBy(rc),ownNoteBlocks(rc),entryBlocks(rc.entries));});
       (Array.isArray(j.subrace)?j.subrace:[]).forEach(rc=>{const base=rc.raceName||"",nm=rc.name||"";
         if(!rc.additionalSpells)return;emitSpecies(nm?`${base} (${nm})`:base,rc.source||"",rc.additionalSpells,rc.page,base||null,nm||null,
-          reprinted(rc),supersededBy(rc),ownNoteBlocks(rc),flattenEntries(rc.entries));});
+          reprinted(rc),supersededBy(rc),ownNoteBlocks(rc),entryBlocks(rc.entries));});
     }catch(e){report.errors.push(f.name+": "+e.message);}
   });
+
+  // ---- conditions, for the in-text popovers (D148) ----
+  // Keyed by LOWERCASE name so the app's text scanner can look one up without knowing its
+  // book. 2024 (XPHB) wins where both editions print one; `status` rides along because
+  // Concentration and Surprised read as conditions in spell text and are tagged the same.
+  files.forEach(f=>{const j=f.json; if(!j)return;
+    ["condition","status"].forEach(key=>{
+      (Array.isArray(j[key])?j[key]:[]).forEach(c=>{
+        if(!validName(c))return;
+        const k=c.name.trim().toLowerCase(), src=c.source||"";
+        if(conditions[k]&&conditions[k].source==="XPHB"&&src!=="XPHB")return;
+        conditions[k]={name:c.name,source:src,page:c.page??null,kind:key,
+                       desc:entryBlocks(c.entries)};});});});
 
   // homebrew spells carry their access INLINE (classes.fromClassList /
   // classes.fromSubclass) — the generated lookup only covers site data
@@ -1025,7 +1125,7 @@ function buildDigest(files){
       +" casts on its own progression but its data names no class list — spellList=null (D130)");});
 
   const digest={meta:{spellCount:Object.keys(spells).length,imported:true},sources,
-    spells:Object.values(spells),classes,subclasses,feats,races,optfeats,monsters};
+    spells:Object.values(spells),classes,subclasses,feats,races,optfeats,monsters,conditions};
   return {digest,report};
 }
 function looksLikeLookup(j){const ks=Object.keys(j);if(!ks.length)return false;
