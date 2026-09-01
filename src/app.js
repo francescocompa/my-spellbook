@@ -633,15 +633,33 @@ const reprintOk=o=>state.filters.reprint==="all" ||
 const visible=o=>srcOn(o.source)&&reprintOk(o);
 
 // ── rules helpers ────────────────────────────────────────────────────────
-// D68's TWO clocks round in OPPOSITE directions, and nothing below may mix them. Pooled
-// SLOTS floor each class into the combined caster level — that math lives inline where
-// 2+ casters combine (compute() and planSlots(): full + ⌊half/2⌋ + ⌊third/3⌋). A class's
-// OWN clock rounds UP: the mirror's own tables give a half-caster 2nd-level spells at
-// class level 5 (⌈l/2⌉ — Paladin, Ranger, Artificer identically) and a third-caster at 7
-// (⌈l/3⌉ — AT/EK rowsSpellProgression: 2nd/3rd/4th at 7/13/19), with nothing before a
-// third-caster's subclass level (3). Flooring the own clock is what read "1st at AT 7" —
-// one tier low at every odd gain level.
+// D68's TWO clocks, and nothing below may mix them.
+//   • OWN clock (`eclOwn`) — what THIS class can cast. Rounds UP: the mirror's own tables
+//     give a half-caster 2nd-level spells at class level 5 (⌈l/2⌉ — Paladin, Ranger,
+//     Artificer identically) and a third-caster at 7 (⌈l/3⌉ — AT/EK rowsSpellProgression:
+//     2nd/3rd/4th at 7/13/19), with nothing before a third-caster's subclass level (3).
+//     Flooring it is what read "1st at AT 7" — one tier low at every odd gain level.
+//   • POOLED clock (`poolLevel`) — how many SLOTS a multiclass has. It rounds UP now
+//     (D160): the app was flooring, which is the 2014 rule, while XPHB says "half your
+//     levels (round up)" and TCE's Artificer "half your levels (rounded up)".
+//     Artificer 5 / Wizard 5 pools to 8, not 7.
+// They are two functions, not one with a flag, because a single-class character reads its
+// class's OWN printed table and never touches the pool at all.
 function eclOwn(caster,l){return {full:l,artificer:Math.ceil(l/2),"1/2":Math.ceil(l/2),"1/3":l>=3?Math.ceil(l/3):0}[caster]||0;}
+// The pool is by CATEGORY, not by class (D160, Francesco's call): every half-caster's levels
+// go into ONE bucket that is halved once — Artificer included — and every third-caster's into
+// another that is divided once. Paladin 19 / Ranger 1 is ⌈20/2⌉ = 10, not ⌈19/2⌉+⌈1/2⌉ = 11.
+// The bucket key is the DIVISOR, so a caster category added later needs no change here: give
+// it a divisor and it joins the bucket that shares one. Full casters divide by 1, which is
+// how they stay exact.
+const POOL_DIV={full:1,artificer:2,"1/2":2,"1/3":3};
+function poolLevel(rows){
+  const by=new Map();
+  (rows||[]).forEach(r=>{const d=POOL_DIV[r.caster]; if(!d||!r.level)return;
+    by.set(d,(by.get(d)||0)+r.level);});
+  let n=0; by.forEach((lv,d)=>{n+=d===1?lv:Math.ceil(lv/d);});
+  return n;
+}
 // Top castable spell level on the class's OWN clock. When the class carries its real slot
 // table (`cls`, optional) that row IS the truth — it also settles the 2014-vs-2024 first-slot
 // level (PHB half-casters start at 2, XPHB at 1) without a per-edition rule. Third-caster
@@ -3066,9 +3084,9 @@ function compute(){
   const nonPact=casters.filter(r=>!r.isPact);
   let mcSlots=null,mcLevel=0;
   if(nonPact.length===1){mcSlots=nonPact[0].ownSlots;mcLevel=eclOwn(nonPact[0].caster,nonPact[0].level);}
-  else if(nonPact.length>1){let full=0,half=0,third=0;
-    nonPact.forEach(r=>{if(r.caster==="full")full+=r.level;else if(r.caster==="artificer"||r.caster==="1/2")half+=r.level;else if(r.caster==="1/3")third+=r.level;});
-    mcLevel=full+Math.floor(half/2)+Math.floor(third/3); if(mcLevel>0)mcSlots=DATA.fullMc[Math.min(mcLevel,20)-1];}
+  else if(nonPact.length>1){
+    mcLevel=poolLevel(nonPact);      // D160: one bucket per divisor, each rounded up once
+    if(mcLevel>0)mcSlots=DATA.fullMc[Math.min(mcLevel,20)-1];}
   const pactRec=records.find(r=>r.isPact);
 
   // shared casting stat: default for feats/species that let you choose
@@ -6615,7 +6633,7 @@ function openGainChooser(pick){
 // The cards used to derive both from the class's own slot table, which put the slot gain
 // on the wrong level for every multiclass. Both are shown, separately.
 function planSlots(levels){
-  let full=0,half=0,third=0,n=0,one=null,pact=null;
+  const casting=[]; let n=0,one=null,pact=null;
   state.classes.forEach(r=>{
     const lvl=levels.get(r.id)||0; if(!lvl)return;
     const c=CLS_BY[r.clsKey]; if(!c)return;
@@ -6623,13 +6641,11 @@ function planSlots(levels){
     const caster=c.caster||(sub&&sub.caster)||null; if(!caster)return;
     if(caster==="pact"){const p=DATA.pact[Math.min(lvl,20)-1];pact={num:p[0],lvl:p[1]};return;}
     n++; one={c,caster,lvl};
-    if(caster==="full")full+=lvl;
-    else if(caster==="artificer"||caster==="1/2")half+=lvl;
-    else if(caster==="1/3")third+=lvl;
+    casting.push({caster,level:lvl});
   });
   let slots=null;
   if(n===1)slots=(one.c.slots&&one.c.slots[one.lvl-1])||DATA.fullMc[Math.min(eclOwn(one.caster,one.lvl),20)-1]||null;
-  else if(n>1){const mc=full+Math.floor(half/2)+Math.floor(third/3);
+  else if(n>1){const mc=poolLevel(casting);      // D160, the same pool as compute()
     if(mc>0)slots=DATA.fullMc[Math.min(mc,20)-1];}
   return {slots,pact};
 }

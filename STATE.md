@@ -12,7 +12,7 @@
 > | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 > | `ARCHIVE.md` | Bodies of consumed phases, decisions and old rationale |
 
-## TL;DR (2026-09-01 · **v1.5.10** built · **PHASE K IS DONE** — the Library rebuilt, K1–K4)
+## TL;DR (2026-09-01 · **v1.5.11** built · phase K done; the half-caster pool fixed)
 
 - **v1.5.7 · K1 — the Library is ONE page (D154(a–f,i) + D155).** Sources|Manage tabs gone;
   status strip owns **Update data** (books · 5etools version vs latest · storage, accent
@@ -56,6 +56,12 @@
 - **Phase K is closed.** The Library is one page: status strip · edition groups · R3 rows
   (select · kinds · origin chip · switch) · selection bar · pending-import tray · ＋ Add
   files ▾. Six verbs became five surfaces, and the app keeps its own data current.
+- **v1.5.11 · D160 — the pooled caster level rounds UP.** The app was on the 2014 rule
+  (`full + ⌊half/2⌋ + ⌊third/3⌋`); XPHB and TCE both round up, so Artificer 5 / Wizard 5 was
+  a whole slot level short. Francesco's call on the ambiguity: **all half-casters share one
+  bucket (Artificer included), all third-casters share another**, and the bucket is keyed by
+  DIVISOR so a future category inherits the rule. `poolLevel()` is now the single writer for
+  the character view and the timeline both.
 - **Next action: nothing is queued.** The open ⚑ flags in PLAN are all calls for Francesco;
   the backlog below them is unchanged. A `/clean` is now worth doing — phase J's and phase
   K's task bodies are both consumed and are the natural next thing to archive.

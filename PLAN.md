@@ -251,12 +251,14 @@ read them before touching the page.
   previous answer. Verify from a fresh load, then fix. The other three `refreshAll()`
   members are clean (`refreshSpecies`, `renderCustomSources`, `renderFeatChips` read
   `state.*`, not class levels). *(Sibling defects fixed v1.2.29 and v1.4.2.)*
-- [ ] **2024 pooling rounds half-casters up per class, and the app floors them** (found
-  during the v1.4.3 fix, out of its scope): `compute()`/`planSlots()` lump `artificer` and
+- [x] **2024 pooling floored the half-casters; it rounds up now** — fixed in **v1.5.11**,
+  **D160**. Francesco's call on the one ambiguity: **all half-casters share one bucket,
+  Artificer included, and all third-casters share another** — the bucket is keyed by DIVISOR
+  so a category added later inherits the rule. `poolLevel()` is the single writer for both
+  `compute()` and `planSlots()`. Original note: `compute()`/`planSlots()` lump `artificer` and
   `"1/2"` into one bucket and take `⌊half/2⌋`, but TCE Artificer and XPHB Paladin/Ranger
-  round up PER CLASS when multiclassing — Artificer 5 / Wizard 5 should pool to caster
-  level 8, the app says 7. Touches the pooled slot table only. ⚑ (owner: Francesco,
-  2026-08-31)
+  round up when multiclassing — Artificer 5 / Wizard 5 should pool to caster
+  level 8, the app says 7. Touches the pooled slot table only.
 - [ ] **Magic-item / reward ingestion** — 🔶 **RESEARCHED 2026-08-27, awaiting the call.**
   The old note said "items carry no structured uses"; that is **wrong** and the audit
   corrected it.

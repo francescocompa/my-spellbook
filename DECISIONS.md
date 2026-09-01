@@ -2311,6 +2311,35 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     repository address) · the selection bar (Clear · enabled · Remove) · the tray (Discard ·
     Add N books) · Close. Six verbs became five surfaces, and nothing that was reachable
     before is unreachable now except the four the automatic re-parse replaced.
+- **D160 (2026-09-01) DECIDED — the pooled caster level rounds UP, and the pool is by
+  CATEGORY.** A standing ⚑ from the v1.4.3 session, fixed on Francesco's instruction. The app
+  bucketed the half-casters together and **floored** (`full + ⌊half/2⌋ + ⌊third/3⌋`) — the
+  2014 rule. XPHB says *"half your levels (round up)"* and TCE's Artificer *"half your levels
+  (rounded up)"*, so **Artificer 5 / Wizard 5 pools to caster level 8; the app said 7** — one
+  slot level short, and at 1/1 it said 1 where the answer is 2.
+  - **(a) The buckets stay, the rounding flips.** All half-casters — Artificer included — share
+    ONE bucket that is halved once; all third-casters share another that is divided once.
+    Paladin 19 / Ranger 1 is ⌈20/2⌉ = **10**. *Rejected:* **per class, each rounded up then
+    added** (this session's first implementation, and the literal reading of TCE's separate
+    Artificer sentence) — it makes the same pair **11**, and Francesco's call is that a
+    category is a category: *"All half-casters are grouped together including Artificer, same
+    for third-casters."*
+  - **(b) The bucket key is the DIVISOR, not a class list**, so the rule reaches casters that
+    do not exist yet — his explicit ask (*"This should apply to future half or third casters
+    as well"*). `POOL_DIV={full:1,artificer:2,"1/2":2,"1/3":3}`: give a new category a divisor
+    and it joins whichever bucket shares it. Full casters divide by 1, which is how they stay
+    exact rather than being a special case.
+  - **(c) `poolLevel(rows)` is the one writer, used by both sites** — `compute()` (the
+    character view) and `planSlots()` (the timeline and the guide's level column). They had
+    the same expression inline, twice, which is how a rounding rule gets fixed in one place
+    and not the other. The OWN clock (`eclOwn`) is untouched and still rounds up per class:
+    D68's two clocks stay separate.
+  - **Verified:** 12 checks — the pure function across every bucket combination (including
+    Pact Magic contributing 0 and an empty pool), then the real character through the UI:
+    Paladin 5 / Wizard 5 reads caster level 8 and renders 4/3/3/2 where it rendered 4/3/3/1,
+    the timeline agrees with the character view, and a lone half-caster still reads its own
+    printed table (Paladin 5 → 4/2, unchanged). Four random builds, the timeline and the
+    guided builder raise no errors.
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives
