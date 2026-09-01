@@ -413,12 +413,7 @@
 .helpbody code{font-size:11px}
 
 /* D86 — the import plan: one list of every book that will be in your data */
-/* D110: the Library's tab bar — Sources | Manage */
-.libtabs{display:flex;gap:2px;padding:0 18px;border-bottom:1px solid var(--line)}
-.libtabs button{background:none;border:none;padding:8px 12px;font:inherit;font-size:13.5px;
-  color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
-.libtabs button:hover{color:var(--ink)}
-.libtabs button.on{color:var(--accent);border-bottom-color:var(--accent)}
+/* D154: the Library's tab bar died with the two panes — one page now. */
 /* D112: a book the scanned folder offers but you haven't imported */
 .importplan label.avail{opacity:.55}
 .importplan label.avail:hover{opacity:.85}
@@ -2402,3 +2397,81 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
 .modal.over{z-index:75}
 /* a condition that explains itself (D148) */
 .cc-cond.hascond{border-bottom:1px dotted currentColor;cursor:help}
+
+/* ── the Library page (D154) ────────────────────────────────────────────────
+   One page: a status strip that owns the web fetch, one list of two-line rows, and a
+   selection bar that only exists while something is selected. */
+/* the box is a column so its footer is PINNED and the list scrolls under it — 44 books in
+   one column is a 3,000px page otherwise, with "＋ Add files" at the bottom of it */
+#importModal .box{display:flex;flex-direction:column;max-height:calc(100vh - 80px)}
+#importModal .mb{flex:1 1 auto;min-height:0;overflow:auto}
+/* the strip, the search row and the selection bar stay put while the list moves. The sticky
+   lives in the element that actually scrolls (`.mb`), which is D148's rule. */
+.libtop{position:sticky;top:0;z-index:2;background:var(--panel);
+  padding-top:1px;margin-bottom:2px}
+.libstatus{display:flex;align-items:center;gap:10px;padding:9px 11px;margin:0 0 12px;
+  border:1px solid var(--line-strong);border-radius:10px;background:var(--panel-2)}
+.libstatln{font-size:12.5px;color:var(--muted);line-height:1.5}
+.libstatln b{color:var(--ink)}
+.libstatus .btn{margin-left:auto;flex:0 0 auto}
+/* a release is out: the strip says so in its border, not in a second notice */
+.libstatus.libstale{border-color:var(--accent)}
+/* the footer is a modal header rule turned upside down */
+.libfoot{border-top:1px solid var(--line);border-bottom:none;display:flex;
+  align-items:center;gap:8px}
+.libfoot .menu{position:relative}
+/* drawn, never typed (the .pk-caret rule) — a bare .pk-caret carries no styling of its own,
+   so the footer's own caret draws itself. The ink of a rotated square lives in its lower
+   half, hence the upward nudge; `up` when the popover is open, since it opens upward. */
+.libfoot .pk-caret{flex:0 0 auto;position:relative;width:12px;height:12px;font-size:0;
+  margin-left:2px}
+.libfoot .pk-caret::before{content:"";position:absolute;left:50%;top:50%;width:5px;height:5px;
+  border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;
+  transform:translate(-50%,-50%) translateY(-1.8px) rotate(45deg)}
+.libfoot .btn[aria-expanded="true"] .pk-caret::before{
+  transform:translate(-50%,-50%) translateY(1.1px) rotate(-135deg)}
+.libfoot .btn{display:inline-flex;align-items:center}
+.libfoot .menupop{top:auto;bottom:calc(100% + 6px);min-width:210px}
+/* R3 rows: one per line, not the picker grid — the second line needs the width */
+.srclist.libone{display:block}
+.libsrow{display:flex;align-items:center;gap:9px;padding:5px 7px;border-radius:8px;
+  font-size:12.5px;cursor:pointer}
+.libsrow:hover{background:var(--panel-2)}
+.libsrow>input{accent-color:var(--accent);flex:0 0 auto;margin:0}
+.libmain{display:flex;flex-direction:column;gap:1px;min-width:0;flex:1 1 auto}
+.libnm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.libkinds{color:var(--muted);font-size:11px}
+/* D154(c): a disabled book DIMS. There is no "off" badge — it would only repeat the
+   switch sitting beside it. */
+.libdim{opacity:.55} .libdim:hover{opacity:.85}
+.libsel{background:var(--accent-soft)}
+.libsel:hover{background:var(--accent-soft)}
+/* where the book came from, at row level (D154(d)) — the groups stay edition-first */
+.libchip{font-size:10px;font-weight:700;letter-spacing:.03em;border-radius:99px;
+  padding:1px 7px;flex:0 0 auto;line-height:1.5}
+.libo-web{background:var(--accent-soft);color:var(--accent)}
+.libo-file{background:var(--gold-soft);color:var(--gold)}
+.libo-baked{background:var(--panel-2);color:var(--muted);border:1px solid var(--line-strong)}
+/* the enabled switch — a real button, so the row can stay a div */
+.swk{width:26px;height:15px;border-radius:99px;background:var(--accent);position:relative;
+  display:inline-block;flex:0 0 auto;border:none;padding:0;cursor:pointer}
+.swk::after{content:"";position:absolute;right:2px;top:2px;width:11px;height:11px;
+  border-radius:50%;background:var(--bg);transition:right .12s,left .12s}
+.swk.swoff{background:var(--line-strong)}
+.swk.swoff::after{right:auto;left:2px}
+.swk:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* D154(e): the selection bar. Removal lives here and nowhere else. */
+.libselbar{display:flex;align-items:center;gap:8px;padding:7px 10px;margin:0 0 10px;
+  font-size:12.5px;border:1px solid var(--accent);border-radius:10px;
+  background:var(--accent-soft)}
+.libsw{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);
+  cursor:pointer;user-select:none}
+@media (max-width:560px){
+  /* pinned, the strip + search + bar are ~480px of a 700px sheet and only two books fit
+     under them. The footer stays put; the top scrolls away like everything else. */
+  .libtop{position:static}
+  .libstatus{flex-wrap:wrap}
+  .libstatus .btn{margin-left:0;width:100%}
+  .libselbar{flex-wrap:wrap}
+  .libsrow{gap:7px;padding:6px}
+}

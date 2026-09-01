@@ -2133,6 +2133,40 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     Ability to remove ONE book, D42's nothing-prunes rule, and D138's per-book stamps all
     survive by construction and are named in the tasks.
 
+- **D155 (2026-09-01) DECIDED — the calls K1 had to make that D154 did not cover.** Phase
+  K1 built D154's one page as specified; five things the spec left open were settled in the
+  build and are recorded so they are not re-argued from the mockup.
+  - **(a) "＋ Add files ▾" is ONE button, not the mockup's split.** `library4.html` drew two
+    segments; a split button whose halves do the same thing is a lie about the control, and
+    D154(f) itself writes the verb as one label plus a caret. The caret is DRAWN, never
+    typed — a bare `.pk-caret` carries no styling of its own, so `.libfoot` draws its own
+    (the same trap as `.csrowcar`). *Rejected:* a real split (nothing earns the primary
+    half), the visual split with both halves opening the popover.
+  - **(b) D153's editable repository address lives in Actions**, as "5etools address…".
+    D154's final verb set never placed it, and the status strip is one line about your data,
+    not a settings row. *Rejected:* keeping it beside Update data (it is not part of that
+    verb — it is the once-every-two-years fix for when the mirror moves).
+  - **(c) The keep-plan is staged-only from K1, not from K2.** `#importPlan` used to stand
+    permanently at the top of the Manage tab; on one page it is 400px of the modal restating
+    the list underneath it. It now renders only while something is staged or a scan is
+    offering books — the tray's existence rule (D154(h)) applied to the old markup, which K2
+    then restyles. Its Apply and its Discard (the old "Clear staged", armed) live in it.
+  - **(d) The modal box is a flex column with a pinned footer, and the strip/search/selection
+    bar are one sticky block inside the scroller.** 44 books in one column is a 3,000px page
+    with "＋ Add files" at the bottom of it. The sticky lives in the element that actually
+    scrolls, which is D148's rule. At ≤560px the top block un-sticks: pinned, it is ~480px of
+    a 700px sheet and only two books fit under it. The footer stays pinned at every width.
+  - **(e) A book's ORIGIN is stamped per book at apply time**, beside its parser stamp, and
+    survives `filterDigest` the way the parser stamp does. A digest stored before the stamp
+    existed is READ rather than guessed: bundle-only is built-in, and an unstamped imported
+    book is `web` if a fetch was ever applied here, `file` otherwise. *Rejected:* matching
+    `webSync.syncedAt` against `meta.importedAt` — tried, and WRONG: a second Apply moves
+    `importedAt` past the fetch record, which made a 44-book web-fetched library read
+    "file" on every row.
+  - Also in K1, not a design call: `aria-expanded` is now kept honest on every
+    `[aria-haspopup]` button by one sweep in `closeMenu`/`toggleMenu` — the footer caret is
+    drawn from that attribute, so a stale one was wrong on screen as well as to a reader.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

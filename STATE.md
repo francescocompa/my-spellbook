@@ -7,22 +7,34 @@
 > |---|---|
 > | `CLAUDE.md` | What this project is, its conventions, build/run, the verify gate, versioning |
 > | `PLAN.md` | The queue — what is next, what is flagged for Francesco |
-> | `DECISIONS.md` | Every decision D7–D152 and what was rejected |
+> | `DECISIONS.md` | Every decision D7–D155 and what was rejected |
 > | `GOTCHAS.md` | Traps that have already cost a session |
 > | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 > | `ARCHIVE.md` | Bodies of consumed phases, decisions and old rationale |
 
-## TL;DR (2026-09-01 · **v1.5.6** live · `ce85e82` · D153 shipped, D154 designed, phase K queued)
+## TL;DR (2026-09-01 · **v1.5.7** built · D154 phase **K1 SHIPPED**; K2–K4 next)
 
 - **v1.5.6 · D153 — the app follows the 5etools repo itself.** "Fetch 5etools data online"
-  (Library → Manage) pulls the current release via the jsDelivr CDN — file list from the
+  (now the Library's **Update data**) pulls the current release via the jsDelivr CDN — file list from the
   GitHub tree API, filtered through the REAL `zipWanted()` — into the same staging as a
   dropped zip; on Apply the release is recorded and a boot check offers each new one
   (dismissible per release, silent offline). The repo address is editable (mirror orgs
   rotate). A file failure is FATAL and owns the report (seen live: jsDelivr 403'd one file
   mid-burst and the worker fleet painted progress over the error — `dead` flag now).
   Pushed, LIVE, and already used: Francesco re-imported his 44 books with it.
-- **D154 — the Library REDESIGNED, build not started.** Five AskUserQuestion rounds with
+- **v1.5.7 · K1 — the Library is ONE page, built and verified.** Tabs gone; status strip
+  (books · 5etools version · parser · storage, accent-bordered when a release is out) owns
+  the web fetch; G1 edition groups of R3 two-line rows (select-checkbox · name over kind
+  counts · origin chip · enable switch, off = dimmed, no badge); the checkbox means SELECT
+  and raises the selection bar, which holds the only Remove there is; footer **＋ Add files**
+  (zip · JSON · folder · paste); the drop zone and drag-drop are gone. Removal proved singly
+  and in bulk against his real 44-book digest and RESTORED byte-identical; 0 of 44 chips
+  misaligned at 1280 and 375 in both themes; gate clean, cparity 51 ok / 0 fail.
+  **D155 records the five calls D154 left open** — one Add-files button not the mockup's
+  split, the repo address in Actions, the keep-plan staged-only until K2, the pinned flex
+  column, and the per-book origin stamp with its migration rule (timestamp-matching was
+  tried and is wrong).
+- **D154 — the Library REDESIGN, the spec K1 built against.** Five AskUserQuestion rounds with
   real-stylesheet mockups (`scratchpad/mockups/library4.html` is the approved final;
   `mklib{,2,3,4}.py` regenerate). One page, no tabs; status strip owns **Update data**;
   R3 two-line rows (select-checkbox · kind counts · origin chip · enable switch, off =
@@ -34,8 +46,10 @@
   cross-contamination. **D154 owns every call and every rejected option.**
 - The phase-J method lesson held again: he took B over the recommended A, and the
   selection bar over the recommended storage mode — **mock it, lead with his reading.**
-- **Next action: phase K, K1 first** (the one-page shell) — task lines in PLAN, D154 is
-  the spec. Not gated; starts when Francesco opens a build session for it.
+- **Next action: K2** (the pending-import tray — restyle what is left of `#importPlan`
+  into chips + new-book ticks + Discard / Add N books). Then K3 (raw-stash + web refetch,
+  the model half) and K4 (retire the old machinery). Task lines in PLAN; D154 is the spec.
+  Not gated. **v1.5.7 is built and committed but NOT pushed** — say so before deploying.
 - **Manual for Francesco:** ① the four ⚑ copy/model calls in PLAN — the `…`-placeholder
   family; the chain rail's CSS `· optional` (styles.css:1822); `sbFav` edition tolerance;
   the orphaned ability-score note. ② D125's clamp now covers the trade (⚑, fix written
@@ -75,9 +89,9 @@ moved to `ARCHIVE.md` — every one leaving a stub, every `*Rejected:*` clause k
 
 Phase J's own task bodies are still live in `PLAN.md` (ticked, with the original notes kept
 under each). They are the natural next thing to archive — worth a `/clean` once the flags
-below are answered, not before. **Phase K (the Library rebuild, D154) is queued in PLAN**
-with tasks K1–K4; nothing of it is built.
+below are answered, not before. **Phase K (the Library rebuild, D154) is OPEN**: K1 is
+shipped in v1.5.7, K2–K4 are queued in PLAN.
 
-⟳ Rename previous session → "Web sync and the Library redesign"  · session: resolve by
+⟳ Rename previous session → "The Library rebuild — phase K"  · session: resolve by
 cwd + latest
 

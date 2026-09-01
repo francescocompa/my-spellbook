@@ -5250,13 +5250,12 @@ async function webSync(){
   }catch(e){rep.innerHTML="Couldn’t fetch from 5etools online: "+esc(e.message||String(e));}
   finally{WEB_BUSY=false; if(btn){btn.disabled=false;btn.classList.remove("busy");} webSyncSub();}
 }
-// the row's status: what you have, and where a non-default fetch would come from
-function webSyncSub(){const s=$("#webSyncSub"); if(!s)return;
-  const rec=webSyncRec(), repo=webRepo(), bits=[];
-  if(rec&&rec.version)bits.push("you have v"+rec.version
-    +(rec.syncedAt?" · fetched "+new Date(rec.syncedAt).toLocaleDateString():""));
-  if(repo!==WEB_REPO_DEFAULT)bits.push("from "+repo);
-  s.textContent=bits.join(" · ");}
+// D154(b): what you have and where a non-default fetch would come from used to be its own
+// line beside the button; it is one clause of the status strip now.
+function webSyncSub(){renderLibStatus();}
+// the latest release the boot check saw, so the strip can say "v2.35.0 is out" without
+// asking the network again. Null until that check has run (or when it found nothing newer).
+let WEB_LATEST=null;
 // boot: is the repo ahead of the last applied fetch? Quiet unless the answer is yes —
 // offline, CDN down, never fetched, or already dismissed for that version all say nothing.
 async function webUpdateNotice(){
@@ -5264,12 +5263,13 @@ async function webUpdateNotice(){
   if(navigator.onLine===false)return;
   let latest=null;
   try{latest=await webResolve(rec.repo||webRepo());}catch(_){return;}
+  WEB_LATEST=latest;
   if(!latest||!verLt(rec.version,latest))return;
   let seen=null; try{seen=localStorage.getItem(LS_WEB_NAG);}catch(_){}
   if(seen===latest)return;
   const n=appNotice("5etools has newer data — v"+latest+" is out; you have v"+rec.version+".","ask");
   const b=el("button","anact","Fetch it now");
-  b.onclick=()=>{n.remove();openImport(false,"man");webSync();};
+  b.onclick=()=>{n.remove();openImport(false);webSync();};
   n.insertBefore(b,n.querySelector(".anx"));
   const x=n.querySelector(".anx");
   if(x)x.addEventListener("click",()=>{try{localStorage.setItem(LS_WEB_NAG,latest);}catch(_){}});
@@ -5345,7 +5345,8 @@ function filterDigest(d,keep){
     // the CURRENT version — so a partial refresh read as "all current" again, the exact
     // false success D138(a) closed. applyPlan overwrites these for the books it re-parsed.
     if(was.parser)out.sources[src].parser=was.parser;
-    if(was.parsedAt)out.sources[src].parsedAt=was.parsedAt;});
+    if(was.parsedAt)out.sources[src].parsedAt=was.parsedAt;
+    if(was.origin)out.sources[src].origin=was.origin;});
   return out;
 }
 const digestSize=d=>DIGEST_ARRAYS.reduce((n,a)=>n+((d[a]||[]).length),0);
@@ -5396,7 +5397,12 @@ function renderImportPlan(){
   const box=$("#importPlan"); if(!box)return;
   if(!PLAN)planFromStage(null,null);
   const map=libMap();
-  if(!Object.keys(map).length){box.classList.add("hidden");renderImportPlanFoot();return;}
+  // D154(h): the keep-plan is a PENDING-IMPORT surface now — it exists only while something
+  // is staged or a folder scan is offering books. At rest it used to stand permanently at
+  // the top of the Manage tab restating the list you were already looking at; on one page
+  // that is the whole modal. (K2 restyles what is left of it into the tray proper.)
+  const staged=IMPORT_STAGE.length||(SCAN&&Object.keys(SCAN.books||{}).length);
+  if(!staged||!Object.keys(map).length){box.classList.add("hidden");renderImportPlanFoot();return;}
   box.classList.remove("hidden");
   const shown=planShown(map);
   // the diagnosis→remedy seam (2026-08-31): the books the last refresh could not re-read
@@ -5648,9 +5654,13 @@ async function applyPlan(rep,refreshed){
   // parser THIS time get the new stamp; every other source keeps the one it had.
   const now=new Date().toISOString(), pv=window.__VERSION__||"dev";
   out.meta=Object.assign({},out.meta,{importedAt:now,parser:pv});
+  // D154(d): a book's ORIGIN is stamped at the same moment its parser is — the origin chip
+  // has to survive a re-parse, and this is the only place that knows which door it came in.
+  // WEB_PENDING is still set here; it is cleared a few lines down, after the write lands.
+  const org=WEB_PENDING?"web":"file";
   const parsed=Object.keys(((PLAN.incoming||{}).sources)||{});
   parsed.forEach(c=>{ if(out.sources[c])out.sources[c]=Object.assign({},out.sources[c],
-    {parser:pv,parsedAt:now}); });
+    {parser:pv,parsedAt:now,origin:org}); });
   const btn=$("#importApply"); if(btn)btn.disabled=true;
   rep.textContent="Storing…";
   const err=await importSave(out);
@@ -5670,8 +5680,7 @@ async function applyPlan(rep,refreshed){
   assembleData();pruneState();
   IMPORT_STAGE=[];renderImportStage();
   planFromStage(null,PLAN.report); renderImportPlan();
-  refreshAll();render();renderLibFoot();
-  $("#libTabSrc").classList.toggle("hidden",!hasContent());   // onboarding hid it; content is here now
+  refreshAll();render();renderLibStatus();renderLibList();
   const nb=Object.keys(out.sources).length;
   const head=refreshed?`Re-imported ${nb} book${nb===1?"":"s"} with parser v${window.__VERSION__||"dev"}.`
     :`<b style="color:var(--good)">Applied.</b> ${nb} book${nb===1?"":"s"} ·`;
@@ -5703,7 +5712,7 @@ function btnText(b,txt){ if(!b)return;
   b.append(document.createTextNode(txt)); }
 // both refresh buttons reflect the one busy flag: whichever started it, neither can start a second
 function refreshButtons(){
-  [$("#refreshBtn"),$("#importRefresh")].forEach(b=>{ if(!b)return;
+  [$("#refreshBtn")].forEach(b=>{ if(!b)return;
     b.disabled=REFRESH_BUSY;
     b.classList.toggle("busy",REFRESH_BUSY);
     btnText(b,REFRESH_BUSY?"Refreshing…":"Refresh imported data"); });
@@ -5733,7 +5742,7 @@ function refreshFail(msg){ refreshStop();
   if(!RMODAL)appNotice(msg,""); }
 // the modal is the surface that can actually fix this one — say why it opened, in both places
 function refreshAsk(report,notice){ refreshStop();
-  if(RMODAL){setLibTab("man");renderImportPlan();}   // re-render: the miss marks may have changed
+  if(RMODAL)renderImportPlan();   // re-render: the miss marks may have changed
   else openImport(false,"man");                      // openImport closes the ⋯ menu (and renders the plan)
   const rep=$("#importReport"); if(rep)rep.innerHTML=report;
   if(!RMODAL)appNotice(notice,"ask"); }
@@ -5803,7 +5812,7 @@ async function refreshImported(fromModal){
     // to the remedy (Manage's drop zone / folder chooser), not end at the diagnosis.
     const missCodes=stored.filter(c=>!SCAN.books[c]);
     refreshMissRemember(missCodes);
-    renderLibFoot();   // applyPlan painted #libParser before the miss memory changed
+    renderLibStatus();   // applyPlan painted the strip before the miss memory changed
     const head="Re-imported "+nBooks(n)+" with parser v"+(window.__VERSION__||"dev")+".";
     if(!missCodes.length)return refreshDone(head);
     const names=missCodes.slice(0,3).map(bookName).join(", ")
@@ -5892,63 +5901,52 @@ function staleParserNotice(){
   const x=n.querySelector(".anx");
   if(x)x.addEventListener("click",()=>{try{localStorage.setItem(LS_PARSER_NAG,app);}catch(_){}});
 }
-let LIB_TAB="src";
-function setLibTab(t){LIB_TAB=t;
-  $("#libTabSrc").classList.toggle("on",t==="src");
-  $("#libTabMan").classList.toggle("on",t==="man");
-  $("#libSrcPane").classList.toggle("hidden",t!=="src");
-  $("#libManPane").classList.toggle("hidden",t!=="man");
-  if(t==="src")renderLibSources(); else renderLibFoot();
-}
+// D154(a): ONE page. The Sources|Manage tabs are gone, so `tab` is accepted and ignored —
+// every caller that used to ask for "man" now gets the same page everyone else gets.
 function openImport(welcome,tab){closeMenu();const r=$("#importReport");
-  if(r)r.textContent=IMPORTED?"Adding files ADDS to what you have — only identical entries are replaced.":"";
+  if(r)r.textContent="";
   const w=$("#importWelcome");if(w)w.classList.toggle("hidden",!welcome);
-  // no content yet → the Sources tab has nothing to toggle; open straight into Manage
-  const bare=!hasContent();
-  $("#libTabSrc").classList.toggle("hidden",bare);
-  setLibTab(bare?"man":(tab||(welcome?"man":"src")));
+  LIB_SEL.clear();
   planFromStage(null,null); renderImportPlan();
-  renderImportStage(); renderLibFoot(); webSyncSub();
+  renderImportStage(); renderLibStatus(); renderLibList();
   $("#importModal").classList.remove("hidden");
-  // A remembered folder is recalled SILENTLY — `false` means never prompt for permission here,
-  // because a permission request outside a user gesture is refused anyway. The Rescan button
-  // asks for real when it is clicked.
+  // A remembered folder is recalled SILENTLY — `false` means never prompt for permission
+  // here, because a permission request outside a user gesture is refused anyway. The folder
+  // is an INPUT now (D154(g) retired Rescan/Forget), so nothing is said about it either way.
   folderButtons();
   if(FSA()&&!FOLDER)folderRecall().then(async h=>{
-    if(h&&await folderUsable(h,false)){FOLDER=h;folderButtons();}
-    else if(h){FOLDER=h;folderButtons();          // known but not yet granted — Rescan will ask
-      const p=$("#folderProgress"); if(p&&!p.textContent)p.textContent="Folder remembered — press “Rescan folder” to re-open it.";}
-  });}
-// the Manage footer: storage total (D112) and the last-import stamp (D111)
-function renderLibFoot(){
-  const st=$("#libStore"); if(!st)return;
+    if(h){FOLDER=h;folderButtons();}
+  }).catch(()=>{});}
+// D154(b): the status strip — one line at the top of the page. It absorbed the Manage
+// footer's storage total (D112), the last-import stamp (D111), D138's per-book parser count
+// and D153's fetch state, which were four separate surfaces saying four fragments of the
+// same answer: what have I got, is it current, and what is it costing me.
+function renderLibStatus(){
+  const line=$("#libStatLine"); if(!line)return;
   const meta=(IMPORTED&&IMPORTED.meta)||{};
-  // nothing imported → nothing to remove; the danger row earns its place only when real
-  const wipe=$("#importWipe"); if(wipe)wipe.classList.toggle("hidden",!IMPORTED);
-  const stamp=$("#importRefresh");
-  if(stamp){const when=meta.importedAt?new Date(meta.importedAt).toLocaleDateString():null;
-    stamp.title=when?`Last import ${when} · parser v${meta.parser||"?"}`:"Nothing imported yet";}
-  st.textContent="";
-  // D138: the parser stamp was reachable only by hovering a button, which is no use when
-  // the question being asked is "why is my data still wrong". It is a visible line now,
-  // and it counts the books that are actually behind rather than trusting one stamp.
-  const behind=staleBooks(), nsrc=Object.keys((IMPORTED&&IMPORTED.sources)||{}).length;
-  const line=$("#libParser");
-  if(line){ line.classList.toggle("hidden",!IMPORTED);
-    if(IMPORTED){ line.classList.toggle("stale",!!behind.length);
-      // a book the folder cannot provide is not healed by Refresh — say which remedy applies
-      const miss=refreshMissed();
-      line.textContent=behind.length
-        ? `${behind.length} of ${nsrc} book${nsrc===1?"":"s"} still read by an older parser — `
-          +(miss.length&&miss.length===behind.length
-              ?`the linked folder doesn’t hold ${miss.length===1?"it; drop the file above":"them; drop the files above"}`
-              :miss.length?`Refresh re-reads them (${nBooks(miss.length)} not in the folder — re-add above)`
-              :"Refresh re-reads them")
-        : `all ${nsrc} book${nsrc===1?"":"s"} read by parser v${meta.parser||"?"}`; } }
+  const nsrc=Object.keys(DATA.sources||{}).length;
+  const rec=webSyncRec(), repo=webRepo();
+  const stale=!!(rec&&rec.version&&WEB_LATEST&&verLt(rec.version,WEB_LATEST));
+  const bits=[`<b>${nsrc} book${nsrc===1?"":"s"}</b>`];
+  if(rec&&rec.version)bits.push(stale
+    ? `5etools <b>v${esc(WEB_LATEST)} is out</b> — you have v${esc(rec.version)}`
+    : `5etools v${esc(rec.version)}`);
+  else bits.push(IMPORTED?"imported by hand":"built-in books only");
+  if(repo!==WEB_REPO_DEFAULT)bits.push("from "+esc(repo));
+  // D138: the books actually behind a parser, counted — not one digest-wide stamp that
+  // claims the whole library is current when most of it was never re-read.
+  const behind=IMPORTED?staleBooks():[];
+  if(behind.length)bits.push(`<b>${behind.length} read by an older parser</b>`);
+  else if(IMPORTED&&meta.parser)bits.push("parser v"+esc(meta.parser));
+  bits.push('<span id="libStatStore"></span>');
+  line.innerHTML=bits.join(" · ");
+  const box=$("#libStatus"); if(box)box.classList.toggle("libstale",stale);
+  const b=$("#webSyncBtn"); if(b)b.classList.toggle("on",stale);
   if(navigator.storage&&navigator.storage.estimate)
     navigator.storage.estimate().then(e=>{ if(!e||!e.usage)return;
+      const st=$("#libStatStore"); if(!st)return;
       const mb=e.usage/1048576;
-      st.textContent=`imported data ≈ ${mb<1?"<1":Math.round(mb)} MB in this browser`;}).catch(()=>{});
+      st.textContent=`≈ ${mb<1?"<1":Math.round(mb)} MB in this browser`;}).catch(()=>{});
 }
 async function clearImport(){await importDrop();assembleData();pruneState();refreshAll();render();}
 // no-content build (public deploy): pop the import modal in welcome mode, once
@@ -9240,17 +9238,141 @@ function srcQuick(sel,onChange,codes){
           none:()=>{pool.forEach(c=>sel.delete(c));onChange();},
           core:()=>{pool.forEach(c=>sel.delete(c));CORE_2024.filter(has).forEach(c=>sel.add(c));onChange();}};
 }
-// D113: the Library's Sources tab — the old Sources modal with a search field
+// ── the Library page: one list of books (D154) ─────────────────────────────
+// R3 rows, two lines each: select-checkbox · name over kind counts · origin chip · enable
+// switch. Two things changed meaning here and both are load-bearing:
+//   • the CHECKBOX selects (D154(e)); it used to BE the enabled state,
+//   • the SWITCH is enabled, and a disabled book DIMS rather than wearing an "off" badge
+//     (D154(c) — a badge that only repeats the switch beside it says nothing).
+// This is deliberately NOT `renderSourceChecklist`: that component is shared with every
+// picker's book override (D83) and there a tick still means enabled. One row shape per
+// meaning beats one component with a mode flag.
 let SRC_Q="";
-function renderLibSources(){
-  const total=Object.keys(DATA.sources).length;
+const LIB_SEL=new Set();          // selected codes — a view thing, never saved
+// Where a book came from. Stamped per book at apply time from this version on. A digest
+// imported BEFORE that carries no stamp, so those books are read from what the library as a
+// whole knows: a book only the bundle carries is built-in, and an unstamped imported one is
+// web if a fetch was ever applied here, file otherwise. That last clause is a one-release
+// window — it only speaks for books stored before the stamp existed, and every re-import
+// retires another of them. Matching timestamps was tried and is WRONG: a second Apply moves
+// `meta.importedAt` past the fetch record and made a whole web-fetched library read "file".
+function bookOrigin(code){
+  const s=((IMPORTED&&IMPORTED.sources)||{})[code];
+  if(!s)return "baked";
+  if(s.origin)return s.origin;
+  const rec=webSyncRec();
+  return (rec&&rec.version)?"web":"file";
+}
+const ORIGIN_LABEL={web:"web",file:"file",baked:"built-in"};
+// "172 spells · 31 subclasses" — what the book actually brought, not one number
+function libKinds(s){
+  const c=s.counts||{}, bits=[];
+  const add=(n,one,many)=>{if(n)bits.push(n+" "+(n===1?one:many));};
+  add(c.spells,"spell","spells"); add(c.classes,"class","classes");
+  add(c.subclasses,"subclass","subclasses"); add(c.feats,"feat","feats");
+  add(c.species,"species","species");
+  return bits.join(" · ")||"no content";
+}
+function libRow(code,s){
+  const on=SRC.has(code), sel=LIB_SEL.has(code), name=s.name||code;
+  const row=el("div","libsrow"+(sel?" libsel":"")+(on?"":" libdim"));
+  const cb=el("input");cb.type="checkbox";cb.checked=sel;
+  cb.setAttribute("aria-label","Select "+name);
+  const pick=v=>{v?LIB_SEL.add(code):LIB_SEL.delete(code);
+    cb.checked=v;row.classList.toggle("libsel",v);renderLibSelBar();};
+  cb.onchange=()=>pick(cb.checked);
+  row.append(cb);
+  const main=el("span","libmain");
+  main.append(el("span","libnm",name));
+  main.append(el("small","libkinds",libKinds(s)));
+  row.append(main);
+  const o=bookOrigin(code);
+  row.append(el("span","libchip libo-"+o,ORIGIN_LABEL[o]));
+  // a real <button role=switch>, so the row can stay a <div>: a <label> wrapper would make
+  // every click on the switch toggle the checkbox as well
+  const sw=el("button","swk"+(on?"":" swoff"));
+  sw.type="button";sw.setAttribute("role","switch");
+  sw.setAttribute("aria-checked",String(on));sw.setAttribute("aria-label",name+" enabled");
+  sw.onclick=e=>{e.stopPropagation();
+    if(on)SRC.delete(code); else SRC.add(code);
+    afterSourceChange();};
+  row.append(sw);
+  // the checkbox is 14px; the row body is the honest hit target for selecting
+  row.onclick=e=>{if(e.target===cb||e.target===sw||sw.contains(e.target))return;
+    pick(!LIB_SEL.has(code));};
+  return row;
+}
+function renderLibList(){
+  const wrap=$("#srcList"); if(!wrap)return;
   const q=SRC_Q.trim().toLowerCase();
-  const codes=q?new Set(Object.keys(DATA.sources).filter(c=>c.toLowerCase().includes(q)
-    ||String((DATA.sources[c]||{}).name||"").toLowerCase().includes(q))):null;
-  const list=$("#srcList");
-  const n=renderSourceChecklist(list,SRC,afterSourceChange,codes);
-  if(!n){list.innerHTML="";list.append(el("div","empty","No book matches that."));}
-  $("#srcSub").textContent=`${SRC.size} of ${total} enabled`;
+  const all=Object.entries(DATA.sources).filter(([code,s])=>!q
+    ||code.toLowerCase().includes(q)||String(s.name||"").toLowerCase().includes(q));
+  wrap.innerHTML="";
+  if(!all.length){wrap.append(el("div","empty",
+    Object.keys(DATA.sources).length?"No book matches that.":"No books yet — add some below."));
+    renderLibSelBar();return;}
+  const byGroup={};
+  all.forEach(([code,s])=>{const g=srcGroupOf(code,s);(byGroup[g]=byGroup[g]||[]).push([code,s]);});
+  Object.keys(byGroup)
+    .sort((a,b)=>{const ia=GROUP_ORDER.indexOf(a),ib=GROUP_ORDER.indexOf(b);
+      return (ia<0?9:ia)-(ib<0?9:ib);})
+    .forEach(g=>{const gd=el("div","srcgroup");
+      gd.append(el("h4",null,GROUP_NAME[g]||g));
+      const list=el("div","srclist libone");
+      byGroup[g].sort((a,b)=>(((b[1].counts||{}).spells)||0)-(((a[1].counts||{}).spells)||0))
+        .forEach(([code,sc])=>list.append(libRow(code,sc)));
+      gd.append(list);wrap.append(gd);});
+  renderLibSelBar();
+}
+// D154(e): the bar exists only while something is selected. Removal lives here and nowhere
+// else — there is no standing red button any more (D154(i)).
+function renderLibSelBar(){
+  const bar=$("#libSelBar"); if(!bar)return;
+  // a selection can outlive the book it named — a removal, or a source list rebuilt
+  [...LIB_SEL].forEach(c=>{if(!DATA.sources[c])LIB_SEL.delete(c);});
+  const n=LIB_SEL.size;
+  bar.classList.toggle("hidden",!n);
+  if(!n)return;
+  const cnt=$("#libSelCount"); if(cnt)cnt.textContent=n+" selected";
+  const allOn=[...LIB_SEL].every(c=>SRC.has(c));
+  const sw=$("#libSelSw"); if(sw)sw.classList.toggle("swoff",!allOn);
+  const lab=$("#libSelSwLab");
+  if(lab){lab.setAttribute("aria-checked",String(allOn));
+    lab.title=allOn?"Disable the selected books":"Enable the selected books";}
+  // a baked book has nothing stored to delete, so it is not removable — say the real number
+  const rm=$("#libSelRemove");
+  const nrm=[...LIB_SEL].filter(c=>((IMPORTED&&IMPORTED.sources)||{})[c]).length;
+  if(rm&&!rm.classList.contains("armed")){
+    rm.disabled=!nrm; rm.textContent=nrm===n?"Remove":"Remove "+nrm;}
+}
+// The one destructive path (D154(i)). It is the old "Remove imported data" too: select every
+// imported book and this drops the digest outright. D42 still holds — a build's picks are
+// FLAGGED when their book goes, never deleted.
+async function removeBooks(codes){
+  if(REFRESH_BUSY||SCAN_BUSY)return;
+  const rep=$("#importReport");
+  const stored=Object.keys((IMPORTED&&IMPORTED.sources)||{});
+  const gone=stored.filter(c=>codes.has(c));
+  if(!gone.length)return;
+  cancelBuild();
+  const keep=new Set(stored.filter(c=>!codes.has(c)));
+  let err=null;
+  if(!keep.size)await importDrop();
+  else err=await importSave(filterDigest(IMPORTED,keep));
+  if(err){rep.textContent=err;return;}
+  gone.forEach(c=>LIB_SEL.delete(c));
+  assembleData();
+  // the removed book leaves the enabled set with it — but only once the reassembly has
+  // said whether anything still provides it. Asking BAKED directly is not the same
+  // question: assembleData picks the imported digest OVER the bundle rather than merging
+  // them, so a book the bundle also carries still vanishes from DATA.sources.
+  gone.forEach(c=>{if(!DATA.sources[c])SRC.delete(c);});
+  SRC.add(HB_SRC); saveSources();
+  pruneState();
+  planFromStage(null,null);renderImportPlan();
+  refreshAll();render();renderLibStatus();renderLibList();
+  rep.textContent=`Removed ${nBooks(gone.length)}. Builds and homebrew are untouched;`
+    +" picks from removed books are kept and flagged.";
 }
 function afterSourceChange(){
   // T2: turning a book OFF no longer strips what it gave you. Picks are kept and flagged by
@@ -9259,7 +9381,7 @@ function afterSourceChange(){
   // a newly enabled book must not stay invisible behind a stale filter override
   if(state.filters.books)SRC.forEach(c=>state.filters.books.add(c));
   saveSources(); save();               // sources are global; the build records what it saw
-  refreshAll();renderLibSources();render();
+  refreshAll();renderLibList();render();
 }
 function refreshAll(){CASTMODS=activeCastMods();refreshSpecies();refreshAddFeat();renderClassRows();renderFeatChips();renderOptFeats();renderFormPins();renderCustomSources();}
 
@@ -9367,84 +9489,59 @@ $("#libBtn").onclick=()=>openImport(false);
 // the ⋯ menu runs it inline and reports into the notice bar; the Library's own button reports
 // in place (D129) — one pipeline, two surfaces, told apart by this flag alone
 $("#refreshBtn").onclick=()=>refreshImported(false);
-$("#importRefresh").onclick=()=>refreshImported(true);
-// the one "back to bundled" path (closes ARCHIVE's standing ⚑, and it is now also the
-// manual recovery for a digest the boot guard set aside). armed, never a native confirm (D53)
-armConfirm($("#importWipe"),null,async()=>{
-  await clearImport();
-  IMPORT_STAGE=[]; cancelBuild(); WEB_PENDING=null;
-  planFromStage(null,null); renderImportPlan(); renderImportStage(); renderLibFoot();
-  const rep=$("#importReport");
-  if(rep)rep.textContent="Imported data removed — the app is back on its built-in books. Builds and homebrew are untouched; picks from removed books are kept and flagged.";
-});
-$("#libTabSrc").onclick=()=>setLibTab("src");
-$("#libTabMan").onclick=()=>setLibTab("man");
-$("#libSrcSearch").oninput=e=>{SRC_Q=e.target.value;renderLibSources();};
+// D154(a): the Library's search and its Actions menu — enable/disable act on every book the
+// search is showing you, select likewise, so "Select shown" is not a second search.
+$("#libSrcSearch").oninput=e=>{SRC_Q=e.target.value;renderLibList();};
 $("#srcActBtn").onclick=e=>{e.stopPropagation();toggleMenu("#srcActPop");};
+// the codes currently rendered — every Actions verb is scoped to them, never to the whole
+// library behind a filter that is hiding most of it
+function libShown(){
+  const q=SRC_Q.trim().toLowerCase();
+  return Object.keys(DATA.sources).filter(c=>!q
+    ||c.toLowerCase().includes(q)
+    ||String((DATA.sources[c]||{}).name||"").toLowerCase().includes(q));
+}
 {const q=()=>srcQuick(SRC,afterSourceChange);
  $("#srcAll").onclick=()=>{closeMenu();q().all();};
- $("#srcNone").onclick=()=>{closeMenu();q().none();};}
-$("#pasteTog").onclick=()=>{const b=$("#pasteBox"),open=b.classList.toggle("hidden");
-  $("#pasteTog").setAttribute("aria-expanded",String(!open));
-  if(!open)$("#importPaste").focus();};
+ $("#srcNone").onclick=()=>{closeMenu();q().none();};
+ $("#srcSelAll").onclick=()=>{closeMenu();
+   Object.keys(DATA.sources).forEach(c=>LIB_SEL.add(c));renderLibList();};
+ $("#srcSelShown").onclick=()=>{closeMenu();
+   libShown().forEach(c=>LIB_SEL.add(c));renderLibList();};}
+// D154(e): the selection bar — Clear, one switch for the lot, and the only Remove there is
+$("#libSelClear").onclick=()=>{LIB_SEL.clear();renderLibList();};
+$("#libSelSwLab").onclick=()=>{
+  const on=[...LIB_SEL].every(c=>SRC.has(c));
+  LIB_SEL.forEach(c=>{if(on)SRC.delete(c); else SRC.add(c);});
+  afterSourceChange();};
+armConfirm($("#libSelRemove"),null,()=>removeBooks(new Set(LIB_SEL)));
+$("#pasteTog").onclick=e=>{e.stopPropagation();closeMenu();
+  const b=$("#pasteBox"),open=!b.classList.toggle("hidden");
+  if(open)$("#importPaste").focus();};
 $("#importClose").onclick=()=>$("#importModal").classList.add("hidden");
+$("#importCloseFoot").onclick=()=>$("#importModal").classList.add("hidden");
 $("#importModal").onclick=e=>{if(e.target.id==="importModal")$("#importModal").classList.add("hidden");};
-$("#importPick").onclick=e=>{e.stopPropagation();$("#importFiles").click();};
+// D154(f): acquisition is the footer's one popover. The permanent drop zone died with the
+// Manage tab, and drop-anywhere was offered and NOT taken — so there is no drag target left.
+$("#addFilesBtn").onclick=e=>{e.stopPropagation();toggleMenu("#addFilesPop");};
+$("#importPickZip").onclick=e=>{e.stopPropagation();closeMenu();
+  $("#importFiles").setAttribute("accept",".zip,application/zip");$("#importFiles").click();};
+$("#importPick").onclick=e=>{e.stopPropagation();closeMenu();
+  $("#importFiles").setAttribute("accept",".json,application/json");$("#importFiles").click();};
 $("#importFiles").onchange=e=>{stageFiles(e.target.files);e.target.value="";};
-// D112: ONE drop zone. A .zip or JSON files stage; a dragged FOLDER scans — in Chrome it
-// yields the same rememberable handle the picker gives (so Refresh works from a drop), and
-// elsewhere webkitGetAsEntry walks it for this session.
-{const drop=$("#importDrop");
- drop.ondragover=e=>{e.preventDefault();drop.classList.add("drag");};
- drop.ondragleave=()=>drop.classList.remove("drag");
- drop.ondrop=e=>{e.preventDefault();drop.classList.remove("drag");
-   const items=[...((e.dataTransfer&&e.dataTransfer.items)||[])].filter(i=>i.kind==="file");
-   if(items.length&&items[0].getAsFileSystemHandle){
-     // handles must be requested synchronously, before the DataTransfer goes stale
-     const hps=items.map(i=>i.getAsFileSystemHandle());
-     (async()=>{
-       const hs=(await Promise.all(hps)).filter(Boolean);
-       const files=await Promise.all(hs.filter(h=>h.kind==="file").map(h=>h.getFile()));
-       if(files.length)stageFiles(files);
-       for(const d of hs.filter(h=>h.kind==="directory"))await scanHandle(d,true);
-     })().catch(err=>{$("#importReport").textContent="Couldn’t read that drop: "+(err.message||err);});
-     return;}
-   if(items.length&&items[0].webkitGetAsEntry){
-     const entries=items.map(i=>i.webkitGetAsEntry()).filter(Boolean);
-     const dirs=entries.filter(en=>en&&en.isDirectory);
-     if(dirs.length){
-       (async()=>{
-         const out=[];
-         for(const d of dirs)await entryWalk(d,"",out);
-         await scanEntries(out,dirs[0].name||"folder");
-       })().catch(err=>{$("#importReport").textContent="Couldn’t read that folder: "+(err.message||err);});
-       const loose=[...e.dataTransfer.files].filter((_,i)=>entries[i]&&!entries[i].isDirectory);
-       if(loose.length)stageFiles(loose);
-       return;}}
-   stageFiles(e.dataTransfer.files);};}
-// the webkitGetAsEntry walker: same {path,getFile} shape as folderEntries, same skips
-async function entryWalk(entry,base,out){
-  if(!entry||entry.name==="_img"||entry.name.charAt(0)===".")return;
-  if(entry.isFile){
-    if(/\.json$/i.test(entry.name))
-      out.push({path:base+entry.name,getFile:()=>new Promise((res,rej)=>entry.file(res,rej))});
-    return;}
-  if(entry.isDirectory){
-    const readAll=dir=>new Promise(res=>{const r=dir.createReader();const acc=[];
-      const step=()=>r.readEntries(es=>{if(!es.length)return res(acc);acc.push(...es);step();});step();});
-    const kids=await readAll(entry);
-    for(const k of kids)await entryWalk(k,base+entry.name+"/",out);}
-}
 $("#importPasteAdd").onclick=()=>{const t=$("#importPaste").value.trim();if(!t)return;
   try{IMPORT_STAGE.push({name:"pasted "+(IMPORT_STAGE.length+1),json:JSON.parse(t)});$("#importPaste").value="";$("#importReport").textContent="";renderImportStage();scheduleBuild();}
   catch(e){$("#importReport").textContent="Pasted text isn’t valid JSON.";}};
-$("#importClear").onclick=()=>{IMPORT_STAGE=[];cancelBuild();WEB_PENDING=null;renderImportStage();
-  planFromStage(null,null);renderImportPlan();$("#importReport").textContent="";};
+// the staged tray's Discard (K2 restyles it; the verb is the same one "Clear staged" was)
+armConfirm($("#importClear"),null,()=>{IMPORT_STAGE=[];cancelBuild();WEB_PENDING=null;renderImportStage();
+  planFromStage(null,null);renderImportPlan();$("#importReport").textContent="";});
 $("#importApply").onclick=applyImport;
 // D153: the online fetch and its editable repository address
 $("#webSyncBtn").onclick=()=>webSync();
-$("#webSrcTog").onclick=()=>{const b=$("#webSrcBox"),open=!b.classList.toggle("hidden");
-  $("#webSrcTog").setAttribute("aria-expanded",String(open));
+// D153's editable address is a rare setting, so it lives in Actions rather than beside a
+// button it is not part of
+$("#webSrcTog").onclick=e=>{e.stopPropagation();closeMenu();
+  const b=$("#webSrcBox"),open=!b.classList.toggle("hidden");
   if(open){const f=$("#webSrcRepo");f.value=webRepo()===WEB_REPO_DEFAULT?"":webRepo();f.focus();}};
 $("#webSrcRepo").onchange=e=>{const v=e.target.value.trim();
   try{if(!v||v===WEB_REPO_DEFAULT)localStorage.removeItem(LS_WEB_REPO);
@@ -9454,14 +9551,12 @@ $("#webSrcRepo").onchange=e=>{const v=e.target.value.trim();
 // ── folder scan wiring (D92) ───────────────────────────────────────────────────
 // Two ways in. showDirectoryPicker gives a handle we can REMEMBER between sessions; where it
 // doesn't exist (Safari, Firefox) a webkitdirectory input does the same scan for one session.
+// D154(g): Rescan and Forget are gone — the folder is an INPUT, not a link to maintain.
+// The handle is still remembered because `refreshImported` and `stageScanBooks` read it;
+// what left is the permission dance the user had to perform to keep it alive.
 function folderButtons(){
-  const remembered=!!FOLDER;
-  const r=$("#folderRescan"), f=$("#folderForget");
-  if(r)r.classList.toggle("hidden",!remembered);
-  if(f)f.classList.toggle("hidden",!remembered);
-  const p=$("#folderPick"); if(p)p.textContent=remembered?"choose another folder…":"choose folder…";
-  const sub=$("#folderSub");
-  if(sub)sub.textContent=remembered?(FOLDER.name||"remembered folder"):(FSA()?"":"one session at a time in this browser");
+  const p=$("#folderPick");
+  if(p)p.textContent=FOLDER?"Choose another folder…":"Choose a folder…";
 }
 async function scanHandle(h,remember){
   if(remember)await folderRemember(h);
@@ -9469,7 +9564,8 @@ async function scanHandle(h,remember){
   $("#folderProgress").textContent="Reading the folder…";
   await scanEntries(await folderEntries(h),h.name||"folder");
 }
-$("#folderPick").onclick=async()=>{
+$("#folderPick").onclick=async(e)=>{
+  e.stopPropagation();closeMenu();
   if(SCAN_BUSY||REFRESH_BUSY)return;   // a refresh owns the scan between its own busy windows
   if(!FSA()){$("#folderInput").click();return;}
   try{const h=await window.showDirectoryPicker({id:"spellbookLibrary",mode:"read"});
@@ -9477,21 +9573,6 @@ $("#folderPick").onclick=async()=>{
   catch(e){ if(e&&e.name==="AbortError")return;      // the user simply closed the picker
     $("#folderProgress").textContent="Couldn’t open that folder: "+(e.message||e);}
 };
-$("#folderRescan").onclick=async()=>{
-  if(SCAN_BUSY||REFRESH_BUSY)return;
-  const prog=$("#folderProgress");
-  // A remembered handle is not a granted one — permission dies with the session, and asking
-  // has to happen inside this click. If it's gone (moved, renamed, denied), say so and offer
-  // the picker rather than failing silently.
-  if(!FOLDER||!await folderUsable(FOLDER,true)){
-    prog.innerHTML="That folder isn’t reachable any more — choose it again.";
-    await folderForget(); folderButtons(); return;}
-  try{await scanHandle(FOLDER,false);}
-  catch(e){prog.textContent="Couldn’t read that folder: "+(e.message||e);
-    await folderForget(); folderButtons();}
-};
-$("#folderForget").onclick=async()=>{if(REFRESH_BUSY)return; await folderForget();SCAN=null;
-  $("#folderProgress").textContent="";renderImportPlan();folderButtons();};
 $("#folderInput").onchange=e=>{const l=e.target.files;
   if(l&&l.length)scanEntries(inputEntries(l),l[0].webkitRelativePath?l[0].webkitRelativePath.split("/")[0]:"folder");
   e.target.value="";};
@@ -9615,12 +9696,20 @@ armConfirm($("#resetBtn"),null,()=>{
 $("#themeBtn").onclick=()=>{const r=document.documentElement,cur=r.getAttribute("data-theme");r.setAttribute("data-theme",cur==="dark"?"light":cur==="light"?"dark":(matchMedia("(prefers-color-scheme:dark)").matches?"light":"dark"));closeMenu();};
 // overflow settings menu
 function closeMenu(except){document.querySelectorAll(".menupop").forEach(p=>{if(p!==except)p.classList.add("hidden");});
-  closeBswMenus();}   // the row menus are fixed-position, so they outlive their popover unless told
+  closeBswMenus();syncMenuAria();}   // the row menus are fixed-position, so they outlive their popover unless told
+// A button that says aria-expanded="false" while its menu is open is a lie to a screen
+// reader — and the Library's footer caret is drawn from that same attribute, so it is a lie
+// on screen too. One sweep keeps every haspopup button honest, wherever the menu was closed.
+function syncMenuAria(){
+  document.querySelectorAll(".menu>[aria-haspopup]").forEach(b=>{
+    const pop=b.parentElement.querySelector(".menupop");
+    if(pop)b.setAttribute("aria-expanded",String(!pop.classList.contains("hidden")));});
+}
 // `closeMenu` hides EVERY popover, this one included, so reopening is a SET, not a toggle —
 // toggling after it flipped an open menu straight back open, which is why the button that
 // opened a menu could never close it.
 function toggleMenu(pop){const el2=$(pop);const open=!el2.classList.contains("hidden");
-  closeMenu(); if(!open)el2.classList.remove("hidden");}
+  closeMenu(); if(!open)el2.classList.remove("hidden"); syncMenuAria();}
 $("#menuBtn").onclick=e=>{e.stopPropagation();toggleMenu("#menuPop");};
 // a fixed-position row menu does not travel with the list under it — close it instead
 $("#bswPop").addEventListener("scroll",closeBswMenus,true);   // capture: the scroller is .bswlist

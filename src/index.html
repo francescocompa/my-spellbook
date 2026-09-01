@@ -293,131 +293,129 @@
   </div>
 </div></div>
 
-<!-- D110: the Library — Sources (everyday on/off) and Manage (import, refresh, remove) as two
-     tabs of ONE modal. One door replaces the old Sources modal and Import modal. -->
+<!-- D154 (phase K): the Library is ONE page. The Sources|Manage tabs are gone — there is a
+     single books list, a status strip that owns the web fetch, a selection bar for removal,
+     and acquisition lives in the footer behind "＋ Add files". A row's checkbox now means
+     SELECT; the switch at its right edge means ENABLED. -->
 <div class="modal hidden" id="importModal"><div class="box">
   <div class="mh"><h2 id="importTitle">Library</h2><button class="helpbtn" data-help="importHelp" aria-expanded="false" aria-label="About the library"></button><button class="x ico" id="importClose" data-ico="x" aria-label="Close"></button></div>
-  <div class="libtabs" id="libTabs">
-    <button id="libTabSrc" class="on">Sources</button>
-    <button id="libTabMan">Manage</button>
-  </div>
   <div class="mb">
     <div class="helpbody hidden" id="importHelp">
-      <p><b>Sources</b> is what the planner uses: ticking a book on or off costs nothing and
-      deletes nothing. <b>Manage</b> is what is stored in this browser — importing, refreshing
-      and removing content live there.</p>
-      <p><b>No download needed:</b> Fetch 5etools data online pulls the current release
-      straight from the public 5etools repository into the same staging as a dropped zip —
-      tick books, Apply, done. The app checks for a newer release when it opens and offers a
-      re-fetch, so your data follows the repository. If the repository ever moves, its
-      address is editable under “Address…”.</p>
-      <p>Or load a 5etools <code>data</code> export yourself: drop the <b>.zip</b>, drop or
-      choose the unzipped <b>folder</b> (it is remembered, and powers Refresh), or stage
-      individual JSON files. Everything is parsed and stored in this browser — nothing is
-      uploaded.</p>
+      <p>This is every book the planner knows about. The <b>switch</b> on a row says whether
+      the planner uses that book — turning one off costs nothing and deletes nothing. The
+      <b>checkbox</b> selects rows so you can act on several at once; selecting anything
+      raises a bar with Remove in it. Removing is the only thing here that deletes.</p>
+      <p><b>Update data</b> pulls the current 5etools release straight from the public
+      repository — no download step. The app checks for a newer release when it opens. If the
+      repository ever moves, its address is editable under <b>Actions → 5etools address…</b>.</p>
+      <p>Or load a 5etools <code>data</code> export yourself from <b>＋ Add files</b>: the
+      <b>.zip</b>, the unzipped <b>folder</b>, individual JSON files, or pasted JSON.
+      Everything is parsed and stored in this browser — nothing is uploaded.</p>
       <p><b>Homebrew &amp; Unearthed Arcana work too.</b> Download any brew as JSON from the
       <a href="https://github.com/TheGiddyLimit/homebrew" target="_blank" rel="noopener">5etools homebrew repository</a>
       (D&amp;D Beyond drops live there), or UA from the
       <a href="https://github.com/TheGiddyLimit/unearthed-arcana" target="_blank" rel="noopener">prerelease repository</a>
       — around 60 KB each. A cloned repository also scans fine as a folder: it is filed by
       category (<code>spell/</code>, <code>class/</code>, <code>collection/</code>…), so one
-      brew's content scatters across folders, and the book list below is how you find it.
+      brew's content scatters across folders, and the list below is how you find it.
       <b>Not the repository's “Download ZIP”</b> — that is every brew plus artwork, gigabytes
       no browser tab can open.</p>
     </div>
-    <div id="libSrcPane">
-      <div class="prepnav" style="border:none;padding:0 0 8px">
-        <input type="search" id="libSrcSearch" placeholder="search books…" style="flex:1">
-        <div class="menu"><button class="btn" id="srcActBtn" aria-haspopup="true" aria-expanded="false">Actions</button>
-          <div class="menupop hidden" id="srcActPop">
-            <button id="srcAll">Enable all</button>
-            <button id="srcNone">Disable all</button>
-          </div></div>
+    <p class="importwelcome hidden" id="importWelcome">This planner ships without spell data. Load a 5etools <code>data</code> export to fill it with spells, classes, subclasses, feats and species. Everything is parsed and stored in your browser — nothing is uploaded.</p>
+
+    <!-- the staged flow. K2 replaces this block with the pending-import tray; the D86/D112
+         merge semantics underneath it are untouched either way. -->
+    <div id="importStaged" class="importstaged"></div>
+    <div id="importReport" class="note"></div>
+    <div id="importPlan" class="importplan hidden">
+      <div class="iph"><b>Your books</b><span class="sub" id="importPlanSub"></span>
+        <button class="helpbtn" data-help="planHelp" aria-expanded="false" aria-label="About this list"></button></div>
+      <div class="helpbody hidden" id="planHelp">
+        <p>A tick means <b>this book is in my data</b>. Unticking one you already have <b>removes
+        its content</b> from this browser — the only way to get the space back. A dimmed row is a
+        book the scanned folder offers that you haven't imported: tick it and Apply to pull it in.
+        Nothing is written until you press Apply, and Apply says how many books it would remove
+        before you do.</p>
+        <p>Your builds are never touched. A pick whose book is gone is flagged in the banner at the
+        top of the app, not deleted — re-import that book and it resolves again.</p>
       </div>
-      <p class="note" id="srcSub" style="margin:0 0 8px"></p>
-      <div id="srcList"></div>
-    </div>
-    <div id="libManPane" class="hidden">
-      <p class="importwelcome hidden" id="importWelcome">This planner ships without spell data. Load a 5etools <code>data</code> export to fill it with spells, classes, subclasses, feats and species. Everything is parsed and stored in your browser — nothing is uploaded.</p>
-      <!-- D153: the same staging as a dropped zip, fed straight from the public 5etools
-           repository over its CDN — no download step. Nothing is stored until Apply; the
-           address is editable because the mirror organisations rotate. -->
-      <div class="prepnav" style="border:none;padding:0 0 8px">
-        <button class="btn" id="webSyncBtn">Fetch 5etools data online</button>
-        <span class="sub" id="webSyncSub" style="color:var(--muted);font-size:12px"></span>
+      <p class="note hidden" id="importPlanNote" style="margin:0 0 8px;color:var(--gold)">Nothing
+        imported yet — applying puts the app's built-in books behind whatever you tick here.</p>
+      <p class="note hidden" id="importMissNote" style="margin:0 0 8px;color:var(--gold)"></p>
+      <div class="quick" id="importPlanQuick"></div>
+      <div id="importPlanList" class="importplanlist"></div>
+      <div class="prepnav" style="border:none;padding:8px 0 0">
         <span class="prepnav-sp"></span>
-        <button class="btn" id="webSrcTog" aria-expanded="false">Address…</button>
-      </div>
-      <div id="webSrcBox" class="hidden" style="margin:0 0 8px">
-        <label class="fld" style="display:block">GitHub repository
-          <input id="webSrcRepo" type="text" spellcheck="false" placeholder="5etools-mirror-3/5etools-src" style="width:100%">
-        </label>
-        <p class="note" style="margin:4px 0 0">The 5etools mirror moves every year or two — if
-          fetching stops working, put the new <code>owner/repository</code> here. Empty means
-          the default above.</p>
-      </div>
-      <!-- D112: ONE drop zone. A .zip, JSON files, or a whole dragged folder all land here;
-           the click path stays two verbs because the native dialogs differ. -->
-      <div class="importdrop" id="importDrop">
-        <input type="file" id="importFiles" accept=".json,.zip,application/json,application/zip" multiple hidden>
-        <input type="file" id="folderInput" webkitdirectory directory multiple hidden>
-        <span class="mi ico icobig" data-ico="download"></span>
-        <div><b>Drop a 5etools .zip, JSON files, or a whole folder</b><br>
-          <span style="color:var(--muted)"><u id="importPick">browse files…</u> · <u id="folderPick">choose folder…</u></span></div>
-      </div>
-      <div class="prepnav" style="border:none;padding:6px 0 0">
-        <span class="sub" id="folderSub" style="color:var(--muted);font-size:12px"></span>
-        <button class="btn hidden" id="folderRescan">Rescan folder</button>
-        <span class="prepnav-sp"></span>
-        <button class="btn hidden" id="folderForget">Forget folder</button>
-      </div>
-      <div id="folderProgress" class="note"></div>
-      <p class="fld" style="margin:10px 0 4px"><button class="btn" id="pasteTog" aria-expanded="false">Paste JSON…</button></p>
-      <div id="pasteBox" class="hidden">
-        <textarea id="importPaste" placeholder="paste 5etools JSON here…" style="width:100%;min-height:70px;font-family:var(--sans);font-size:12px;padding:8px;border-radius:8px;border:1px solid var(--line-strong);background:var(--bg);color:var(--ink)"></textarea>
-        <div class="prepnav" style="border:none;padding:4px 0 0">
-          <span class="prepnav-sp"></span>
-          <button class="btn" id="importPasteAdd">Add pasted JSON</button>
-        </div>
-      </div>
-      <div id="importStaged" class="importstaged"></div>
-      <div id="importReport" class="note"></div>
-      <!-- D86 + D112: ONE list decides what is in your data — every book you have, every book
-           the staged files hold, and every book the scanned folder offers. Nothing is written
-           until Apply. -->
-      <div id="importPlan" class="importplan hidden">
-        <div class="iph"><b>Your books</b><span class="sub" id="importPlanSub"></span>
-          <button class="helpbtn" data-help="planHelp" aria-expanded="false" aria-label="About this list"></button></div>
-        <div class="helpbody hidden" id="planHelp">
-          <p>A tick means <b>this book is in my data</b>. Unticking one you already have <b>removes
-          its content</b> from this browser — the only way to get the space back. A dimmed row is a
-          book the scanned folder offers that you haven't imported: tick it and Apply to pull it in.
-          Nothing is written until you press Apply, and Apply says how many books it would remove
-          before you do.</p>
-          <p>Your builds are never touched. A pick whose book is gone is flagged in the banner at the
-          top of the app, not deleted — re-import that book and it resolves again.</p>
-        </div>
-        <p class="note hidden" id="importPlanNote" style="margin:0 0 8px;color:var(--gold)">Nothing
-          imported yet — applying puts the app's built-in books behind whatever you tick here.</p>
-        <!-- diagnosis→remedy (2026-08-31): the books the last refresh could not re-read, named on
-             the surface that fixes them. Filled by renderImportPlan from refreshMissed(). -->
-        <p class="note hidden" id="importMissNote" style="margin:0 0 8px;color:var(--gold)"></p>
-        <div class="quick" id="importPlanQuick"></div>
-        <div id="importPlanList" class="importplanlist"></div>
-      </div>
-      <!-- D138: which parser read your books, said out loud. It used to be a hover title on
-           the Refresh button, which is no help at all when the question is "why is my data
-           still wrong" — and it counts the books actually behind, not one digest-wide stamp. -->
-      <p class="libparser hidden" id="libParser"></p>
-      <div class="prepnav" id="libFoot" style="padding:10px 0 0">
-        <span class="sub" id="libStore" style="color:var(--muted);font-size:12px"></span>
-        <span class="prepnav-sp"></span>
-        <button class="btn danger" id="importWipe">Remove imported data</button>
-        <button class="btn" id="importClear">Clear staged</button>
-        <button class="btn" id="importRefresh">Refresh imported data</button>
+        <button class="btn" id="importClear">Discard</button>
         <button class="btn on" id="importApply">Apply</button>
       </div>
     </div>
+
+    <!-- D154(b): the status strip is the top of the page and owns the web fetch — so it,
+         the search row and the selection bar STAY at the top: they are one sticky block
+         inside the scroller, which is where a sticky has to live (D148's gotcha). -->
+    <div class="libtop">
+    <div class="libstatus" id="libStatus">
+      <div class="libstatln" id="libStatLine"></div>
+      <button class="btn" id="webSyncBtn">Update data</button>
+    </div>
+    <div id="webSrcBox" class="hidden" style="margin:0 0 10px">
+      <label class="fld" style="display:block">GitHub repository
+        <input id="webSrcRepo" type="text" spellcheck="false" placeholder="5etools-mirror-3/5etools-src" style="width:100%">
+      </label>
+      <p class="note" style="margin:4px 0 0">The 5etools mirror moves every year or two — if
+        fetching stops working, put the new <code>owner/repository</code> here. Empty means
+        the default above.</p>
+    </div>
+    <div id="folderProgress" class="note"></div>
+
+    <div class="prepnav" style="border:none;padding:0 0 8px">
+      <input type="search" id="libSrcSearch" placeholder="search books…" style="flex:1">
+      <div class="menu"><button class="btn" id="srcActBtn" aria-haspopup="true" aria-expanded="false">Actions</button>
+        <div class="menupop hidden" id="srcActPop">
+          <button id="srcAll">Enable all</button>
+          <button id="srcNone">Disable all</button>
+          <div class="sep"></div>
+          <button id="srcSelAll">Select all</button>
+          <button id="srcSelShown">Select shown</button>
+          <div class="sep"></div>
+          <button id="webSrcTog">5etools address…</button>
+        </div></div>
+    </div>
+
+    <!-- D154(e): monster-forge's selection bar. It exists only while something is selected. -->
+    <div class="libselbar hidden" id="libSelBar">
+      <b id="libSelCount"></b>
+      <button class="btn" id="libSelClear">Clear</button>
+      <span class="prepnav-sp"></span>
+      <label class="libsw" id="libSelSwLab">enabled <span class="swk" id="libSelSw"></span></label>
+      <button class="btn danger" id="libSelRemove">Remove</button>
+    </div>
+    </div>
+    <div id="srcList"></div>
+
+    <!-- the acquisition inputs the footer's popover drives; the permanent drop zone died
+         with the Manage tab (D154(f) — drop-anywhere was offered and not taken). -->
+    <input type="file" id="importFiles" accept=".json,.zip,application/json,application/zip" multiple hidden>
+    <input type="file" id="folderInput" webkitdirectory directory multiple hidden>
+    <div id="pasteBox" class="hidden" style="margin:10px 0 0">
+      <textarea id="importPaste" placeholder="paste 5etools JSON here…" style="width:100%;min-height:70px;font-family:var(--sans);font-size:12px;padding:8px;border-radius:8px;border:1px solid var(--line-strong);background:var(--bg);color:var(--ink)"></textarea>
+      <div class="prepnav" style="border:none;padding:4px 0 0">
+        <span class="prepnav-sp"></span>
+        <button class="btn" id="importPasteAdd">Add pasted JSON</button>
+      </div>
+    </div>
+  </div>
+  <div class="mh libfoot">
+    <button class="btn" id="importCloseFoot">Close</button>
+    <span class="prepnav-sp"></span>
+    <div class="menu"><button class="btn on" id="addFilesBtn" aria-haspopup="true" aria-expanded="false"><span class="lbl-ico"><span class="ico" data-ico="plus"></span>Add files</span><span class="pk-caret">⌄</span></button>
+      <div class="menupop hidden" id="addFilesPop">
+        <button id="importPickZip">Upload .zip</button>
+        <button id="importPick">Upload .json files</button>
+        <button id="folderPick">Choose a folder…</button>
+        <button id="pasteTog">Paste JSON…</button>
+      </div></div>
   </div>
 </div></div>
 

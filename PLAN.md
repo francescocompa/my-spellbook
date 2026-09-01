@@ -3,11 +3,10 @@
 > What is queued, and what is blocked on a decision. `STATE.md` says where things stand;
 > this says what comes next. Closed items → `ARCHIVE.md#closed-backlog`.
 >
-> **Nothing is gated and nothing is owed.** Every phase (E–J) is done; the 2026-08-31 bug is
-> resolved and **phase J — Francesco's 18-item notes batch — shipped in full** (v1.4.8 →
-> v1.4.12, D142–D145). What remains is the standing backlog below: open ⚑ flags (calls only
-> Francesco can make) and the Queue. Its one 🔶 (magic items / rewards) is researched and
-> awaits his call. One ⚑ is NEW and was created by J6 — D125's clamp now covers the trade.
+> **Nothing is gated.** Phases E–J are done; **phase K (the Library rebuild, D154) is OPEN —
+> K1 shipped in v1.5.7, K2–K4 are next.** Below that is the standing backlog: open ⚑ flags
+> (calls only Francesco can make) and the Queue, whose one 🔶 (magic items / rewards) is
+> researched and awaits his call.
 
 ## Shipped phases — bodies archived, models still binding
 
@@ -160,7 +159,7 @@ and **D154 owns every call and every rejected option — cite it, don't re-deriv
 matters: K1/K2 are UI over the existing model; K3 changes the model and K4 deletes what K3
 obsoletes.
 
-- [ ] **K1 · The one-page shell.** Kill the Sources|Manage tabs; status strip (books ·
+- [x] **K1 · The one-page shell** — shipped **v1.5.7** (D154 + **D155**). Kill the Sources|Manage tabs; status strip (books ·
   5etools version vs latest · storage · **Update data**, accent-bordered when a release is
   out) + search/Actions + G1 edition groups + R3 two-line rows (select-checkbox · name over
   kind counts · origin chip web/file/built-in · enable switch; disabled = dimmed, no badge)
@@ -170,6 +169,16 @@ obsoletes.
   the same page's empty state. *Done when:* every current capability except the retired
   verbs is reachable on the new page; a book can be enabled, disabled and removed singly
   and in bulk; alignment measured at 1280 and 375 in both themes.
+  **Verified:** 44 rows in 6 edition groups; the switch toggles and dims (`aria-checked`
+  follows), the row body selects and the switch does not; Actions' four verbs scoped to what
+  the search is showing; removal armed (D53) and proved singly AND in bulk against the real
+  44-book digest, then restored **byte-identical** (`JSON.stringify` equal, 4,373,629 bytes);
+  paste → tray → Apply/Discard with nothing stored; empty state renders; **0 of 44 origin
+  chips misaligned** (X and Y within 0.6px) at 1280 and 375 in BOTH themes, switch and
+  checkbox centred to 0.00px; footer pinned and the popover in-viewport at both widths;
+  0 console errors; gate clean, cparity 51 ok / 0 fail. **D155 records the five calls D154
+  left open** — the single Add-files button, the address in Actions, the staged-only
+  keep-plan, the pinned column, and the per-book origin stamp with its migration rule.
 - [ ] **K2 · The pending-import tray.** Staged files render as a tray above the status
   strip, only while staged: chips · new-book ticks · Discard / **Add N books**. Replaces
   `#importPlan` as a standing surface; D86/D112 merge semantics unchanged underneath.
