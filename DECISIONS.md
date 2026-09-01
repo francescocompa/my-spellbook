@@ -2070,6 +2070,69 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     Apply merged 44 books, record written; the boot notice fires on an older recorded
     version and stays dismissed per release; alignment symmetric at 1280 and 375.
 
+- **D154 (2026-09-01) DECIDED — the Library redesigned: one page, one list, a selection bar,
+  and no refresh verbs at all.** AskUserQuestion, 5 rounds, mockups against the real
+  stylesheet at `scratchpad/mockups/library{,2,3,4}.html` (gitignored; `python3
+  scratchpad/mklib{,2,3,4}.py` regenerates; library4 is the approved final). Raw notes
+  kept verbatim below. Francesco: the modal is "messy, the ux is unclear and there are too
+  many unorganized options and features" — today it stacks four acquisition methods, six
+  verbs and four status lines. Mid-session he asked to *"deploy a cheaper agent to
+  investigate how the content manager works in monster-forge"*; its "Preset libraries"
+  modal (one page, pending-import tray, footer split-button, selection-bar removal,
+  raw-JSON stash for re-parse) shaped rounds 2–4. Aligning the two apps' managers is
+  DELIBERATE (sibling D&D tooling, explicit request) — not cross-contamination.
+  - **(a) Shape B: one page, no tabs.** Sources|Manage dies; there is ONE books list.
+    Onboarding is the same page in its empty state. *Rejected:* **A · "Books | Add
+    content" two tabs** (the session's recommendation — he took B over it); **C · tidied
+    Manage** (kept the two different-meaning checklists — half the confusion).
+  - **(b) The status strip is the top of the page and owns the web fetch.** One line —
+    books count · 5etools version vs latest · storage — plus **Update data** (D153's
+    fetch). Accent border when a release is out. The four scattered status surfaces
+    (importReport, folderProgress, libParser, libStore) fold into it and into transient
+    notices.
+  - **(c) Rows are R3, two lines:** select-checkbox · name over kind counts ("172 spells ·
+    31 subclasses") · origin chip (`web` / `file` / `built-in`) · enable switch at the
+    right edge. **A disabled book DIMS — there is no OFF badge.** Raw note: *"Not sure
+    what off is there for, if it only reflects the status of the visible toggle"* —
+    correct; the badge existed in monster-forge because it has no row switch. *Rejected:*
+    R1 (origin only), R2 (kinds only).
+  - **(d) Groups stay edition-first (G1)** — 2024 core · 2014 core · Supplements ·
+    Homebrew & UA; the origin chip answers *"how do we visualize and organize imports by
+    type of source?"* (raw note) at row level. *Rejected:* G2 origin-shelves, G3 a
+    Group ▾ axis switcher (one more control in a modal being quieted).
+  - **(e) Removal is monster-forge's selection bar** — select rows → a bar rises (count ·
+    Clear · enabled-switch · **Remove**, armed). **The checkbox now means SELECT, not
+    enabled** — the switch carries enabled. His call over the session's 2a
+    recommendation, made with the resemantization cost stated. *Rejected:* **2a storage
+    mode** (his own earlier pick, reversed on seeing both mocked), row-⋯ menu, removal
+    inside an add surface.
+  - **(f) Acquisition is the footer: Close · ＋ Add files ▾** (popover: Upload .zip ·
+    Upload .json files · Choose a folder… · Paste JSON…). The permanent drop zone dies
+    with the Manage tab. *Rejected:* 1a "+ Add content" view swap; **1b + drop-anywhere**
+    (offered, not taken — so drag-and-drop onto the modal is OUT, not silently kept).
+  - **(g) Raw-stash + web refetch: the refresh verbs cease to exist.** Hand-added files
+    stash their raw JSON in IndexedDB at import (monster-forge's `stashRawLibs` pattern);
+    core content re-fetches via D153 on a parser bump; **re-parse runs automatically in
+    the background after boot and announces itself once, after** ("re-read with parser
+    vX", fading). "Refresh imported data", "Rescan folder", "Forget folder" and the
+    linked-folder row all leave the UI — the folder picker survives only as an input
+    method. D137/D138's stale-parser machinery refits to drive the auto pass instead of
+    nagging. *Rejected:* stash-everything-including-zips (~25 MB duplicate storage for
+    zip importers; web covers core), keep-folder-refresh (the permission dance is the
+    cost being deleted), offer-don't-act re-parse (stale state lingers behind a button).
+  - **(h) The staged flow is a Pending-import tray** above the status strip, existing
+    only while something is staged: file chips · its books ticked to keep · **Discard /
+    Add N books**. Replaces the always-visible "Your books" keep-plan (D86/D112 semantics
+    unchanged underneath — merge, keyed entities, nothing stored until commit).
+  - **(i) "Remove imported data" is dropped** — select all → Remove is the reset. One
+    destructive path, armed, never a standing red button.
+  - **Final verb set** (replaces today's six): Update data · ＋ Add files ▾ (its four) ·
+    Actions (Enable all · Disable all · Select all · Select shown) · selection bar
+    (Clear · enabled · Remove) · tray (Discard · Add N books) · Close.
+  - **Build queued as phase K** (his call: queue, not build now) — task lines in PLAN.md.
+    Ability to remove ONE book, D42's nothing-prunes rule, and D138's per-book stamps all
+    survive by construction and are named in the tasks.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives
