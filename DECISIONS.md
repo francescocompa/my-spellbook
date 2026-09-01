@@ -2024,6 +2024,52 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     branch was found holding both. Parallel worktrees do not reserve a `VERSION` or a D-id:
     check `git tag` and the other branches before claiming either.
 
+- **D153 (2026-09-01) DECIDED — the app follows the 5etools repo itself: fetch online, and
+  a boot check offers each new release** (v1.5.6). Francesco asked whether the app could
+  link to the 5etools content repo "without importing content by hand and in a way that it
+  updates when the source repo does". It can, and the two enabling facts were verified
+  live before a line was written: the mirror repo (`5etools-mirror-3/5etools-src`) is
+  served file-by-file by the jsDelivr CDN with `Access-Control-Allow-Origin: *`, and the
+  in-browser importer already parses exactly those files — the whole feature is a third
+  way INTO the existing staging, not a new pipeline.
+  - **(a) The fetch is the zip drop with the zip removed.** "Fetch 5etools data online"
+    (Manage pane) resolves the latest release via jsDelivr, enumerates the tag's files via
+    the GitHub tree API (one call; jsDelivr's own listing refuses the repo — past its 50 MB
+    listing cap — while happily serving the files), filters them through the REAL
+    `zipWanted()` (the D92 rule: never a hand-rolled file list), fetches ~186 files /
+    ~27 MB raw (a few MB gzipped on the wire, feature files processed first per
+    `readOrder`/`slimJson`), and pushes the result into `IMPORT_STAGE`. From there
+    everything is the existing D86/D112 flow: plan, tick books, Apply, per-book parser
+    stamps. Nothing is stored until Apply.
+  - **(b) "Updates when the repo does" is a boot check, not a push.** Nothing can push to
+    an offline page and no server is coming (non-goal). On Apply the fetched release is
+    recorded (`spellForge.webSync.v1`); at boot, `webUpdateNotice()` asks jsDelivr for the
+    latest release and — only if it is newer, the user is online, and that version wasn't
+    already dismissed — offers "Fetch it now". Offline or CDN-down it says nothing.
+  - **(c) The repo address is a setting, not a constant** ("Address…", stored in
+    `spellForge.webRepo.v1`), because the mirror orgs rotate every year or two after
+    takedowns (mirror-1 → -2 → -3). Empty means the default.
+  - **(d) A file failure is fatal and owns the report.** Seen live on the first real run:
+    jsDelivr 403'd one file mid-burst, the fetch correctly refused to stage 185/186 of a
+    library (a missing file is half a book — the half-import trap), but the surviving
+    workers painted "Fetching 185/186" OVER the error. A first hard failure now poisons
+    the fleet (`dead` flag): remaining workers stop, nothing staged, and the error keeps
+    the report. Per file: three CDN tries with backoff, then once from
+    `raw.githubusercontent.com`, then give up honestly.
+  - *Rejected:* **a GitHub Action baking fresh data into the repo** — it would commit
+    non-SRD content to the public repo, which the gitignore stance exists to prevent;
+    **fetching `@latest` per file** — a release landing mid-fetch would mix versions, so
+    the resolved version pins every URL; **auto-refresh without asking** — a multi-MB
+    download the user didn't start, and Apply is where book choices live; **recording the
+    fetched version at stage time** — the record backs the update check, so it is written
+    only when the fetch is APPLIED; **a local mirror-refresh script (option B)** — not
+    rejected on merit, just not built: it only freshens the Mac-side `dist` build and can
+    be added any day.
+  - **Verified in the pane** (storage snapshotted and restored byte-identical, per the
+    shared-origin rule): full fetch → 936/27/322/276/215 — cparity's exact counts — →
+    Apply merged 44 books, record written; the boot notice fires on an older recorded
+    version and stays dismissed per release; alignment symmetric at 1280 and 375.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

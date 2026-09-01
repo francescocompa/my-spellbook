@@ -306,9 +306,15 @@
       <p><b>Sources</b> is what the planner uses: ticking a book on or off costs nothing and
       deletes nothing. <b>Manage</b> is what is stored in this browser — importing, refreshing
       and removing content live there.</p>
-      <p>Load a 5etools <code>data</code> export: drop the <b>.zip</b>, drop or choose the
-      unzipped <b>folder</b> (it is remembered, and powers Refresh), or stage individual JSON
-      files. Everything is parsed and stored in this browser — nothing is uploaded.</p>
+      <p><b>No download needed:</b> Fetch 5etools data online pulls the current release
+      straight from the public 5etools repository into the same staging as a dropped zip —
+      tick books, Apply, done. The app checks for a newer release when it opens and offers a
+      re-fetch, so your data follows the repository. If the repository ever moves, its
+      address is editable under “Address…”.</p>
+      <p>Or load a 5etools <code>data</code> export yourself: drop the <b>.zip</b>, drop or
+      choose the unzipped <b>folder</b> (it is remembered, and powers Refresh), or stage
+      individual JSON files. Everything is parsed and stored in this browser — nothing is
+      uploaded.</p>
       <p><b>Homebrew &amp; Unearthed Arcana work too.</b> Download any brew as JSON from the
       <a href="https://github.com/TheGiddyLimit/homebrew" target="_blank" rel="noopener">5etools homebrew repository</a>
       (D&amp;D Beyond drops live there), or UA from the
@@ -333,6 +339,23 @@
     </div>
     <div id="libManPane" class="hidden">
       <p class="importwelcome hidden" id="importWelcome">This planner ships without spell data. Load a 5etools <code>data</code> export to fill it with spells, classes, subclasses, feats and species. Everything is parsed and stored in your browser — nothing is uploaded.</p>
+      <!-- D153: the same staging as a dropped zip, fed straight from the public 5etools
+           repository over its CDN — no download step. Nothing is stored until Apply; the
+           address is editable because the mirror organisations rotate. -->
+      <div class="prepnav" style="border:none;padding:0 0 8px">
+        <button class="btn" id="webSyncBtn">Fetch 5etools data online</button>
+        <span class="sub" id="webSyncSub" style="color:var(--muted);font-size:12px"></span>
+        <span class="prepnav-sp"></span>
+        <button class="btn" id="webSrcTog" aria-expanded="false">Address…</button>
+      </div>
+      <div id="webSrcBox" class="hidden" style="margin:0 0 8px">
+        <label class="fld" style="display:block">GitHub repository
+          <input id="webSrcRepo" type="text" spellcheck="false" placeholder="5etools-mirror-3/5etools-src" style="width:100%">
+        </label>
+        <p class="note" style="margin:4px 0 0">The 5etools mirror moves every year or two — if
+          fetching stops working, put the new <code>owner/repository</code> here. Empty means
+          the default above.</p>
+      </div>
       <!-- D112: ONE drop zone. A .zip, JSON files, or a whole dragged folder all land here;
            the click path stays two verbs because the native dialogs differ. -->
       <div class="importdrop" id="importDrop">

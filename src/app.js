@@ -5161,6 +5161,120 @@ function importSummary(r){return `${r.spells} spells · ${r.classes} classes · 
   // failure the report exists to surface
   +((r.errors||[]).length?` · ⚠ ${r.errors.length} file${r.errors.length===1?"":"s"} failed: ${r.errors.join(" · ")}`:"");}
 
+// ── fetch straight from the 5etools repository, online (D153) ──────────────
+// The public mirror repo is served file-by-file by the jsDelivr CDN with CORS open, so the
+// page can pull the current release itself — no zip, no download step. The result is fed
+// into the SAME staging as a dropped zip (IMPORT_STAGE → buildImport → tick books → Apply),
+// so the plan, the merge, the keep-set and the per-book parser stamps all just apply.
+// On boot, webUpdateNotice() compares the last APPLIED fetch against the repo's latest
+// release and offers a re-fetch — that is the whole "follows the source repo" mechanism;
+// offline it stays silent. The repo address is editable because the mirror orgs rotate
+// every year or two (mirror-1 → -2 → -3).
+const WEB_REPO_DEFAULT="5etools-mirror-3/5etools-src";
+const LS_WEB_REPO="spellForge.webRepo.v1";
+const LS_WEB_SYNC="spellForge.webSync.v1";   // {repo, version, syncedAt} — the last APPLIED fetch
+const LS_WEB_NAG="spellForge.webNag.v1";     // repo version already offered and dismissed
+let WEB_BUSY=false, WEB_PENDING=null;        // {repo, version} staged but not yet applied
+function webRepo(){try{return (localStorage.getItem(LS_WEB_REPO)||"").trim()||WEB_REPO_DEFAULT;}catch(_){return WEB_REPO_DEFAULT;}}
+function webSyncRec(){try{return JSON.parse(localStorage.getItem(LS_WEB_SYNC)||"null");}catch(_){return null;}}
+async function webJson(url,noCache){const r=await fetch(url,noCache?{cache:"no-store"}:undefined);
+  if(!r.ok)throw new Error(url.replace(/^https?:\/\//,"").split("/")[0]+" answered HTTP "+r.status);
+  return r.json();}
+async function webResolve(repo){
+  const j=await webJson("https://data.jsdelivr.com/v1/packages/gh/"+repo+"/resolved?specifier=latest",true);
+  if(!j||!j.version)throw new Error("couldn’t resolve the latest release of "+repo);
+  return j.version;}   // "2.34.1" — jsDelivr strips the tag's leading "v"
+async function webTree(repo,ver){
+  // jsDelivr's own file listing refuses this repository (it is past the 50 MB listing cap),
+  // so the GitHub tree API enumerates — CORS-open, one call per fetch — while jsDelivr
+  // still serves the individual FILES. zipWanted() stays the only filter (the D92 rule:
+  // never a hand-rolled file list — that is exactly how foundry.json got through before).
+  let t,ref="v"+ver;   // the repo tags with a leading v; remember which form answered
+  try{t=await webJson("https://api.github.com/repos/"+repo+"/git/trees/"+encodeURIComponent(ref)+"?recursive=1");}
+  catch(_){ref=ver;t=await webJson("https://api.github.com/repos/"+repo+"/git/trees/"+encodeURIComponent(ref)+"?recursive=1");}
+  if(t&&t.truncated)throw new Error("the repository’s file list came back truncated — try again later.");
+  return {ref,paths:((t&&t.tree)||[]).filter(e=>e.type==="blob"&&/^data\//.test(e.path)
+    &&window.SB_extract.zipWanted(e.path)).map(e=>e.path)};}
+async function webFetchAll(repo,ver,ref,paths,onFile){
+  const SX=window.SB_extract, base="https://cdn.jsdelivr.net/gh/"+repo+"@"+ver+"/";
+  const rawBase="https://raw.githubusercontent.com/"+repo+"/"+ref+"/";
+  // feature files first, by the same exported rule the unzip path sorts by: a bestiary
+  // slimmed before the feature file that names Imp has already dropped it (slimJson/readOrder)
+  const q=paths.slice().sort((a,b)=>SX.readOrder(a)-SX.readOrder(b));
+  const nHead=q.filter(p=>SX.readOrder(p)===0).length;
+  SX.resetFormRefs();
+  // The first HARD failure poisons the whole fetch: the other workers stop, and nothing
+  // may paint progress over its error — without this, the fleet's stragglers overwrote
+  // the report with "Fetching 185/186" and the failure was invisible (seen live: jsDelivr
+  // 403s the odd file mid-burst). A missing file stays fatal on purpose — it is half a
+  // book, the exact half-import the report exists to surface.
+  let done=0, dead=null;
+  const pause=ms=>new Promise(r=>setTimeout(r,ms));
+  const grab=async p=>{
+    for(let a=0;;a++){
+      if(dead)throw dead;
+      // three tries on the CDN with backoff, then once from the raw GitHub host
+      const url=a<3?base+p:rawBase+p;
+      try{const r=await fetch(url); if(!r.ok)throw new Error("HTTP "+r.status);
+        return await r.json();}
+      catch(e){ if(a>=3){dead=new Error(p+": "+(e.message||e)); throw dead;}
+        await pause(400*(a+1)); }}};
+  const out=new Array(q.length);
+  const take=(k,j)=>{ if(dead)return;
+    j=SX.dropFoundryStubs(j);
+    out[k]=(j&&SX.usefulJson(j))?{name:q[k].split("/").pop(),json:SX.slimJson(j)}:null;
+    if(onFile)onFile(q[k],++done,q.length);};
+  for(let k=0;k<nHead;k++)take(k,await grab(q[k]));   // the feature files, alone and in order
+  let i=nHead;                                        // the rest, six at a time; slotted by
+  await Promise.all(Array.from({length:6},async()=>{  // queue index so staging is deterministic
+    for(;;){const k=i++; if(k>=q.length||dead)return; take(k,await grab(q[k]));}}));
+  return out.filter(Boolean);}
+async function webSync(){
+  if(WEB_BUSY||REFRESH_BUSY||SCAN_BUSY)return;
+  const rep=$("#importReport"), btn=$("#webSyncBtn");
+  WEB_BUSY=true; if(btn){btn.disabled=true;btn.classList.add("busy");}
+  try{
+    if(navigator.onLine===false)throw new Error("you’re offline. Everything already imported keeps working.");
+    const repo=webRepo();
+    rep.textContent="Finding the latest 5etools release…";
+    const ver=await webResolve(repo);
+    rep.textContent="Listing the files of v"+ver+"…";
+    const tree=await webTree(repo,ver);
+    if(!tree.paths.length)throw new Error("no data files found in "+repo+" — is the repository address right?");
+    const entries=await webFetchAll(repo,ver,tree.ref,tree.paths,(p,i,n)=>{
+      rep.textContent="Fetching v"+ver+" — "+i+"/"+n+": "+p.split("/").pop();});
+    if(!entries.length)throw new Error("nothing usable came back. Your data is unchanged.");
+    entries.forEach(e=>IMPORT_STAGE.push(e));
+    WEB_PENDING={repo,version:ver};
+    rep.textContent=""; renderImportStage(); scheduleBuild();
+  }catch(e){rep.innerHTML="Couldn’t fetch from 5etools online: "+esc(e.message||String(e));}
+  finally{WEB_BUSY=false; if(btn){btn.disabled=false;btn.classList.remove("busy");} webSyncSub();}
+}
+// the row's status: what you have, and where a non-default fetch would come from
+function webSyncSub(){const s=$("#webSyncSub"); if(!s)return;
+  const rec=webSyncRec(), repo=webRepo(), bits=[];
+  if(rec&&rec.version)bits.push("you have v"+rec.version
+    +(rec.syncedAt?" · fetched "+new Date(rec.syncedAt).toLocaleDateString():""));
+  if(repo!==WEB_REPO_DEFAULT)bits.push("from "+repo);
+  s.textContent=bits.join(" · ");}
+// boot: is the repo ahead of the last applied fetch? Quiet unless the answer is yes —
+// offline, CDN down, never fetched, or already dismissed for that version all say nothing.
+async function webUpdateNotice(){
+  const rec=webSyncRec(); if(!rec||!rec.version)return;
+  if(navigator.onLine===false)return;
+  let latest=null;
+  try{latest=await webResolve(rec.repo||webRepo());}catch(_){return;}
+  if(!latest||!verLt(rec.version,latest))return;
+  let seen=null; try{seen=localStorage.getItem(LS_WEB_NAG);}catch(_){}
+  if(seen===latest)return;
+  const n=appNotice("5etools has newer data — v"+latest+" is out; you have v"+rec.version+".","ask");
+  const b=el("button","anact","Fetch it now");
+  b.onclick=()=>{n.remove();openImport(false,"man");webSync();};
+  n.insertBefore(b,n.querySelector(".anx"));
+  const x=n.querySelector(".anx");
+  if(x)x.addEventListener("click",()=>{try{localStorage.setItem(LS_WEB_NAG,latest);}catch(_){}});
+}
+
 // ── additive imports and the book plan (D86) ───────────────────────────────
 // An import used to REPLACE everything stored, so adding one brew meant re-staging every
 // core file with it. It now MERGES: entities are keyed by name|source and a staged file
@@ -5543,6 +5657,11 @@ async function applyPlan(rep,refreshed){
   if(btn)btn.disabled=false;
   // T7: name what is using the space, never "something went wrong"
   if(err){rep.textContent=err;return err;}
+  // D153: a web fetch's version is recorded only once it is APPLIED — this record is what
+  // the boot update-check compares against the repo's latest release.
+  if(WEB_PENDING){
+    try{localStorage.setItem(LS_WEB_SYNC,JSON.stringify(Object.assign({syncedAt:now},WEB_PENDING)));}catch(_){}
+    WEB_PENDING=null; webSyncSub();}
   // a book that is newly here is turned ON; one you removed leaves the selection with it
   const codes=new Set(Object.keys(out.sources));
   PLAN.fresh.forEach(c=>{if(codes.has(c))SRC.add(c);});
@@ -5789,7 +5908,7 @@ function openImport(welcome,tab){closeMenu();const r=$("#importReport");
   $("#libTabSrc").classList.toggle("hidden",bare);
   setLibTab(bare?"man":(tab||(welcome?"man":"src")));
   planFromStage(null,null); renderImportPlan();
-  renderImportStage(); renderLibFoot();
+  renderImportStage(); renderLibFoot(); webSyncSub();
   $("#importModal").classList.remove("hidden");
   // A remembered folder is recalled SILENTLY — `false` means never prompt for permission here,
   // because a permission request outside a user gesture is refused anyway. The Rescan button
@@ -9253,7 +9372,7 @@ $("#importRefresh").onclick=()=>refreshImported(true);
 // manual recovery for a digest the boot guard set aside). armed, never a native confirm (D53)
 armConfirm($("#importWipe"),null,async()=>{
   await clearImport();
-  IMPORT_STAGE=[]; cancelBuild();
+  IMPORT_STAGE=[]; cancelBuild(); WEB_PENDING=null;
   planFromStage(null,null); renderImportPlan(); renderImportStage(); renderLibFoot();
   const rep=$("#importReport");
   if(rep)rep.textContent="Imported data removed — the app is back on its built-in books. Builds and homebrew are untouched; picks from removed books are kept and flagged.";
@@ -9319,9 +9438,18 @@ async function entryWalk(entry,base,out){
 $("#importPasteAdd").onclick=()=>{const t=$("#importPaste").value.trim();if(!t)return;
   try{IMPORT_STAGE.push({name:"pasted "+(IMPORT_STAGE.length+1),json:JSON.parse(t)});$("#importPaste").value="";$("#importReport").textContent="";renderImportStage();scheduleBuild();}
   catch(e){$("#importReport").textContent="Pasted text isn’t valid JSON.";}};
-$("#importClear").onclick=()=>{IMPORT_STAGE=[];cancelBuild();renderImportStage();
+$("#importClear").onclick=()=>{IMPORT_STAGE=[];cancelBuild();WEB_PENDING=null;renderImportStage();
   planFromStage(null,null);renderImportPlan();$("#importReport").textContent="";};
 $("#importApply").onclick=applyImport;
+// D153: the online fetch and its editable repository address
+$("#webSyncBtn").onclick=()=>webSync();
+$("#webSrcTog").onclick=()=>{const b=$("#webSrcBox"),open=!b.classList.toggle("hidden");
+  $("#webSrcTog").setAttribute("aria-expanded",String(open));
+  if(open){const f=$("#webSrcRepo");f.value=webRepo()===WEB_REPO_DEFAULT?"":webRepo();f.focus();}};
+$("#webSrcRepo").onchange=e=>{const v=e.target.value.trim();
+  try{if(!v||v===WEB_REPO_DEFAULT)localStorage.removeItem(LS_WEB_REPO);
+      else localStorage.setItem(LS_WEB_REPO,v);}catch(_){}
+  webSyncSub();};
 
 // ── folder scan wiring (D92) ───────────────────────────────────────────────────
 // Two ways in. showDirectoryPicker gives a handle we can REMEMBER between sessions; where it
@@ -9916,4 +10044,5 @@ let BOOT_MODE="fresh";
   fillIcons(); wireHelpNotes();
   refreshAll();render();
   staleParserNotice();
+  webUpdateNotice();   // D153: fire-and-forget — quiet offline, quiet when current
 })();
