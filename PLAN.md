@@ -3,7 +3,7 @@
 > What is queued, and what is blocked on a decision. `STATE.md` says where things stand;
 > this says what comes next. Closed items → `ARCHIVE.md#closed-backlog`.
 >
-> **Nothing is gated and nothing is owed.** Every phase (E–J) is done; the 2026-08-31 bug is
+> **Nothing is gated and nothing is owed.** Every phase (E–K) is done; the 2026-08-31 bug is
 > resolved and **phase J — Francesco's 18-item notes batch — shipped in full** (v1.4.8 →
 > v1.4.12, D142–D145). What remains is the standing backlog below: open ⚑ flags (calls only
 > Francesco can make) and the Queue. Its one 🔶 (magic items / rewards) is researched and
@@ -23,6 +23,7 @@ merge notes) are archived.
 | **H** | guided builder v2 | D130(a–h) | `ARCHIVE.md#phase-h` |
 | **I** | guided builder v3 | D131(a–h) + D132 | `ARCHIVE.md#phase-i` |
 | **J** | Francesco's notes batch | D142 + D143 + D144 + D145 | still live below |
+| **K** | the Library redesigned | D154 + D155–D159 | still live below |
 
 → archived 2026-08-31: the W1–W5 wave batch — `ARCHIVE.md#wave-batch`; the 2026-08-31 bug's
 task lines — `ARCHIVE.md#bug-0831`; closed one-off bugs and batches (v1.3.0 → v1.4.3,
@@ -152,15 +153,15 @@ Francesco's own reading** — see each D142 sub-entry's *Rejected:* clause befor
   PROGRESSION table (D149(a)). If it meant the Features BLOCK, the default is one word to
   flip. ⚑ (owner: Francesco, 2026-09-01)
 
-## Phase K — the Library redesigned (D154, decided 2026-09-01 · K1–K3 SHIPPED, K4 next)
+## Phase K — the Library redesigned (D154, 2026-09-01) — ✅ DONE (v1.5.7 → v1.5.10)
 
 The design is LOCKED — one page, one list, selection bar, no refresh verbs; the approved
 mockup is `scratchpad/mockups/library4.html` (`python3 scratchpad/mklib4.py` regenerates)
 and **D154 owns every call and every rejected option — cite it, don't re-derive.** Order
 matters: K1/K2 are UI over the existing model; K3 changes the model and K4 deletes what K3
-obsoletes. **K1 (v1.5.7), K2 (v1.5.8) and K3 (v1.5.9) are shipped; K4 is the last one.**
-The build-time calls each had to make are **D155**, **D156** and **D157 + D158** — read them
-before touching the page.
+obsoletes. **Phase K is DONE: K1 (v1.5.7), K2 (v1.5.8), K3 (v1.5.9), K4 (v1.5.10).**
+The build-time calls each had to make are **D155**, **D156**, **D157 + D158** and **D159** —
+read them before touching the page.
 
 - [x] **K1 · The one-page shell** — shipped v1.5.7, **D155** owns the five calls D154 had
   not been asked. Kill the Sources|Manage tabs; status strip (books · 5etools version vs
@@ -199,14 +200,18 @@ before touching the page.
   every book stale — which under an *automatic* re-parse would have meant a multi-MB refetch
   after every deploy. A pre-K1 digest (no origin stamps) is healed by the web fetch where a
   D153 record exists, and gains the origins it always had (D158(d)).
-- [ ] **K4 · Retire the old machinery.** Remove: Refresh imported data (both surfaces),
-  Rescan/Forget folder + the linked-folder row (folder picker stays as input), ~~the
-  standing Remove-imported-data button~~ (gone in K1, D155(d)), ~~Clear staged~~ (gone in K2 — the tray's armed Discard is it), the stale-parser boot nag
-  ~~(refitted by K3)~~ (gone in K3 — `autoReparse()` replaced it), and their wiring/notices.
-  GOTCHAS entries touching
-  `refreshImported`/folder recall get updated, not deleted — they explain history.
-  *Done when:* the six old verbs are gone, `rg` finds no dead handlers, and the D42
-  nothing-prunes contract still holds on a book removal (picks flagged, never deleted).
+- [x] **K4 · Retire the old machinery** — shipped v1.5.10, **D159**. Removed: Refresh
+  imported data (both surfaces) and its whole pipeline, Rescan/Forget folder and the
+  remembered handle with them (the folder picker stays as an input method under ＋ Add
+  files), and — earlier in the phase — the standing Remove-imported-data button (K1,
+  D155(d)), Clear staged (K2, the tray's armed Discard) and the stale-parser boot nag (K3,
+  `autoReparse()` replaced it). The miss-memory (`spellForge.refreshMiss.v1`) went with the
+  refresh. GOTCHAS entries touching `refreshImported`/folder recall were updated, not
+  deleted — the permission trap is exactly why the machinery went, and it comes back the
+  moment anyone stores a handle again. *Done:* the six old verbs are gone, no dead handler
+  remains (a sweep of every markup id and every top-level function), and **D42 was re-proved
+  through the real UI** — remove a book and its picks are still in `state`, survive a reload,
+  and are named by the gap bar.
 
 ## Open ⚑ — calls for Francesco
 

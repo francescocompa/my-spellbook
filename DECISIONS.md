@@ -2280,6 +2280,32 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
   - **D137's nag is gone** (`staleParserNotice`, `LS_PARSER_NAG`), refitted into this pass as
     D154(g) asked. The Library's parser line survives with one job left: naming the book the
     app cannot heal by itself.
+- **D159 (2026-09-01) DECIDED — what K4 deleted, and the one thing it kept.** Phase K's last
+  task: the verbs K1–K3 made unnecessary leave the code, not just the screen.
+  - **(a) "Refresh imported data" and its whole pipeline are gone** — both button surfaces
+    (the ⋯ menu and the Library's Actions), `refreshImported`, its four ask-a-human states
+    (`refreshStage/Done/Fail/Ask`), the two-surface busy plumbing (`REFRESH_BUSY`, `RMODAL`,
+    `RSEEN`, `refreshButtons`, `btnText`) and the miss-memory (`spellForge.refreshMiss.v1`)
+    that remembered which books a linked folder could not re-read. `autoReparse()` (K3) does
+    the work; `staleBooks()`/`staleSplit()` answer what the miss-memory was for.
+  - **(b) The folder is an input method, and nothing more.** Rescan and Forget are gone with
+    the remembered handle (`folderRemember`/`folderRecall`/`folderUsable`, and `FOLDER`
+    itself). The picker survives under ＋ Add files, chosen inside the click that scans it —
+    which is exactly the permission rule the deleted machinery existed to work around.
+    `dropLegacyFolderDb()` clears the orphaned handle once, quietly. The `handles` store stays
+    in the schema: dropping it needs a database version bump for no gain.
+  - **(c) Kept deliberately: the `.importdrop` base CSS.** The Library's drop zone died in K1,
+    but the BUILD import box (`.importdrop.bimport`, a `.spellbook.json`) is a different
+    feature and still uses it — only the dead `.drag` state and `#importPick` rule went.
+  - **(d) The one behavioural check that had to be re-proved: D42.** Removing a book still
+    FLAGS the picks that needed it and never deletes them — verified through the real UI
+    (remove → the pick is still in `state`, survives a reload, and the gap bar names the
+    missing book), because K1 moved removal to a new surface and K4 removed its old one.
+  - **Final verb set, as D154 specified it:** Update data · ＋ Add files ▾ (zip · JSON ·
+    folder · paste) · Actions (Enable all · Disable all · Select all · Select shown ·
+    repository address) · the selection bar (Clear · enabled · Remove) · the tray (Discard ·
+    Add N books) · Close. Six verbs became five surfaces, and nothing that was reachable
+    before is unreachable now except the four the automatic re-parse replaced.
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

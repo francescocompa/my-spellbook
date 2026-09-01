@@ -1293,10 +1293,11 @@ table.spelltable .pickcell{cursor:help}
 .hbtools{display:flex;align-items:center;gap:8px;margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)}
 .hbtag{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;padding:2px 8px;border-radius:12px;background:var(--free-soft);color:var(--free)}
 /* import panel */
+/* The Library's own drop zone died with D154(f); what still uses this is the BUILD import
+   box below (.importdrop.bimport), which is a different feature — a .spellbook.json build,
+   not 5etools content. The base stays for it. */
 .importdrop{display:flex;gap:12px;align-items:center;padding:16px;border:2px dashed var(--line-strong);border-radius:12px;background:var(--panel-2);cursor:pointer;font-size:12.5px;transition:border-color .12s,background .12s}
-.importdrop:hover,.importdrop.drag{border-color:var(--accent);background:var(--accent-soft)}
 .importdrop b{font-size:13px}
-.importdrop #importPick{cursor:pointer;color:var(--accent)}
 .importwelcome{font-size:13px;line-height:1.55;color:var(--ink);background:var(--accent-soft);border-radius:10px;padding:11px 13px;margin:0 0 12px}
 /* One row that scrolls, not a growing block — a full data folder stages ~180 files.
    Same expander as the spell modal's Access section. */

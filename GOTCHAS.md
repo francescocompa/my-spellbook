@@ -163,10 +163,6 @@
   reader learned the hard way. It also skips `_img/` at the WALK (the FSA path) and by
   `webkitRelativePath` (the input path) — a synthetic entry list bypasses both, so a test that
   fabricates entries is not testing the filter.
-- **A remembered directory handle is not a granted one (D92).** The handle survives in IndexedDB;
-  the READ PERMISSION dies with the session and can only be re-requested inside a user gesture.
-  `folderUsable(h,ask)` takes `ask=false` on the silent recall in `openImport` and `true` in the
-  Rescan click. If it fails, forget the handle and offer the picker — never fail silently.
 - **A big zip fails as a lie (D91).** `file.arrayBuffer()` on an oversized archive throws
   `NotReadableError`, whose stock message blames *"permission problems"* — the cause is size.
   `stageZip` refuses above `MAX_ZIP` (512 MB) by measured size, translates the OOM, and passes the
@@ -457,16 +453,29 @@
   a filter cannot un-merge entities that already overwrote yours. The one place `keep` is
   edited by hand is `libRemove()`, which is removal, not import, and calls `applyPlan`
   immediately after.
-- **`openImport`'s folder recall is fire-and-forget, so a caller that needs `FOLDER` must await
-  its own (D111).** The recall is an async IndexedDB read the modal never waits on; on the first
-  click of a session `FOLDER` is still null immediately after `openImport` returns. `refreshImported`
-  therefore fell straight through to "choose the folder" — a one-click action that only opened the
-  modal. It now awaits `folderRecall()` itself, still inside the click, which is what keeps the
-  permission prompt (`folderUsable(h,true)`) inside a user gesture.
-- **A dropped folder's handles must be collected synchronously in the drop handler.**
-  `DataTransferItem.getAsFileSystemHandle()` calls are made for every item BEFORE the first
-  `await` — the DataTransfer goes stale at the first microtask, and a late call returns null.
-  The webkitGetAsEntry fallback has the same rule for `getAsFileSystemHandle`-less browsers.
+- **HISTORY (the machinery is gone in K4; the traps are why it went).** `openImport`'s folder
+  recall was fire-and-forget, so a caller that needed `FOLDER` had to await its own (D111): the
+  recall is an async IndexedDB read the modal never waited on, so on the first click of a
+  session `FOLDER` was still null immediately after `openImport` returned, and `refreshImported`
+  fell straight through to "choose the folder" — a one-click action that only opened the modal.
+  It ended up awaiting `folderRecall()` itself, inside the click, to keep the permission prompt
+  (`folderUsable(h,true)`) inside a user gesture. And a dropped folder's handles had to be
+  collected synchronously in the drop handler:
+  `DataTransferItem.getAsFileSystemHandle()` for every item BEFORE the first `await`, because
+  the DataTransfer goes stale at the first microtask and a late call returns null (the
+  `webkitGetAsEntry` fallback had the same rule). **None of this exists now**: drag-and-drop went
+  with D154(f) and the remembered handle with K4 — a folder is an input method, chosen inside
+  the click that uses it, and nothing is stored to be re-granted later. Re-introduce either and
+  both traps come back exactly as written.
+- **A remembered directory handle is not a granted one (D92) — and that is the cost K4 deleted.**
+  The handle survived in IndexedDB; the READ PERMISSION died with the session and could only be
+  re-requested inside a user gesture (`folderUsable(h,ask)`: `ask=false` on the silent recall,
+  `true` in the Rescan click; on failure, forget the handle and offer the picker, never fail
+  silently). Every verb built on it — Rescan, Refresh, Forget — existed to manage that
+  relationship. K3's raw stash re-reads hand-added files with no permission at all, which is
+  what let the relationship go: today's folder picker is chosen inside the click that scans it
+  and nothing is stored to be re-granted later. **Store a handle again and every line above is
+  live again.**
 - **`buildImport(only, auto)` — the auto path must not scold and must not reset your unticks,
   and it must only carry unticks over while an import is actually PENDING.** Parse-on-arrival
   (D112) re-runs `buildImport` after every staged batch; `planFromStage` defaults the ticks to

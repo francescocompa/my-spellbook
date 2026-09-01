@@ -7,12 +7,12 @@
 > |---|---|
 > | `CLAUDE.md` | What this project is, its conventions, build/run, the verify gate, versioning |
 > | `PLAN.md` | The queue — what is next, what is flagged for Francesco |
-> | `DECISIONS.md` | Every decision D7–D158 and what was rejected |
+> | `DECISIONS.md` | Every decision D7–D159 and what was rejected |
 > | `GOTCHAS.md` | Traps that have already cost a session |
 > | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 > | `ARCHIVE.md` | Bodies of consumed phases, decisions and old rationale |
 
-## TL;DR (2026-09-01 · **v1.5.9** built · D154 designed, **phase K1–K3 SHIPPED**, K4 last)
+## TL;DR (2026-09-01 · **v1.5.10** built · **PHASE K IS DONE** — the Library rebuilt, K1–K4)
 
 - **v1.5.7 · K1 — the Library is ONE page (D154(a–f,i) + D155).** Sources|Manage tabs gone;
   status strip owns **Update data** (books · 5etools version vs latest · storage, accent
@@ -48,13 +48,21 @@
   D137's boot nag is gone, refitted into the pass. A pre-K1 digest (no origin stamps) is
   healed by the web fetch where a D153 record exists and gains the origins it always had.
   22 new browser checks, all green.
-- **Still transitional until K4:** Refresh / Rescan / Forget under a separator in the
-  Actions menu — K3 made them unnecessary, K4 deletes them.
-- **Next action: K4 — retire the old machinery** (the last of phase K). Task line in PLAN.
+- **v1.5.10 · K4 — the retired verbs leave the code (D159).** Refresh imported data (both
+  surfaces) and its whole pipeline, Rescan / Forget folder and the remembered handle with
+  them; the folder picker survives as an input method under ＋ Add files, chosen inside the
+  click that scans it. **D42 was re-proved through the real UI** — remove a book and its
+  picks are still in `state`, survive a reload, and the gap bar names the missing book.
+- **Phase K is closed.** The Library is one page: status strip · edition groups · R3 rows
+  (select · kinds · origin chip · switch) · selection bar · pending-import tray · ＋ Add
+  files ▾. Six verbs became five surfaces, and the app keeps its own data current.
+- **Next action: nothing is queued.** The open ⚑ flags in PLAN are all calls for Francesco;
+  the backlog below them is unchanged. A `/clean` is now worth doing — phase J's and phase
+  K's task bodies are both consumed and are the natural next thing to archive.
 - **This container has no 5etools mirror and no `data/`** (both gitignored). `data/data.json`
   was reconstructed from the SRD digest inlined in `docs/index.html` so `build.py` runs —
   verified byte-identical output at the same VERSION before any edit. Consequence:
-  **`node scratchpad/cparity.js` cannot run here.** No extractor was touched by K1–K3 (D157
+  **`node scratchpad/cparity.js` cannot run here.** No extractor was touched by K1–K4 (D157
   only READS `src/extract.js`, to hash it), so parity is unaffected; run the gate in full on a machine with the mirror before the next
   extractor change.
 - **Manual for Francesco:** ① the four ⚑ copy/model calls in PLAN — the `…`-placeholder
@@ -63,8 +71,12 @@
   down if it annoys). ③ Build "v2" health ⚠ at L1–L4 is real. ④ Print from Chrome or
   Safari (D108). ⑤ XMM on in Sources for Find Familiar's 2024 forms (D81). ⑥ Optionally
   ask GitHub Support to gc the pre-purge SHAs. ⑦ **New:** phase K is landing in patch
-  releases (D140 — minor is your call). When K4 closes, the whole Library rebuild may be
-  worth a `--minor`; say the word and it takes one.
+  releases (D140 — minor is your call). **K4 has closed and the whole Library rebuild
+  shipped as four patches (1.5.7 → 1.5.10)** — it is the kind of batch `--minor` exists for.
+  Say the word and the next commit takes one. ⑧ **D157 changed what makes a book "stale"**:
+  the stamp is the parser's own id now, so an ordinary release no longer re-reads your
+  library — only an extractor change does. That is what makes K3's automatic re-parse safe;
+  if you would rather it ran on every release, that is a one-line change.
 
 ## What this is
 
@@ -96,7 +108,7 @@ moved to `ARCHIVE.md` — every one leaving a stub, every `*Rejected:*` clause k
 Phase J's own task bodies are still live in `PLAN.md` (ticked, with the original notes kept
 under each). They are the natural next thing to archive — worth a `/clean` once the flags
 below are answered, not before. **Phase K (the Library rebuild, D154) is in PLAN with tasks
-K1–K4: K1, K2 and K3 are built and shipped; K4 is open.**
+K1–K4 — all four are built and shipped.**
 
 ⟳ Rename previous session → "Web sync and the Library redesign"  · session: resolve by
 cwd + latest
