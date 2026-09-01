@@ -213,6 +213,94 @@ read them before touching the page.
   through the real UI** — remove a book and its picks are still in `state`, survive a reload,
   and are named by the gap bar.
 
+## Phase L — ability scores (D161, decided 2026-09-01, QUEUED)
+
+The design is settled in two rounds; **D161 owns every call and every rejected option.** The
+model is a **stack of contributions** — each knows its giver and its level — so per-level truth
+is a slice, and a source nobody has modelled yet is a new contributor rather than a new model.
+Order matters: L1 is the model and can ship alone; L2 is the surface; L3–L4 are what the scores
+drive; L5 is the one piece that needs the mirror.
+
+- [ ] **L1 · The model.** `state.abilities` = `{method, base:{…}, origin:{…}}` plus the
+  contributions derived from what is already in the build (feats' structured `ability` blocks,
+  the ASI choices). `abilityStack(ab)` → the ordered contributions; `abilityAt(ab, level)` →
+  the score at a level; `abMod` already exists. Lives in the build blob (it is character data,
+  D33), detached on save like every other stored object (the `save()` gotcha). *Done when:* a
+  score round-trips through save/load/export/import and a fork, and a level slice reads the
+  pre-ASI number.
+- [ ] **L2 · The section (placement C).** A compact six-ability strip in the Character card
+  that opens the editor modal: entry method (standard array · point buy · type them in ·
+  4d6-drop-lowest), the six rows with their stacks, and the origin +2/+1 row that stands in
+  for a background (D161(e)). *Done when:* every entry method fills the same stack, the strip
+  reads the same numbers as the modal, and alignment is measured at 1280 and 375 in both
+  themes.
+- [ ] **L3 · The ASI as a choice on the feat (D161(c,g)).** Taking "Ability Score Improvement"
+  fills a general feat slot; a choice row asks +2-to-one or +1-to-two with the tiles
+  `choiceRow` already draws. A half-feat carrying structured `ability` with `choose:true` gets
+  the same row with no table. *Done when:* the timeline reads "L8 · ASI +2 INT", a second take
+  (`##2`) keeps its own answer, and dropping the feat drops its contribution.
+- [ ] **L4 · Save DC, spell attack, and the multiclass minimums.** 8 + PB + mod and PB + mod
+  per casting class, into the Slots & casts card, the spell modal, the table's Ability column
+  and — the point of the exercise — the two columns the print sheet has been ruling BLANK on
+  purpose. Plus 2024's 13-in-each-primary-ability check, advisory, in the consistency sweep.
+  *Done when:* the printed sheet carries real numbers, and a Wizard 5 / Paladin 3 with STR 10
+  is flagged and not blocked.
+- [ ] **L5 · Prerequisite pass/fail — NEEDS THE MIRROR.** `p.ability` is parsed and then
+  flattened to "CHA 13+" in `checks[]`, where D31 can only ever say "maybe". Keeping it
+  structured is an edit to **`extract.py` and `src/extract.js` both**, proved by
+  `node scratchpad/cparity.js` — which needs the 5etools mirror, so this one waits for a
+  session on Francesco's Mac. *Done when:* parity is 0 fail and a feat with an ability
+  prerequisite reads ✓/✗ in every picker.
+
+### Where ability scores land — the audit (2026-09-01)
+
+What already exists, and cost nothing: `abMod()` (app.js:7752, creature blocks only); the
+`--ab-*` tokens with `.abchip`/`.savechip`/`.abtile`, contrast-checked in both themes (D142(b),
+D148(e)); **feats carrying structured ASI grants** (`ability:[{abils,amount,choose}]`, D148);
+classes carrying `traits.primary`, `traits.saves` and the spellcasting `ability`; and
+`choiceRow`'s `type==="ability"` branch, which already renders the tile row an ASI needs.
+
+| Surface | Today | With scores |
+|---|---|---|
+| Print sheet (app.js:9824) | "Spell attack" and "Save DC" print as ruled BLANK fields | real numbers |
+| Slots & casts card | four tiles, no abilities | DC / attack per class |
+| Spell table "Ability" column, spell modal | a custom source's hand-typed numbers only | the character's own |
+| `prereqParts` | an ability minimum lands in `checks[]` → always "maybe" | pass/fail (L5) |
+| Multiclass legality | not checked at all | 2024's 13-minimum, advisory |
+| Guided builder ASI step | "taking the ASI means leaving this empty" | a real choice; re-homes the orphaned ⚑ note |
+| Custom sources (D55/D95) | DC / attack / ability typed by hand | could default from the character |
+| 2014 preparers | 0 prepared (`countType:"formula"`, no table) | computable — **not taken** (D161(f)) |
+
+Two constraints the audit fixed: **the app cannot derive a score** (no backgrounds in the
+digest — `DIGEST_ARRAYS` is spells, classes, subclasses, feats, races, optfeats), so something
+is always entered; and **making prereqs checkable is extractor work in both files**, hence L5.
+
+### Beyond spells — what a full builder would need (analysis, 2026-09-01)
+
+Asked for alongside D161: *"a first analysis of what it would take to make it a full builder."*
+Nothing here is decided or queued — it is the map.
+
+- **Already in the digest, unused.** `traits` carries hit dice, saving throws, skills, armor,
+  weapons, tools and starting equipment per class, each with its `{fixed, choices}` shape; feats
+  carry their ability grants and prerequisites; species carry their prose and grants. A
+  surprising amount of a builder is sitting in the data already.
+- **A stale note, corrected while auditing:** app.js:8993 says *"data only carries
+  spell-granting feats (extract.py filters the rest)"*. **Neither extractor filters** — the SRD
+  digest holds 17 feats, exactly 1 of which grants spells. The feat list is already complete.
+- **Free, or nearly:** the **proficiency bonus** is a function of character level; **hit
+  points** need only CON (after L1) plus `traits.hd` and a per-level average/roll choice;
+  **saving throws** are `traits.saves` + the scores this phase adds; **skills** are a fixed
+  list of 18 plus the `{fixed, choices}` the class already carries, and the app's own choice
+  machinery (D96) is the right widget for "choose 2 from these".
+- **Needs new data:** **backgrounds** (a seventh entity — D161(e) defers it); **equipment and
+  armour class**, which is `items.json` and therefore the magicvariant cross-product already
+  researched in the Queue's 🔶 — the same ~150 lines into both extractors, plus a mundane-item
+  slice the spell planner never needed; **weapons and attacks**, same source.
+- **The real question is not technical.** Every non-goal in CLAUDE.md exists to keep this a
+  spell planner: no sharing (D36), no bestiary (D78), no server. A builder is a different
+  product with a different surface — the Character card would stop being a card. Worth deciding
+  as a direction, once, rather than arriving at it one entity at a time.
+
 ## Open ⚑ — calls for Francesco
 
 - [ ] **The `…`-placeholder family needs one call** (H6, left as scoped): "+ add a class…",

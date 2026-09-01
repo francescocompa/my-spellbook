@@ -20,7 +20,7 @@ same thing, one of them is wrong:
 | `CLAUDE.md` (this) | What the project is, conventions, build/run, the verify gate, versioning |
 | `STATE.md` | Where things stand right now, and what is blocked on Francesco |
 | `PLAN.md` | The queue — what is next, what is gated |
-| `DECISIONS.md` | Every decision D7–D159 and the options rejected with them |
+| `DECISIONS.md` | Every decision D7–D161 and the options rejected with them |
 | `GOTCHAS.md` | Traps that have already cost a session. **Read before touching the extractors, the importer, grants resolution or any DOM handler.** |
 | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 | `ARCHIVE.md` | Bodies of consumed phases and old rationale — stubs in the live docs point here |
@@ -117,5 +117,9 @@ page — including a printed sheet — names the code that made it.
 Non-goals, still standing: no **authored** level-by-level timeline — per-level truth is a view
 derived from the acquisition order, and versions are alternative builds, never levels (D115
 narrowed this; per-pick stamps stay rejected); no server sync or accounts; no sharing a build as
-a page or URL (D36); no full bestiary (D78 carries a bounded creature set). Ability scores and proficiency are **not modelled** —
-anything needing them is left blank for a human rather than guessed.
+a page or URL (D36); no full bestiary (D78 carries a bounded creature set).
+**Ability scores stopped being a non-goal on 2026-09-01 (D161)** — they are modelled as a stack
+of contributions, phase L. What is still not modelled: proficiencies (the level-derived
+proficiency BONUS is free and is used; skills, tools and armour are not), equipment and AC, and
+backgrounds — a background's ability bonus is entered by hand (D161(e)). Anything else needing
+them is still left blank for a human rather than guessed.

@@ -7,7 +7,7 @@
 > |---|---|
 > | `CLAUDE.md` | What this project is, its conventions, build/run, the verify gate, versioning |
 > | `PLAN.md` | The queue — what is next, what is flagged for Francesco |
-> | `DECISIONS.md` | Every decision D7–D159 and what was rejected |
+> | `DECISIONS.md` | Every decision D7–D161 and what was rejected |
 > | `GOTCHAS.md` | Traps that have already cost a session |
 > | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 > | `ARCHIVE.md` | Bodies of consumed phases, decisions and old rationale |
@@ -62,9 +62,17 @@
   bucket (Artificer included), all third-casters share another**, and the bucket is keyed by
   DIVISOR so a future category inherits the rule. `poolLevel()` is now the single writer for
   the character view and the timeline both.
-- **Next action: nothing is queued.** The open ⚑ flags in PLAN are all calls for Francesco;
-  the backlog below them is unchanged. A `/clean` is now worth doing — phase J's and phase
-  K's task bodies are both consumed and are the natural next thing to archive.
+- **D161 — ability scores are modelled, as a STACK of contributions.** Two design rounds
+  with real-stylesheet mockups (`scratchpad/mkabil.py`); the standing non-goal is reversed.
+  A score is a sum of contributions that each know their giver and level, so per-level truth
+  is a slice and a later source is a new contributor, not a new model. Placement C (one line
+  in the Character card, editor behind it); the ASI is a **choice on the feat**, because in
+  2024 the ASI already IS a feat record; four base-entry methods; **no backgrounds** — a
+  custom background's bonus is entered in the modal and the origin feat keeps its slot.
+  Scores drive save DC / spell attack, prerequisite pass/fail and the multiclass minimums.
+- **Next action: phase L, L1 first** — task lines in PLAN, D161 is the spec. **L5 needs the
+  Mac**: making ability prerequisites checkable is an edit to both extractors, and
+  `cparity.js` cannot run without the 5etools mirror.
 - **This container has no 5etools mirror and no `data/`** (both gitignored). `data/data.json`
   was reconstructed from the SRD digest inlined in `docs/index.html` so `build.py` runs —
   verified byte-identical output at the same VERSION before any edit. Consequence:
@@ -96,7 +104,8 @@ https://claude.ai/code/artifact/47dbe945-a18a-4444-af21-c0143faa2eb0
 Non-goals, as narrowed by D115: no **authored** level-by-level timeline (per-level truth is
 derived from the acquisition order; versions are alternatives, never levels), no server sync
 or accounts, no sharing a build as a page or URL (D36), no full bestiary (D78 carries a
-bounded set). Ability scores and proficiency are not modelled.
+bounded set). **Ability scores are modelled since D161** (a stack of contributions, phase L);
+proficiencies, equipment/AC and backgrounds are not.
 
 ## Now
 

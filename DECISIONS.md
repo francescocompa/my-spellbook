@@ -2340,6 +2340,70 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     the timeline agrees with the character view, and a lone half-caster still reads its own
     printed table (Paladin 5 → 4/2, unchanged). Four random builds, the timeline and the
     guided builder raise no errors.
+- **D161 (2026-09-01) DECIDED — ability scores are modelled, as a STACK of contributions.**
+  Reverses the standing non-goal (*"ability scores and proficiency are not modelled — anything
+  needing them is left blank for a human rather than guessed"*). Two AskUserQuestion rounds,
+  mockups against the real stylesheet at `scratchpad/mockups/abil.html` (gitignored; `python3
+  scratchpad/mkabil.py` regenerates). The audit that framed it is in PLAN under *"Where ability
+  scores land"*.
+  - **(a) A score is a SUM OF CONTRIBUTIONS, never six typed numbers.** Each contribution
+    knows who gave it and at which level, so `abilitiesAt(level)` is a slice of the same
+    acquisition order the pick arrays already are (D115(b,h)) — a level-8 preview reads INT 19
+    where the sheet reads 20 — and a source nobody has modelled yet (an item, a species trait,
+    a boon) is added by appending a contributor, not by changing the model. Francesco's words:
+    *"we can start with the scores in a way that allow later injections of modifiers from
+    other sources."* *Rejected:* **final six numbers** (nothing to slice by level, and every
+    later source becomes arithmetic the user does by hand); **base + only what the app can
+    see** (the same, one step less honest).
+  - **(b) Placement C — one line in the Character card, the editor behind it.** A compact
+    six-ability strip sits where a `.picksel` would, and opens a modal carrying the entry
+    method, the six rows and their stacks — the custom-source editor's own pattern (D94).
+    *Rejected:* **A, six tiles inline** (the Character card is already the tallest thing on
+    the page); **B, its own card** (the breakdown is reference, not something you read on
+    every render — it earns a click, not permanent height).
+  - **(c) The ASI is a CHOICE ON THE FEAT, because in 2024 the ASI already IS a feat.**
+    "Ability Score Improvement" is a real record in the digest — category G, repeatable,
+    prereq level 4 — so taking it fills a general feat slot exactly like any other feat, and
+    which abilities it raised is a choice attached to that instance (`state.choices`, the
+    `##2` repeat suffix from D135, the ability tiles `choiceRow` already draws for a casting
+    ability). **No third string shape in `state.feats`**, and the timeline gets "L8 · ASI +2
+    INT" for free. *Rejected:* **two controls in the slot** (a feat picker beside a tile row,
+    whichever answers first) — it needs a second answer shape in the feat arrays and a rule
+    for which one won, to save one click.
+  - **(d) All four base-entry methods ship:** standard array, point buy (27, the 2024 cost
+    table, a running budget), type-them-in (1–30, no validation beyond the range: rolled
+    elsewhere, a houserule, or a character built in another tool), and an in-app
+    4d6-drop-lowest roller. The base is one contribution like any other; the method is a
+    property of that contribution, not of the character.
+  - **(e) Backgrounds are NOT added to the digest — a custom background is assumed.**
+    Francesco: *"For now let's only work assuming custom background. For what we have now, we
+    only need ability score bonuses (that can be added to the ability modal) and the origin
+    feat, already included in the app."* So the origin +2/+1 is a contribution entered in the
+    modal, and the origin feat keeps the slot it already has. *Rejected (deferred, not
+    refused):* **a seventh entity in both extractors** — real background records with their
+    ability spread, origin feat and skills. It is the only way to get the printed list, and it
+    stays available the day the rest of a builder needs backgrounds anyway.
+  - **(f) What the scores drive** (his selection): **spell save DC and spell attack** per
+    casting class — which fills the two columns the print sheet has been ruling BLANK on
+    purpose (app.js:9824) — **prerequisite pass/fail**, and **multiclass minimums** (2024's 13
+    in each primary ability), advisory as every prereq is (D31). *Not taken:* 2014 preparers'
+    "modifier + level" count, which stays 0 until asked for.
+  - **(g) The ASI's own grant is a HAND-AUTHORED app rule, not an extractor change.** 5etools
+    carries no structured form for it: the ASI feat's `ability` is `[]` and the +2/+1 lives in
+    prose (*"Increase one ability score of your choice by 2, or increase two ability scores of
+    your choice by 1"*). The app already hand-authors this class of table (`ASI_LEVELS`,
+    `ASI_EXTRA`), so one more beside them costs nothing and cannot break parity. A half-feat
+    that DOES carry `ability` with `choose:true` needs no table at all — it is already data.
+    *Rejected:* **parsing that prose in both extractors** (a hand-authored parse in two
+    languages, proved by a harness that needs the mirror, for one sentence that has not
+    changed since 2024).
+  - **(h) The 20 cap is advisory.** An ASI that would push a score past 20 is flagged by the
+    consistency sweep, never blocked or silently clamped — the same stance as every other
+    rule the app checks (D31, D42).
+  - **Cost named up front:** prerequisite pass/fail (f) needs `p.ability` to survive as
+    STRUCTURED data instead of being flattened to "CHA 13+" in `checks[]` — an edit to
+    `extract.py` AND `src/extract.js`, proved by `cparity.js`, which needs the 5etools mirror
+    and therefore a session on Francesco's Mac. Everything else in this entry is app-side.
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives
