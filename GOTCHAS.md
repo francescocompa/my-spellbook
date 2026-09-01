@@ -692,6 +692,40 @@
   the real composited background (translucent layers included) and multiply in every
   ancestor's `opacity` — a decorative `opacity` on a text container is a contrast cut no
   palette can repair (`.lvltools` at `.6` put its label at 2.68:1; D145 removed both).
+  Three more things the D151 pass had to learn the hard way:
+  - **A hidden Browser pane never ticks the animation clock, so every `transition`ing
+    property FREEZES at its pre-flip value.** After `data-theme` flips, `getComputedStyle`
+    on any element with a colour transition keeps returning the OLD theme's colour
+    indefinitely — a separate tool call and a `setTimeout` do not help, because no frame
+    ever runs. It reported `--accent` on a light page as the dark `#d9915f` at 2.29:1.
+    Inject `*,*::before,*::after{transition:none!important;animation:none!important}`
+    BEFORE flipping, and sanity-check one known control's computed colour against the
+    token you expect before trusting a single number.
+  - **`requestAnimationFrame` never resolves in a hidden pane either** — an `await`ed rAF
+    hangs the whole tool call to its 45s timeout. Use `setTimeout` to let styles settle.
+  - **Parse `color(srgb ...)` as 0–1, not 0–255.** `color-mix()` results come back in that
+    form, and a naive `match(/[\d.]+/g)` reads `0.835` as 0.835/255 — pure black. That
+    alone invented five failures at 1.45:1 in a modal that had four real ones.
+
+- **A dev server that "started" may not be yours.** `python3 serve.py 8000` from a worktree
+  dies with `OSError: [Errno 48] Address already in use` when another checkout already holds
+  the port — backgrounded, that traceback goes to a log nobody reads, and the browser happily
+  serves the OTHER tree's files. Every measurement then describes code you did not edit.
+  Give each worktree its own port (`PORT=8047 python3 serve.py`) and **prove the edit is on
+  the wire** before measuring: `curl -s http://127.0.0.1:$PORT/src/styles.css | grep <rule>`.
+  A worktree also has no `data/` (gitignored, local to the main checkout), so `src/index.html`
+  loads with `DATA.classes` empty until you symlink it in — and **symlinking the main
+  checkout's `data/` is a trap of its own**: if another session has uncommitted extractor
+  edits, that `data.json` came from a DIFFERENT `extract.py` than your tree's, and
+  `cparity.js` reports dozens of whole-record FAILs that are nothing to do with you. Run
+  `python3 extract.py` and generate your own.
+
+- **Parallel worktrees share the tag store, the stash and the D-numbers.** A branch cut from
+  v1.5.0 that writes "D148" and bumps to 1.5.1 collides silently with whatever `main` took
+  meanwhile — `git tag` only fails at the very end, after the changelog and the decision are
+  already written. Before numbering anything, read `git show main:VERSION` and `main`'s
+  highest D-id, not your own base's. And **never `pkill -f serve.py`**: it kills every other
+  worktree's dev server too. Kill the PID you started.
 
 - **A pick array's POSITION is the acquisition slot, so a `splice` is a re-dating (D146).**
   This bit for real: on a clean Sorcerer 5, dropping the L1 pick moved five of the eight

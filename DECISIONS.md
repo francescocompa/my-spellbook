@@ -1927,6 +1927,50 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     marks stay legible. The Evoker's five choices appear in the merged modal's own choices
     block and commit through the app's one picker.
 
+- **D151 (2026-09-01) DECIDED — the quiet floor is `--muted`; there is no legal step below it.**
+  D145(c) dropped a decorative `opacity` from `.lvltools` and `.fldnote`, but its audit could
+  only see what was on screen, and **`.logains.dim` ("No new features") renders only for a
+  character level that gains nothing** — the audited build had no such level. Measured now, in
+  the real timeline, against the real composited background:
+
+  | | dark | light |
+  |---|---|---|
+  | `.logains.dim` on a lived card | 3.01:1 | 2.52:1 |
+  | `.logains.dim` on the current card | 2.84:1 | 2.50:1 |
+  | `.logains.dim` on a **plan** card | **2.49:1** | **2.10:1** |
+
+  - **(a) `.logains.dim` loses its `opacity:.6`; the italic is the whole distinction.** The
+    line is already `color:var(--muted)`, and D145(a) derived `--muted` to *just over* 4.5:1
+    against every surface it can land on. So there is no colour quieter than `--muted` that
+    still clears AA — the "second quiet step" `.dim` was reaching for **does not exist**.
+    What separates this line from a list of gains is that it states an ABSENCE, and the
+    italic already says that. *Rejected:* a new token one step below `--muted` (it would fail
+    by construction — `--muted` is the floor); keeping the opacity and lightening `--muted`
+    to compensate (pays for one line by flattening every quiet label in the app).
+  - **(b) `.locard.zplan` loses its `opacity:.82` too — the dashed border already says
+    "plan".** This one is *load-bearing for (a)*: a plan card multiplies its opacity into
+    everything inside it, so `.dim` there was `.6 × .82 = .492`, and fixing `.dim` alone
+    would have left it failing. The same `.82` was independently holding a whole family of
+    `--muted` text at **4.44:1 dark / 3.92:1 light** — `.lolv`, the clock tiles' `b`/`small`,
+    `.tlchip.ghost`, `.gopen`. Two signals said "not yet lived"; the border is the one that
+    costs no contrast. *Rejected:* keeping `.82` and exempting text from it (there is no way
+    to un-inherit group opacity); a lighter `.92` (still a cut, still unmeasurable by eye).
+  - **Not touched:** `.locard.dragging{opacity:.4}` — a drag ghost is transient and is not a
+    reading surface. Print is untouched by construction: `.modal` is `display:none` there, so
+    neither rule reaches a page.
+  - **Result: `.logains.dim` measures 5.77:1 dark / 5.66:1 light** on every card variant
+    (lived, current, plan), at 1280 and 375. The light timeline is at **0 failures across 111
+    rendered text nodes**; dark keeps **24**, all of them `.lt-count.tlalert` — see (c).
+  - **(c) Found, measured, NOT fixed — `.lt-count.tlalert` in the dark theme.** The pick-alert
+    tile's `color-mix(in srgb,var(--bad) 62%,var(--muted))` (`b`) and `40%` (`small`) sit on
+    `--bad-soft` at **3.85 / 4.01 / 4.26 / 4.44:1** depending on the card underneath. This is
+    a *palette* defect (D145a), not an opacity one — it fails at full opacity and it changes
+    the alert's identity colour, which is Francesco's call. Light passes. Left standing and
+    flagged rather than folded into an opacity fix.
+  - **Numbering note:** this work was done in a parallel worktree off v1.5.0 and was first
+    written up as D148 / v1.5.1. `main` had meanwhile taken D148–D150 and v1.5.1–v1.5.3, so
+    it was renumbered on landing. Nothing about the finding changed.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

@@ -1321,7 +1321,9 @@ table.spelltable .pickcell{cursor:help}
 .locard.runc3{border-left:3px solid color-mix(in srgb,var(--good) 60%,transparent)}
 /* zones: lived history below the current (clicked) level · the dashed plan above it.
    ONE level state since the pin unification: `.here` is the current level, full stop. */
-.locard.zplan{border-style:dashed;opacity:.82}
+/* D151: the dashed border IS the "not yet lived" signal; the old `opacity:.82` was a
+   second, redundant say-so that cut every text node on the card (D145c). */
+.locard.zplan{border-style:dashed}
 .locard.here{background:var(--accent-soft);border-color:var(--accent)}
 /* the class rail SURVIVES every highlight (D124) — these re-assert the left edge after
    the zone tints above, which repaint all four borders and used to eat it */
@@ -1443,7 +1445,11 @@ table.spelltable .pickcell{cursor:help}
   background:var(--panel);border-radius:7px;padding:1px 6px}
 .lotop .locls{font-size:13px}
 .logains{font-size:11px;color:var(--muted);line-height:1.45;margin-top:2px}
-.logains.dim{opacity:.6;font-style:italic}
+/* D151: no `opacity` here. The line is already `--muted`, which is the QUIET FLOOR —
+   there is no legal step below it (D145a solved --muted to just over 4.5:1), so a
+   second dimming step can only land under AA. The italic carries the whole
+   distinction: this is an absence, not a list. */
+.logains.dim{font-style:italic}
 /* The two casting clocks (D68) as tiles, right-aligned so either progression can be read
    straight down the column. Each keeps its own hue at all times — the tint IS the label —
    and the level that RAISED it takes the full colour and a border. */
