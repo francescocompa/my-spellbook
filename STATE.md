@@ -12,7 +12,7 @@
 > | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 > | `ARCHIVE.md` | Bodies of consumed phases, decisions and old rationale |
 
-## TL;DR (2026-09-01 · **v1.5.11** built · phase K done; the half-caster pool fixed)
+## TL;DR (2026-09-01 · **v1.5.12** built · phase K done · ability scores modelled, L1–L4)
 
 - **v1.5.7 · K1 — the Library is ONE page (D154(a–f,i) + D155).** Sources|Manage tabs gone;
   status strip owns **Update data** (books · 5etools version vs latest · storage, accent
@@ -70,9 +70,15 @@
   2024 the ASI already IS a feat record; four base-entry methods; **no backgrounds** — a
   custom background's bonus is entered in the modal and the origin feat keeps its slot.
   Scores drive save DC / spell attack, prerequisite pass/fail and the multiclass minimums.
-- **Next action: phase L, L1 first** — task lines in PLAN, D161 is the spec. **L5 needs the
-  Mac**: making ability prerequisites checkable is an edit to both extractors, and
-  `cparity.js` cannot run without the 5etools mirror.
+- **v1.5.12 · L1–L4 SHIPPED.** The model (a stack of contributions, sliced by level), the
+  section (a strip on the Character card + an editor with four base-entry methods and the
+  Origin block standing in for a background), the ASI as a choice on the feat, and the
+  numbers: save DC / spell attack on the card and on the **printed sheet**, where two ruled
+  blanks used to be, plus the multiclass minimums in the sweep. 91 checks, 0 contrast
+  failures, 0.00px alignment at 1280 and 375.
+- **Next action: L5, and it needs the Mac** — making ability PREREQUISITES pass/fail means
+  keeping `p.ability` structured in `extract.py` AND `src/extract.js`, proved by
+  `cparity.js`, which needs the 5etools mirror. Everything else in phase L is done.
 - **This container has no 5etools mirror and no `data/`** (both gitignored). `data/data.json`
   was reconstructed from the SRD digest inlined in `docs/index.html` so `build.py` runs —
   verified byte-identical output at the same VERSION before any edit. Consequence:

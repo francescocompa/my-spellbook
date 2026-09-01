@@ -424,7 +424,7 @@ const activeBuild=()=>BUILDS.builds[BUILDS.activeId];
 
 const blankBuildState=()=>({classes:[],speciesKey:"",feats:[],optFeats:[],featSlots:{},levelOrder:[],
   customSources:[],chosen:{},choices:{},sbFav:{},nextRowId:1,filters:null,
-  currentLevel:null,swaps:{},sbFavSkip:[]});
+  currentLevel:null,swaps:{},sbFavSkip:[],abilities:blankAbilities()});
 // the live `state` <-> the plain object stored in a build.
 // The ARRAYS ARE THE ACQUISITION ORDER (E1 · D115(b,h)): `feats`, `optFeats` and each
 // row's `chosen[id].cantrips`/`.spells` list picks in the order they were acquired.
@@ -443,6 +443,7 @@ function serializeState(){ const f=state.filters; return {
   currentLevel:state.currentLevel==null?null:state.currentLevel,  // null = at top (D115(e))
   swaps:state.swaps||{},                  // charLevel -> {spell?,cantrip?} events (D115(g))
   sbFavSkip:state.sbFavSkip||[],          // form offers dismissed in this build (D131(g))
+  abilities:state.abilities||blankAbilities(),   // D161: the base + origin of the score stack
 };}
 function applyState(s){ s=s||blankBuildState();
   // the live state must never share sub-objects with the stored build (see save()) —
@@ -456,7 +457,11 @@ function applyState(s){ s=s||blankBuildState();
     currentLevel:typeof s.currentLevel==="number"?s.currentLevel:null,
     // swapsNorm heals as well as reads: a stored map from before swaps split by kind
     // arrives as one event per level and comes out in the two-slot shape
-    swaps:swapsNorm(s.swaps)});
+    swaps:swapsNorm(s.swaps),
+    // D161: a build from before ability scores existed simply has none — and a stored blob
+    // that lost its shape heals to the blank one rather than throwing on first read
+    abilities:(s.abilities&&typeof s.abilities==="object")
+      ?Object.assign(blankAbilities(),s.abilities):blankAbilities()});
   // arr() guards a filters blob that stored a Set as "{}" (a pre-E1 importer fallback did) —
   // boot must heal such a build, not throw at `new Set({})` and die half-rendered
   const arr=x=>Array.isArray(x)?x:[];
@@ -580,9 +585,11 @@ function loadBuilds(){
       // its old `kind` deciding which slot it lands in — nothing is dropped
       else{const n=swapsNorm(st.swaps);
         if(JSON.stringify(n)!==JSON.stringify(st.swaps)){st.swaps=n;migrated=true;}}
-      // D131(g): the dismissed form offers. LAST, because serializeState puts it last and
-      // the identical-write skip compares stringified forms — key order and all.
-      if(st.sbFavSkip===undefined){st.sbFavSkip=[];migrated=true;}});
+      // D131(g): the dismissed form offers, then D161's ability stack. LAST and in
+      // serializeState's own order, because the identical-write skip compares stringified
+      // forms — key order and all.
+      if(st.sbFavSkip===undefined){st.sbFavSkip=[];migrated=true;}
+      if(st.abilities===undefined){st.abilities=blankAbilities();migrated=true;}});
     if(migrated)persistBuilds();
     return "loaded";
   }
@@ -646,6 +653,89 @@ const visible=o=>srcOn(o.source)&&reprintOk(o);
 // They are two functions, not one with a flag, because a single-class character reads its
 // class's OWN printed table and never touches the pool at all.
 function eclOwn(caster,l){return {full:l,artificer:Math.ceil(l/2),"1/2":Math.ceil(l/2),"1/3":l>=3?Math.ceil(l/3):0}[caster]||0;}
+// ── ability scores (D161) ──────────────────────────────────────────────────
+// A score is a SUM OF CONTRIBUTIONS, never six typed numbers. Each contribution knows who
+// gave it and the character level it arrived at, so per-level truth is a SLICE of the same
+// acquisition order the pick arrays already are (D115(b,h)) — and a source nobody has
+// modelled yet (an item, a species trait, a boon) is a new contributor, not a new model.
+const ABIL_ORDER=["str","dex","con","int","wis","cha"];
+const STD_ARRAY=[15,14,13,12,10,8];
+// XPHB point buy: 27 points, 8–15 before any bonus
+const POINT_COST={8:0,9:1,10:2,11:3,12:4,13:5,14:7,15:9};
+const POINT_BUDGET=27;
+const AB_METHODS=[["array","standard array"],["point","point buy"],["manual","typed"],["roll","rolled"]];
+const blankAbilities=()=>({method:"array",base:{},origin:{},originMode:"2+1",roll:null});
+const abilState=()=>{const a=state.abilities;
+  return (a&&typeof a==="object")?a:(state.abilities=blankAbilities());};
+// the ASI is a FEAT in 2024 (D161(c)) and 5etools carries its +2/+1 only as prose, so this
+// is a hand-authored rule — the same class of table as ASI_LEVELS/ASI_EXTRA beside it. A
+// half-feat that carries a structured `ability` block needs no entry here: it is data.
+const ASI_FEAT_NAMES=new Set(["ability score improvement"]);
+const isAsiFeat=f=>!!f&&ASI_FEAT_NAMES.has(lc(f.name));
+// one id per feat INSTANCE, so a repeated ASI (D135's `##2`) keeps its own answer
+const asiChoiceId=fk=>"asi|"+fk;
+const featAbChoiceId=(fk,i)=>"fab|"+fk+"|"+i;
+// an ability answer holds ability keys, not entity keys. Anything walking `state.choices`
+// as a list of picks has to skip these, which is why the ids are prefixed at all.
+const isAbilityChoiceId=id=>/^(asi|fab)\|/.test(String(id));
+// what a taken feat actually adds, as {ab, amount} — its structured grants, plus the ASI's
+// answer. A `choose` block is unanswered until its choice is made, and contributes nothing.
+function featAbilityGains(fk,f){
+  const out=[];
+  if(isAsiFeat(f)){
+    const v=state.choices[asiChoiceId(fk)];
+    (Array.isArray(v)?v:[]).forEach(ab=>{ if(ABIL_ORDER.indexOf(ab)>=0)out.push({ab,amount:1}); });
+    return out;   // two points: both on one ability is +2, one each is +1/+1
+  }
+  ((f&&f.ability)||[]).forEach((g,i)=>{
+    const amt=g.amount||0; if(!amt)return;
+    if(g.choose){const v=state.choices[featAbChoiceId(fk,i)];
+      if(v&&ABIL_ORDER.indexOf(v)>=0)out.push({ab:v,amount:amt});}
+    else (g.abils||[]).forEach(ab=>{if(ABIL_ORDER.indexOf(ab)>=0)out.push({ab,amount:amt});});});
+  return out;
+}
+const AB_METHOD_NAME=Object.fromEntries(AB_METHODS);
+// every contribution to every ability, in acquisition order
+function abilityStack(){
+  const A=abilState(), out={};
+  ABIL_ORDER.forEach(a=>out[a]=[]);
+  const push=(ab,amount,from,lv)=>{ if(!amount||!out[ab])return;
+    out[ab].push({amount,from,lv:Math.max(1,lv||1)}); };
+  ABIL_ORDER.forEach(a=>push(a,(A.base||{})[a],AB_METHOD_NAME[A.method]||"base",1));
+  ABIL_ORDER.forEach(a=>push(a,(A.origin||{})[a],"origin",1));
+  // a feat arrives at the level its slot did (D135(d)) — that is what the timeline reads
+  const acq=featAcqLevels();
+  (state.feats||[]).forEach(fk=>{ if(isHole(fk))return;
+    const f=FEAT_BY[baseKey(fk)]; if(!f)return;
+    const a=acq.get(fk), lv=(a&&!a.over)?a.lv:1;
+    featAbilityGains(fk,f).forEach(g=>push(g.ab,g.amount,f.name,lv));});
+  return out;
+}
+// scores AS OF a character level; no argument = as of the level the view is standing on.
+// 0 means "not set" — an unentered ability stays blank rather than reading as a 0 score.
+function abilityScores(lv){
+  // an empty build has charLevel() 0, and a base contribution arrives at level 1 — without
+  // the floor, a character with no class yet reads every score as unset
+  if(lv==null)lv=Math.max(1,charLevel());
+  const st=abilityStack(), out={};
+  ABIL_ORDER.forEach(a=>{out[a]=st[a].reduce((n,c)=>n+(c.lv<=lv?c.amount:0),0);});
+  return out;
+}
+const abModN=v=>Math.floor(((v||0)-10)/2);
+// D161(f): what a caster's ability actually buys. 8 + PB + modifier, and PB + modifier —
+// null when the ability is unknown or its score unset, so an unanswered question stays
+// blank rather than being answered with a guess (the stance the print sheet already took).
+function castNumbers(rec,lv){
+  if(!rec||!rec.ability)return null;
+  const sc=abilityScores(lv), v=sc[rec.ability]||0;
+  if(!v)return null;
+  const pb=profBonus(lv==null?Math.max(1,charLevel()):lv), m=abModN(v);
+  return {ability:rec.ability,score:v,mod:m,pb,dc:8+pb+m,atk:pb+m};
+}
+const abSet=()=>{const A=abilState();return ABIL_ORDER.some(a=>(A.base||{})[a]);};
+// PB is a function of character level alone — no input needed, and the one piece of
+// "proficiency" this app models (CLAUDE.md's non-goal is narrowed, not lifted)
+const profBonus=lv=>2+Math.floor((Math.max(1,Math.min(20,lv||1))-1)/4);
 // The pool is by CATEGORY, not by class (D160, Francesco's call): every half-caster's levels
 // go into ONE bucket that is halved once — Artificer included — and every third-caster's into
 // another that is divided once. Paladin 19 / Ranger 1 is ⌈20/2⌉ = 10, not ⌈19/2⌉+⌈1/2⌉ = 11.
@@ -768,7 +858,31 @@ function resolveAbility(grants,tok,sharedStat,out){
 // `owner` is the entity the choices belong to — the class row, feat, species… — carried
 // unchanged through nested option groups so the choices panel can group by it (D30).
 const OWNER_KIND={c:"class",s:"subclass",f:"feat",o:"optional feature",r:"species",x:"custom source"};
+// "+2 INT" / "+1 INT · +1 WIS" — the one writer for a spent ASI, used by the choice row,
+// the timeline and the ability stack alike
+function asiText(list){
+  const by={};(list||[]).forEach(a=>by[a]=(by[a]||0)+1);
+  return ABIL_ORDER.filter(a=>by[a]).map(a=>"+"+by[a]+" "+(ABIL_SHORT[a]||a).toUpperCase()).join(" · ");
+}
 const ownerOf=(tok,name,src)=>({id:tok.split(":")[0],name,src,kind:OWNER_KIND[tok[0]]||""});
+// D161(c): what a feat asks about ability scores. The ASI is a feat in 2024, so its +2/+1
+// is a CHOICE on that feat instance — no new slot shape, and a second take (`##2`) keeps its
+// own answer because the id carries the whole key. A half-feat whose `ability` block is
+// already structured with `choose:true` needs no table: it is data, and it asks the same way.
+function abilityChoices(fk,f,out){
+  const owner=ownerOf("f"+fk,f.name,f.source);
+  if(isAsiFeat(f)){
+    const id=asiChoiceId(fk), v=state.choices[id];
+    out.choices.push({id,type:"asi",value:Array.isArray(v)?v:[],label:"Raise",
+      giver:f.name,giverSrc:f.source,owner});
+    return;}
+  ((f.ability)||[]).forEach((g,i)=>{
+    if(!g.choose||!g.amount)return;
+    const id=featAbChoiceId(fk,i);
+    out.choices.push({id,type:"ability",options:(g.abils||[]).filter(a=>ABIL_ORDER.indexOf(a)>=0),
+      value:state.choices[id]||null,label:(g.amount>0?"+":"")+g.amount+" to",
+      giver:f.name,giverSrc:f.source,owner});});
+}
 // Where a giver is PRINTED, for its book chip's popover (D51). A choice group knows only
 // the owner's name, book and kind, so the record has to be found again — a subclass is
 // named by its shortName in that label, which is why both are matched.
@@ -1325,6 +1439,23 @@ function buildHealth(){
     add(a.lv,"opt", a.slot
       ? `${o.name} is one ${lc(a.slot)} more than this build grants.`
       : `${o.name} has no feature in this build that grants it.`);});
+  // D161(f): 2024 multiclassing wants 13 in the primary ability of every class you hold.
+  // ADVISORY, like every prerequisite this app checks (D31) — it is named, never enforced,
+  // and it says nothing at all until the scores are set. topCharLevel(), never the preview:
+  // the sweep may not read PREVIEW (D115(f)).
+  if(state.classes.length>1&&abSet()){
+    const sc=abilityScores(top);
+    state.classes.forEach(row=>{
+      const c=CLS_BY[row.clsKey]; if(!c||!row.level)return;
+      const prim=((c.traits||{}).primary)||[];
+      const short=prim.filter(a=>ABIL_ORDER.indexOf(a)>=0&&(sc[a]||0)<13);
+      if(!short.length)return;
+      const lvls=clm.get(row.id)||[];
+      add(lvls[0]||1,"multiclass",
+        `Multiclassing into ${c.name} asks for `
+        +prim.map(a=>(ABIL_SHORT[a]||a)+" 13").join(" and ")
+        +` — this build has `+short.map(a=>(ABIL_SHORT[a]||a)+" "+(sc[a]||0)).join(", ")+".");});
+  }
 
   out.sort((a,b)=>a.level-b.level);
   const levels=[...new Set(out.map(f=>f.level))];
@@ -1379,6 +1510,12 @@ function gpickSec(pick,row,from,to,arr,castMax,label){
 // a choice the build carries (D126(g)), as a section of its GIVER's step
 function gchoiceSec(c){
   const isPick=c.type==="pick", a=isPick?(state.choices[c.id]||[]):null;
+  // D161(c): an ASI holds an ARRAY of two points and is answered only when both are spent —
+  // an option or a casting ability always holds a value, an unspent ASI holds nothing
+  if(c.type==="asi"){const v=state.choices[c.id]||[];
+    return gsec({id:"choice@"+c.id,kind:"choice",choice:c,cid:c.id,label:guideChoiceLabel(c),
+      giver:c.giver,optional:false,need:2,have:v.length,done:v.length>=2,keys:null,
+      value:v.length?asiText(v):null});}
   return gsec({id:"choice@"+c.id,kind:isPick?"cpick":"choice",choice:c,cid:c.id,
     label:guideChoiceLabel(c),giver:c.giver,
     // an option group and the casting-ability question always HOLD a value (the default
@@ -1623,10 +1760,12 @@ function guidePickAsk(c){
   return head+lead+(qual?qual+" ":"")+noun+tail;
 }
 // the ask, short enough for a chain row; the giver is the card's sub-line, never repeated
-const guideChoiceLabel=c=>c.type==="ability"?"Casting ability"
+const guideChoiceLabel=c=>c.type==="asi"?"Ability Score Improvement"
+  :c.type==="ability"?(c.label?c.label+" one ability":"Casting ability")
   :c.type==="option"?(String(c.giver||"Option").split(" · ").pop()||"Option")
   :cap1(guidePickAsk(c)||fmtDesc(c.desc)||("choose "+(c.count>1?c.count+" spells":"a spell")));
 function guideChoiceValue(c){
+  if(c.type==="asi"){const v=state.choices[c.id]||[];return v.length?asiText(v):null;}
   if(c.type!=="pick"){const v=state.choices[c.id];
     return v==null?null:(c.type==="ability"?(ABIL[v]||String(v)):String(v));}
   const a=state.choices[c.id]||[];
@@ -3044,7 +3183,9 @@ function collectGrants(records,casters,charLevel,feats,optFeats,sharedStat){
   });
   // sliced (E2): a feat or optional feature the build only acquires above the view
   // level doesn't exist yet there — its grants, choices and forms come with it
-  feats.forEach(fk=>{const f=FEAT_BY[baseKey(fk)];if(f)resolveGrants(f.grants,charLevel,"f"+fk,f.name,gout,sharedStat,f.source);});
+  feats.forEach(fk=>{const f=FEAT_BY[baseKey(fk)];if(!f)return;
+    resolveGrants(f.grants,charLevel,"f"+fk,f.name,gout,sharedStat,f.source);
+    abilityChoices(fk,f,gout);});
   // An optional feature is resolved outside the caster loop (a feat can grant one too), so
   // its owner is found by which class's progression opened the slot it fills — that is what
   // makes a Warlock's invocation spells part of Warlock. Tag by range rather than resolving
@@ -3355,7 +3496,9 @@ function renderChoices(){
   const card=$("#choicesCard"), body=$("#choicesBody"); body.innerHTML="";
   const ch=R.choices;
   card.classList.toggle("hidden",!ch.length);
-  const pending=ch.filter(c=>c.type==="pick"&&!c.optional&&(state.choices[c.id]||[]).length<c.count).length;
+  const pending=ch.filter(c=>c.type==="asi"
+    ?(state.choices[c.id]||[]).length<2
+    :c.type==="pick"&&!c.optional&&(state.choices[c.id]||[]).length<c.count).length;
   $("#choicesChip").textContent = ch.length? (pending?`${pending} pending`:"all set"):"";
   // group by the entity that granted them, in first-seen order (D30)
   const groups=[]; const byId=new Map();
@@ -3405,10 +3548,37 @@ function maskOverflow(f){ if(!f)return;
 // The giver is the group's job (cghead) and the feature is cgsub's — never repeated here.
 function choiceRow(c){
   const row=el("div","choicerow");
+  // D161(c): an ASI spends TWO points across the six abilities — the same tile row, one
+  // more state. Clicking adds a point (so a second click on the same ability makes it +2);
+  // with both spent, clicking a spent ability clears it and clicking a fresh one starts over,
+  // because a dead click on a control that looks live is worse than either.
+  if(c.type==="asi"){
+    const cg=el("div","cg");
+    cg.append(el("span","cwhat",c.label||"Raise"));
+    const cur=Array.isArray(state.choices[c.id])?state.choices[c.id]:[];
+    cg.append(el("span","cgsub",cur.length?asiText(cur):"two points to spend"));
+    row.append(cg);
+    const box=el("div","abtiles");
+    ABIL_ORDER.forEach(o=>{
+      const n=cur.filter(x=>x===o).length;
+      const t=el("button","abtile "+o+(n?" on":"")); t.type="button";
+      t.append(Object.assign(el("span","abchip "+o),
+        {textContent:(ABIL_SHORT[o]||o).toUpperCase()+(n?" +"+n:"")}));
+      t.title=(ABIL[o]||o)+(n?" +"+n:"");
+      t.setAttribute("aria-label",t.title); t.setAttribute("aria-pressed",String(!!n));
+      t.onclick=()=>{const next=cur.slice();
+        if(next.length<2)next.push(o);
+        else if(n)for(let i=next.length-1;i>=0;i--){if(next[i]===o)next.splice(i,1);}
+        else{next.length=0;next.push(o);}
+        state.choices[c.id]=next; save(); render();};
+      box.append(t);});
+    row.append(box);
+    return row;
+  }
   if(c.type==="option"||c.type==="ability"){
     const isAb=c.type==="ability";
     const cg=el("div","cg");
-    cg.append(el("span","cwhat",isAb?"Casting ability":"Choose one"));row.append(cg);
+    cg.append(el("span","cwhat",isAb?(c.label||"Casting ability"):"Choose one"));row.append(cg);
     // D142(b): a casting ability is a TILE ROW, not a dropdown — one tile per eligible
     // ability wearing that ability's own key colour, chip only (no name beside it). The
     // colours are the existing `--ab-*` tokens `.abchip`/`.savechip` already use, so this
@@ -4262,6 +4432,197 @@ function applyImportedState(st){
   return out;
 }
 
+// ── the ability-score section (D161(b,d,e)) ────────────────────────────────
+// Placement C: one line on the Character card, the editor behind it. The strip and the
+// modal read the SAME stack — there is no second copy of the numbers anywhere.
+function renderAbilities(){
+  const strip=$("#abStrip"); if(!strip)return;
+  const sc=abilityScores();
+  strip.innerHTML="";
+  if(!abSet()){
+    strip.append(el("span","abnone","set your scores…"));
+  }else ABIL_ORDER.forEach(a=>{
+    const w=el("span","abmini "+a);
+    w.append(Object.assign(el("span","abchip "+a),{textContent:a.toUpperCase()}));
+    w.append(el("b",null,String(sc[a]||"—")));
+    w.append(el("small",null,sc[a]?abMod(sc[a]):""));
+    strip.append(w);});
+  const note=$("#abFldNote");
+  if(note){const A=abilState();
+    note.textContent=abSet()?AB_METHOD_NAME[A.method]||"":"";}
+}
+// the editor. Every method writes the SAME `base` map — the method is a property of that
+// contribution, not of the character, so switching keeps whatever still fits.
+let ABROLL=null;         // the rolled pool, module state until Done
+function abMethodTiles(){
+  const box=$("#abMethods"); if(!box)return;
+  const A=abilState(); box.innerHTML="";
+  AB_METHODS.forEach(([k,label])=>{
+    const t=el("button","abtile"+(A.method===k?" on":"")); t.type="button";
+    t.append(Object.assign(el("span","abchip"),{textContent:label.toUpperCase()}));
+    t.setAttribute("aria-pressed",String(A.method===k));
+    t.onclick=()=>{A.method=k; if(k!=="roll")ABROLL=null; save(); renderAbEditor(); render();};
+    box.append(t);});
+}
+// which array/rolled values are still free — the same value may not be spent twice
+function abPool(){
+  const A=abilState();
+  const pool=A.method==="roll"?(ABROLL||A.roll||[]):STD_ARRAY;
+  const used=[];
+  ABIL_ORDER.forEach(a=>{const v=(A.base||{})[a]; if(v!=null)used.push(v);});
+  const left=pool.slice();
+  used.forEach(v=>{const i=left.indexOf(v); if(i>=0)left.splice(i,1);});
+  return {pool,left};
+}
+function abStackText(a,skipBase){
+  const parts=abilityStack()[a]||[];
+  const bits=parts.filter(c=>!skipBase||c.from!==AB_METHOD_NAME[abilState().method])
+    .map(c=>(c.amount>0?"+":"")+c.amount+" "+c.from+(c.lv>1?" · L"+c.lv:""));
+  return bits.join(" · ");
+}
+function abRow(a,control){
+  const sc=abilityScores(), v=sc[a]||0;
+  const row=el("div","abrow"+(v>20?" abover":""));
+  row.append(Object.assign(el("span","abchip "+a),{textContent:a.toUpperCase()}));
+  row.append(control);
+  row.append(el("span","abscore",v?String(v):"—"));
+  row.append(el("span","abmod",v?abMod(v):""));
+  const st=el("span","abstack",abStackText(a,true));
+  st.title=abStackText(a,false)||"nothing set yet";
+  row.append(st);
+  return row;
+}
+function renderAbEditor(){
+  const box=$("#abRows"); if(!box)return;
+  const A=abilState();
+  abMethodTiles();
+  box.innerHTML="";
+  const {pool,left}=abPool();
+  const rollBox=$("#abRoll");
+  if(rollBox){
+    rollBox.classList.toggle("hidden",A.method!=="roll");
+    if(A.method==="roll"){
+      rollBox.innerHTML="";
+      const nav=el("div","prepnav abrollnav");
+      const cur=ABROLL||A.roll;
+      nav.append(el("span","abrolled",cur?cur.join(" · "):"nothing rolled yet"));
+      nav.append(el("span","prepnav-sp"));
+      const b=el("button","btn",cur?"Roll again":"Roll 4d6, drop the lowest");
+      b.type="button";
+      b.onclick=()=>{ // six times 4d6 drop lowest — armed, because a re-roll throws the old set away
+        const d=()=>1+Math.floor(Math.random()*6);
+        ABROLL=Array.from({length:6},()=>{const r=[d(),d(),d(),d()].sort((x,y)=>y-x);return r[0]+r[1]+r[2];})
+          .sort((x,y)=>y-x);
+        A.roll=ABROLL.slice(); A.base={}; save(); renderAbEditor(); render();};
+      if(cur)armConfirm(b,null,b.onclick); else nav.append(b);
+      if(cur)nav.append(b);
+      rollBox.append(nav);
+    }
+  }
+  ABIL_ORDER.forEach(a=>{
+    let ctl;
+    if(A.method==="manual"){
+      ctl=el("input","abnum"); ctl.type="number"; ctl.min="1"; ctl.max="30";
+      ctl.value=(A.base||{})[a]!=null?String(A.base[a]):"";
+      ctl.oninput=()=>{const n=parseInt(ctl.value,10);
+        if(!ctl.value.trim())delete A.base[a];
+        else A.base[a]=Math.max(1,Math.min(30,isNaN(n)?1:n));
+        save(); renderAbScores(); render();};
+    }else if(A.method==="point"){
+      ctl=el("div","abstep");
+      const cur=(A.base||{})[a]!=null?A.base[a]:8;
+      const step=(d)=>{const nv=cur+d; if(nv<8||nv>15)return;
+        const spent=abPointsSpent()-POINT_COST[cur]+POINT_COST[nv];
+        if(spent>POINT_BUDGET)return;
+        A.base[a]=nv; save(); renderAbEditor(); render();};
+      const mk=(txt,d)=>{const b=el("button","btn abpm",txt); b.type="button";
+        b.disabled=(d<0&&cur<=8)||(d>0&&(cur>=15||abPointsSpent()-POINT_COST[cur]+POINT_COST[cur+1]>POINT_BUDGET));
+        b.onclick=()=>step(d); return b;};
+      ctl.append(mk("−",-1)); ctl.append(el("b","abstepv",String(cur))); ctl.append(mk("+",1));
+      if((A.base||{})[a]==null)A.base[a]=8;
+    }else{
+      ctl=el("select","absel");
+      ctl.append(new Option("—",""));
+      const own=(A.base||{})[a];
+      const opts=[...new Set(left.concat(own!=null?[own]:[]))].sort((x,y)=>y-x);
+      opts.forEach(v=>ctl.append(new Option(String(v),String(v))));
+      ctl.value=own!=null?String(own):"";
+      ctl.onchange=()=>{ if(!ctl.value)delete A.base[a]; else A.base[a]=parseInt(ctl.value,10);
+        save(); renderAbEditor(); render();};
+      if(!pool.length)ctl.disabled=true;
+    }
+    box.append(abRow(a,ctl));});
+  const bud=$("#abBudget");
+  if(bud){
+    if(A.method==="point"){const spent=abPointsSpent();
+      bud.textContent=`${spent} of ${POINT_BUDGET} points spent`+(spent>POINT_BUDGET?" — over budget":"");
+      bud.classList.toggle("stale",spent>POINT_BUDGET);}
+    else if(A.method==="array"||A.method==="roll"){
+      bud.textContent=left.length?`${left.length} still to assign: ${left.join(", ")}`:"";
+      bud.classList.remove("stale");}
+    else bud.textContent="";
+  }
+  renderAbOrigin();
+  renderAbilities();   // the strip is the same numbers; nothing may show a second copy
+}
+function abPointsSpent(){const A=abilState();
+  return ABIL_ORDER.reduce((n,a)=>n+(POINT_COST[(A.base||{})[a]]||0),0);}
+// D161(e): the origin bonus stands in for a background, which the digest has no records for
+const ORIGIN_MODES=[["2+1","+2 / +1"],["1+1+1","+1 / +1 / +1"]];
+function renderAbOrigin(){
+  const modeBox=$("#abOriginMode"), box=$("#abOrigin");
+  if(!modeBox||!box)return;
+  const A=abilState(); if(!A.originMode)A.originMode="2+1";
+  modeBox.innerHTML="";
+  ORIGIN_MODES.forEach(([k,label])=>{
+    const t=el("button","abtile"+(A.originMode===k?" on":"")); t.type="button";
+    t.append(Object.assign(el("span","abchip"),{textContent:label}));
+    t.setAttribute("aria-pressed",String(A.originMode===k));
+    t.onclick=()=>{A.originMode=k;A.origin={};save();renderAbEditor();render();};
+    modeBox.append(t);});
+  box.innerHTML="";
+  const slots=A.originMode==="2+1"?[2,1]:[1,1,1];
+  slots.forEach((amt,i)=>{
+    const row=el("div","aborigin");
+    row.append(el("span","abplus","+"+amt));
+    const sel=el("select","absel");
+    sel.append(new Option("— none —",""));
+    ABIL_ORDER.forEach(a=>sel.append(new Option(ABIL[a],a)));
+    const cur=originAt(A,i);
+    sel.value=cur||"";
+    sel.onchange=()=>{setOriginAt(A,i,sel.value,amt);save();renderAbEditor();render();};
+    row.append(sel);
+    box.append(row);});
+}
+// the origin map is stored by ABILITY (so it sums like every other contribution); the two
+// or three pickers are a VIEW of it, remembered in slot order so switching one is not a reset
+function originAt(A,i){const o=A.originSlots||[];return o[i]||"";}
+function setOriginAt(A,i,ab,amt){
+  const slots=(A.originSlots||[]).slice();
+  slots[i]=ab||"";
+  A.originSlots=slots;
+  const amts=A.originMode==="2+1"?[2,1]:[1,1,1];
+  const map={};
+  slots.forEach((a,ix)=>{ if(a&&ix<amts.length)map[a]=(map[a]||0)+amts[ix]; });
+  A.origin=map;
+}
+// the strip, the editor's own numbers and everything downstream of a score
+function renderAbScores(){
+  renderAbilities();
+  const box=$("#abRows"); if(!box||$("#abModal").classList.contains("hidden"))return;
+  // the rows' controls are live; only the derived halves are repainted
+  [...box.querySelectorAll(".abrow")].forEach((row,i)=>{
+    const a=ABIL_ORDER[i], v=abilityScores()[a]||0;
+    row.classList.toggle("abover",v>20);
+    const sc=row.querySelector(".abscore"), md=row.querySelector(".abmod"), st=row.querySelector(".abstack");
+    if(sc)sc.textContent=v?String(v):"—";
+    if(md)md.textContent=v?abMod(v):"";
+    if(st){st.textContent=abStackText(a,true);st.title=abStackText(a,false)||"nothing set yet";}});
+}
+function openAbil(){
+  renderAbEditor();
+  $("#abModal").classList.remove("hidden");
+}
 // ── custom-source editor (D55) ─────────────────────────────────────────────
 let CSRC=null;   // the draft being edited: {id,name,kind,mode,spells:[{key,count,unit}]}
 function renderCustomSources(){
@@ -4636,7 +4997,10 @@ function buildGaps(st){
   (st.optFeats||[]).forEach(k=>add("option",OPT_BY[baseKey(k)],k));
   const spells=new Set();
   Object.values(st.chosen||{}).forEach(c=>[...(c.cantrips||[]),...(c.spells||[])].forEach(k=>spells.add(k)));
-  Object.values(st.choices||{}).forEach(v=>(Array.isArray(v)?v:[]).forEach(k=>spells.add(k)));
+  // D161: an ASI's answer is a list of ABILITY keys, not spell keys — reading it as picks
+  // made a two-point ASI report "2 picks need a book that isn't loaded"
+  Object.entries(st.choices||{}).forEach(([id,v])=>{ if(isAbilityChoiceId(id))return;
+    (Array.isArray(v)?v:[]).forEach(k=>spells.add(k));});
   spells.forEach(k=>add("spell",SPELL_BY[k],k));
   return {refs:out,books};
 }
@@ -7322,6 +7686,24 @@ function renderSlots(){
   g.append(mk("Prepared",tPrep||"—",""));
   g.append(mk("Cantrips",tCant||"—",""));
   g.append(mk("Eligible",R.pool.size||"—","spells"));
+  // D161(f): the numbers the scores exist for, one line per casting class. Silent until
+  // the scores are set — this card has never guessed and does not start now.
+  const cn=$("#castNums"); if(cn){cn.innerHTML="";
+    const rows=R.casters.map(r=>({r,n:castNumbers(r)})).filter(x=>x.n);
+    cn.classList.toggle("hidden",!rows.length);
+    if(rows.length){
+      cn.append(el("label","fld","Spell save DC & attack"));
+      const box=el("div","castnums");
+      rows.forEach(({r,n})=>{
+        const row=el("div","cnrow");
+        row.append(el("span","cncls",classLabel(r)));
+        row.append(Object.assign(el("span","abchip "+n.ability),
+          {textContent:(ABIL_SHORT[n.ability]||n.ability).toUpperCase()}));
+        row.append(el("span","cndc","DC "+n.dc));
+        row.append(el("span","cnatk",(n.atk>=0?"+":"−")+Math.abs(n.atk)));
+        row.title=`${ABIL[n.ability]||n.ability} ${n.score} (${abMod(n.score)}) · proficiency +${n.pb}`;
+        box.append(row);});
+      cn.append(box);}}
   const sr=$("#slotRow");sr.innerHTML="";
   if(R.mcSlots)R.mcSlots.forEach((n,i)=>{if(n>0){const d=el("div","slot");d.append(el("div","lv",ROMAN[i+1]));d.append(el("div","n",String(n)));sr.append(d);}});
   if(R.pactRec){const p=R.pactRec.pact;const d=el("div","slot pact");d.append(el("div","lv","Pact "+ROMAN[p.lvl]));d.append(el("div","n",String(p.num)));sr.append(d);
@@ -9411,7 +9793,7 @@ function afterSourceChange(){
   saveSources(); save();               // sources are global; the build records what it saw
   refreshAll();renderLibList();render();
 }
-function refreshAll(){CASTMODS=activeCastMods();refreshSpecies();refreshAddFeat();renderClassRows();renderFeatChips();renderOptFeats();renderFormPins();renderCustomSources();}
+function refreshAll(){CASTMODS=activeCastMods();refreshSpecies();refreshAddFeat();renderClassRows();renderFeatChips();renderOptFeats();renderFormPins();renderCustomSources();renderAbilities();}
 
 // ── events ───────────────────────────────────────────────────────────────
 $("#addClass").onchange=e=>{const clsKey=e.target.value;
@@ -9514,6 +9896,14 @@ $("#customPrev").onclick=()=>{if(CSTEP>0){CSTEP--;renderCustomStep();}};
 $("#customNext").onclick=()=>{if(CSTEP<CSTEP_NAMES.length-1){CSTEP++;renderCustomStep();}};
 $("#customDone").onclick=compileCustom;
 $("#libBtn").onclick=()=>openImport(false);
+// D161: the ability-score editor
+$("#abBtn").onclick=()=>openAbil();
+$("#abClose").onclick=()=>$("#abModal").classList.add("hidden");
+$("#abDone").onclick=()=>$("#abModal").classList.add("hidden");
+$("#abModal").onclick=e=>{if(e.target.id==="abModal")$("#abModal").classList.add("hidden");};
+// armed: clearing throws away every number in the section, base and origin both
+armConfirm($("#abReset"),null,()=>{
+  state.abilities=blankAbilities(); ABROLL=null; save(); renderAbEditor(); render();});
 $("#libSrcSearch").oninput=e=>{SRC_Q=e.target.value;renderLibList();};
 $("#srcActBtn").onclick=e=>{e.stopPropagation();toggleMenu("#srcActPop");};
 {const q=()=>srcQuick(SRC,afterSourceChange);
@@ -9821,10 +10211,13 @@ function renderPrintTracker(){
       tr.append(el("td","trcls",classLabel(r)+" "+effLevel(r.row)));
       tr.append(el("td",null,c?String(c.total):"—"));
       tr.append(el("td",null,r.cantrips?String(r.cantrips):"—"));
-      // the app models neither ability scores nor proficiency, so these are honestly blank
-      // rather than wrong — a ruled field is the truthful version of "we can't know"
+      // D161(f): these two were ruled BLANK on purpose while ability scores were a non-goal
+      // — a ruled field being the truthful version of "we can't know". They are known now,
+      // when the scores are set; when they are not, the ruled field is still the answer.
       const blank=()=>{const td=el("td","trblank");td.append(el("span","trfill"));return td;};
-      tr.append(blank(),blank());
+      const n=castNumbers(r);
+      if(n)tr.append(el("td",null,(n.atk>=0?"+":"−")+Math.abs(n.atk)),el("td",null,String(n.dc)));
+      else tr.append(blank(),blank());
       tb.append(tr);});
     t.append(tb);box.append(t);
   }

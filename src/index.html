@@ -98,6 +98,12 @@
             <div id="classRows"></div>
             <select id="addClass"><option value="">+ add a class…</option></select>
           </div>
+          <!-- D161: ability scores are a STACK of contributions; this is placement C — one
+               line here, the editor behind it (the custom-source editor's own pattern). -->
+          <div class="fieldset">
+            <label class="fld">Ability scores <span class="fldnote" id="abFldNote"></span></label>
+            <button class="picksel abstrip" id="abBtn"><span class="abministrip" id="abStrip"></span><span class="pk-caret">⌄</span></button>
+          </div>
           <div class="fieldset">
             <label class="fld" id="speciesFld">Species / lineage</label>
             <button class="picksel" id="speciesBtn"><span id="speciesBtnLbl">— none —</span><span class="pk-caret">⌄</span></button>
@@ -134,6 +140,7 @@
         <h2>Slots &amp; casts</h2>
         <div class="body">
           <div class="stats" id="statGrid"></div>
+          <div id="castNums" class="hidden" style="margin-top:12px"></div>
           <div style="margin-top:12px"><label class="fld">Spell slots</label><div class="slots" id="slotRow"></div></div>
           <div id="castsWrap" style="margin-top:14px"></div>
         </div>
@@ -399,6 +406,40 @@
         <button id="folderPick">Choose a folder…</button>
         <button id="pasteTog">Paste JSON…</button>
       </div></div>
+  </div>
+</div></div>
+
+<!-- D161: the ability-score editor. Four ways to set the BASE, one row per ability showing
+     what it is made of, and the origin bonus a custom background hands you (D161(e)) —
+     backgrounds are not in the digest, so that row stands in for one. -->
+<div class="modal hidden" id="abModal"><div class="box narrow">
+  <div class="mh"><h2>Ability scores</h2><button class="helpbtn" data-help="abHelp" aria-expanded="false" aria-label="About ability scores"></button><button class="x ico" id="abClose" data-ico="x" aria-label="Close"></button></div>
+  <div class="mb">
+    <div class="helpbody hidden" id="abHelp">
+      <p>Every score is a <b>stack</b>: what you started with, plus what each source added and
+      the level it arrived at. That is why a level-8 preview can read a lower score than your
+      sheet does, and why a source the app learns about later just adds a line.</p>
+      <p><b>Origin</b> stands in for your background — the app doesn't carry background records,
+      so put its bonus here. The origin <b>feat</b> is already a slot on the character.</p>
+      <p>An <b>Ability Score Improvement</b> is a feat: take it in a feat slot and it will ask
+      which abilities to raise, in <b>Choices to make</b>.</p>
+    </div>
+    <div class="prepnav" style="border:none;padding:0 0 10px">
+      <div class="abtiles abmethods" id="abMethods"></div>
+    </div>
+    <div id="abRoll" class="hidden"></div>
+    <div class="abrows" id="abRows"></div>
+    <p class="note" id="abBudget"></p>
+    <div class="fieldset" style="margin-top:12px">
+      <label class="fld">Origin <span class="fldnote">your background's bonus</span></label>
+      <div class="abtiles abmethods" id="abOriginMode"></div>
+      <div class="abrows" id="abOrigin"></div>
+    </div>
+  </div>
+  <div class="prepnav">
+    <button class="btn danger" id="abReset">Clear</button>
+    <span class="prepnav-sp"></span>
+    <button class="btn on" id="abDone">Done</button>
   </div>
 </div></div>
 

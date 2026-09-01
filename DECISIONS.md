@@ -2400,6 +2400,20 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
   - **(h) The 20 cap is advisory.** An ASI that would push a score past 20 is flagged by the
     consistency sweep, never blocked or silently clamped — the same stance as every other
     rule the app checks (D31, D42).
+  - **Verified (v1.5.12, L1–L4):** 91 checks across ten suites, 0 failures. The stack sums and
+    slices (a level-4 read gives the pre-ASI score); all four entry methods write the same
+    `base` and survive a reload; the ASI asks, spends, splits and gives its points back; a
+    Wizard 9 with INT 17 reads DC 15 / +7 on the card AND on the printed sheet, where two
+    ruled blanks used to be; a Wizard 5 / Paladin 3 with STR 8 is named by the sweep and not
+    blocked. 0 contrast failures in both themes, every editor row centred to 0.00px at 1280
+    and 375, no horizontal overflow.
+  - **Two bugs this work surfaced, both fixed:** an ASI's answer is a list of ABILITY keys,
+    and `buildGaps` reads every array-valued choice as SPELL keys — a two-point ASI reported
+    *"2 picks need a book that isn't loaded"* (ids are prefixed `asi|`/`fab|` now, and the
+    walkers skip them). And **J1's family struck again** (D142(a)): `.choicerow>.abtiles` was
+    `flex:0 0 auto`, so the tile row was sized to max-content and its own `flex-wrap` could
+    never fire — six ability tiles ran **36px past the card at 375px**. That one was already
+    live for the casting-ability row; the ASI's wider tiles are just what made it visible.
   - **Cost named up front:** prerequisite pass/fail (f) needs `p.ability` to survive as
     STRUCTURED data instead of being flattened to "CHA 13+" in `checks[]` — an edit to
     `extract.py` AND `src/extract.js`, proved by `cparity.js`, which needs the 5etools mirror

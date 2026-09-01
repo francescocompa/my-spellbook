@@ -213,33 +213,33 @@ read them before touching the page.
   through the real UI** — remove a book and its picks are still in `state`, survive a reload,
   and are named by the gap bar.
 
-## Phase L — ability scores (D161, decided 2026-09-01, QUEUED)
+## Phase L — ability scores (D161, 2026-09-01) — L1–L4 SHIPPED (v1.5.12), L5 needs the Mac
 
 The design is settled in two rounds; **D161 owns every call and every rejected option.** The
 model is a **stack of contributions** — each knows its giver and its level — so per-level truth
 is a slice, and a source nobody has modelled yet is a new contributor rather than a new model.
 Order matters: L1 is the model and can ship alone; L2 is the surface; L3–L4 are what the scores
-drive; L5 is the one piece that needs the mirror.
+drive; L5 is the one piece that needs the mirror. **L1–L4 shipped as v1.5.12; only L5 is open.**
 
-- [ ] **L1 · The model.** `state.abilities` = `{method, base:{…}, origin:{…}}` plus the
+- [x] **L1 · The model** — shipped v1.5.12. `state.abilities` = `{method, base:{…}, origin:{…}}` plus the
   contributions derived from what is already in the build (feats' structured `ability` blocks,
   the ASI choices). `abilityStack(ab)` → the ordered contributions; `abilityAt(ab, level)` →
   the score at a level; `abMod` already exists. Lives in the build blob (it is character data,
   D33), detached on save like every other stored object (the `save()` gotcha). *Done when:* a
   score round-trips through save/load/export/import and a fork, and a level slice reads the
   pre-ASI number.
-- [ ] **L2 · The section (placement C).** A compact six-ability strip in the Character card
+- [x] **L2 · The section (placement C)** — shipped v1.5.12. A compact six-ability strip in the Character card
   that opens the editor modal: entry method (standard array · point buy · type them in ·
   4d6-drop-lowest), the six rows with their stacks, and the origin +2/+1 row that stands in
   for a background (D161(e)). *Done when:* every entry method fills the same stack, the strip
   reads the same numbers as the modal, and alignment is measured at 1280 and 375 in both
   themes.
-- [ ] **L3 · The ASI as a choice on the feat (D161(c,g)).** Taking "Ability Score Improvement"
+- [x] **L3 · The ASI as a choice on the feat (D161(c,g))** — shipped v1.5.12. Taking "Ability Score Improvement"
   fills a general feat slot; a choice row asks +2-to-one or +1-to-two with the tiles
   `choiceRow` already draws. A half-feat carrying structured `ability` with `choose:true` gets
   the same row with no table. *Done when:* the timeline reads "L8 · ASI +2 INT", a second take
   (`##2`) keeps its own answer, and dropping the feat drops its contribution.
-- [ ] **L4 · Save DC, spell attack, and the multiclass minimums.** 8 + PB + mod and PB + mod
+- [x] **L4 · Save DC, spell attack, and the multiclass minimums** — shipped v1.5.12. 8 + PB + mod and PB + mod
   per casting class, into the Slots & casts card, the spell modal, the table's Ability column
   and — the point of the exercise — the two columns the print sheet has been ruling BLANK on
   purpose. Plus 2024's 13-in-each-primary-ability check, advisory, in the consistency sweep.

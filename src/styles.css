@@ -897,7 +897,11 @@ table.spelltable td.cmp .l.iffy{color:var(--good);cursor:help;
 .afclear svg{width:12px;height:12px}
 /* `.cg` grows, so the control side is pushed right without a margin trick; the button is
    a SIBLING of the chip field now (D142(a)) and never shrinks. */
-.choicerow>select,.choicerow>.abtiles{margin-left:auto;flex:0 0 auto}
+.choicerow>select{margin-left:auto;flex:0 0 auto}
+/* J1's family (D142(a)) on a different child: a `flex:0 0 auto` item is sized to MAX-CONTENT,
+   so the `flex-wrap` on it can never fire — six ability tiles then run 36px past the card at
+   375px, which is exactly what D142(b) said would wrap to two rows. It may shrink now. */
+.choicerow>.abtiles{margin-left:auto;flex:0 1 auto;min-width:0}
 .choicerow>.pickbtn{flex:0 0 auto}
 /* D142(b): casting-ability tiles — chip only, each wearing its own key colour. Quiet until
    chosen: the selected tile is the only coloured thing in the row, so the answer is what
@@ -1163,6 +1167,54 @@ table.spelltable td.hasast{cursor:pointer}
   --cc-dice:#6bb6e6;--cc-dc:#e7c070;--cc-dmg:#e06a6a;--cc-cond:#b48ce6;--cc-range:#4db6ac;
 }
 /* casting-ability chips + group labels */
+/* ── ability scores (D161) ─────────────────────────────────────────────────
+   Placement C: one line on the Character card, the editor behind it. The strip is a
+   `.picksel` like every other opener on that card, so the row it sits in needs no new
+   geometry — only the six mini readings inside it do. */
+.abstrip{padding:6px 10px}
+.abministrip{display:flex;gap:10px;flex:1;min-width:0;flex-wrap:wrap;align-items:baseline}
+.abmini{display:inline-flex;align-items:baseline;gap:3px;font-size:12px}
+.abmini b{font-family:var(--font);font-size:13.5px;font-weight:600}
+.abmini small{color:var(--muted);font-size:10.5px}
+.abnone{color:var(--muted)}
+/* the editor: one row per ability — chip, its control, the score, the modifier, and the
+   stack that made it. A fixed-column grid, so the numbers line up whatever the control is. */
+.abrows{display:flex;flex-direction:column;gap:3px}
+.abrow{display:grid;grid-template-columns:38px minmax(96px,auto) 34px 30px minmax(0,1fr);
+  align-items:center;gap:9px;padding:5px 6px;border-radius:8px}
+.abrow:hover{background:var(--panel-2)}
+/* a grid item STRETCHES by default, which pulled the chip's pill to the full 38px column and
+   left its text 6px from one edge and 12px from the other. The pill hugs its own text. */
+.abrow>.abchip{justify-self:start}
+.abrow .abscore{font-family:var(--font);font-size:19px;font-weight:600;text-align:right}
+.abrow .abmod{font-size:12.5px;color:var(--muted);text-align:right}
+.abrow .abstack{min-width:0;font-size:11px;color:var(--muted);overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+/* over 20 is not blocked — it is flagged, like every other rule this app checks (D31) */
+.abrow.abover .abscore{color:var(--gold)}
+.absel{width:100%;font-size:12.5px;padding:4px 6px}
+.abnum{width:100%;font-size:12.5px;padding:4px 6px;text-align:center}
+.abstep{display:flex;align-items:center;gap:4px}
+.abstep .abpm{padding:2px 8px;font-size:13px;line-height:1.2;min-width:26px}
+.abstep .abstepv{font-family:var(--font);font-size:15px;min-width:22px;text-align:center}
+.abmethods{justify-content:flex-start}
+.abmethods .abtile{padding:5px 10px}
+.abrollnav{border:none;padding:0 0 8px;gap:8px}
+.abrolled{font-family:var(--font);font-size:14px;letter-spacing:.02em}
+.aborigin{display:grid;grid-template-columns:38px minmax(0,1fr);align-items:center;gap:9px;
+  padding:3px 6px}
+.aborigin .abplus{font-family:var(--font);font-size:14px;font-weight:600;color:var(--muted);
+  text-align:center}
+#abBudget{margin:8px 0 0}
+#abBudget.stale{color:var(--gold);font-weight:600}
+/* D161(f): the numbers the scores exist for, one line per casting class */
+.castnums{display:flex;flex-direction:column;gap:4px}
+.cnrow{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;align-items:center;
+  gap:8px;font-size:12.5px}
+.cnrow .cncls{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cnrow .cndc{font-family:var(--font);font-size:14px;font-weight:600}
+.cnrow .cnatk{font-family:var(--font);font-size:14px;font-weight:600;color:var(--muted);
+  min-width:30px;text-align:right}
 .abchip{display:inline-block;font-size:10px;font-weight:700;padding:1px 6px;border-radius:9px;line-height:1.5;background:var(--panel-2)}
 .abchip.str{color:var(--ab-str)}.abchip.dex{color:var(--ab-dex)}.abchip.con{color:var(--ab-con)}
 .abchip.int{color:var(--ab-int)}.abchip.wis{color:var(--ab-wis)}.abchip.cha{color:var(--ab-cha)}
