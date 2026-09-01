@@ -71,9 +71,8 @@
   down if it annoys). ③ Build "v2" health ⚠ at L1–L4 is real. ④ Print from Chrome or
   Safari (D108). ⑤ XMM on in Sources for Find Familiar's 2024 forms (D81). ⑥ Optionally
   ask GitHub Support to gc the pre-purge SHAs. ⑦ **New:** phase K is landing in patch
-  releases (D140 — minor is your call). **K4 has closed and the whole Library rebuild
-  shipped as four patches (1.5.7 → 1.5.10)** — it is the kind of batch `--minor` exists for.
-  Say the word and the next commit takes one. ⑧ **D157 changed what makes a book "stale"**:
+  releases (D140 — minor is your call). **Asked and answered: phase K stays four
+  patches, 1.5.7 → 1.5.10** (D159(e)). Settled — not to be re-offered. ⑧ **D157 changed what makes a book "stale"**:
   the stamp is the parser's own id now, so an ordinary release no longer re-reads your
   library — only an extractor change does. That is what makes K3's automatic re-parse safe;
   if you would rather it ran on every release, that is a one-line change.

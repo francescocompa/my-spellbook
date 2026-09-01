@@ -2301,6 +2301,11 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     FLAGS the picks that needed it and never deletes them — verified through the real UI
     (remove → the pick is still in `state`, survives a reload, and the gap bar names the
     missing book), because K1 moved removal to a new surface and K4 removed its old one.
+  - **(e) Phase K stays four PATCH releases (1.5.7 → 1.5.10) — Francesco's call, asked and
+    answered 2026-09-01.** D140 reserves `--minor` for him, the whole Library rebuild is the
+    kind of batch it exists for, and he was shown that and said keep it as patch. *Rejected:*
+    `--minor` for the phase, and a retroactive re-tag of the four releases. Do not re-offer:
+    the version line for this rebuild is settled.
   - **Final verb set, as D154 specified it:** Update data · ＋ Add files ▾ (zip · JSON ·
     folder · paste) · Actions (Enable all · Disable all · Select all · Select shown ·
     repository address) · the selection bar (Clear · enabled · Remove) · the tray (Discard ·
