@@ -1,0 +1,33 @@
+=== handlers: GOTCHAS wiring pitfalls ===
+
+--- (a) .onclick assigned twice to the same target in the same function scope ---
+src/app.js  target="chip"  lines: 6585, 6593  (frame renderLevelChip)
+[1 findings]
+
+--- (b) attachTip(x) called before x.onclick= in the same function scope ---
+[0 findings]
+
+--- (c) native confirm()/alert()/prompt() calls (banned, D53) ---
+[0 findings]
+
+--- (d) <button nested inside <button in a template literal ---
+[0 findings]
+
+--- (e) behavior:"smooth" without an apparent fallback (setTimeout) nearby ---
+src/app.js:6561  behavior:"smooth"  fallback nearby: yes (setTimeout found within 300 chars)
+[1 occurrences]
+
+--- (f) non-ASCII glyph char via textContent/innerText, or literal inside a <button> template ---
+src/app.js:3463  .textContent=  glyphs: ·
+src/app.js:3473  .textContent=  glyphs: ·
+src/app.js:4624  .textContent=  glyphs: ·
+src/app.js:5104  .textContent=  glyphs: ⌄
+src/app.js:5968  .textContent=  glyphs: ≈
+src/app.js:7801  <button> literal text  glyphs: ⌄
+src/app.js:8112  <button> literal text  glyphs: ‹
+src/app.js:8114  <button> literal text  glyphs: ›
+[8 findings]
+
+--- (g) addEventListener on document/window inside a render*/refresh* function (leak candidate) ---
+[0 findings]
+

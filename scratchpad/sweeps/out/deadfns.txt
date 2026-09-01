@@ -1,0 +1,19 @@
+=== deadfns: 834 function definitions scanned (app.js + extract.js) ===
+
+--- zero references anywhere (code, inline HTML, or string) [7] ---
+src/app.js:369  activeFilterCount  (function)
+src/app.js:2818  csrcUnitShort  (arrow)
+src/app.js:4375  buildToggleRowSingle  (function)
+src/app.js:5489  folderForget  (function)
+src/app.js:5970  clearImport  (function)
+src/app.js:8852  isOriginFeat  (arrow)
+src/extract.js:1191  featureFirst  (arrow)
+
+--- zero CODE/HTML references, but referenced from inside a string/template literal (possibly dynamic wiring) [0] ---
+
+--- known-orphan cross-check (PLAN.md K4) ---
+folderForget: FOUND in dead list (src/app.js:5489)
+clearImport: FOUND in dead list (src/app.js:5970)
+
+TOTAL dead (zero refs): 7
+TOTAL string-only wired: 0

@@ -1,0 +1,38 @@
+=== deadcss: 749 distinct class/id tokens found across 1501 rules ===
+
+--- zero matches in index.html / app.js / extract.js [30] ---
+styles.css:51  .icobig  selector=".icobig svg"
+styles.css:112  .toolbtns  selector=".toolbtns"
+styles.css:159  .twocol  selector=".twocol"
+styles.css:223  .fmore  selector=".fmore"
+styles.css:234  .lvlnav  selector=".lvlnav"  (+2 more rules)
+styles.css:349  .lvcell  selector="table.spelltable .lvcell"
+styles.css:692  .tableopts  selector=".tableopts"  (+2 more rules)
+styles.css:867  .entgrants  selector=".pickbar .entgrants"
+styles.css:1067  .lvltally  selector=".lvltally"  (+2 more rules)
+styles.css:1069  .muted  selector=".lvltally.muted"
+styles.css:1125  .budgetnote  selector=".budgetnote"  (+1 more rules)
+styles.css:1127  #addOrigin  selector="#addOrigin"
+styles.css:1149  #addFeat  selector="#addFeat"
+styles.css:1150  #addEpic  selector="#addEpic"
+styles.css:1253  .onboard  selector=".onboard"  (+3 more rules)
+styles.css:1302  .runc0  selector=".locard.runc0"  (+1 more rules)
+styles.css:1303  .runc1  selector=".locard.runc1"  (+1 more rules)
+styles.css:1304  .runc2  selector=".locard.runc2"  (+1 more rules)
+styles.css:1305  .runc3  selector=".locard.runc3"  (+1 more rules)
+styles.css:1325  .c1  selector=".tlrundiv .rdot.c1"
+styles.css:1327  .c3  selector=".tlrundiv .rdot.c3"
+styles.css:1727  .phnote  selector=".printhead .phnote"
+styles.css:2080  .gsh  selector=".gstage .gsh"  (+1 more rules)
+styles.css:2081  .gsub  selector=".gstage .gsub"
+styles.css:2120  .gokline  selector=".gokline"  (+3 more rules)
+styles.css:2124  .grinline  selector=".gcard .grinline"  (+8 more rules)
+styles.css:2126  .gchange  selector=".gcard .grinline.gchange"  (+2 more rules)
+styles.css:2466  .libo-web  selector=".libo-web"
+styles.css:2467  .libo-file  selector=".libo-file"
+styles.css:2468  .libo-baked  selector=".libo-baked"
+
+--- zero direct matches, but a hyphen-prefix looks dynamically concatenated in app.js (possibly dynamic, not dead) [1] ---
+styles.css:2274  class=ent-class  dynamic-prefix="ent"  selector=".spmodal .ent-class"
+
+--- duplicate selectors declared more than once with IDENTICAL declarations [0] ---

@@ -1,0 +1,9 @@
+=== L0 sweep summary ===
+
+deadfns.js: 7 / 0  (counts in file order; see audits/L0-sweeps.md for labels)
+deadcss.js: 30 / 1 / 0  (counts in file order; see audits/L0-sweeps.md for labels)
+dupfns.js: 0 / 0  (counts in file order; see audits/L0-sweeps.md for labels)
+storagekeys.js: 16  (counts in file order; see audits/L0-sweeps.md for labels)
+handlers.js: 1 / 0 / 0 / 0 / 8 / 0 / 1  (counts in file order; see audits/L0-sweeps.md for labels)
+
+Done. Full output per sweep: node scratchpad/sweeps/<name>.js

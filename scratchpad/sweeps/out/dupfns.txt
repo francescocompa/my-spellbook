@@ -1,0 +1,5 @@
+=== dupfns: 675 braced function bodies extracted (app.js + extract.js) ===
+
+--- exact duplicate bodies (>= 3 lines) [0 groups] ---
+
+--- near-duplicate bodies (Jaccard 3-gram >= 0.85, >= 8 lines) [0 pairs] ---

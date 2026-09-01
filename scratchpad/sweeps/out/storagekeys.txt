@@ -1,0 +1,98 @@
+=== storagekeys: 16 distinct storage keys/stores found ===
+
+[idb] handles/dir
+  read:    src/app.js:5488
+  written: src/app.js:5487
+  removed: src/app.js:5489
+
+[idb] kv/import
+  read:    src/app.js:169
+  written: src/app.js:177, src/app.js:185
+  removed: src/app.js:215
+
+[idb-database] spellForgeFolder
+  read:    -
+  written: -
+  removed: src/app.js:212
+  ** write-only / remove-only, never read back **
+
+[localStorage] <unresolved: k>
+  read:    src/app.js:113
+  written: -
+  removed: -
+  version: v1 (no prior version to migrate from)
+  ** read-only, never written by this code (external or legacy) **
+
+[localStorage] spellForge.builds.v1
+  read:    src/app.js:528
+  written: src/app.js:492
+  removed: -
+  version: v1 (no prior version to migrate from)
+
+[localStorage] spellForge.custom.v1
+  read:    src/app.js:295
+  written: src/app.js:4919
+  removed: -
+  version: v1 (no prior version to migrate from)
+
+[localStorage] spellForge.import.v1
+  read:    src/app.js:173
+  written: src/app.js:198
+  removed: src/app.js:170, src/app.js:177, src/app.js:186, src/app.js:216
+  version: v1 (no prior version to migrate from)
+
+[localStorage] spellForge.parserNag.v1
+  read:    src/app.js:5899
+  written: src/app.js:5914, src/app.js:5921
+  removed: -
+  version: v1 (no prior version to migrate from)
+
+[localStorage] spellForge.print.v1
+  read:    src/app.js:9763
+  written: src/app.js:9766
+  removed: -
+  version: v1 (no prior version to migrate from)
+
+[localStorage] spellForge.refreshMiss.v1
+  read:    src/app.js:5889
+  written: src/app.js:5887
+  removed: -
+  version: v1 (no prior version to migrate from)
+
+[localStorage] spellForge.sources.v1
+  read:    src/app.js:520
+  written: src/app.js:493
+  removed: -
+  version: v1 (no prior version to migrate from)
+
+[localStorage] spellForge.table.v1
+  read:    src/app.js:6001
+  written: src/app.js:6008
+  removed: -
+  version: v1 (no prior version to migrate from)
+
+[localStorage] spellForge.v2
+  read:    src/app.js:522, src/app.js:551
+  written: -
+  removed: -
+  version: no v1 sibling found - can't confirm migration either way
+  ** read-only, never written by this code (external or legacy) **
+
+[localStorage] spellForge.webNag.v1
+  read:    src/app.js:5268
+  written: src/app.js:5275
+  removed: -
+  version: v1 (no prior version to migrate from)
+
+[localStorage] spellForge.webRepo.v1
+  read:    src/app.js:5178
+  written: src/app.js:9570
+  removed: src/app.js:9569
+  version: v1 (no prior version to migrate from)
+
+[localStorage] spellForge.webSync.v1
+  read:    src/app.js:5179
+  written: src/app.js:5692
+  removed: -
+  version: v1 (no prior version to migrate from)
+
