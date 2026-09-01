@@ -5107,7 +5107,7 @@ function renderImportStage(){const box=$("#importStaged");if(!box)return;box.inn
     tog.onclick=()=>{STAGE_EXP=!STAGE_EXP;renderImportStage();};
     box.append(lbl,chips,tog);
   }
-  const cb=$("#importClear");if(cb)cb.classList.toggle("hidden",!n);}
+}
 // D112: files parse on arrival. Staging is bursty (a zip unpacks 180 files, FileReaders land
 // out of order), so the parse runs once the burst settles rather than per file.
 let BUILD_TIMER=null;
@@ -5367,74 +5367,91 @@ function planFromStage(incoming,report,only){
     : new Set(Object.keys(merged.sources||{}));
   PLAN={stored,incoming:incoming||emptyDigest(),merged,report,fresh,keep};
 }
-// D112: ONE map behind the list — every book you have or staged (from PLAN) plus every book
-// the scanned folder offers that you don't (state "available", rendered dim and unticked).
+// D112: a book the scanned folder offers that neither your data nor the staged files hold —
+// ticking it in the tray is what reads it.
 function libAvail(code){return !(PLAN&&(PLAN.merged.sources||{})[code])&&SCAN&&SCAN.books[code];}
-function libMap(){
-  const map={};
-  Object.entries((PLAN&&PLAN.merged.sources)||{}).forEach(([c,s])=>{
-    map[c]={name:s.name||c,group:s.group||"other",counts:s.counts||{}};});
-  scanBooks().forEach(b=>{if(!map[b.code])
-    map[b.code]={name:b.name,group:b.group||"other",counts:b.counts,avail:true};});
-  return map;
+let PLAN_Q="";   // the tray's own filter, when a fetch stages more new books than fit
+// ── the pending-import tray (D154(h)) ──────────────────────────────────────
+// What you just added, what is new in it, and one commit. It replaces the standing keep-plan,
+// and with it the plan's second meaning: unticking a book you HAVE used to delete it. Removal
+// is the list's selection bar now and only there (D154(e,i)), so the tray is ADDITIVE by
+// construction — `applyImport` folds every stored book back into the keep-set before writing.
+// A book you already have is therefore re-read, never dropped, and is summarised above the
+// ticks rather than sitting among them pretending to be a choice.
+function trayBooks(){
+  if(!PLAN)return {fresh:[],upd:[]};
+  const had=new Set(Object.keys(PLAN.stored.sources||{}));
+  const inc=Object.keys(PLAN.incoming.sources||{});
+  const fresh=inc.filter(c=>!had.has(c));
+  // the folder offers books no staged file carries; ticking one is what reads it (D112)
+  scanBooks().forEach(b=>{if(!had.has(b.code)&&fresh.indexOf(b.code)<0)fresh.push(b.code);});
+  return {fresh,upd:inc.filter(c=>had.has(c))};
 }
-function planCounts(code){
-  if(libAvail(code))return scanTotal(SCAN.books[code])+" · in folder";
-  const c=(PLAN.merged.sources[code]||{}).counts||{};
-  const n=(c.spells||0)+(c.classes||0)+(c.subclasses||0)+(c.feats||0)+(c.species||0);
-  return (PLAN.fresh.has(code)?"new · ":"")+n;   // entities, not just spells
+function trayName(code){
+  const s=(PLAN&&(PLAN.merged.sources||{})[code])||(SCAN&&SCAN.books[code]);
+  return (s&&s.name)||code;
 }
-let PLAN_Q="";
-// which books the filter is showing — All / None act on THESE, so a search plus one click is
-// how you keep or drop a whole family of books
-function planShown(map){
-  const all=Object.keys(map);
-  const q=PLAN_Q.trim().toLowerCase(); if(!q)return all;
-  return all.filter(c=>c.toLowerCase().includes(q)
-    ||String(map[c].name||"").toLowerCase().includes(q));
+function trayCounts(code){
+  if(libAvail(code))return scanTotal(SCAN.books[code])+" in folder";
+  const c=(((PLAN.merged.sources||{})[code])||{}).counts||{}, bits=[];
+  const add=(n,one,many)=>{if(n)bits.push(n+" "+(n===1?one:many));};
+  add(c.spells,"spell","spells"); add(c.classes,"class","classes");
+  add(c.subclasses,"subclass","subclasses"); add(c.feats,"feat","feats");
+  add(c.species,"species","species");
+  return bits.join(" · ")||"no content";
 }
 function renderImportPlan(){
-  const box=$("#importPlan"); if(!box)return;
+  const box=$("#libTray"); if(!box)return;
   if(!PLAN)planFromStage(null,null);
-  const map=libMap();
-  // D154(h): the keep-plan is a PENDING-IMPORT surface now — it exists only while something
-  // is staged or a folder scan is offering books. At rest it used to stand permanently at
-  // the top of the Manage tab restating the list you were already looking at; on one page
-  // that is the whole modal. (K2 restyles what is left of it into the tray proper.)
   const staged=IMPORT_STAGE.length||(SCAN&&Object.keys(SCAN.books||{}).length);
-  if(!staged||!Object.keys(map).length){box.classList.add("hidden");renderImportPlanFoot();return;}
+  if(!staged){box.classList.add("hidden");renderImportPlanFoot();return;}
   box.classList.remove("hidden");
-  const shown=planShown(map);
-  // the diagnosis→remedy seam (2026-08-31): the books the last refresh could not re-read
-  // are named HERE, on the surface that can actually fix them — this list and the drop
-  // zone / folder chooser above it. Self-clearing: re-add a book and Apply, and its fresh
-  // parser stamp takes it off staleBooks(), which empties refreshMissed().
+  const {fresh,upd}=trayBooks();
+  // the diagnosis→remedy seam (2026-08-31): the books an earlier read could not reach are
+  // named HERE, on the surface that fixes them. Self-clearing: add the file and its fresh
+  // parser stamp takes the book off staleBooks(), which empties refreshMissed().
   const miss=new Set(refreshMissed());
   const mn=$("#importMissNote");
   if(mn){mn.classList.toggle("hidden",!miss.size);
-    if(miss.size)mn.textContent="Refresh couldn’t re-read "
-      +(miss.size===1?"this book — the linked folder doesn’t hold it":"these books — the linked folder doesn’t hold them")
-      +": "+[...miss].map(bookName).join(", ")
-      +`. Drop the file${miss.size===1?"":"s"} above, or choose the folder that has ${miss.size===1?"it":"them"}, then Apply.`;}
+    if(miss.size)mn.textContent="Couldn’t re-read "
+      +(miss.size===1?"this book earlier — the linked folder doesn’t hold it":"these books earlier — the linked folder doesn’t hold them")
+      +": "+[...miss].map(bookName).join(", ")+". Adding "
+      +(miss.size===1?"its file":"their files")+" here fixes that.";}
+  // a re-read is not a decision, so it is one sentence, not 44 rows of untickable ticks
+  const un=$("#trayUpd");
+  if(un){un.classList.toggle("hidden",!upd.length);
+    if(upd.length)un.textContent=`${nBooks(upd.length)} you already have will be re-read with `
+      +`parser v${window.__VERSION__||"dev"} — only identical entries are replaced.`;}
+  const q=PLAN_Q.trim().toLowerCase();
+  const shown=q?fresh.filter(c=>c.toLowerCase().includes(q)
+    ||trayName(c).toLowerCase().includes(q)):fresh;
   const list=$("#importPlanList");
-  if(shown.length)renderSourceChecklist(list,PLAN.keep,renderImportPlanFoot,new Set(shown),
-                                        planCounts,map,{rowClass:c=>{const k=[];
-                                          if(libAvail(c))k.push("avail");
-                                          if(miss.has(c))k.push("miss");
-                                          return k.length?k.join(" "):null;}});
-  else {list.innerHTML="";list.append(el("div","empty","No book matches that."));}
-  const q=$("#importPlanQuick"); q.innerHTML="";
-  const f=el("input","planq"); f.type="search"; f.value=PLAN_Q;
-  f.placeholder="filter books…"; f.spellcheck=false;
-  f.oninput=e=>{PLAN_Q=e.target.value;renderImportPlan();
-    const n=$("#importPlanQuick .planq"); if(n){n.focus();n.setSelectionRange(n.value.length,n.value.length);}};
-  q.append(f);
-  const quick=(label,fn)=>{const b=el("button","btn",label);
-    b.onclick=()=>{fn();renderImportPlan();};q.append(b);};
-  quick(PLAN_Q?"All shown":"All",()=>shown.forEach(c=>PLAN.keep.add(c)));
-  quick(PLAN_Q?"None shown":"None",()=>shown.forEach(c=>PLAN.keep.delete(c)));
-  if(PLAN.fresh.size)quick("Only these files",()=>{PLAN.keep.clear();
-    Object.keys(PLAN.incoming.sources||{}).forEach(c=>PLAN.keep.add(c));});
+  list.innerHTML="";
+  if(!fresh.length)list.append(el("div","empty",upd.length
+    ?"No book here that you don’t already have."
+    :"Nothing in these files the planner can use."));
+  else if(!shown.length)list.append(el("div","empty","No book matches that."));
+  else shown.forEach(code=>{
+    const lab=el("label","trayrow"+(libAvail(code)?" avail":"")+(miss.has(code)?" miss":""));
+    const cb=el("input");cb.type="checkbox";cb.checked=PLAN.keep.has(code);
+    cb.onchange=()=>{cb.checked?PLAN.keep.add(code):PLAN.keep.delete(code);renderImportPlanFoot();};
+    lab.append(cb);
+    lab.append(el("span","traynm",trayName(code)));
+    lab.append(el("small",null,trayCounts(code)));
+    list.append(lab);});
+  // the filter and All/None earn their place at a full-repository fetch, not at a brew
+  const qb=$("#importPlanQuick"); qb.innerHTML="";
+  qb.classList.toggle("hidden",fresh.length<9);
+  if(fresh.length>=9){
+    const f=el("input","planq"); f.type="search"; f.value=PLAN_Q;
+    f.placeholder="filter books…"; f.spellcheck=false;
+    f.oninput=e=>{PLAN_Q=e.target.value;renderImportPlan();
+      const n=$("#importPlanQuick .planq"); if(n){n.focus();n.setSelectionRange(n.value.length,n.value.length);}};
+    qb.append(f);
+    const quick=(label,fn)=>{const b=el("button","btn",label);
+      b.onclick=()=>{fn();renderImportPlan();};qb.append(b);};
+    quick(PLAN_Q?"All shown":"All",()=>shown.forEach(c=>PLAN.keep.add(c)));
+    quick(PLAN_Q?"None shown":"None",()=>shown.forEach(c=>PLAN.keep.delete(c)));}
   renderImportPlanFoot();
 }
 function renderImportPlanFoot(){
@@ -5444,17 +5461,16 @@ function renderImportPlanFoot(){
   const note=$("#importPlanNote");
   if(note){const bare=!IMPORTED&&BAKED&&(BAKED.spells||[]).length;
     note.classList.toggle("hidden",!bare);}
-  const had=new Set(Object.keys(PLAN.stored.sources||{}));
-  const added=[...PLAN.keep].filter(c=>!had.has(c)).length;
-  const dropped=[...had].filter(c=>!PLAN.keep.has(c)).length;
-  const bits=[`${PLAN.keep.size} book${PLAN.keep.size===1?"":"s"} kept`];
-  if(added)bits.push(`+${added} new`);
-  if(dropped)bits.push(`−${dropped} removed`);
-  $("#importPlanSub").textContent=bits.join(" · ");
+  const {fresh,upd}=trayBooks();
+  const add=fresh.filter(c=>PLAN.keep.has(c)).length;
+  const sub=$("#importPlanSub");
+  if(sub)sub.textContent=fresh.length?`${add} of ${nBooks(fresh.length)} new ticked`
+    :upd.length?"nothing new here":"";
   const btn=$("#importApply");
-  if(btn){btn.disabled=!PLAN.keep.size;
-    btn.textContent=dropped?`Apply (${dropped} book${dropped===1?"":"s"} removed)`:"Apply";
-    btn.classList.toggle("danger",!!dropped);}
+  if(btn){btn.disabled=!add&&!upd.length;
+    btn.textContent=add?`Add ${nBooks(add)}`
+      :upd.length?`Re-read ${nBooks(upd.length)}`:"Add books";
+    btn.classList.remove("danger");}   // the tray can no longer remove anything
 }
 // ── folder scan: index a local library BY BOOK (D92) ───────────────────────────
 // A homebrew repository is filed by CATEGORY — spell/, class/, subclass/, collection/ — so one
@@ -5618,14 +5634,17 @@ function buildImport(only,auto){
     Object.keys(PLAN.merged.sources||{}).forEach(c=>{
       if(!prevKeep.has(c)&&!PLAN.fresh.has(c))PLAN.keep.delete(c);});
     renderImportPlan();}
-  rep.innerHTML=`Read ${files.length} file${files.length===1?"":"s"} — ${importSummary(report)}.`
-    +` <b>Nothing is stored yet:</b> tick the books below, then Apply.`;
+  rep.innerHTML=`Read ${files.length} file${files.length===1?"":"s"} — ${importSummary(report)}.`;
 }
 // D112: one Apply reconciles everything — a ticked "available" book is read from the scanned
 // folder first, then the whole keep-set is stored in one write.
 async function applyImport(){
   const rep=$("#importReport"); if(!PLAN||REFRESH_BUSY)return;
   cancelBuild();
+  // D154(h,i): the tray ADDS. Every book already stored is folded back in before the write,
+  // so no path through this surface can drop one — removal is the list's selection bar and
+  // only there. (The tray's ticks only ever govern books you do not yet have.)
+  Object.keys(PLAN.stored.sources||{}).forEach(c=>PLAN.keep.add(c));
   const keepBefore=new Set(PLAN.keep);
   const need=[...keepBefore].filter(c=>!(PLAN.merged.sources||{})[c]&&SCAN&&SCAN.books[c]);
   if(need.length){
@@ -5683,10 +5702,10 @@ async function applyPlan(rep,refreshed){
   refreshAll();render();renderLibStatus();renderLibList();
   const nb=Object.keys(out.sources).length;
   const head=refreshed?`Re-imported ${nb} book${nb===1?"":"s"} with parser v${window.__VERSION__||"dev"}.`
-    :`<b style="color:var(--good)">Applied.</b> ${nb} book${nb===1?"":"s"} ·`;
+    :`<b style="color:var(--good)">Added.</b> ${nb} book${nb===1?"":"s"} ·`;
   rep.innerHTML=(refreshed?`<b style="color:var(--good)">${head}</b> `:head+" ")
     +`${out.spells.length} spells · ${out.classes.length} classes · ${out.subclasses.length} subclasses · `
-    +`${out.feats.length} feats · ${out.races.length} species.`+(refreshed?"":" Close to see it.");
+    +`${out.feats.length} feats · ${out.races.length} species.`+(refreshed?"":" It is in the list below.");
   return null;
 }
 // ── Refresh imported data (D111 · D129) ────────────────────────────────────────
@@ -9530,7 +9549,10 @@ $("#importPick").onclick=e=>{e.stopPropagation();closeMenu();
   $("#importFiles").setAttribute("accept",".json,application/json");$("#importFiles").click();};
 $("#importFiles").onchange=e=>{stageFiles(e.target.files);e.target.value="";};
 $("#importPasteAdd").onclick=()=>{const t=$("#importPaste").value.trim();if(!t)return;
-  try{IMPORT_STAGE.push({name:"pasted "+(IMPORT_STAGE.length+1),json:JSON.parse(t)});$("#importPaste").value="";$("#importReport").textContent="";renderImportStage();scheduleBuild();}
+  try{IMPORT_STAGE.push({name:"pasted "+(IMPORT_STAGE.length+1),json:JSON.parse(t)});
+    $("#importPaste").value="";$("#importReport").textContent="";
+    $("#pasteBox").classList.add("hidden");   // it landed in the tray; the box has done its job
+    renderImportStage();scheduleBuild();}
   catch(e){$("#importReport").textContent="Pasted text isn’t valid JSON.";}};
 // the staged tray's Discard (K2 restyles it; the verb is the same one "Clear staged" was)
 armConfirm($("#importClear"),null,()=>{IMPORT_STAGE=[];cancelBuild();WEB_PENDING=null;renderImportStage();

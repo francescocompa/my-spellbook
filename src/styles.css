@@ -412,23 +412,8 @@
 .helpbody b{color:var(--ink);font-weight:600}
 .helpbody code{font-size:11px}
 
-/* D86 — the import plan: one list of every book that will be in your data */
-/* D154: the Library's tab bar died with the two panes — one page now. */
-/* D112: a book the scanned folder offers but you haven't imported */
-.importplan label.avail{opacity:.55}
-.importplan label.avail:hover{opacity:.85}
-/* a book the last refresh could not re-read — still on an older parser, and the folder
-   doesn't hold it; #importMissNote above the list says why these are gold */
-.importplan label.miss>span{color:var(--gold);font-weight:600}
-.importplan{margin-top:14px;padding:12px;border:1px solid var(--line-strong);border-radius:10px;
-  background:var(--panel-2)}
-.importplan .iph{display:flex;align-items:center;gap:9px;margin-bottom:6px}
-.importplan .iph b{font-family:var(--font);font-size:15px}
-.importplan .iph .sub{font-size:11.5px;color:var(--muted)}
-.importplan .quick{margin-bottom:8px;align-items:center}
-.importplan .planq{flex:1 1 150px;min-width:120px;width:auto;font-size:12.5px;padding:5px 8px}
-.importplanlist{max-height:min(46vh,360px);overflow:auto;padding-right:4px}
-.importplan .btn.danger,#libFoot .btn.danger{color:var(--bad);border-color:var(--bad)}
+/* D154: the Library's tab bar died with the two panes, and D86's standing keep-plan died
+   with it — the pending-import tray replaced both (its rules are with the Library page). */
 /* The list scrolls; the actions under it are PINNED, so "New build" is reachable whether
    you have two builds or twenty. */
 .bswpop{left:0;right:auto;min-width:min(320px,86vw);max-height:min(64vh,460px);
@@ -489,10 +474,10 @@
 /* spell detail: tooltip + modal */
 /* above .spmodal (70) — the book chip inside the spell modal has a popover too */
 .appnotice{position:fixed;left:50%;transform:translateX(-50%);bottom:14px;z-index:95;
-  display:flex;align-items:center;gap:10px;max-width:min(92vw,560px);
+  display:flex;align-items:center;flex-wrap:wrap;gap:10px;max-width:min(92vw,560px);
   background:var(--panel);border:1px solid var(--bad);border-radius:10px;
   box-shadow:var(--shadow);padding:9px 12px;font-size:12.5px;color:var(--ink)}
-.appnotice .antxt{min-width:0}
+.appnotice .antxt{flex:1 1 200px;min-width:0}
 /* the bar is red by default because it was built for failures; work in progress and good news
    own their own borders (D129). An empty slot must not claim a flex gap. */
 .appnotice.busy{border-color:var(--line-strong)}
@@ -504,16 +489,20 @@
   color:var(--gold);border-radius:7px;padding:3px 9px;font:inherit;font-size:11.5px;
   font-weight:600;cursor:pointer;white-space:nowrap}
 .appnotice .anact:hover{background:var(--gold);color:var(--bg)}
-/* D138: the Library's parser line — quiet when everything is current, gold when a book is
-   still behind, because that is the one state a person needs to act on */
-.libparser{margin:10px 0 0;font-size:12px;color:var(--muted)}
-.libparser.stale{color:var(--gold);font-weight:600}
+/* D154(b): D138's parser line folded into the Library's status strip — the count of books
+   behind a parser is one clause of it now, not a surface of its own. */
 .appnotice .anspin,.appnotice .anicon:empty{display:none}
 .appnotice .anicon{flex:none;display:flex;align-items:center}
 .appnotice .anicon svg{width:14px;height:14px}
 .appnotice.ok .anicon{color:var(--good)} .appnotice.ask .anicon{color:var(--gold)}
 .appnotice:not(.busy):not(.ok):not(.ask) .anicon{color:var(--bad)}
 .appnotice.busy .anspin{display:block}
+/* narrow: the bar shrank to its content and wrapped one word per line. Span the width
+   instead, so the wrap puts the ACTIONS on the second row, which is what it is for. */
+@media (max-width:560px){
+  .appnotice{left:8px;right:8px;transform:none;max-width:none}
+  .appnotice .anx{margin-left:auto}   /* when it wraps alone, it wraps to the right */
+}
 .anspin,.btn.busy::before{content:"";flex:none;width:12px;height:12px;border-radius:50%;
   border:2px solid var(--line-strong);border-top-color:var(--accent);animation:sbspin .7s linear infinite}
 .btn.busy::before{display:inline-block;vertical-align:-2px;margin-right:7px}
@@ -2401,6 +2390,31 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
 /* ── the Library page (D154) ────────────────────────────────────────────────
    One page: a status strip that owns the web fetch, one list of two-line rows, and a
    selection bar that only exists while something is selected. */
+/* D154(h): the pending-import tray — above everything, only while something is staged.
+   It wears the accent so "nothing is stored yet" is visible rather than merely written. */
+.libtray{border:1px solid var(--accent);border-radius:10px;padding:11px;margin:0 0 12px;
+  background:var(--accent-soft)}
+.libtray.hidden{display:none}
+.libtray .trayh{display:flex;align-items:center;gap:9px;margin-bottom:2px}
+.libtray .trayh b{font-family:var(--font);font-size:15px}
+.libtray .traysub{font-size:11.5px;color:var(--muted)}
+.libtray .importstaged{margin-top:8px}
+.libtray .quick{margin:8px 0 0;align-items:center}
+.libtray .quick.hidden{display:none}
+.libtray .planq{flex:1 1 150px;min-width:120px;width:auto;font-size:12.5px;padding:5px 8px}
+.traybooks{margin-top:8px;max-height:min(34vh,260px);overflow:auto;padding-right:4px}
+.traybooks:empty{margin-top:0}
+.trayrow{display:flex;align-items:center;gap:8px;padding:3px 4px;font-size:13px;
+  border-radius:6px;cursor:pointer}
+.trayrow:hover{background:var(--panel-2)}
+.trayrow input{accent-color:var(--accent);flex:0 0 auto;margin:0}
+.trayrow .traynm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.trayrow small{margin-left:auto;color:var(--muted);flex:0 0 auto;padding-left:8px}
+/* a book only the scanned folder offers: ticking it is what reads it */
+.trayrow.avail{opacity:.62} .trayrow.avail:hover{opacity:.9}
+.trayrow.miss .traynm{color:var(--gold);font-weight:600}
+.libtray .prepnav .sub{font-size:11.5px;color:var(--muted)}
+
 /* the box is a column so its footer is PINNED and the list scrolls under it — 44 books in
    one column is a 3,000px page otherwise, with "＋ Add files" at the bottom of it */
 #importModal .box{display:flex;flex-direction:column;max-height:calc(100vh - 80px)}

@@ -4,7 +4,7 @@
 > this says what comes next. Closed items → `ARCHIVE.md#closed-backlog`.
 >
 > **Nothing is gated.** Phases E–J are done; **phase K (the Library rebuild, D154) is OPEN —
-> K1 shipped in v1.5.7, K2–K4 are next.** Below that is the standing backlog: open ⚑ flags
+> K1 shipped in v1.5.7 and K2 in v1.5.8; K3–K4 are next.** Below that is the standing backlog: open ⚑ flags
 > (calls only Francesco can make) and the Queue, whose one 🔶 (magic items / rewards) is
 > researched and awaits his call.
 
@@ -179,11 +179,19 @@ obsoletes.
   0 console errors; gate clean, cparity 51 ok / 0 fail. **D155 records the five calls D154
   left open** — the single Add-files button, the address in Actions, the staged-only
   keep-plan, the pinned column, and the per-book origin stamp with its migration rule.
-- [ ] **K2 · The pending-import tray.** Staged files render as a tray above the status
+- [x] **K2 · The pending-import tray** — shipped **v1.5.8** (D154(h) + **D156**). Staged files render as a tray above the status
   strip, only while staged: chips · new-book ticks · Discard / **Add N books**. Replaces
   `#importPlan` as a standing surface; D86/D112 merge semantics unchanged underneath.
   *Done when:* a brew lands, shows in the tray, Adds into the list, and nothing is stored
   before the commit; Discard is armed.
+  **Verified:** hidden at rest, shown only while staged, and rendered ABOVE the status strip;
+  a two-book paste showed 1 new book tickable and summarised the 1 re-read as a sentence
+  ("Add 1 book"); Add took the digest 44 → 45 with the new book enabled, took XGE 95 → 96
+  spells, and **dropped nothing** (`lost: []` against a pre-Add snapshot) — then restored
+  byte-identical; Discard is armed (D53) and left the stored digest untouched; a 12-book
+  brew brought the filter row out at the ≥9 threshold and the list scrolled inside itself;
+  checkbox and counts centred to 0.00px on every row at 1280 and 375 in both themes, 0
+  overflow out of the box, footer in view. **D156 records the add-only model.**
 - [ ] **K3 · Raw-stash + web refetch (the model half).** Hand-added files stash raw JSON in
   IndexedDB at import; a parser bump triggers an automatic background re-parse (stash for
   `file` books, D153 refetch for `web` books) that reports once, after, via a fading

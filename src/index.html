@@ -323,31 +323,35 @@
     </div>
     <p class="importwelcome hidden" id="importWelcome">This planner ships without spell data. Load a 5etools <code>data</code> export to fill it with spells, classes, subclasses, feats and species. Everything is parsed and stored in your browser — nothing is uploaded.</p>
 
-    <!-- the staged flow. K2 replaces this block with the pending-import tray; the D86/D112
-         merge semantics underneath it are untouched either way. -->
-    <div id="importStaged" class="importstaged"></div>
+    <!-- D154(h): the PENDING-IMPORT TRAY. It sits above the status strip and exists only
+         while something is staged: what you dropped, what is new in it, and one commit.
+         Nothing is stored until "Add"; the merge underneath is D86/D112, unchanged. The
+         report line stays OUTSIDE the tray — a fetch's progress and a removal's receipt
+         both have to show when there is no tray at all. -->
     <div id="importReport" class="note"></div>
-    <div id="importPlan" class="importplan hidden">
-      <div class="iph"><b>Your books</b><span class="sub" id="importPlanSub"></span>
+    <div class="libtray hidden" id="libTray">
+      <div class="trayh"><b>Pending import</b><span class="traysub">nothing is stored yet</span>
         <button class="helpbtn" data-help="planHelp" aria-expanded="false" aria-label="About this list"></button></div>
       <div class="helpbody hidden" id="planHelp">
-        <p>A tick means <b>this book is in my data</b>. Unticking one you already have <b>removes
-        its content</b> from this browser — the only way to get the space back. A dimmed row is a
-        book the scanned folder offers that you haven't imported: tick it and Apply to pull it in.
-        Nothing is written until you press Apply, and Apply says how many books it would remove
-        before you do.</p>
-        <p>Your builds are never touched. A pick whose book is gone is flagged in the banner at the
-        top of the app, not deleted — re-import that book and it resolves again.</p>
+        <p>These are the files you just added and the books they hold. A tick means <b>add
+        this book to my data</b>. A book you already have is re-read rather than duplicated —
+        only identical entries are replaced — and it is listed above the ticks rather than
+        among them, because declining is not what the tick is for: <b>removing</b> a book you
+        have is the list's own selection bar, never this tray.</p>
+        <p>Nothing is written until you press Add. Your builds are never touched.</p>
       </div>
-      <p class="note hidden" id="importPlanNote" style="margin:0 0 8px;color:var(--gold)">Nothing
-        imported yet — applying puts the app's built-in books behind whatever you tick here.</p>
-      <p class="note hidden" id="importMissNote" style="margin:0 0 8px;color:var(--gold)"></p>
-      <div class="quick" id="importPlanQuick"></div>
-      <div id="importPlanList" class="importplanlist"></div>
+      <div id="importStaged" class="importstaged"></div>
+      <p class="note hidden" id="importPlanNote" style="margin:8px 0 0;color:var(--gold)">Nothing
+        imported yet — adding these puts the app's built-in books behind them.</p>
+      <p class="note hidden" id="importMissNote" style="margin:8px 0 0;color:var(--gold)"></p>
+      <p class="note hidden" id="trayUpd" style="margin:8px 0 0"></p>
+      <div class="quick hidden" id="importPlanQuick"></div>
+      <div id="importPlanList" class="traybooks"></div>
       <div class="prepnav" style="border:none;padding:8px 0 0">
+        <span class="sub" id="importPlanSub"></span>
         <span class="prepnav-sp"></span>
         <button class="btn" id="importClear">Discard</button>
-        <button class="btn on" id="importApply">Apply</button>
+        <button class="btn on" id="importApply">Add books</button>
       </div>
     </div>
 

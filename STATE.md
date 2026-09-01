@@ -7,12 +7,12 @@
 > |---|---|
 > | `CLAUDE.md` | What this project is, its conventions, build/run, the verify gate, versioning |
 > | `PLAN.md` | The queue — what is next, what is flagged for Francesco |
-> | `DECISIONS.md` | Every decision D7–D155 and what was rejected |
+> | `DECISIONS.md` | Every decision D7–D156 and what was rejected |
 > | `GOTCHAS.md` | Traps that have already cost a session |
 > | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 > | `ARCHIVE.md` | Bodies of consumed phases, decisions and old rationale |
 
-## TL;DR (2026-09-01 · **v1.5.7** built · D154 phase **K1 SHIPPED**; K2–K4 next)
+## TL;DR (2026-09-01 · **v1.5.8** · D154 phase **K1 + K2 SHIPPED**; K3–K4 next)
 
 - **v1.5.6 · D153 — the app follows the 5etools repo itself.** "Fetch 5etools data online"
   (now the Library's **Update data**) pulls the current release via the jsDelivr CDN — file list from the
@@ -34,7 +34,16 @@
   split, the repo address in Actions, the keep-plan staged-only until K2, the pinned flex
   column, and the per-book origin stamp with its migration rule (timestamp-matching was
   tried and is wrong).
-- **D154 — the Library REDESIGN, the spec K1 built against.** Five AskUserQuestion rounds with
+- **v1.5.8 · K2 — the pending-import tray.** Above the status strip, only while staged:
+  file chips · the new books ticked · Discard / **Add N books**. It replaced D86's standing
+  keep-plan and killed the plan's second meaning — **D156: the tray ADDS and cannot remove**
+  (every stored book is folded back into the keep-set before the write; removal is the
+  selection bar and only there). A book you already have is one sentence, not 44 untickable
+  rows; the filter appears at ≥9 new books; `#importReport` stays outside the tray so a
+  fetch's progress and a removal's receipt still show. Add took the digest 44 → 45 and
+  **dropped nothing**, then restored byte-identical. Also fixed on the way: the notice bar
+  wrapped one word per line at 375 whenever it carried an action button.
+- **D154 — the Library REDESIGN, the spec K1 and K2 built against.** Five AskUserQuestion rounds with
   real-stylesheet mockups (`scratchpad/mockups/library4.html` is the approved final;
   `mklib{,2,3,4}.py` regenerate). One page, no tabs; status strip owns **Update data**;
   R3 two-line rows (select-checkbox · kind counts · origin chip · enable switch, off =
@@ -46,10 +55,11 @@
   cross-contamination. **D154 owns every call and every rejected option.**
 - The phase-J method lesson held again: he took B over the recommended A, and the
   selection bar over the recommended storage mode — **mock it, lead with his reading.**
-- **Next action: K2** (the pending-import tray — restyle what is left of `#importPlan`
-  into chips + new-book ticks + Discard / Add N books). Then K3 (raw-stash + web refetch,
-  the model half) and K4 (retire the old machinery). Task lines in PLAN; D154 is the spec.
-  Not gated. **v1.5.7 is built and committed but NOT pushed** — say so before deploying.
+- **Next action: K3** (raw-stash + web refetch, the model half — hand-added files stash
+  their raw JSON at import; a parser bump triggers an automatic background re-parse that
+  reports once, after). Then K4 (retire the old machinery). Task lines in PLAN; D154 is the
+  spec. Not gated. **K3 is the one that makes the stale-parser notice stop nagging** — it
+  fires on every version bump today and K3 refits it into the auto pass.
 - **Manual for Francesco:** ① the four ⚑ copy/model calls in PLAN — the `…`-placeholder
   family; the chain rail's CSS `· optional` (styles.css:1822); `sbFav` edition tolerance;
   the orphaned ability-score note. ② D125's clamp now covers the trade (⚑, fix written
@@ -89,8 +99,8 @@ moved to `ARCHIVE.md` — every one leaving a stub, every `*Rejected:*` clause k
 
 Phase J's own task bodies are still live in `PLAN.md` (ticked, with the original notes kept
 under each). They are the natural next thing to archive — worth a `/clean` once the flags
-below are answered, not before. **Phase K (the Library rebuild, D154) is OPEN**: K1 is
-shipped in v1.5.7, K2–K4 are queued in PLAN.
+below are answered, not before. **Phase K (the Library rebuild, D154) is OPEN**: K1
+shipped in v1.5.7 and K2 in v1.5.8; K3–K4 are queued in PLAN.
 
 ⟳ Rename previous session → "The Library rebuild — phase K"  · session: resolve by
 cwd + latest

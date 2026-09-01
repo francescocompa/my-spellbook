@@ -2167,6 +2167,34 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     `[aria-haspopup]` button by one sweep in `closeMenu`/`toggleMenu` — the footer caret is
     drawn from that attribute, so a stale one was wrong on screen as well as to a reader.
 
+- **D156 (2026-09-01) DECIDED — the tray ADDS; it cannot remove.** Phase K2 built D154(h)'s
+  pending-import tray, and building it forced one model call the spec implied but never
+  stated. The old keep-plan carried TWO meanings in one tick: "add this book" for a staged
+  book, and — for a book you already had — "keep it, or delete it". D154 moved removal to the
+  list's selection bar and made it the single destructive path (D154(e), (i)), so the second
+  meaning had nowhere left to live.
+  - **(a) The tray's ticks govern only books you do NOT already have.** `applyImport` folds
+    every stored source back into the keep-set before the write, so no path through the tray
+    can drop a book. The button says what it does — **Add N books**, never "Apply (3 books
+    removed)", and it never wears `.danger`. *Rejected:* keeping the old untick-to-delete
+    (two destructive paths, one of them unarmed and reached by a stray click); a per-book
+    "don't update this one" tick (it would mean un-merging a digest that `mergeDigests` has
+    already merged — real machinery for a choice nobody has asked for).
+  - **(b) A book you already have is a SENTENCE, not a row.** "N books you already have will
+    be re-read with parser vX — only identical entries are replaced." A full-repository fetch
+    stages 64 books of which 44 are re-reads; as rows they are 44 untickable ticks pretending
+    to be decisions. *Rejected:* listing them dimmed and untickable, which is the same noise
+    wearing an excuse.
+  - **(c) The tray's filter and All/None appear at ≥9 new books.** A brew is one or two rows
+    and does not need a search field over itself; a repository fetch does.
+  - **(d) `#importReport` stays OUTSIDE the tray.** A fetch's progress, a zip's size refusal
+    and a removal's receipt all have to show when there is no tray at all — putting the line
+    inside a surface that only exists while staging would have hidden every one of them.
+  - Also in K2, not a design call: the narrow-width **notice bar** was shrinking to its
+    content and wrapping one word per line whenever it carried an action button (seen at 375
+    with the stale-parser notice). It spans the width below 560px now and wraps its actions
+    onto the second row, which is what the wrap is for.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives
