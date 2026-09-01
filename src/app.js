@@ -124,6 +124,16 @@ function loadJSON(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):
 // ONE database, two stores: `kv` for content, `handles` for the D92 directory handle (which is a
 // live object localStorage could never have held anyway).
 const IDB_NAME="spellForge", IDB_V=1, KV="kv", HANDLES="handles", IMPORT_KEY="import";
+// D157: the id of the EXTRACTOR that read a book, injected by build.py as a hash of
+// src/extract.js. It is what "behind" means now — a release that changes no parsing does
+// not make your library stale, and a parser change inside an unbumped tree cannot hide.
+// Falls back to the app version where no build wrote one (an unbuilt dev page).
+const PARSER_ID=(typeof window!=="undefined"&&(window.__PARSER__||window.__VERSION__))||"dev";
+// D154(g) · K3: the raw JSON of hand-added files, kept so a parser change can re-read them
+// with no folder, no permission dance and no re-download. A zip or a whole data folder is
+// NOT stashed — that is ~25 MB of duplicate storage, and the web fetch (D153) already
+// covers core content; those books are named as needing their files again instead.
+const RAW_KEY="raw", RAW_MAX=8*1024*1024;
 let IMPORT_CACHE=null;      // the digest in memory; IndexedDB is only where it persists
 let IDB_OK=true;            // false after a real failure — private windows can refuse outright
 function idbOpen(){return new Promise((res,rej)=>{
@@ -207,12 +217,39 @@ async function importSave(digest){
       +". Untick some books and apply again.";
   }
 }
+// ── the raw stash (D154(g) · K3) ───────────────────────────────────────────────
+// One record, a flat list of {name, json} — the files themselves, not a per-book index:
+// which books a file feeds is only knowable by parsing it, and the re-parse parses all of
+// them anyway. A same-named file replaces its older copy; the whole record goes when the
+// import does. A removed book leaves its files behind, which costs a little space and
+// nothing else — the re-parse only ever writes books that are still stored.
+async function rawStashLoad(){
+  if(!IDB_OK)return null;
+  try{const v=await idbGet(KV,RAW_KEY); return (v&&Array.isArray(v.files)&&v.files.length)?v:null;}
+  catch(_){return null;}
+}
+async function rawStashSave(files){
+  if(!IDB_OK||!files||!files.length)return null;
+  const prev=await rawStashLoad();
+  const by=new Map();
+  ((prev&&prev.files)||[]).forEach(f=>by.set(f.name,f));
+  files.forEach(f=>by.set(f.name,{name:f.name,json:f.json}));
+  const out=[...by.values()];
+  // the budget is on the WHOLE stash, and it is refused as a unit: a half-stash re-parses
+  // half a library and reports success, which is the D129 false-success shape again
+  let bytes=0;
+  try{bytes=JSON.stringify(out).length;}catch(_){return null;}
+  if(bytes>RAW_MAX)return null;
+  try{await idbPut(KV,RAW_KEY,{v:1,at:new Date().toISOString(),bytes,files:out});return bytes;}
+  catch(_){return null;}
+}
+async function rawStashDrop(){ if(!IDB_OK)return; try{await idbDel(KV,RAW_KEY);}catch(_){} }
 // The folder handle briefly lived in its own database before the stores were unified (D93).
 // Anyone who used the folder scan in that window has an orphan; drop it once, quietly.
 function dropLegacyFolderDb(){try{indexedDB.deleteDatabase("spellForgeFolder");}catch(_){}}
 async function importDrop(){
   IMPORT_CACHE=null;
-  if(IDB_OK){try{await idbDel(KV,IMPORT_KEY);}catch(_){}}
+  if(IDB_OK){try{await idbDel(KV,IMPORT_KEY);}catch(_){} try{await idbDel(KV,RAW_KEY);}catch(_){}}
   try{localStorage.removeItem(LS_IMPORT);}catch(_){}
 }
 let DATA, IMPORTED=null, CUSTOM=null;
@@ -5142,7 +5179,10 @@ async function stageZip(file){const rep=$("#importReport");
     const entries=await window.SB_extract.unzipJsonFiles(buf,(name,i,total)=>{
       rep.textContent="Unpacking "+file.name+" — "+i+"/"+total+": "+name;});
     if(!entries.length){rep.textContent="No recognised 5etools files in "+file.name+".";return;}
-    entries.forEach(e=>IMPORT_STAGE.push(e));rep.textContent="";renderImportStage();scheduleBuild();}
+    // a zip is not stashed (D154(g)) — 25 MB of duplicate storage, and the web fetch
+    // already covers the core content a zip carries
+    entries.forEach(e=>IMPORT_STAGE.push(Object.assign({stash:false},e)));
+    rep.textContent="";renderImportStage();scheduleBuild();}
   catch(e){rep.innerHTML="Couldn’t read <b>"+esc(file.name)+"</b>: "+esc(e.message||String(e))
       +(file.size>64*1024*1024?ZIP_TOOBIG:"");}}
 function stageFiles(fileList){[...fileList].forEach(file=>{
@@ -5248,7 +5288,9 @@ async function webSync(){
     const entries=await webFetchAll(repo,ver,tree.ref,tree.paths,(p,i,n)=>{
       rep.textContent="Fetching v"+ver+" — "+i+"/"+n+": "+p.split("/").pop();});
     if(!entries.length)throw new Error("nothing usable came back. Your data is unchanged.");
-    entries.forEach(e=>IMPORT_STAGE.push(e));
+    // not stashed either: a web book re-fetches itself (D154(g)), which is the whole
+    // reason the stash can stay small enough to be worth having
+    entries.forEach(e=>IMPORT_STAGE.push(Object.assign({stash:false},e)));
     WEB_PENDING={repo,version:ver};
     rep.textContent=""; renderImportStage(); scheduleBuild();
   }catch(e){rep.innerHTML="Couldn’t fetch from 5etools online: "+esc(e.message||String(e));}
@@ -5651,7 +5693,8 @@ async function applyImport(){
 }
 // Returns null on success or the failure sentence, the same null-or-a-sentence contract
 // importSave uses — the refresh needs the outcome to report it somewhere other than `rep`.
-async function applyPlan(rep,refreshed){
+async function applyPlan(rep,refreshed,opts){
+  opts=opts||{};
   const out=filterDigest(PLAN.merged,PLAN.keep);
   if(!digestSize(out)){const m="That would leave no content at all — keep at least one book.";
     rep.textContent=m;return m;}
@@ -5662,16 +5705,21 @@ async function applyPlan(rep,refreshed){
   // the D129 false-success shape one level down, and it is what let the stale-parser notice
   // go quiet on a library that was still stale. Only the books that came through the
   // parser THIS time get the new stamp; every other source keeps the one it had.
-  const now=new Date().toISOString(), pv=window.__VERSION__||"dev";
-  out.meta=Object.assign({},out.meta,{importedAt:now,parser:pv});
+  // D157: the stamp is the PARSER's id, not the release's. `app` rides along for display —
+  // "read by v1.5.8" is what a person can act on; the hash is what the comparison needs.
+  const now=new Date().toISOString(), pv=PARSER_ID, av=window.__VERSION__||"dev";
+  out.meta=Object.assign({},out.meta,{importedAt:now,parser:pv,app:av});
   // only the books this import actually TOOK — an unticked one never entered the merge
   const parsed=[...PLAN.pick].filter(c=>(((PLAN.incoming||{}).sources)||{})[c]);
   // D154(c): where a book came from, stamped alongside the parser stamp and on the same
   // rule — only the books that came through the parser THIS time are re-stamped, so a
   // hand-added brew keeps saying `file` when a web fetch lands beside it.
+  // …except on the automatic re-parse (K3), which re-reads each book from wherever it came
+  // from in the first place: the origin is a fact about the book, not about this pass.
   const origin=WEB_PENDING?"web":"file";
+  const orgOf=c=>opts.originOf?opts.originOf(c):origin;
   parsed.forEach(c=>{ if(out.sources[c])out.sources[c]=Object.assign({},out.sources[c],
-    {parser:pv,parsedAt:now,origin}); });
+    {parser:pv,parsedAt:now,app:av,origin:orgOf(c)}); });
   const btn=$("#importApply"); if(btn)btn.disabled=true;
   rep.textContent="Storing…";
   const err=await importSave(out);
@@ -5683,7 +5731,15 @@ async function applyPlan(rep,refreshed){
   if(WEB_PENDING){
     try{localStorage.setItem(LS_WEB_SYNC,JSON.stringify(Object.assign({syncedAt:now},WEB_PENDING)));}catch(_){}
     WEB_PENDING=null; webSyncSub();}
-  // a book that is newly here is turned ON; one you removed leaves the selection with it
+  // D154(g) · K3: the files this import brought in are kept raw, so the NEXT parser change
+  // re-reads them by itself. Only hand-added JSON (a zip and the web fetch mark themselves
+  // unstashable), and never on the auto pass itself — it is re-reading the stash, not adding
+  // to it. Failure here is silent by design: it costs a future automatic re-parse, nothing
+  // that is happening now.
+  if(opts.stash!==false){
+    const keepRaw=IMPORT_STAGE.filter(f=>!f.error&&f.stash!==false&&f.json);
+    if(keepRaw.length)await rawStashSave(keepRaw);
+  }
   const codes=new Set(Object.keys(out.sources));
   PLAN.fresh.forEach(c=>{if(codes.has(c))SRC.add(c);});
   [...SRC].forEach(c=>{if(c!==HB_SRC&&!codes.has(c)&&!(BAKED&&BAKED.sources&&BAKED.sources[c]))SRC.delete(c);});
@@ -5693,7 +5749,7 @@ async function applyPlan(rep,refreshed){
   planFromStage(null,PLAN.report); renderImportPlan();
   refreshAll();render();renderLibList();
   const nb=Object.keys(out.sources).length;
-  const head=refreshed?`Re-imported ${nb} book${nb===1?"":"s"} with parser v${window.__VERSION__||"dev"}.`
+  const head=refreshed?`Re-imported ${nb} book${nb===1?"":"s"} with the current parser (v${av}).`
     :`<b style="color:var(--good)">Applied.</b> ${nb} book${nb===1?"":"s"} ·`;
   rep.innerHTML=(refreshed?`<b style="color:var(--good)">${head}</b> `:head+" ")
     +`${out.spells.length} spells · ${out.classes.length} classes · ${out.subclasses.length} subclasses · `
@@ -5844,14 +5900,13 @@ async function refreshImported(fromModal){
     }
   }finally{ if(REFRESH_BUSY)refreshStop(); }
 }
-// ── the imported digest is older than the parser (D137) ────────────────────
+// ── the imported digest is older than the parser (D137, refitted by K3) ────
 // `assembleData` hands the IMPORTED digest to the app WHOLE — `IMPORTED||BAKED` — so every
 // extractor fix is invisible until the books are re-read, even for records the bundle
-// already carries. That has now cost four rounds of "this is still wrong" (D127's `_copy`
-// twins, D135's designations and feat slots, D136's Hex and Synaptic Static): the app knew
-// which parser made its data (D111 stamps it) and said nothing. It says it here.
-// Version-aware and dismissible per version, so it names a real gap once and then stops.
-const LS_PARSER_NAG="spellForge.parserNag.v1";
+// already carries. That cost four rounds of "this is still wrong" (D127's `_copy` twins,
+// D135's designations and feat slots, D136's Hex and Synaptic Static), which is why the app
+// stamps what read each book (D111/D138) and measures it here. D137 SAID so and asked; since
+// K3 the same measurement drives `autoReparse()`, which just does it.
 const verParts=v=>String(v||"").split(".").map(n=>parseInt(n,10)||0);
 function verLt(a,b){const A=verParts(a),B=verParts(b);
   for(let i=0;i<Math.max(A.length,B.length,3);i++){const x=A[i]||0,y=B[i]||0;
@@ -5860,13 +5915,30 @@ function verLt(a,b){const A=verParts(a),B=verParts(b);
 // which imported books were last read by an OLDER parser than the app (D138). Per book,
 // because a refresh only re-reads what the folder holds — asking the digest-wide stamp
 // reports "all current" for a library where one book was re-read and eleven were not.
+// D157 changed the comparison, not the shape: the stamp is the parser's own id, so
+// "behind" is `stamp !== PARSER_ID` — no ordering, and none is wanted. A digest stamped by
+// an older app carries a VERSION here, which is simply a different string and re-reads
+// once. A rolled-back app re-reads too, which is correct: what read your books is not what
+// is running.
 function staleBooks(){
   if(!IMPORTED)return [];
-  const app=window.__VERSION__; if(!app)return [];
   const fallback=(IMPORTED.meta||{}).parser||null;   // pre-D138 digests have only this one
   return Object.keys(IMPORTED.sources||{}).filter(c=>{
     const p=((IMPORTED.sources[c])||{}).parser||fallback;
-    return !p||verLt(p,app);});
+    return !p||p!==PARSER_ID;});
+}
+// which of those the app can heal by itself, and which need their files again.
+// A pre-K1 digest carries NO origin at all — and the library it holds is, for anyone who
+// used D153, exactly the release the web record names. So a book with no origin counts as
+// web-capable while such a record exists: the fetch is allowed to try, and whatever it does
+// not cover is named afterwards. Guessing the other way would tell someone to re-add 44
+// books by hand that one fetch can restore.
+function staleSplit(behind){
+  const rec=webSyncRec(), src=(IMPORTED&&IMPORTED.sources)||{};
+  const web=[],file=[];
+  behind.forEach(c=>{const o=(src[c]||{}).origin;
+    ((o==="web"||(!o&&rec&&rec.version))?web:file).push(c);});
+  return {web,file};
 }
 // What the last refresh LEARNED it cannot heal (the 2026-08-31 episode): a refresh only
 // re-reads the books the folder holds (D129/D138) — a book the folder cannot provide is
@@ -5883,34 +5955,98 @@ function refreshMissed(){
   const behind=new Set(staleBooks());
   return codes.filter(c=>behind.has(c));
 }
-function staleParserNotice(){
-  const app=window.__VERSION__; if(!app||!IMPORTED)return;
+// ── the automatic re-parse (D154(g) · K3) ──────────────────────────────────────
+// The refresh verbs exist because a parser change left the stored digest behind and only a
+// person could fix it. Both halves of that are now the app's job: hand-added files were
+// stashed raw at import, and web content re-fetches itself (D153). So on the first boot
+// after the extractor changes, this runs in the BACKGROUND and says what it did — once,
+// after, fading. Nothing to press, nothing to dismiss.
+//
+// It is deliberately not offered first (D154(g) rejected offer-don't-act: a stale library
+// behind a button is a stale library). It is also not a per-release event — D157 stamps the
+// PARSER, so a release that changes no parsing runs nothing at all.
+const LS_AUTO_PARSE="spellForge.autoParse.v1";   // the parser id the auto pass last completed
+let AUTO_BUSY=false;
+function autoRan(){try{return localStorage.getItem(LS_AUTO_PARSE);}catch(_){return null;}}
+function autoRanSet(v){try{localStorage.setItem(LS_AUTO_PARSE,v);}catch(_){}}
+// the web half re-fetches the release you ALREADY have, not the newest one: picking up a
+// new release is a separate offer with its own notice (D153), and silently upgrading the
+// content under a re-parse would hide it.
+async function autoWebDigest(codes,say){
+  const rec=webSyncRec(); if(!rec||!rec.version)return null;
+  if(navigator.onLine===false)return null;
+  const repo=rec.repo||webRepo();
+  say("Re-reading "+nBooks(codes.length)+" from 5etools v"+rec.version+"…");
+  const tree=await webTree(repo,rec.version);
+  if(!tree.paths.length)throw new Error("no data files in "+repo);
+  const files=await webFetchAll(repo,rec.version,tree.ref,tree.paths,(p,i,n)=>{
+    if(i%20===0||i===n)say("Re-reading from 5etools v"+rec.version+" — "+i+"/"+n+"…");});
+  if(!files.length)throw new Error("nothing usable came back");
+  const res=window.SB_extract.buildDigest(files.map(f=>({name:f.name,json:f.json})));
+  return res&&res.digest;
+}
+async function autoReparse(){
+  if(!IMPORTED||!window.SB_extract)return;
+  if(AUTO_BUSY||REFRESH_BUSY||SCAN_BUSY||WEB_BUSY)return;
+  if(IMPORT_STAGE.length||SCAN)return;          // never trample an import in progress
   const behind=staleBooks(); if(!behind.length)return;
-  const total=Object.keys(IMPORTED.sources||{}).length;
-  const made=(IMPORTED.meta||{}).parser||null;
-  let seen=null; try{seen=localStorage.getItem(LS_PARSER_NAG);}catch(_){}
-  if(seen===app)return;                       // already said for this version, and dismissed
-  // books the last refresh could not re-read route to the Library, not to another refresh —
-  // "Refresh now" on a book the folder cannot provide is the one action that cannot help
-  const miss=refreshMissed(), allMiss=miss.length&&miss.length===behind.length;
-  const which=behind.length===total?"Your imported books were"
-    :`${behind.length} of your ${total} imported books (${behind.slice(0,3).map(bookName).join(", ")}`
-      +`${behind.length>3?`, +${behind.length-3} more`:""}) ${behind.length===1?"was":"were"}`;
-  const tail=allMiss
-    ?` The last refresh couldn’t re-read ${miss.length===1?"it — the folder doesn’t hold it. Re-add the file":"them — the folder doesn’t hold them. Re-add the files"} in the Library.`
-    :miss.length?` Refresh to re-read them — but ${nBooks(miss.length)} ${miss.length===1?"wasn’t in the folder last time and needs":"weren’t in the folder last time and need"} re-adding in the Library.`
-    :" Refresh to re-read them and pick up the fixes since.";
-  const n=appNotice(`${which} read by ${made&&behind.length===total?"parser v"+made:"an older parser"}`
-    +` — this is v${app}.`+tail,"ask");
-  const act=(label,fn)=>{const b=el("button","anact",label);
-    b.onclick=()=>{ try{localStorage.setItem(LS_PARSER_NAG,app);}catch(_){}
-      n.remove(); fn(); };
-    n.insertBefore(b,n.querySelector(".anx"));};
-  if(!allMiss)act("Refresh now",()=>refreshImported(false));
-  if(miss.length)act("Open Library",()=>openImport(false));
-  // the × means "not now", so it must not come back every boot on the same version
-  const x=n.querySelector(".anx");
-  if(x)x.addEventListener("click",()=>{try{localStorage.setItem(LS_PARSER_NAG,app);}catch(_){}});
+  if(autoRan()===PARSER_ID)return;              // this parser has already had its pass
+  AUTO_BUSY=true;
+  let bar=null;
+  const say=msg=>{ bar=appNotice(msg,"busy"); };
+  try{
+    const {web,file}=staleSplit(behind);
+    const raw=await rawStashLoad();
+    let inc=null, healed=new Set(), webFailed=false;
+    const fromStash=new Set(), fromWeb=new Set();
+    if(file.length&&raw){
+      say("Re-reading "+nBooks(file.length)+" with the current parser…");
+      const res=window.SB_extract.buildDigest(raw.files.map(f=>({name:f.name,json:f.json})));
+      if(res&&res.digest){inc=res.digest;Object.keys(inc.sources||{}).forEach(c=>fromStash.add(c));}
+    }
+    if(web.length){
+      try{ const wd=await autoWebDigest(web,say);
+           if(wd){Object.keys(wd.sources||{}).forEach(c=>fromWeb.add(c));
+                  inc=inc?mergeDigests(inc,wd):wd;}
+           else webFailed=true; }
+      catch(_){ webFailed=true; }   // offline, CDN down, repo moved — try again next boot
+    }
+    // what the incoming digest can actually heal, intersected with what is stored
+    const stored=Object.keys(IMPORTED.sources||{});
+    const got=new Set(Object.keys((inc&&inc.sources)||{}));
+    behind.forEach(c=>{ if(got.has(c))healed.add(c); });
+    if(healed.size){
+      planFromStage(inc,null,stored);            // pick = incoming ∩ stored: never ADDS a book
+      // Each book is re-stamped with where it was actually re-read FROM — which is also how
+      // a pre-K1 digest, whose books carry no origin at all, ends up correctly labelled.
+      const prev=(IMPORTED&&IMPORTED.sources)||{};
+      const originOf=c=>fromWeb.has(c)?"web":fromStash.has(c)?"file":((prev[c]||{}).origin||"file");
+      // the stash is what we are reading FROM; re-writing it here would only rewrite itself
+      const stub={textContent:"",innerHTML:""};
+      const err=await applyPlan(stub,true,{stash:false,originOf});
+      if(err){ if(bar)bar.remove();
+        appNotice("Couldn’t re-read your books with the current parser: "+err,"",12000);
+        return; }
+    }
+    if(bar)bar.remove();
+    const left=staleBooks();
+    // Only a pass that healed everything it could counts as done for this parser. A failed
+    // web fetch (offline) must come back next boot — that is the whole difference between
+    // "the app keeps your data current" and "the app tried once".
+    if(!webFailed)autoRanSet(PARSER_ID);
+    if(!healed.size&&!left.length)return;
+    const bits=[];
+    if(healed.size)bits.push(`Re-read ${nBooks(healed.size)} with the current parser (v${window.__VERSION__||"dev"}).`);
+    if(left.length){
+      const names=left.slice(0,3).map(bookName).join(", ")+(left.length>3?`, +${left.length-3} more`:"");
+      bits.push(webFailed&&left.some(c=>web.includes(c))
+        ? `${nBooks(left.length)} still to re-read (${names}) — 5etools couldn’t be reached; the app will try again next time it opens.`
+        : `${nBooks(left.length)} can’t be re-read here (${names}) — add ${left.length===1?"its file":"their files"} again from ＋ Add files in the Library.`);
+    }
+    if(bits.length)appNotice(bits.join(" "),healed.size&&!left.length?"ok":"ask",left.length?14000:8000);
+  }catch(e){ if(bar)bar.remove();
+    appNotice("Couldn’t re-read your books with the current parser: "+((e&&e.message)||e),"",12000);
+  }finally{ AUTO_BUSY=false; renderLibList(); }
 }
 function openImport(welcome){closeMenu();
   const r=$("#importReport"); if(r)r.textContent="";
@@ -9392,8 +9528,10 @@ function renderLibStatus(){
       LIB_STORE=`≈ ${mb<1?"<1":Math.round(mb)} MB in this browser`;
       if(was!==LIB_STORE)renderLibStatus();}).catch(()=>{});
 }
-// D138: which parser read your books, said out loud. K3 refits this into the automatic
-// re-parse; until then it is the honest statement of what is behind.
+// D138: which parser read your books, said out loud — refitted by K3 (D154(g)). The app
+// re-reads them by itself now, so this line's remaining job is the one case it cannot heal:
+// a book whose files were never stashed and which no web fetch covers. That book is NAMED,
+// never left looking current.
 function renderLibParser(){
   const line=$("#libParser"); if(!line)return;
   line.classList.toggle("hidden",!IMPORTED);
@@ -9401,19 +9539,15 @@ function renderLibParser(){
   const meta=IMPORTED.meta||{};
   const behind=staleBooks(), nsrc=Object.keys(IMPORTED.sources||{}).length;
   line.classList.toggle("stale",!!behind.length);
-  // a book the folder cannot provide is not healed by Refresh — NAME those, because the
-  // remedy is different (add the file again, from ＋ Add files). This is the diagnosis→remedy
-  // seam the import plan's own note used to carry; the plan is a tray now and only exists
-  // mid-import, so the standing line owns it.
-  const miss=refreshMissed();
-  const named=miss.map(bookName).join(", ");
-  line.textContent=behind.length
-    ? `${behind.length} of ${nsrc} book${nsrc===1?"":"s"} still read by an older parser — `
-      +(miss.length&&miss.length===behind.length
-          ?`the linked folder doesn’t hold ${miss.length===1?"it":"them"}: add ${miss.length===1?"it":"them"} again (${named})`
-          :miss.length?`Refresh re-reads them, except ${named} — add ${miss.length===1?"that one":"those"} again`
-          :"Refresh re-reads them")
-    : `all ${nsrc} book${nsrc===1?"":"s"} read by parser v${meta.parser||"?"}`;
+  if(!behind.length){
+    line.textContent=`all ${nBooks(nsrc)} read by the current parser`+(meta.app?` (v${meta.app})`:"");
+    return;}
+  const named=behind.slice(0,3).map(bookName).join(", ")+(behind.length>3?`, +${behind.length-3} more`:"");
+  const {web}=staleSplit(behind);
+  line.textContent=`${behind.length} of ${nsrc} book${nsrc===1?"":"s"} waiting to be re-read (${named}) — `
+    +(AUTO_BUSY?"in progress…"
+      :web.length?"the app re-reads these itself, and will try again next time it opens"
+      :`add ${behind.length===1?"its file":"their files"} again from ＋ Add files`);
 }
 function afterSourceChange(){
   // T2: turning a book OFF no longer strips what it gave you. Picks are kept and flagged by
@@ -10170,6 +10304,6 @@ let BOOT_MODE="fresh";
   maybeOnboard();
   fillIcons(); wireHelpNotes();
   refreshAll();render();
-  staleParserNotice();
+  autoReparse();       // D154(g) · K3: fire-and-forget, silent unless the parser changed
   webUpdateNotice();   // D153: fire-and-forget — quiet offline, quiet when current
 })();

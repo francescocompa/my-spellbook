@@ -2219,6 +2219,67 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     them on the standing parser line instead — the plan only existed mid-import, and that
     is exactly when the question is NOT being asked.
 
+- **D157 (2026-09-01) DECIDED — the stamp on a book is the PARSER's id, not the release it
+  shipped in.** Building K3 (D154(g)) surfaced a cost the design session was never shown: the
+  per-book stamp was `VERSION`, so `staleBooks()` called every book stale on **every release**
+  — and K3 turns "stale" from a dismissible nag into an **automatic re-parse**, whose web half
+  is a multi-megabyte fetch of the whole 5etools release. Shipping D154(g) on the old
+  comparison would have meant a full CDN refetch on the first load after every patch. The
+  comparison had to name the parser instead.
+  - **(a) `build.py` hashes `src/extract.js` into `window.__PARSER__`** (8 hex chars) and
+    injects it beside `__VERSION__` in `data.js`, `dist/` and `docs/`. `applyPlan` stamps
+    `parser: PARSER_ID` (plus `app: VERSION`, for the sentence a person reads) and
+    `staleBooks()` asks `stamp !== PARSER_ID`. No ordering — none is wanted: a rolled-back
+    app should re-read too, because what read your books is not what is running.
+    *Rejected:* **a hand-maintained `PARSER_V` constant** (the one thing GOTCHAS already
+    records is that a parser change inside an unbumped tree is invisible — a constant someone
+    has to remember to bump is that trap with an extra step); **keeping `VERSION`** (an
+    automatic refetch per release, which is the harm); **hashing extract.py too** (the app
+    never runs it — parity is what keeps the two in step, and `cparity.js` is where that is
+    enforced).
+  - **(b) A digest stamped by an older app re-parses exactly once.** Legacy stamps are version
+    strings, which are simply "not the current parser id"; the first auto pass re-reads them
+    and writes real ids. Nothing to migrate by hand.
+  - **(c) The trade, stated:** an `extract.py`-only change moves no id, so a mirror re-extract
+    that changes `data.json` does not itself mark imports stale. That was already true (the
+    app never runs `extract.py`) and is one more reason the both-extractors-or-neither rule is
+    load-bearing.
+  - **This amends K3's done-when in PLAN**: "bump VERSION and reload re-parses everything" is
+    no longer the test — *change the extractor* and reload is.
+
+- **D158 (2026-09-01) DECIDED — the calls K3 had to make (the automatic re-parse).**
+  - **(a) What is stashed: hand-added JSON only, all-or-nothing, 8 MB.** A zip and the web
+    fetch mark their staged entries unstashable at stage time; everything else (individual
+    files, a paste, a folder scan) is stashed, and the whole stash is refused if it would
+    exceed 8 MB rather than storing a partial one. *Rejected:* stashing part of an oversized
+    import (half a stash re-parses half a library and reports success — the D129 false-success
+    shape); per-book stashing (which files feed which book is only knowable by parsing, and
+    the re-parse parses all of them anyway).
+  - **(b) A removed book leaves its files in the stash.** Pruning would need the per-book
+    index (a) rejected, and it costs only space — the re-parse writes only books that are
+    still stored. `clearImport()` drops the whole record.
+  - **(c) The web half re-fetches the release you ALREADY have**, from the `webSync` record,
+    never "latest". Picking up a NEW release is a separate offer with its own notice (D153),
+    and upgrading content silently under a re-parse would hide it.
+  - **(d) A book with no origin stamp counts as web-capable while a web record exists.** A
+    pre-K1 digest carries no origin at all; for anyone who used D153 that library IS the
+    recorded release, so the fetch is allowed to try and whatever it does not cover is named
+    afterwards. Each book is then re-stamped with where it was actually re-read FROM, which is
+    how a legacy digest gains the origins it always had. *Rejected:* defaulting legacy books
+    to `file` for the auto pass (it would tell someone to hand-add 44 books that one fetch
+    restores).
+  - **(e) A failed web half does not mark the parser done.** `LS_AUTO_PARSE` is written only
+    when nothing failed that could succeed later, so an offline boot retries next time; the
+    stash half still applies. Anything else turns "the app keeps your data current" into "the
+    app tried once".
+  - **(f) The pass is silent unless it did something**, and reports once, after, fading:
+    "Re-read N books with the current parser (v1.5.8)", plus a named list of what it could not
+    re-read and the remedy. It refuses to run while an import is staged or a folder scanned —
+    `applyPlan` clears the stage on success, and eating a half-built tray to do housekeeping
+    is not a trade worth making.
+  - **D137's nag is gone** (`staleParserNotice`, `LS_PARSER_NAG`), refitted into this pass as
+    D154(g) asked. The Library's parser line survives with one job left: naming the book the
+    app cannot heal by itself.
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

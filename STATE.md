@@ -7,12 +7,12 @@
 > |---|---|
 > | `CLAUDE.md` | What this project is, its conventions, build/run, the verify gate, versioning |
 > | `PLAN.md` | The queue — what is next, what is flagged for Francesco |
-> | `DECISIONS.md` | Every decision D7–D156 and what was rejected |
+> | `DECISIONS.md` | Every decision D7–D158 and what was rejected |
 > | `GOTCHAS.md` | Traps that have already cost a session |
 > | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 > | `ARCHIVE.md` | Bodies of consumed phases, decisions and old rationale |
 
-## TL;DR (2026-09-01 · **v1.5.8** built · D154 designed, **phase K1+K2 SHIPPED**, K3 next)
+## TL;DR (2026-09-01 · **v1.5.9** built · D154 designed, **phase K1–K3 SHIPPED**, K4 last)
 
 - **v1.5.7 · K1 — the Library is ONE page (D154(a–f,i) + D155).** Sources|Manage tabs gone;
   status strip owns **Update data** (books · 5etools version vs latest · storage, accent
@@ -38,15 +38,24 @@
   selection bar now. A folder's offer outlives the commit; the tray filters itself past 8
   books. Verified 12/12 tray checks + the folder path, 0 contrast failures both themes,
   0.00px alignment at 1280 and 375.
-- **Still transitional, and commented so in the code:** Refresh / Rescan / Forget under a
-  separator in the Actions menu (K3 makes them unnecessary, K4 deletes them).
-- **Next action: K3 — raw-stash + web refetch** (the model half; D154(g)), then K4. Task
-  lines in PLAN.
+- **v1.5.9 · K3 — the app re-reads your library by itself (D154(g) + D157 + D158).**
+  Hand-added JSON is stashed raw in IndexedDB at import; when the extractor changes, a
+  background pass re-parses it (and re-fetches web content through D153), then says once,
+  fading, what it did. **D157 is the load-bearing part: the stamp is the PARSER's id — a
+  build-time hash of `src/extract.js` — not the release.** Under the old version stamp every
+  book went stale on every release, which with an *automatic* re-parse means a multi-MB
+  refetch after every deploy; now a release that changes no parsing re-parses nothing.
+  D137's boot nag is gone, refitted into the pass. A pre-K1 digest (no origin stamps) is
+  healed by the web fetch where a D153 record exists and gains the origins it always had.
+  22 new browser checks, all green.
+- **Still transitional until K4:** Refresh / Rescan / Forget under a separator in the
+  Actions menu — K3 made them unnecessary, K4 deletes them.
+- **Next action: K4 — retire the old machinery** (the last of phase K). Task line in PLAN.
 - **This container has no 5etools mirror and no `data/`** (both gitignored). `data/data.json`
   was reconstructed from the SRD digest inlined in `docs/index.html` so `build.py` runs —
   verified byte-identical output at the same VERSION before any edit. Consequence:
-  **`node scratchpad/cparity.js` cannot run here.** Neither extractor was touched by K1 or
-  K2, so parity is unaffected; run the gate in full on a machine with the mirror before the next
+  **`node scratchpad/cparity.js` cannot run here.** No extractor was touched by K1–K3 (D157
+  only READS `src/extract.js`, to hash it), so parity is unaffected; run the gate in full on a machine with the mirror before the next
   extractor change.
 - **Manual for Francesco:** ① the four ⚑ copy/model calls in PLAN — the `…`-placeholder
   family; the chain rail's CSS `· optional` (styles.css:1822); `sbFav` edition tolerance;
@@ -87,7 +96,7 @@ moved to `ARCHIVE.md` — every one leaving a stub, every `*Rejected:*` clause k
 Phase J's own task bodies are still live in `PLAN.md` (ticked, with the original notes kept
 under each). They are the natural next thing to archive — worth a `/clean` once the flags
 below are answered, not before. **Phase K (the Library rebuild, D154) is in PLAN with tasks
-K1–K4: K1 and K2 are built and shipped, K3–K4 are open.**
+K1–K4: K1, K2 and K3 are built and shipped; K4 is open.**
 
 ⟳ Rename previous session → "Web sync and the Library redesign"  · session: resolve by
 cwd + latest

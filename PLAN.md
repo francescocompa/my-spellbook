@@ -152,14 +152,15 @@ Francesco's own reading** — see each D142 sub-entry's *Rejected:* clause befor
   PROGRESSION table (D149(a)). If it meant the Features BLOCK, the default is one word to
   flip. ⚑ (owner: Francesco, 2026-09-01)
 
-## Phase K — the Library redesigned (D154, decided 2026-09-01 · K1+K2 SHIPPED, K3 next)
+## Phase K — the Library redesigned (D154, decided 2026-09-01 · K1–K3 SHIPPED, K4 next)
 
 The design is LOCKED — one page, one list, selection bar, no refresh verbs; the approved
 mockup is `scratchpad/mockups/library4.html` (`python3 scratchpad/mklib4.py` regenerates)
 and **D154 owns every call and every rejected option — cite it, don't re-derive.** Order
 matters: K1/K2 are UI over the existing model; K3 changes the model and K4 deletes what K3
-obsoletes. **K1 (v1.5.7) and K2 (v1.5.8) are shipped; K3 is next.** The build-time calls
-K1 and K2 had to make are **D155** and **D156** — read them before touching the page.
+obsoletes. **K1 (v1.5.7), K2 (v1.5.8) and K3 (v1.5.9) are shipped; K4 is the last one.**
+The build-time calls each had to make are **D155**, **D156** and **D157 + D158** — read them
+before touching the page.
 
 - [x] **K1 · The one-page shell** — shipped v1.5.7, **D155** owns the five calls D154 had
   not been asked. Kill the Sources|Manage tabs; status strip (books · 5etools version vs
@@ -185,18 +186,24 @@ K1 and K2 had to make are **D155** and **D156** — read them before touching th
   tray edits and `PLAN.keep` is derived (`stored ∪ pick`), so unticking a book you already
   have means *don't take this file's version* rather than *delete the book* — see D156(a)
   and the GOTCHAS entry.
-- [ ] **K3 · Raw-stash + web refetch (the model half).** Hand-added files stash raw JSON in
+- [x] **K3 · Raw-stash + web refetch (the model half)** — shipped v1.5.9, **D157 + D158**.
+  Hand-added files stash raw JSON in
   IndexedDB at import; a parser bump triggers an automatic background re-parse (stash for
   `file` books, D153 refetch for `web` books) that reports once, after, via a fading
   notice. Migration: a pre-K3 digest has no stash — its `file` books keep working and get
   stashed on their next manual re-add; the notice names them once. D138's per-book stamps
-  survive and drive the auto pass. *Done when:* bumping VERSION and reloading re-parses
-  everything without a prompt and the footer stamp matches; a stashless legacy book is
-  named, not silently stale.
+  survive and drive the auto pass. *Done when (amended by D157):* ~~bumping VERSION~~
+  **changing the extractor** and reloading re-parses everything without a prompt and the
+  stamp matches; a stashless legacy book is named, not silently stale. **D157 is why:** the
+  stamp is now a build-time hash of `src/extract.js`, so an ordinary release no longer marks
+  every book stale — which under an *automatic* re-parse would have meant a multi-MB refetch
+  after every deploy. A pre-K1 digest (no origin stamps) is healed by the web fetch where a
+  D153 record exists, and gains the origins it always had (D158(d)).
 - [ ] **K4 · Retire the old machinery.** Remove: Refresh imported data (both surfaces),
   Rescan/Forget folder + the linked-folder row (folder picker stays as input), ~~the
   standing Remove-imported-data button~~ (gone in K1, D155(d)), ~~Clear staged~~ (gone in K2 — the tray's armed Discard is it), the stale-parser boot nag
-  (refitted by K3), and their wiring/notices. GOTCHAS entries touching
+  ~~(refitted by K3)~~ (gone in K3 — `autoReparse()` replaced it), and their wiring/notices.
+  GOTCHAS entries touching
   `refreshImported`/folder recall get updated, not deleted — they explain history.
   *Done when:* the six old verbs are gone, `rg` finds no dead handlers, and the D42
   nothing-prunes contract still holds on a book removal (picks flagged, never deleted).

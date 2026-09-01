@@ -109,6 +109,13 @@ def read(*p): return open(os.path.join(ROOT, *p), encoding="utf-8").read()
 # major only ever moves on Francesco's say-so.
 VERSION = read("VERSION").strip()
 
+# D157: what READ your data is the parser, not the release it happened to ship in. The stamp
+# on every imported book is this id, so a book is "behind" exactly when the extractor that
+# read it is not the one running now — not merely because the app has been released again.
+# It is derived, never hand-maintained: a parser change inside an unbumped tree is invisible
+# to a version number (GOTCHAS), and a constant someone has to remember to bump is worse.
+PARSER_ID = hashlib.sha1(read("src", "extract.js").encode("utf-8")).hexdigest()[:8]
+
 data_json = read("data", "data.json")
 assert "</script" not in data_json.lower(), "data contains </script"
 
@@ -121,6 +128,7 @@ def sub_once(html, marker, replacement):
 # 1. dev global for src/index.html
 with open(os.path.join(ROOT, "data", "data.js"), "w", encoding="utf-8") as f:
     f.write("window.__VERSION__=" + json.dumps(VERSION) + ";\n")
+    f.write("window.__PARSER__=" + json.dumps(PARSER_ID) + ";\n")
     f.write("window.__DATA__=" + data_json + ";\n")
 
 # 2. self-contained dist/index.html
@@ -140,6 +148,7 @@ html = sub_once(html, '<script src="app.js"></script>',
 # 2a. dist/index.html — self-contained, WITH baked data (personal offline build)
 dist = sub_once(html, '<script src="../data/data.js"></script>',
                 "<script>window.__VERSION__=" + json.dumps(VERSION)
+                + ";window.__PARSER__=" + json.dumps(PARSER_ID)
                 + ";window.__DATA__=" + data_json + ";</script>")
 # no manifest and no worker: dist/ is opened by double-click over file://, where a
 # service worker cannot register and an install prompt has no origin to attach to
@@ -152,7 +161,8 @@ copy_icon("dist")
 # 2b. docs/index.html — public GitHub Pages build. Ships the SRD 5.2 subset
 # (CC-BY-4.0, safe to distribute); importing a 5etools export adds the rest.
 srd_file = os.path.join(ROOT, "data", "data-srd.json")
-srd_js = "window.__PUBLIC__=1;window.__VERSION__=" + json.dumps(VERSION) + ";"
+srd_js = ("window.__PUBLIC__=1;window.__VERSION__=" + json.dumps(VERSION)
+          + ";window.__PARSER__=" + json.dumps(PARSER_ID) + ";")
 if os.path.exists(srd_file):
     srd_json = read("data", "data-srd.json")
     assert "</script" not in srd_json.lower(), "SRD data contains </script"
@@ -178,5 +188,5 @@ with open(os.path.join(ROOT, "docs", "manifest.webmanifest"), "w", encoding="utf
 with open(os.path.join(ROOT, "docs", "sw.js"), "w", encoding="utf-8") as f:
     f.write(SW % stamp)
 
-print(f"v{VERSION} · data.js {len(data_json)//1024} KB · dist {len(dist)//1024} KB (with data) · "
+print(f"v{VERSION} · parser {PARSER_ID} · data.js {len(data_json)//1024} KB · dist {len(dist)//1024} KB (with data) · "
       f"docs {len(shell)//1024} KB (SRD subset) · sw cache spellbook-{stamp}")

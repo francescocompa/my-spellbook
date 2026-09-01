@@ -67,12 +67,29 @@
   left-aligned text inside a stretched box put "Level 3" **5.63px off centre** — invisible
   by eye, caught by measuring the TEXT rect against its box. `text-align:center` keeps the
   equal-width rail and lands the text symmetrically. Measure text, never the box.
-- **A digest's parser stamp is a VERSION, so a parser change inside an unbumped tree is
-  invisible to D137's nag (D148).** An import taken mid-session is stamped with the version
-  in `VERSION` at that moment, even though the extractors have moved on since the commit
-  that set it. `staleBooks()` then reports "all current" for a digest missing everything
-  added after. Not a bug to fix — bumping is what re-arms it — but do not read a clean
-  `staleBooks()` mid-batch as proof the import matches the working tree.
+- **The parser stamp is the PARSER's id now, not a version (D157 · K3).** `build.py` hashes
+  `src/extract.js` into `window.__PARSER__`, `applyPlan` stamps every book it reads with it,
+  and `staleBooks()` asks `stamp !== PARSER_ID` — no version ordering anywhere. Two
+  consequences, both deliberate: **a release that changes no parsing re-parses nothing** (the
+  old rule made every book stale on every bump, which after K3 would mean an automatic
+  multi-MB refetch per release), and **an extractor edit in the working tree is visible
+  immediately** — the id moves the moment you rebuild, so the dev page re-parses on the next
+  load. Which also means: edit `src/extract.js` mid-batch and your own import goes stale by
+  design, exactly as it should. `src/extract.js` is the whole input to that hash, so an
+  `extract.py`-only change moves nothing — which is fine, since the app never runs
+  `extract.py` (but is one more reason "both extractors or neither" is the rule).
+  *Before D157 (kept because old digests still carry it):* the stamp was `VERSION`, so an
+  import taken mid-session claimed the working tree's parser had read it. Those stamps read
+  as "not the current parser id" now and re-parse once, which is correct.
+- **The automatic re-parse must never trample a pending import, and must not mark itself
+  done after a failure it can retry (K3).** `autoReparse()` bails while anything is staged or
+  a folder is scanned (`applyPlan` clears `IMPORT_STAGE` on success — running it under a
+  half-built tray would silently eat it), and it stamps `LS_AUTO_PARSE` only when the web
+  half did not fail: an offline boot has to come back next time, or "the app keeps your data
+  current" is really "the app tried once". It also passes `{stash:false}` — it is reading the
+  stash, and re-writing it from its own output would be a copy of a copy — and an
+  `originOf` per book, because a book is re-read from wherever it CAME from: stamping the
+  pass's own source would relabel every web book `file` the first time the stash ran.
 - **`vertical-align` on a chip is a guess; an inline-block already knows its baseline
   (D149(d)).** An inline-block's baseline IS its last line box's baseline, so a padded chip
   aligns with the text around it on its own. Two ways that was broken at once: a hand-tuned
