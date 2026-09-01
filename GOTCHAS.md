@@ -220,10 +220,14 @@
   bug was a missing `color-scheme` on `:root`. It is now set in all three theme blocks (`:root`
   light, the `prefers-color-scheme:dark` block, `[data-theme=dark]`), plus themed
   `::-webkit-scrollbar` rules. **Any new theme block must set it too.**
-- **Carets are drawn, not typed.** `⌄` (U+2304) sits wherever its font puts it, which is what made
-  picker/access icons read as off-centre. `.pk-caret` and `.acc-toggle` draw a border chevron
-  nudged up by `s·√2/4` (the ink of a rotated square lives in its lower half). Reuse that pattern
-  rather than a glyph when an icon must sit optically centred.
+- **Carets are drawn, not typed — and a bare `.pk-caret` draws NOTHING.** `⌄` (U+2304) sits
+  wherever its font puts it, which is what made picker/access icons read as off-centre.
+  `.pk-caret` and `.acc-toggle` draw a border chevron nudged up by `s·√2/4` (the ink of a
+  rotated square lives in its lower half). **The class carries no styling of its own**: the
+  drawing rules are scoped (`.picksel .pk-caret`, `.bswitch .pk-caret`, `.libfoot .pk-caret`,
+  and `.csrowcar` for the standalone case), so putting `<span class="pk-caret">⌄</span>` in a
+  NEW context renders the raw glyph — `font-size:0` is part of the scoped rule, not the class.
+  Add a scoped rule for the new context; reuse the pattern rather than a glyph.
 - **Static preview cache:** editing `src/index.html` needs a hard reload (query-bust) — a plain
   reload serves stale HTML and new `$("#…")` lookups return null. Editing it also re-opens a
   `file://`/`data:` preview tab and fronts it — drive the `http://localhost` tab.

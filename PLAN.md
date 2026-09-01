@@ -130,7 +130,20 @@ Francesco's own reading** — see each D142 sub-entry's *Rejected:* clause befor
   measured for contrast; depth restored. Biggest item in the batch and the one most likely
   to want its own decision entry.
 
-## Closed this session
+## Closed in v1.4.7
+
+- [x] **`refreshAddFeat()` had the identical defect for `#epicRow`** — REPRODUCED and FIXED
+  in **v1.4.7**; the toggle joins the render pass beside `renderOptFeats()`. Both directions
+  were wrong (18 → 19 hid a slot that existed; 19 → 18 offered one that did not), and the
+  class-remove and `#addClass` paths carried it too. Original note: it toggles `#epicRow` on
+  `featBudget().epic`, which per D114 is a function of `featSlotLevels()` →
+  `classLevelPlan()` → class levels, yet it runs only inside `refreshAll()`. So stepping a
+  class across the level where an Epic Boon slot arrives should leave the row showing the
+  previous answer. Verify from a fresh load, then fix. The other three `refreshAll()`
+  members are clean (`refreshSpecies`, `renderCustomSources`, `renderFeatChips` read
+  `state.*`, not class levels). *(Sibling defects fixed v1.2.29 and v1.4.2.)*
+
+## Closed in v1.4.14
 
 - [x] **A drop re-dated every pick below it** (v1.4.14, **D146**). Reported by Francesco as
   *"removing a spell moves all other spells out of place, resulting in a broken build"* and
@@ -140,7 +153,7 @@ Francesco's own reading** — see each D142 sub-entry's *Rejected:* clause befor
   GOTCHAS entry before touching a raw pick array — `.length` on one is almost always the
   wrong question now (`nFilled` counts what is answered, `firstOpen` finds what is owed).
 
-## Closed this session
+## Closed in v1.5.3
 
 - [x] **The class ⊕ subclass merge** — 🔶 answered: **variant A**, plus "subclass expands
   together with other features in expand all" (**D150**, v1.5.3). Three variants were mocked
@@ -151,7 +164,7 @@ Francesco's own reading** — see each D142 sub-entry's *Rejected:* clause befor
   PROGRESSION table (D149(a)). If it meant the Features BLOCK, the default is one word to
   flip. ⚑ (owner: Francesco, 2026-09-01)
 
-## Phase K — the Library redesigned (D154, decided 2026-09-01, QUEUED)
+## Phase K — the Library redesigned (D154, decided 2026-09-01) — ⏳ K1 + K2 SHIPPED, K3–K4 OPEN
 
 The design is LOCKED — one page, one list, selection bar, no refresh verbs; the approved
 mockup is `scratchpad/mockups/library4.html` (`python3 scratchpad/mklib4.py` regenerates)
@@ -200,7 +213,14 @@ obsoletes.
   survive and drive the auto pass. *Done when:* bumping VERSION and reloading re-parses
   everything without a prompt and the footer stamp matches; a stashless legacy book is
   named, not silently stale.
-- [ ] **K4 · Retire the old machinery.** Remove: Refresh imported data (both surfaces),
+- [ ] **K4 · Retire the old machinery.** K1/K2 already orphaned two functions — `folderForget`
+  (app.js:5489) and `clearImport` (app.js:5970) are defined and never called, their only
+  callers having been the Forget-folder and Remove-imported-data buttons. `entryWalk` and the
+  drop-zone handlers went with the zone in K1. Still LIVE and still needed until K3 lands:
+  `refreshImported` (the ⋯ menu's Refresh and the stale-parser notice's "Refresh now"),
+  `staleBooks`/`refreshMissed` (the status strip and the tray both read them), and the whole
+  folder-scan chain (`folderRecall`/`folderUsable`/`scanHandle`/`stageScanBooks` — the folder
+  survives as an INPUT). Remove: Refresh imported data (both surfaces),
   Rescan/Forget folder + the linked-folder row (folder picker stays as input), the
   standing Remove-imported-data button, Clear staged (the tray's Discard covers it), the
   stale-parser boot nag (refitted by K3), and their wiring/notices. GOTCHAS entries touching
@@ -236,16 +256,6 @@ obsoletes.
 
 ## Queue — open work
 
-- [x] **`refreshAddFeat()` had the identical defect for `#epicRow`** — REPRODUCED and FIXED
-  in **v1.4.7**; the toggle joins the render pass beside `renderOptFeats()`. Both directions
-  were wrong (18 → 19 hid a slot that existed; 19 → 18 offered one that did not), and the
-  class-remove and `#addClass` paths carried it too. Original note: it toggles `#epicRow` on
-  `featBudget().epic`, which per D114 is a function of `featSlotLevels()` →
-  `classLevelPlan()` → class levels, yet it runs only inside `refreshAll()`. So stepping a
-  class across the level where an Epic Boon slot arrives should leave the row showing the
-  previous answer. Verify from a fresh load, then fix. The other three `refreshAll()`
-  members are clean (`refreshSpecies`, `renderCustomSources`, `renderFeatChips` read
-  `state.*`, not class levels). *(Sibling defects fixed v1.2.29 and v1.4.2.)*
 - [ ] **2024 pooling rounds half-casters up per class, and the app floors them** (found
   during the v1.4.3 fix, out of its scope): `compute()`/`planSlots()` lump `artificer` and
   `"1/2"` into one bucket and take `⌊half/2⌋`, but TCE Artificer and XPHB Paladin/Ranger
