@@ -2195,6 +2195,84 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     with the stale-parser notice). It spans the width below 560px now and wraps its actions
     onto the second row, which is what the wrap is for.
 
+- **D157 (2026-09-01) DECIDED — the three-pillar audit: its charter, its agents and how its
+  findings land.** AskUserQuestion, 5 rounds (the agenda printed as its own message first —
+  prose above a question dialog is invisible; raw note: *"The agenda is not visible in chat.
+  This is a recurring issue, make sure it doesn't happen again. Print the agenda in chat, the
+  reopen the AskUserQuestions"*). Francesco asked for *"a series of agents for parallel audits
+  across the main pillars of the app"*: direction and horizon; design, UX/UI, flows and copy;
+  codebase health and a bug sweep. **Phase K pauses** (K3/K4) until the audits are triaged —
+  the Library is the surface most likely to draw findings, and building its model half first
+  risked rework. *Rejected:* K3 in parallel; finishing K first.
+  - **(a) Charter.** Agents **fix trivial defects in their worktrees and report the rest** —
+    a one-line defect, a typo, dead code; anything with a design or model implication is a
+    finding. Every finding reaches Francesco only after a **second, verifying agent** has
+    reproduced or struck it (panel-style), ranked. *Rejected:* report-only with fixes in a
+    second wave (slower than the risk warranted); fix-as-they-go (design and copy would land
+    without his call); the auditor's own evidence as the bar; raw findings triaged by the
+    session alone.
+  - **(b) Pillar A · direction.** Audience: **Francesco first, the Pages build a by-product**
+    (SRD only, a courtesy). Of the standing non-goals, **only ability scores and proficiency
+    may be questioned** — the agent may cost out a minimal model, because it is the one
+    non-goal that blocks real features (prerequisites, custom-source DCs, ASI steps). Server
+    sync, sharing by URL (D36), the full bestiary (D78) and the authored timeline (D115)
+    stand. Inputs: this repo; the sibling tools (`monster-forge`, `character-forge`, as D154
+    did); a short cited landscape read of comparable tools; his own usage evidence in the
+    browser, read-only; and — raw note: *"You can investigate Notion character repository for
+    other references."* — the Notion "Player Characters" page, the "Character Sheet" and
+    "Spellcasting Progression" databases and "Character Ideas" (access verified this session).
+    Deliverable: **a ranked opportunity map** (S/M/L, value × cost, grouped quality-of-life /
+    feature / expansion) **plus a draft Phase L task list and a pipeline verdict**.
+    *Rejected:* a small circle or a public audience as the frame; re-opening D36 or D78;
+    repo-only inputs; a map without a draft phase; three horizon scenarios.
+  - **(c) Pillar B · design.** **Two agents:** one drives the real app on its own port —
+    every page, modal, popover and empty state at 1280 and 375, both themes, print rules
+    lifted — and hands back a surface-and-flow map, then heuristic findings with
+    screenshots and a **measured** palette read (contrast, hue, step consistency); the other
+    reads the design system in code (tokens, components, duplicate patterns). Four
+    scenarios: a new level-1 single-class caster to a printed sheet; a multiclass caster
+    planning a level-up; importing a homebrew book and building from it; a first-run visitor
+    on the Pages build. Standard: **current standards plus internal consistency** — WCAG AA,
+    recognised heuristics, modern density and targets, the app's own tokens; sibling tools
+    cited only where D154 already aligned the Library. *Rejected:* one agent of either kind;
+    the siblings' house style as the bar; best-in-class references as the bar.
+  - **(d) Copy.** **Rewrite freely to the brief** (dry, short, active, sentence case, no AI
+    tells, notes cut to what the reader controls), **with a before/after string table
+    alongside, grouped by surface, and the work verified internally before it is made
+    official** — raw note: *"Free rewrite, but a string table alongside. Verify internally the
+    work before making it official."* The pushback that copy is design material he owns was
+    made once and answered: the table is the review surface, vetoes revert by name.
+    *Rejected:* table-only; mechanical fixes applied and rewrites tabled (his first answer,
+    widened on the challenge).
+  - **(e) Pillar C · code.** **Scripts first, then three concern agents.** Deterministic
+    sweeps (functions defined and never called; CSS selectors matching nothing in markup or
+    JS; duplicated helpers; storage keys and their migrations; handler wiring against the
+    GOTCHAS pitfalls) run before any agent and join the verify gate. Then: app.js structure
+    and dead code; a browser-driven bug sweep of the four scenarios with console, network
+    and storage invariants watched; extractors, importer and storage integrity with cparity.
+    Every finding carries `file:line` and a repro. **The repo's shape is open to sectioning
+    and tooling proposals only** — `app.js` stays one file (CLAUDE.md, on purpose). **A
+    linter is allowed** (eslint / stylelint with devDependencies) — the first `package.json`
+    in the project, accepted knowingly. *Rejected:* one deep whole-tree review; scripts and
+    browser sweep only; proposing a split of app.js; findings-only with no structural voice;
+    no new tooling.
+  - **(f) Logistics.** Reports live in **`audits/`**, committed, one file per pillar plus a
+    synthesis, dated 2026-09; PLAN points at them as a point-in-time artifact and `/clean`
+    archives them once consumed. Models follow `model-policy.md`: direction, live UX and the
+    copy rewrite on the strong model at high effort; the static design read, the three code
+    agents and the browser sweep on Sonnet; verifiers on the strong model. **Three waves:
+    audit → verify → act** — wave 1 all auditors in parallel, reporting; wave 2 verifiers
+    strike or confirm; wave 3 the copy rewrite (from the verified string inventory) and the
+    trivial-fix batch, in worktrees, merged with the gate, because copy last means the UX
+    audit reads stable strings. Landing: **one ranked synthesis, then a triage interview per
+    pillar** (keep / change / park / kill per item); dispositions become Phase L task lines
+    and decision entries. *Rejected:* gitignored scratchpad or artifact pages as the home;
+    strong-everywhere or cheap-first models; everything at once; two waves without a
+    separate verify; synthesis annotated in prose; a draft Phase L with no triage.
+  - **Enforced by:** the audit briefs (each agent is told its wave, its files, its bar) and
+    the wave-2 verifiers; prose only for the rest. **Affects:** PLAN.md (Phase L opened, K
+    marked paused), STATE.md, CLAUDE.md's decision range.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

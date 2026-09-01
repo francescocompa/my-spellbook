@@ -3,8 +3,8 @@
 > What is queued, and what is blocked on a decision. `STATE.md` says where things stand;
 > this says what comes next. Closed items → `ARCHIVE.md#closed-backlog`.
 >
-> **Nothing is gated.** Phases E–J are done; **phase K (the Library rebuild, D154) is OPEN —
-> K1 shipped in v1.5.7 and K2 in v1.5.8; K3–K4 are next.** Below that is the standing backlog: open ⚑ flags
+> **Phase K is PAUSED (D157)** — K1 shipped in v1.5.7 and K2 in v1.5.8; K3–K4 resume once
+> **phase L (the three-pillar audit, D157) is triaged.** Phases E–J are done. Below that is the standing backlog: open ⚑ flags
 > (calls only Francesco can make) and the Queue, whose one 🔶 (magic items / rewards) is
 > researched and awaits his call.
 
@@ -36,7 +36,7 @@ eighteen items, models D142–D145) — `ARCHIVE.md#phase-j`; "Closed in v1.4.7"
 (a drop re-dating every pick below it, D146) — `ARCHIVE.md#closed-v1-4-14`; "Closed in
 v1.5.3" (the class ⊕ subclass merge, D150) — `ARCHIVE.md#closed-v1-5-3`.
 
-## Phase K — the Library redesigned (D154, decided 2026-09-01) — ⏳ K1 + K2 SHIPPED, K3–K4 OPEN
+## Phase K — the Library redesigned (D154, decided 2026-09-01) — ⏸ PAUSED by D157 after K2; K3–K4 OPEN
 
 The design is LOCKED — one page, one list, selection bar, no refresh verbs; the approved
 mockup is `scratchpad/mockups/library4.html` (`python3 scratchpad/mklib4.py` regenerates)
@@ -99,6 +99,33 @@ obsoletes.
   `refreshImported`/folder recall get updated, not deleted — they explain history.
   *Done when:* the six old verbs are gone, `rg` finds no dead handlers, and the D42
   nothing-prunes contract still holds on a book removal (picks flagged, never deleted).
+
+## Phase L — the three-pillar audit (D157, decided 2026-09-01) — ⏳ WAVE 1 NEXT
+
+D157 owns the charter, the agents, the rejected shapes — cite it. Reports land in `audits/`
+(one per pillar + `synthesis.md`), a point-in-time artifact `/clean` archives once consumed.
+
+- [ ] **L0 · Deterministic sweeps** (session, scripts in `scratchpad/`, join the verify gate):
+  uncalled functions · unmatched CSS selectors · duplicated helpers · storage keys and
+  migrations · handler wiring against GOTCHAS. *Done when:* each script runs with nothing
+  installed and prints a list the code agents start from.
+- [ ] **L1 · Wave 1, auditors in parallel** (all report; trivial fixes in worktrees only):
+  A direction `opus@high` · B1 live UX `opus@high` · B2 design-system read `sonnet@medium` ·
+  C1 app.js structure `sonnet@medium` · C2 browser bug sweep `sonnet@medium` · C3 extractors
+  / importer / storage `sonnet@medium`. *Done when:* six reports in `audits/`, every finding
+  with evidence, B1 also holding the string inventory the copy rewrite starts from.
+- [ ] **L2 · Wave 2, verifiers** `opus@high`, one per pillar, blind to the auditor's
+  reasoning: reproduce or strike, then rank. *Done when:* each report carries a verdict per
+  finding and a struck list.
+- [ ] **L3 · Synthesis + triage interview** — one ranked `audits/synthesis.md`, then one
+  AskUserQuestion round per pillar (keep / change / park / kill). *Done when:* every confirmed
+  item has a disposition, logged as decisions, and the Phase L build list below is authored.
+- [ ] **L4 · Wave 3, act** — the copy rewrite to the brief with its before/after string table
+  (D157(d), verified internally before it lands) and the trivial-fix batch, worktrees,
+  sequential squash-merge, gate each time, patch bumps. *Done when:* merged, smoke-tested on
+  the merged tree, table reviewed, vetoes reverted by name.
+- [ ] **L5 · The build list** — authored at L3 from the dispositions; K3/K4 re-queued
+  alongside it.
 
 ## Open ⚑ — calls for Francesco
 
