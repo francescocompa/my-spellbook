@@ -425,12 +425,21 @@
   bestiary source (MM, XMM, IDRotF…) never reaches the source registry — it has no spells or
   classes to count — so keying `filterDigest`'s monster pass on `keep` dropped 63 of 65 creatures
   and emptied Find Familiar's carousel. `out.spells[].creatures` is the only correct gate.
-- **The Library's "available" books live only in `SCAN` until Apply (D112).** A dimmed row is a
-  book the scanned folder offers; ticking it puts its code into `PLAN.keep` while
+- **The Library's "available" books live only in `SCAN` until you Add them (D112).** A dimmed
+  tray row is a book the scanned folder offers; ticking it puts its code into `PLAN.pick` while
   `PLAN.merged.sources` still lacks it — `applyImport` materializes those by staging their files
-  (plus the bookless aux files) and re-parsing, THEN restores the keep-set, because
-  `planFromStage` re-defaults it. Anything comparing `PLAN.keep` against `merged.sources` must
-  expect codes the merge hasn't seen yet.
+  (plus the bookless aux files) and re-parsing, THEN restores the ticks, because
+  `planFromStage` re-defaults them. Anything comparing `PLAN.pick`/`PLAN.keep` against
+  `merged.sources` must expect codes the merge hasn't seen yet.
+- **`PLAN.keep` is DERIVED now, and `PLAN.pick` is the thing you edit (D154(h) · K2).** The
+  tray is the pending import and nothing else: `pick` is which incoming (or folder-offered)
+  books to take, and `keep` — what gets stored — is `stored ∪ pick`, rebuilt by `planRemerge()`
+  on every tick. **Unticking an incoming book you ALREADY have means "don't take this file's
+  version", not "delete the book"**, which is why the merge is recomputed from the picks
+  (`mergeDigests(stored, filterDigest(incoming, pick))`) instead of being filtered afterwards —
+  a filter cannot un-merge entities that already overwrote yours. The one place `keep` is
+  edited by hand is `libRemove()`, which is removal, not import, and calls `applyPlan`
+  immediately after.
 - **`openImport`'s folder recall is fire-and-forget, so a caller that needs `FOLDER` must await
   its own (D111).** The recall is an async IndexedDB read the modal never waits on; on the first
   click of a session `FOLDER` is still null immediately after `openImport` returns. `refreshImported`
@@ -441,11 +450,24 @@
   `DataTransferItem.getAsFileSystemHandle()` calls are made for every item BEFORE the first
   `await` — the DataTransfer goes stale at the first microtask, and a late call returns null.
   The webkitGetAsEntry fallback has the same rule for `getAsFileSystemHandle`-less browsers.
-- **`buildImport(only, auto)` — the auto path must not scold and must not reset your unticks.**
-  Parse-on-arrival (D112) re-runs `buildImport` after every staged batch; `planFromStage`
-  defaults the keep-set to everything merged, so the auto path re-applies the previous unticks
-  (except for freshly staged books). An empty stage in auto mode clears the incoming layer
-  silently — the "stage a file first" message is for the manual path only.
+- **`buildImport(only, auto)` — the auto path must not scold and must not reset your unticks,
+  and it must only carry unticks over while an import is actually PENDING.** Parse-on-arrival
+  (D112) re-runs `buildImport` after every staged batch; `planFromStage` defaults the ticks to
+  every incoming book, so the auto path re-applies the previous unticks (except for freshly
+  staged books). **The carry-over is captured only when the previous plan had incoming books**:
+  after a commit the plan is empty, and carrying "not picked" over from that unticked every
+  book you already had on the next batch — a re-import of a book you own showed a dead "Add"
+  button (K2, caught in test). An empty stage in auto mode clears the incoming layer silently —
+  the "stage a file first" message is for the manual path only.
+- **A drawn switch knob must be `pointer-events:none`, or it eats the click meant for the
+  input under it (D154(c) · K1).** The Library's enable switch is a real `<input type=checkbox>`
+  positioned over the row with `opacity:0` and a `.libswk` span drawn on top; the span is a
+  later sibling and hit-tests above the input, so every click landed on decoration and the
+  switch looked dead (Playwright names it exactly: *"`<span class="libswk">` intercepts pointer
+  events"*). The same row is a `<label>` holding TWO controls — the select checkbox and the
+  switch — which is legal precisely because a click on an interactive descendant is not
+  forwarded to the label's own control. Break either half and the two meanings collapse into
+  one.
 - **Never persist `FILTER_DEFAULT()` (or any live-Set object) into a stored blob.** Its Sets
   JSON.stringify to `{}`, and the next boot's `new Set({})` threw "object is not iterable" and
   killed the boot IIFE half-rendered. The importer stored it as the fallback for a file with no

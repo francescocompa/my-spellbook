@@ -5107,12 +5107,11 @@ function renderImportStage(){const box=$("#importStaged");if(!box)return;box.inn
     tog.onclick=()=>{STAGE_EXP=!STAGE_EXP;renderImportStage();};
     box.append(lbl,chips,tog);
   }
-  const cb=$("#importClear");if(cb)cb.classList.toggle("hidden",!n);
-  libStageVis();}
-// TRANSITIONAL (K2 turns this into the pending-import tray, D154(h)): the staged block
-// exists only while there is something staged or a scanned folder to pick from.
-function libStageVis(){const box=$("#libStage");
-  if(box)box.classList.toggle("hidden",!(IMPORT_STAGE.length||SCAN));}
+  trayVis();}
+// the tray exists only while there is a pending import — staged files, or books a scanned
+// folder is offering. One predicate, used by both writers (D154(h)).
+function trayVis(){const box=$("#libTray");
+  if(box)box.classList.toggle("hidden",!(IMPORT_STAGE.length||(PLAN&&trayOffer().length)));}
 // D112: files parse on arrival. Staging is bursty (a zip unpacks 180 files, FileReaders land
 // out of order), so the parse runs once the burst settles rather than per file.
 let BUILD_TIMER=null;
@@ -5355,106 +5354,114 @@ function filterDigest(d,keep){
 }
 const digestSize=d=>DIGEST_ARRAYS.reduce((n,a)=>n+((d[a]||[]).length),0);
 
-let PLAN=null;   // {stored, incoming, merged, keep:Set, fresh:Set, report}
+// D154(h): the plan is now the PENDING IMPORT and nothing else. `pick` is the set of
+// incoming (or folder-offered) books the tray has ticked; `keep` — what gets stored — is
+// every book you already have PLUS the picks, and is derived, never edited here. Removing
+// a book you have is the selection bar's job (D154(e)), so nothing in this surface can
+// drop one any more.
+//
+// Unticking an incoming book that you ALREADY have must mean "don't take this file's
+// version", not "delete the book" — so the merge is recomputed from the picks rather than
+// filtered afterwards: a book left out of `pick` never enters `merged`, and your stored
+// copy survives untouched. That is why `planRemerge` exists at all.
+let PLAN=null;   // {stored, incoming, merged, keep:Set, pick:Set, fresh:Set, report}
+function planRemerge(){
+  if(!PLAN)return;
+  const inc=PLAN.pick.size?filterDigest(PLAN.incoming,PLAN.pick):emptyDigest();
+  PLAN.merged=mergeDigests(PLAN.stored,inc);
+  // a pick the folder only OFFERS is not in `merged` yet — applyImport materializes it by
+  // staging its files, and it has to be in `keep` for that to be noticed (D112)
+  PLAN.keep=new Set([...Object.keys(PLAN.stored.sources||{}),...PLAN.pick]);
+}
 function planFromStage(incoming,report,only){
   PLAN_Q="";
   const stored=IMPORTED||emptyDigest();
-  const merged=mergeDigests(stored,incoming||emptyDigest());
   const had=new Set(Object.keys(stored.sources||{}));
-  const fresh=new Set(Object.keys((incoming&&incoming.sources)||{}).filter(c=>!had.has(c)));
-  // Default: everything merged is kept (staging files is itself the choice of what to add).
-  // `only` comes from the folder scan, where one file can carry books you did NOT tick — those
-  // must not ride along. Books you already HAVE always stay ticked; dropping one is destructive
-  // and is only ever done by hand in this panel.
-  const keep=only&&only.length
-    ? new Set([...had,...only.filter(c=>merged.sources&&merged.sources[c])])
-    : new Set(Object.keys(merged.sources||{}));
-  PLAN={stored,incoming:incoming||emptyDigest(),merged,report,fresh,keep};
+  const codes=Object.keys((incoming&&incoming.sources)||{});
+  const fresh=new Set(codes.filter(c=>!had.has(c)));
+  // Default: everything staged is taken (staging files is itself the choice of what to add).
+  // `only` names a subset where one file can carry books that were NOT asked for — those
+  // must not ride along.
+  const pick=new Set(only&&only.length?only.filter(c=>codes.includes(c)):codes);
+  PLAN={stored,incoming:incoming||emptyDigest(),merged:null,report,fresh,pick,keep:null};
+  planRemerge();
 }
-// D112: ONE map behind the list — every book you have or staged (from PLAN) plus every book
-// the scanned folder offers that you don't (state "available", rendered dim and unticked).
-function libAvail(code){return !(PLAN&&(PLAN.merged.sources||{})[code])&&SCAN&&SCAN.books[code];}
-function libMap(){
-  const map={};
-  Object.entries((PLAN&&PLAN.merged.sources)||{}).forEach(([c,s])=>{
-    map[c]={name:s.name||c,group:s.group||"other",counts:s.counts||{}};});
-  scanBooks().forEach(b=>{if(!map[b.code])
-    map[b.code]={name:b.name,group:b.group||"other",counts:b.counts,avail:true};});
-  return map;
+// D112, as the tray reads it: the books ON OFFER — every book the staged files hold, plus
+// every book the scanned folder offers that you have not imported ("available": rendered
+// dim and unticked until you ask for it). Books you already have are NOT here; they are on
+// the page's own list, where the switch and the selection bar act on them.
+function trayOffer(){
+  const out=[];
+  const inc=(PLAN&&PLAN.incoming.sources)||{};
+  Object.entries(inc).forEach(([c,s])=>out.push({code:c,name:s.name||c,counts:s.counts||{},
+    state:PLAN.fresh.has(c)?"new":"update"}));
+  const seen=new Set(out.map(o=>o.code));
+  scanBooks().forEach(b=>{ if(seen.has(b.code)||((PLAN&&PLAN.stored.sources)||{})[b.code])return;
+    out.push({code:b.code,name:b.name,counts:b.counts,state:"avail"});});
+  return out;
 }
-function planCounts(code){
-  if(libAvail(code))return scanTotal(SCAN.books[code])+" · in folder";
-  const c=(PLAN.merged.sources[code]||{}).counts||{};
-  const n=(c.spells||0)+(c.classes||0)+(c.subclasses||0)+(c.feats||0)+(c.species||0);
-  return (PLAN.fresh.has(code)?"new · ":"")+n;   // entities, not just spells
+function trayCounts(o){
+  return libKindText(o.counts)+" · "+(o.state==="avail"?"in folder":o.state);
 }
 let PLAN_Q="";
-// which books the filter is showing — All / None act on THESE, so a search plus one click is
-// how you keep or drop a whole family of books
-function planShown(map){
-  const all=Object.keys(map);
-  const q=PLAN_Q.trim().toLowerCase(); if(!q)return all;
-  return all.filter(c=>c.toLowerCase().includes(q)
-    ||String(map[c].name||"").toLowerCase().includes(q));
+// which of the offered books the filter is showing — All / None act on THESE, so a search
+// plus one click takes or drops a whole family
+function trayShown(offer){
+  const q=PLAN_Q.trim().toLowerCase(); if(!q)return offer;
+  return offer.filter(o=>o.code.toLowerCase().includes(q)||String(o.name||"").toLowerCase().includes(q));
 }
+const TRAY_FILTER_AT=8;   // a brew is a handful of books; a full 5etools release is 44
 function renderImportPlan(){
-  const box=$("#importPlan"); if(!box)return;
-  libStageVis();
+  const tray=$("#libTray"); if(!tray)return;
   if(!PLAN)planFromStage(null,null);
-  const map=libMap();
-  if(!Object.keys(map).length){box.classList.add("hidden");renderImportPlanFoot();return;}
-  box.classList.remove("hidden");
-  const shown=planShown(map);
-  // the diagnosis→remedy seam (2026-08-31): the books the last refresh could not re-read
-  // are named HERE, on the surface that can actually fix them — this list and the drop
-  // zone / folder chooser above it. Self-clearing: re-add a book and Apply, and its fresh
-  // parser stamp takes it off staleBooks(), which empties refreshMissed().
-  const miss=new Set(refreshMissed());
-  const mn=$("#importMissNote");
-  if(mn){mn.classList.toggle("hidden",!miss.size);
-    if(miss.size)mn.textContent="Refresh couldn’t re-read "
-      +(miss.size===1?"this book — the linked folder doesn’t hold it":"these books — the linked folder doesn’t hold them")
-      +": "+[...miss].map(bookName).join(", ")
-      +`. Drop the file${miss.size===1?"":"s"} above, or choose the folder that has ${miss.size===1?"it":"them"}, then Apply.`;}
-  const list=$("#importPlanList");
-  if(shown.length)renderSourceChecklist(list,PLAN.keep,renderImportPlanFoot,new Set(shown),
-                                        planCounts,map,{rowClass:c=>{const k=[];
-                                          if(libAvail(c))k.push("avail");
-                                          if(miss.has(c))k.push("miss");
-                                          return k.length?k.join(" "):null;}});
-  else {list.innerHTML="";list.append(el("div","empty","No book matches that."));}
-  const q=$("#importPlanQuick"); q.innerHTML="";
-  const f=el("input","planq"); f.type="search"; f.value=PLAN_Q;
-  f.placeholder="filter books…"; f.spellcheck=false;
-  f.oninput=e=>{PLAN_Q=e.target.value;renderImportPlan();
-    const n=$("#importPlanQuick .planq"); if(n){n.focus();n.setSelectionRange(n.value.length,n.value.length);}};
-  q.append(f);
-  const quick=(label,fn)=>{const b=el("button","btn",label);
-    b.onclick=()=>{fn();renderImportPlan();};q.append(b);};
-  quick(PLAN_Q?"All shown":"All",()=>shown.forEach(c=>PLAN.keep.add(c)));
-  quick(PLAN_Q?"None shown":"None",()=>shown.forEach(c=>PLAN.keep.delete(c)));
-  if(PLAN.fresh.size)quick("Only these files",()=>{PLAN.keep.clear();
-    Object.keys(PLAN.incoming.sources||{}).forEach(c=>PLAN.keep.add(c));});
+  const offer=trayOffer();
+  const live=!!(offer.length||IMPORT_STAGE.length);
+  tray.classList.toggle("hidden",!live);
+  if(!live){PLAN_Q="";return;}
+  const shown=trayShown(offer);
+  const bare=$("#trayBare");
+  if(bare)bare.classList.toggle("hidden",!(!IMPORTED&&BAKED&&(BAKED.spells||[]).length));
+  // a scan leaves its offer standing after a commit (importing two of a folder's books
+  // should not mean scanning it twice), so the sub-line has to say which case this is
+  const sub=$("#libTray .trayh .sub");
+  if(sub)sub.textContent=IMPORT_STAGE.length?"nothing is stored yet"
+    :"the scanned folder offers these — nothing is stored yet";
+  const q=$("#trayQuick"); q.innerHTML="";
+  if(offer.length>TRAY_FILTER_AT){
+    const f=el("input","planq"); f.type="search"; f.value=PLAN_Q;
+    f.placeholder="filter these books…"; f.spellcheck=false;
+    f.oninput=e=>{PLAN_Q=e.target.value;renderImportPlan();
+      const n=$("#trayQuick .planq"); if(n){n.focus();n.setSelectionRange(n.value.length,n.value.length);}};
+    q.append(f);
+    const quick=(label,fn)=>{const b=el("button","btn",label);b.type="button";
+      b.onclick=()=>{fn();planRemerge();renderImportPlan();};q.append(b);};
+    quick(PLAN_Q?"All shown":"All",()=>shown.forEach(o=>PLAN.pick.add(o.code)));
+    quick(PLAN_Q?"None shown":"None",()=>shown.forEach(o=>PLAN.pick.delete(o.code)));
+  }
+  const list=$("#trayBooks"); list.innerHTML="";
+  if(!shown.length)list.append(el("div","empty","No book matches that."));
+  shown.forEach(o=>{
+    const lab=el("label","trayrow"+(o.state==="avail"&&!PLAN.pick.has(o.code)?" avail":""));
+    const cb=el("input"); cb.type="checkbox"; cb.checked=PLAN.pick.has(o.code);
+    cb.onchange=()=>{cb.checked?PLAN.pick.add(o.code):PLAN.pick.delete(o.code);
+      planRemerge();renderImportPlan();};
+    lab.append(cb); lab.append(el("span",null,o.name));
+    lab.append(el("small",null,trayCounts(o)));
+    list.append(lab);});
   renderImportPlanFoot();
 }
+// the Add button says exactly what pressing it does — how many books arrive, how many of
+// yours are replaced by a newer read of the same book
 function renderImportPlanFoot(){
   if(!PLAN)return;
-  // the built-in bundle is not a layer you merge into — it is what shows when nothing is
-  // imported. Say so, rather than letting a one-brew import look like it ate everything.
-  const note=$("#importPlanNote");
-  if(note){const bare=!IMPORTED&&BAKED&&(BAKED.spells||[]).length;
-    note.classList.toggle("hidden",!bare);}
+  const btn=$("#importApply"); if(!btn)return;
   const had=new Set(Object.keys(PLAN.stored.sources||{}));
-  const added=[...PLAN.keep].filter(c=>!had.has(c)).length;
-  const dropped=[...had].filter(c=>!PLAN.keep.has(c)).length;
-  const bits=[`${PLAN.keep.size} book${PLAN.keep.size===1?"":"s"} kept`];
-  if(added)bits.push(`+${added} new`);
-  if(dropped)bits.push(`−${dropped} removed`);
-  $("#importPlanSub").textContent=bits.join(" · ");
-  const btn=$("#importApply");
-  if(btn){btn.disabled=!PLAN.keep.size;
-    btn.textContent=dropped?`Apply (${dropped} book${dropped===1?"":"s"} removed)`:"Apply";
-    btn.classList.toggle("danger",!!dropped);}
+  const add=[...PLAN.pick].filter(c=>!had.has(c)).length;
+  const upd=[...PLAN.pick].filter(c=>had.has(c)).length;
+  btn.disabled=!PLAN.pick.size;
+  btn.textContent=!PLAN.pick.size?"Add"
+    :add&&upd?`Add ${add} · update ${upd}`
+    :add?`Add ${nBooks(add)}`:`Update ${nBooks(upd)}`;
 }
 // ── folder scan: index a local library BY BOOK (D92) ───────────────────────────
 // A homebrew repository is filed by CATEGORY — spell/, class/, subclass/, collection/ — so one
@@ -5556,7 +5563,7 @@ async function scanEntries(entries,label){
     prog.innerHTML=`Scanned <b>${esc(label||"folder")}</b> — ${SCAN.read} file${SCAN.read===1?"":"s"}, `
       +`${Math.round(SCAN.bytes/1048576)} MB, <b>${withC}</b> book${withC===1?"":"s"} with content`
       +(n>withC?` (${n-withC} more declare nothing this app uses)`:"")
-      +`. Tick what you want below, then Apply.`;
+      +`. Tick what you want in the tray above, then Add.`;
     renderImportPlan();
   }catch(e){prog.textContent="Couldn’t scan that folder: "+(e.message||e);}
   finally{SCAN_BUSY=false;}
@@ -5603,7 +5610,9 @@ async function stageScanBooks(codes){
 function buildImport(only,auto){
   const files=IMPORT_STAGE.filter(f=>!f.error).map(f=>({name:f.name,json:f.json}));
   const rep=$("#importReport");
-  const prevKeep=(auto&&PLAN)?new Set(PLAN.keep):null;
+  // only while an import is already PENDING: after a commit the plan is empty, and carrying
+  // "not picked" over from that would untick every book you already have on the next batch
+  const prevPick=(auto&&PLAN&&Object.keys(PLAN.incoming.sources||{}).length)?new Set(PLAN.pick):null;
   if(!files.length){
     if(auto){planFromStage(null,null);renderImportPlan();rep.textContent="";return;}
     rep.textContent="Stage at least one valid file first.";return;}
@@ -5613,29 +5622,30 @@ function buildImport(only,auto){
   // was "no spells or classes" — which rejected a perfectly good feats-only or species-only brew
   // (D&D Beyond's Expanded Racial Feats is exactly that). Any entity the app models counts.
   if(!digestSize(digest)){rep.textContent="No spells, classes, feats or species found in these files.";return;}
-  planFromStage(digest,report,only); renderImportPlan();
-  if(prevKeep){ // a book you unticked stays unticked when another batch lands
-    Object.keys(PLAN.merged.sources||{}).forEach(c=>{
-      if(!prevKeep.has(c)&&!PLAN.fresh.has(c))PLAN.keep.delete(c);});
-    renderImportPlan();}
-  rep.innerHTML=`Read ${files.length} file${files.length===1?"":"s"} — ${importSummary(report)}.`
-    +` <b>Nothing is stored yet:</b> tick the books below, then Apply.`;
+  planFromStage(digest,report,only);
+  if(prevPick){ // a book you unticked stays unticked when another batch lands
+    Object.keys(PLAN.incoming.sources||{}).forEach(c=>{
+      if(!prevPick.has(c)&&!PLAN.fresh.has(c))PLAN.pick.delete(c);});
+    planRemerge();}
+  renderImportPlan();
+  rep.innerHTML=`Read ${files.length} file${files.length===1?"":"s"} — ${importSummary(report)}.`;
 }
-// D112: one Apply reconciles everything — a ticked "available" book is read from the scanned
+// D112: one Add reconciles everything — a ticked "available" book is read from the scanned
 // folder first, then the whole keep-set is stored in one write.
 async function applyImport(){
   const rep=$("#importReport"); if(!PLAN||REFRESH_BUSY)return;
   cancelBuild();
-  const keepBefore=new Set(PLAN.keep);
-  const need=[...keepBefore].filter(c=>!(PLAN.merged.sources||{})[c]&&SCAN&&SCAN.books[c]);
+  const pickBefore=new Set(PLAN.pick);
+  const need=[...pickBefore].filter(c=>!(PLAN.merged.sources||{})[c]&&SCAN&&SCAN.books[c]);
   if(need.length){
     if(SCAN_BUSY)return;
     SCAN_BUSY=true;
     try{await stageScanBooks(need);}finally{SCAN_BUSY=false;}
     buildImport(null,true);
     if(!PLAN)return;
-    // the re-parse defaults the keep-set; what you had ticked (and unticked) is the truth
-    PLAN.keep=new Set([...keepBefore].filter(c=>(PLAN.merged.sources||{})[c]));
+    // the re-parse defaults the ticks; what you had ticked (and unticked) is the truth
+    PLAN.pick=new Set([...pickBefore].filter(c=>(PLAN.incoming.sources||{})[c]));
+    planRemerge();
   }
   await applyPlan(rep);
 }
@@ -5654,7 +5664,8 @@ async function applyPlan(rep,refreshed){
   // parser THIS time get the new stamp; every other source keeps the one it had.
   const now=new Date().toISOString(), pv=window.__VERSION__||"dev";
   out.meta=Object.assign({},out.meta,{importedAt:now,parser:pv});
-  const parsed=Object.keys(((PLAN.incoming||{}).sources)||{});
+  // only the books this import actually TOOK — an unticked one never entered the merge
+  const parsed=[...PLAN.pick].filter(c=>(((PLAN.incoming||{}).sources)||{})[c]);
   // D154(c): where a book came from, stamped alongside the parser stamp and on the same
   // rule — only the books that came through the parser THIS time are re-stamped, so a
   // hand-added brew keeps saying `file` when a web fetch lands beside it.
@@ -5776,15 +5787,15 @@ async function refreshImported(fromModal){
     }
     // a scan from earlier in this session still counts — the webkitdirectory path has no handle
     if(!SCAN)return refreshAsk(
-      FOLDER?"That folder wasn’t opened — permission is asked once per session. <b>Choose it again</b> above, or drop the .zip and Apply."
-            :"Refresh needs your 5etools files — <b>choose the folder</b> above (it will be remembered), or drop the .zip and Apply.",
+      FOLDER?"That folder wasn’t opened — permission is asked once per session. <b>Choose it again</b> under ＋ Add files, or add the .zip there."
+            :"Refresh needs your 5etools files — <b>choose the folder</b> under ＋ Add files (it will be remembered), or add the .zip there.",
       FOLDER?"Refresh needs the folder — permission wasn’t granted. Choose it in the Library."
             :"Refresh needs the folder — choose it in the Library.");
     const kept=stored.filter(c=>SCAN.books[c]);
     if(!kept.length){
       refreshMissRemember(stored);   // every stored book: the folder can heal none of them
       return refreshAsk(
-        "The scanned folder holds none of your imported books — <b>choose the folder</b> that has them, or drop the files.",
+        "The scanned folder holds none of your imported books — <b>choose the folder</b> that has them under ＋ Add files, or add the files there.",
         "Refresh found none of your books in that folder — choose another in the Library.");}
     IMPORT_STAGE=[]; cancelBuild();
     refreshStage("Reading "+nBooks(kept.length)+"…");
@@ -5801,7 +5812,7 @@ async function refreshImported(fromModal){
     // buildImport bails on unusable files without touching PLAN — same false-success trap
     if(!PLAN||!Object.keys((PLAN.incoming&&PLAN.incoming.sources)||{}).length)
       return refreshFail("Nothing usable came back from those files. Your imported data is unchanged.");
-    PLAN.keep=new Set(stored.filter(c=>(PLAN.merged.sources||{})[c]));
+    PLAN.pick=new Set(stored.filter(c=>((PLAN.incoming.sources)||{})[c])); planRemerge();
     refreshStage("Storing…");
     const err=await applyPlan(rep,true);
     if(err)return refreshFail(err);
@@ -5809,7 +5820,7 @@ async function refreshImported(fromModal){
     // "Re-imported 12 books" must not cover books the folder didn't have: those kept their
     // stored data and were not re-parsed by anything — and Refresh can NEVER heal them
     // (D129 documents the partial read), so the outcome must NAME them and carry the user
-    // to the remedy (Manage's drop zone / folder chooser), not end at the diagnosis.
+    // to the remedy (＋ Add files: the file picker / folder chooser), not end at the diagnosis.
     const missCodes=stored.filter(c=>!SCAN.books[c]);
     refreshMissRemember(missCodes);
     renderLibList();   // applyPlan painted #libParser before the miss memory changed
@@ -5820,7 +5831,7 @@ async function refreshImported(fromModal){
     const one=missCodes.length===1;
     const caveat=` ${nBooks(missCodes.length)} (${names}) ${one?"wasn’t":"weren’t"} in that folder and kept ${one?"its":"their"} stored data.`;
     if(rep)rep.innerHTML+="<br>"+esc(caveat.trim())
-      +` Re-add ${one?"it":"them"} below — drop the file${one?"":"s"}, or choose the folder that has ${one?"it":"them"}.`;
+      +` Re-add ${one?"it":"them"} from ＋ Add files — the file${one?"":"s"}, or the folder that has ${one?"it":"them"}.`;
     refreshStop();
     if(RMODAL)renderImportPlan();   // the note above the book list marks what to drop in
     else{
@@ -9230,12 +9241,16 @@ const LIB_OCHIP={web:"web",file:"file",baked:"built-in",custom:"custom"};
 // import's — neither is a thing Remove can take away
 function libRemovable(code){return code!==HB_SRC&&!!(IMPORTED&&(IMPORTED.sources||{})[code]);}
 const LIB_KINDS=[["spells","spell"],["classes","class"],["subclasses","subclass"],
-                 ["feats","feat"],["species","species"]];
-function libKinds(code){
-  const c=((DATA.sources[code]||{}).counts)||{};
-  const bits=LIB_KINDS.filter(([k])=>c[k]).map(([k,one])=>c[k]+" "+(c[k]===1?one:k));
+                 ["feats","feat"],["species","species"],["optfeats","optional feature"]];
+// what a book HOLDS, in one line — the same sentence on a library row and on a tray row,
+// because they are answering the same question about the same book
+function libKindText(counts){
+  const c=counts||{};
+  const bits=LIB_KINDS.filter(([k])=>c[k]).map(([k,one])=>
+    c[k]+" "+(c[k]===1?one:k==="optfeats"?"optional features":k));
   return bits.join(" · ")||"no spells, classes, feats or species";
 }
+function libKinds(code){return libKindText((DATA.sources[code]||{}).counts);}
 function libSwitch(on,aria,onChange){
   const sw=el("span","libsw"), i=el("input");
   i.type="checkbox"; i.checked=on; i.setAttribute("aria-label",aria);
@@ -9328,8 +9343,8 @@ async function libRemove(codes){
   if(REFRESH_BUSY||SCAN_BUSY)return;
   const rep=$("#importReport");
   cancelBuild();
-  planFromStage(null,null);
-  codes.forEach(c=>PLAN.keep.delete(c));
+  planFromStage(null,null);          // no incoming: keep is exactly what you have stored
+  codes.forEach(c=>PLAN.keep.delete(c));   // the one place keep is edited by hand
   const n=codes.length, what=`${n} book${n===1?"":"s"}`;
   // D154(i): "Remove imported data" is gone — select all → Remove IS the reset, and the
   // plan refuses an empty digest, so the whole-library case takes the drop path instead.
@@ -9386,12 +9401,17 @@ function renderLibParser(){
   const meta=IMPORTED.meta||{};
   const behind=staleBooks(), nsrc=Object.keys(IMPORTED.sources||{}).length;
   line.classList.toggle("stale",!!behind.length);
+  // a book the folder cannot provide is not healed by Refresh — NAME those, because the
+  // remedy is different (add the file again, from ＋ Add files). This is the diagnosis→remedy
+  // seam the import plan's own note used to carry; the plan is a tray now and only exists
+  // mid-import, so the standing line owns it.
   const miss=refreshMissed();
+  const named=miss.map(bookName).join(", ");
   line.textContent=behind.length
     ? `${behind.length} of ${nsrc} book${nsrc===1?"":"s"} still read by an older parser — `
       +(miss.length&&miss.length===behind.length
-          ?`the linked folder doesn’t hold ${miss.length===1?"it; add the file again":"them; add the files again"}`
-          :miss.length?`Refresh re-reads them (${nBooks(miss.length)} not in the folder — add again)`
+          ?`the linked folder doesn’t hold ${miss.length===1?"it":"them"}: add ${miss.length===1?"it":"them"} again (${named})`
+          :miss.length?`Refresh re-reads them, except ${named} — add ${miss.length===1?"that one":"those"} again`
           :"Refresh re-reads them")
     : `all ${nsrc} book${nsrc===1?"":"s"} read by parser v${meta.parser||"?"}`;
 }
@@ -9536,8 +9556,14 @@ $("#importModal").onclick=e=>{if(e.target.id==="importModal")$("#importModal").c
 $("#importPasteAdd").onclick=()=>{const t=$("#importPaste").value.trim();if(!t)return;
   try{IMPORT_STAGE.push({name:"pasted "+(IMPORT_STAGE.length+1),json:JSON.parse(t)});$("#importPaste").value="";$("#importReport").textContent="";renderImportStage();scheduleBuild();}
   catch(e){$("#importReport").textContent="Pasted text isn’t valid JSON.";}};
-$("#importClear").onclick=()=>{IMPORT_STAGE=[];cancelBuild();WEB_PENDING=null;renderImportStage();
-  planFromStage(null,null);renderImportPlan();$("#importReport").textContent="";};
+// D154(h): Discard throws the whole pending import away — the staged files, the web fetch
+// waiting to be recorded, and the folder's offer. Armed, because it is the one destructive
+// button on a surface whose entire promise is that nothing is stored yet.
+armConfirm($("#trayDiscard"),null,()=>{
+  IMPORT_STAGE=[];cancelBuild();WEB_PENDING=null;SCAN=null;
+  renderImportStage();planFromStage(null,null);renderImportPlan();
+  const prog=$("#folderProgress"); if(prog)prog.textContent="";
+  $("#importReport").textContent="";});
 $("#importApply").onclick=applyImport;
 // D153: the online fetch and its editable repository address
 $("#webSyncBtn").onclick=()=>webSync();

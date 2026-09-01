@@ -324,39 +324,24 @@
       no browser tab can open.</p>
     </div>
     <p class="importwelcome hidden" id="importWelcome">This planner ships without spell data. Load a 5etools <code>data</code> export to fill it with spells, classes, subclasses, feats and species. Everything is parsed and stored in your browser — nothing is uploaded.</p>
-    <!-- TRANSITIONAL (K2 replaces this whole block with the pending-import tray, D154(h)):
-         the staged files, the keep-plan and Apply, shown only while something is staged or a
-         folder has been scanned. D86/D112 semantics are untouched underneath. -->
-    <div id="libStage" class="libstage hidden">
+    <!-- D154(h): the pending-import tray. It exists only while something is staged or a
+         scanned folder is offering books, it sits above the status strip, and NOTHING is
+         stored until "Add" is pressed. D86/D112 merge semantics are unchanged underneath:
+         entities are keyed, a staged file wins only over its own exact record, and what
+         gets written is decided by one list — this one. Removing a book you already have
+         is NOT here; that is the selection bar's job (D154(e)). -->
+    <div id="libTray" class="libtray hidden">
+      <div class="trayh"><b>Pending import</b><span class="sub">nothing is stored yet</span></div>
       <div id="importStaged" class="importstaged"></div>
       <div id="folderProgress" class="note"></div>
-      <!-- D86 + D112: ONE list decides what is in your data — every book you have, every book
-           the staged files hold, and every book the scanned folder offers. Nothing is written
-           until Apply. -->
-      <div id="importPlan" class="importplan hidden">
-        <div class="iph"><b>Your books</b><span class="sub" id="importPlanSub"></span>
-          <button class="helpbtn" data-help="planHelp" aria-expanded="false" aria-label="About this list"></button></div>
-        <div class="helpbody hidden" id="planHelp">
-          <p>A tick means <b>this book is in my data</b>. Unticking one you already have <b>removes
-          its content</b> from this browser — the only way to get the space back. A dimmed row is a
-          book the scanned folder offers that you haven't imported: tick it and Apply to pull it in.
-          Nothing is written until you press Apply, and Apply says how many books it would remove
-          before you do.</p>
-          <p>Your builds are never touched. A pick whose book is gone is flagged in the banner at the
-          top of the app, not deleted — re-import that book and it resolves again.</p>
-        </div>
-        <p class="note hidden" id="importPlanNote" style="margin:0 0 8px;color:var(--gold)">Nothing
-          imported yet — applying puts the app's built-in books behind whatever you tick here.</p>
-        <!-- diagnosis→remedy (2026-08-31): the books the last refresh could not re-read, named on
-             the surface that fixes them. Filled by renderImportPlan from refreshMissed(). -->
-        <p class="note hidden" id="importMissNote" style="margin:0 0 8px;color:var(--gold)"></p>
-        <div class="quick" id="importPlanQuick"></div>
-        <div id="importPlanList" class="importplanlist"></div>
-      </div>
+      <p class="note hidden" id="trayBare" style="margin:6px 0 0;color:var(--gold)">Nothing
+        imported yet — adding puts the app's built-in books behind whatever you tick here.</p>
+      <div class="quick" id="trayQuick"></div>
+      <div id="trayBooks" class="traybooks"></div>
       <div class="prepnav" style="border:none;padding:8px 0 0">
         <span class="prepnav-sp"></span>
-        <button class="btn" id="importClear">Clear staged</button>
-        <button class="btn on" id="importApply">Apply</button>
+        <button class="btn danger" id="trayDiscard">Discard</button>
+        <button class="btn on" id="importApply">Add</button>
       </div>
     </div>
     <!-- D154(b): the status strip is the top of the page and owns the web fetch. The four

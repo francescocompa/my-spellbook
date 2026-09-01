@@ -2175,6 +2175,50 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     now, not later** (D154(f) rejected drop-anywhere and killed the drop zone with the Manage
     tab), and with it the `webkitGetAsEntry` walker that only the drop handler used.
 
+- **D156 (2026-09-01) DECIDED — the tray is the pending import, so the plan's model had to
+  change under it (phase K2).** D154(h) asked for a tray of "file chips · its books ticked to
+  keep · Discard / Add N books". The old surface listed EVERY book — yours and the staged
+  ones — under one tick meaning "this is in my data", so unticking removed content. On a tray
+  that shows only what is arriving, the same tick has to mean something else, and the model
+  had to follow.
+  - **(a) `PLAN.pick` is what the tray edits; `PLAN.keep` is derived.** `keep` (what gets
+    stored) is `stored ∪ pick`, rebuilt on every tick. **Unticking an incoming book you
+    already have means "don't take this file's version", never "delete the book"** — so the
+    merge is *recomputed from the picks* (`mergeDigests(stored, filterDigest(incoming, pick))`)
+    rather than filtered afterwards. *Rejected:* filtering the merged digest by `keep` as
+    before — by then the incoming entities have already overwritten yours, and a filter
+    cannot un-merge them, so an untick would silently keep the newer read it was refusing.
+    D86/D112 are otherwise untouched: keyed entities, a staged file winning only over its own
+    exact record, nothing stored until the commit.
+  - **(b) Removal is not on this surface at all.** The old plan was the only place a book
+    could be dropped; the selection bar (D154(e)) is now, and the tray cannot delete anything.
+    One consequence worth stating: `libRemove()` is the single place `keep` is written by
+    hand, and it calls `applyPlan` immediately, so nothing else has to know.
+  - **(c) The commit button says what it will do**: `Add 3 books`, `Update 2 books`, or
+    `Add 1 · update 4` when a batch does both. A book already stored is an *update*, a book
+    the folder merely offers is *in folder* and starts unticked and dimmed (D112 unchanged).
+    *Rejected:* a flat "Apply" (it was the old verb for a list that also removed things, and
+    it says nothing about what arrives).
+  - **(d) Discard is armed and takes the WHOLE pending import** — the staged files, a web
+    fetch waiting to be recorded (`WEB_PENDING`), and the folder's offer (`SCAN`). It is the
+    one destructive button on a surface whose promise is that nothing is stored yet, so it
+    arms like every other destructive control (D53 — never a native confirm). This retires
+    "Clear staged" ahead of K4.
+  - **(e) The tray gets a filter only past 8 offered books.** A brew is a handful; a full
+    5etools release is 44, and All / None / search were the old plan's own controls. Below
+    the threshold the row of controls would be noise on a two-row list. *Rejected:* always
+    showing it (this modal is being quieted); never showing it (44 rows with no All/None is
+    worse than the surface it replaced).
+  - **(f) A folder's offer OUTLIVES the commit.** Importing two books from a scanned folder
+    must not mean scanning it again for the third, so the tray stays up while `SCAN` still
+    offers books you don't have — with its sub-line saying which case it is ("the scanned
+    folder offers these"). *Rejected:* clearing `SCAN` on commit (it makes the common
+    "take a few more" flow a rescan).
+  - **The diagnosis→remedy seam moved with the surface:** the import plan's note naming the
+    books a refresh could not re-read is gone with the plan, so `renderLibParser()` names
+    them on the standing parser line instead — the plan only existed mid-import, and that
+    is exactly when the question is NOT being asked.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives
