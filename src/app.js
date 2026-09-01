@@ -1966,6 +1966,9 @@ function renderGuideChain(steps,cur){
     const flags=health.byLevel.get(lv);
     if(row){const [sIco,sCls,sWhy]=guideSeverity(group,flags);
       const sev=el("span","gcsev "+sCls); sev.append(icoEl(sIco)); head.append(sev);
+      // the icon is the only carrier of this level's state, so it needs a name of its own —
+      // `attachTip` makes it a focus stop and the SVG inside is aria-hidden
+      sev.setAttribute("aria-label","Level "+lv+(flags?": "+issueCount(flags.length):"")+". "+sWhy);
       attachTip(sev,tipBlock("Level "+lv+(flags?": "+issueCount(flags.length):""),sWhy));}
     else head.append(el("span","gcsev"));
     const car=el("span","lvlcar"+(open?" up":"")); head.append(car);
@@ -5150,7 +5153,7 @@ function stageFiles(fileList){[...fileList].forEach(file=>{
     }catch(e){IMPORT_STAGE.push({name:file.name,error:true});}renderImportStage();scheduleBuild();};
     rd.onerror=()=>{IMPORT_STAGE.push({name:file.name,error:true});renderImportStage();scheduleBuild();};
     rd.readAsText(file);});}
-function importSummary(r){return `${r.spells} spells · ${r.classes} classes · ${r.subclasses} subclasses · ${r.feats} feats · ${r.species} species`
+function importSummary(r){return `${r.spells} spell${r.spells===1?"":"s"} · ${r.classes} class${r.classes===1?"":"es"} · ${r.subclasses} subclass${r.subclasses===1?"":"es"} · ${r.feats} feat${r.feats===1?"":"s"} · ${r.species} species`
   // Warn on the real symptom — spells no class can reach — not on a missing file. A brew
   // carries its own class access inline, so it needs no lookup and must not be told it does.
   // …and only advise the lookup file when one wasn't supplied. With it present the
@@ -7051,6 +7054,9 @@ function renderTimeline(){
     const flags=health.byLevel.get(i);
     if(flags){const wI=el("span","tlwarn");wI.append(icoEl("warn"));
       top.append(wI);
+      // named for the same reason as the guide chain's severity dot: the SVG is aria-hidden
+      // and `attachTip` turns this span into a focus stop
+      wI.setAttribute("aria-label",`Level ${i}: ${issueCount(flags.length)}`);
       attachTip(wI,tipBlock(`Level ${i}: ${issueCount(flags.length)}`,
         flags.map(f=>f.text).join(" ")));}
     body.append(top);
