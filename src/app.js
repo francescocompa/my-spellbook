@@ -8280,11 +8280,13 @@ function entBlk(title,body,opts){
 // app's own three columns (the digest deliberately carries none of them — D148); the rest
 // are whatever `classTableGroups` holds, group titles spanning their own columns.
 const PB_AT=L=>2+Math.floor((L-1)/4);
-function classTableHTML(it){
-  const groups=(it.table||[]).filter(g=>(g.cols||[]).length);
-  const byLv=new Map();
+function classTableHTML(it,sub){
+  // a subclass may carry its own table groups (Rune Knight's runes) — they join the row
+  const groups=(it.table||[]).concat((sub&&sub.table)||[]).filter(g=>(g.cols||[]).length);
+  const byLv=new Map(), subLv=new Map();
   (it.features||[]).forEach(f=>{const a=byLv.get(f.level)||[];a.push(f.name);byLv.set(f.level,a);});
-  if(!groups.length&&!byLv.size)return "";
+  ((sub&&sub.features)||[]).forEach(f=>{const a=subLv.get(f.level)||[];a.push(f.name);subLv.set(f.level,a);});
+  if(!groups.length&&!byLv.size&&!subLv.size)return "";
   const span=groups.map(g=>g.cols.length);
   const titleRow=groups.some(g=>g.title)
     ? `<tr><th colspan="3"></th>`+groups.map((g,i)=>
@@ -8294,22 +8296,34 @@ function classTableHTML(it){
     +groups.map(g=>g.cols.map(c=>`<th>${esc(c)}</th>`).join("")).join("")+`</tr>`;
   const rows=[];
   for(let L=1;L<=20;L++){
-    const feats=(byLv.get(L)||[]).join(", ")||"—";
-    rows.push(`<tr><td class="ctlv">${L}</td><td>+${PB_AT(L)}</td><td class="ctfeat">${esc(feats)}</td>`
+    // same rule as the spine: the subclass's entries are MARKED, not moved
+    const own=(byLv.get(L)||[]).map(esc);
+    const mine=(subLv.get(L)||[]).map(n=>`<span class="ctsub">${esc(n)}</span>`);
+    const feats=own.concat(mine).join(", ")||"—";
+    rows.push(`<tr><td class="ctlv">${L}</td><td>+${PB_AT(L)}</td><td class="ctfeat">${feats}</td>`
       +groups.map(g=>{const r=(g.rows||[])[L-1]||[];
         return g.cols.map((_,i)=>`<td>${esc(r[i]==null?"—":r[i])}</td>`).join("");}).join("")+`</tr>`);
   }
   return entBlk("Progression",
     `<div class="cttwrap"><table class="cttable">${titleRow}${head}${rows.join("")}</table></div>`,
     {shut:true});}
+// D150(a): the two records this modal is showing. A merged class view answers for both —
+// its grants, its choices and its features are one thing to the reader.
+const entPair=(it,kind,sub)=>sub?[it,sub]:[it];
 // features grouped by level, each level and each feature its own disclosure — Francesco's
 // note: "grouped by level and more clearly separated, with each level and section
 // collapsible". Both open by default: the modal is opened to READ, and a body that starts
 // folded shut is a second click before the first word.
-function featuresHTML(it,kind){
-  const list=entFeatures(it,kind); if(!list.length)return "";
+// D150(a) — variant A of the merge mockup, Francesco's pick: ONE level spine holding the
+// class's features and its subclass's together, in level order. The subclass is told apart
+// by an accent rule and its own tag, never by position — so "what do I get at level 6" is
+// one place. `sub` is null everywhere the modal is not a merged class view.
+function featuresHTML(it,kind,sub){
+  const list=entFeatures(it,kind).map(f=>({f,sub:null}))
+    .concat(((sub&&sub.features)||[]).map(f=>({f,sub})));
+  if(!list.length)return "";
   const byLv=new Map();
-  list.forEach(f=>{const a=byLv.get(f.level)||[];a.push(f);byLv.set(f.level,a);});
+  list.forEach(x=>{const a=byLv.get(x.f.level)||[];a.push(x);byLv.set(x.f.level,a);});
   const lvls=[...byLv.keys()].sort((a,b)=>a-b);
   const body=lvls.map(L=>{
     const fs=byLv.get(L);
@@ -8317,10 +8331,12 @@ function featuresHTML(it,kind){
       +`<span class="entlvlt">Level ${L}</span>`
       +`<span class="entlvln">${fs.length} feature${fs.length===1?"":"s"}</span>`
       +`<span class="entcaret"></span></button><div class="entlvlb">`
-      +fs.map(f=>`<div class="entsec fold" data-exp="1">`
+      +fs.map(x=>`<div class="entsec fold${x.sub?" entsub":""}" data-exp="1">`
         +`<button class="entsech" type="button" aria-expanded="true">`
-        +`<span class="entsecn">${esc(f.name)}</span><span class="entcaret"></span></button>`
-        +`<div class="entsecb">${(f.desc||[]).length?descBlocks(f.desc)
+        +`<span class="entsecn">${esc(x.f.name)}</span>`
+        +(x.sub?`<span class="entsubtag">${esc(entName(x.sub,"sub"))}</span>`:"")
+        +`<span class="entcaret"></span></button>`
+        +`<div class="entsecb">${(x.f.desc||[]).length?descBlocks(x.f.desc)
             :`<p class="entnotext">No text for this feature in the imported data.</p>`}</div></div>`).join("")
       +`</div></div>`;}).join("");
   return entBlk("Features",body,
@@ -8350,24 +8366,30 @@ const ENT_PROSE_TITLE={feat:"Benefits",opt:"What it does",species:"Traits",sub:"
 // "Spells it gives you", BY THE LEVEL YOU GET THEM (Francesco). `atLevel` is on every
 // grant shape already — it is what the acquisition walk reads — so the section states it
 // instead of flattening a subclass's four tiers into one comma run.
-function entGrantsHTML(it){
-  if(!grantsAny(it.grants))return "";
-  const g=it.grants, byLv=new Map();
-  const put=(lv,txt)=>{if(!txt)return;const k=lv==null?0:lv;const a=byLv.get(k)||[];
-    if(a.indexOf(txt)<0)a.push(txt);byLv.set(k,a);};
-  (g.fixed||[]).forEach(x=>{const raw=x.spell&&x.spell.name;if(!raw||!x.spell.source)return;
-    const rec=grantRec(raw); put(x.atLevel,(rec&&rec.name)||raw);});
-  (g.picks||[]).forEach(pk=>put(pk.atLevel,cap1(guidePickAsk(pk)
-    ||((pk.count>1?pk.count+"× ":"")+(fmtDesc(pk.desc)||"a spell")))));
-  (g.expansions||[]).forEach(x=>put(x.atLevel,"Expanded spell list"));
-  // an option group is a choice BETWEEN blocks, not a level's worth of spells — it keeps
-  // its own line rather than being filed under a level it does not have
-  const opts=(g.optionGroups||[]).map(og=>og.options.map(o=>o.name).join(" / ")).filter(Boolean);
+function entGrantsHTML(it,sub){
+  const recs=entPair(it,null,sub).filter(r=>grantsAny(r.grants));
+  if(!recs.length)return "";
+  const byLv=new Map(), opts=[];
+  // a run of spells is stored as {text, fromSub} so the subclass's entries can be MARKED
+  // in place — the same rule the spine and the table follow, never a separate section
+  const put=(lv,txt,fromSub)=>{if(!txt)return;const k=lv==null?0:lv;const a=byLv.get(k)||[];
+    if(!a.some(x=>x.t===txt))a.push({t:txt,s:!!fromSub});byLv.set(k,a);};
+  recs.forEach(r=>{const g=r.grants, fromSub=(r===sub);
+    (g.fixed||[]).forEach(x=>{const raw=x.spell&&x.spell.name;if(!raw||!x.spell.source)return;
+      const rec=grantRec(raw); put(x.atLevel,(rec&&rec.name)||raw,fromSub);});
+    (g.picks||[]).forEach(pk=>put(pk.atLevel,cap1(guidePickAsk(pk)
+      ||((pk.count>1?pk.count+"× ":"")+(fmtDesc(pk.desc)||"a spell"))),fromSub));
+    (g.expansions||[]).forEach(x=>put(x.atLevel,"Expanded spell list",fromSub));
+    // an option group is a choice BETWEEN blocks, not a level's worth of spells — it keeps
+    // its own line rather than being filed under a level it does not have
+    (g.optionGroups||[]).forEach(og=>{const t=og.options.map(o=>o.name).join(" / ");
+      if(t)opts.push({t,s:fromSub});});});
   const lvls=[...byLv.keys()].sort((a,b)=>a-b);
   if(!lvls.length&&!opts.length)return "";
+  const mark=x=>x.s?`<span class="ctsub">${esc(x.t)}</span>`:esc(x.t);
   const rows=lvls.map(L=>`<div class="egrow"><span class="eglv">${L?"Level "+L:"Always"}</span>`
-    +`<span class="egsp">${esc(byLv.get(L).join(" · "))}</span></div>`).join("")
-    +opts.map(o=>`<div class="egrow"><span class="eglv">Choose</span><span class="egsp">${esc(o)}</span></div>`).join("");
+    +`<span class="egsp">${byLv.get(L).map(mark).join(" · ")}</span></div>`).join("")
+    +opts.map(o=>`<div class="egrow"><span class="eglv">Choose</span><span class="egsp">${mark(o)}</span></div>`).join("");
   return entBlk("Spells it gives you",`<div class="egrid">${rows}</div>`);}
 // D147: the modal never renders an empty body. Where 5etools carries no text for a record
 // — 17 setting-book species that are `_copy` records whose edits we do not replay, and 75
@@ -8375,9 +8397,10 @@ function entGrantsHTML(it){
 // that reads as "this feat does nothing".
 const ENT_NOTEXT=`<p class="entnotext">The books’ own text for this isn’t in the imported data.`
   +` What it grants and where it is printed are below.</p>`;
-function entBodyHTML(it,kind){
+function entBodyHTML(it,kind,sub){
   if(kind==="class")
-    return classTraitsHTML(it)+classTableHTML(it)+featuresHTML(it,kind)+entGrantsHTML(it);
+    return classTraitsHTML(it)+classTableHTML(it,sub)+featuresHTML(it,kind,sub)
+      +entGrantsHTML(it,sub)+entChoicesHTML(it,kind);
   if(kind==="sub")
     return entFactsHTML(it,kind)+featuresHTML(it,kind)+entGrantsHTML(it)+entChoicesHTML(it,kind);
   const facts=entFactsHTML(it,kind);
@@ -8388,7 +8411,6 @@ function entBodyHTML(it,kind){
 // the shell only — `renderEntChoices` fills it, because a choice row is DOM (it carries
 // live handlers) and this function builds a string
 function entChoicesHTML(it,kind){
-  if(kind==="class")return "";
   return entBlk("Your choices",`<div class="entchbody"></div>`)
     .replace('<div class="entblk"','<div class="entblk entchoices hidden"');}
 // D149: Francesco — "detail modals that include choice-based elements (ex. Fey Touched)
@@ -8397,21 +8419,25 @@ function entChoicesHTML(it,kind){
 // slot and nothing to write to, and the "Spells it gives you" block already states what it
 // will ask. Matched on name+source, never on the owner id — a repeatable feat's copies
 // carry `##N` and they are all this element's.
-function entChoicesOf(it,kind){
-  if(!R||!R.choices||kind==="class"||!it)return [];
-  return R.choices.filter(c=>c.owner&&c.owner.name===it.name&&c.owner.src===it.source);
+function entChoicesOf(it,kind,sub){
+  if(!R||!R.choices||!it)return [];
+  const want=entPair(it,kind,sub).map(r=>r.name+"|"+r.source);
+  return R.choices.filter(c=>c.owner&&want.indexOf(c.owner.name+"|"+c.owner.src)>=0);
 }
-function entModalHTML(it,kind){
-  // D148: the book is the TAG and nothing else. It used to be said twice — once as the
-  // chip and again spelled out in the subtitle — and the tag's own popover already names
-  // the book in full and says where it is printed.
-  const bk=it.source?` <span class="bchip" data-book="${esc(it.source)}"`
-    +(it.page?` data-page="${esc(String(it.page))}"`:"")+`>${esc(it.source)}</span>`:"";
-  return `<div class="box entmodal ent-${esc(kind)}">`
+// D148: the book is the TAG and nothing else. It used to be said twice — once as the chip
+// and again spelled out in the subtitle — and the tag's own popover already names the book
+// in full and says where it is printed. A merged view shows TWO tags, because it is two
+// records and they can come from different books (an XPHB class, a TCE subclass).
+const bkTag=r=>r&&r.source?` <span class="bchip" data-book="${esc(r.source)}"`
+  +(r.page?` data-page="${esc(String(r.page))}"`:"")+`>${esc(r.source)}</span>`:"";
+function entModalHTML(it,kind,sub){
+  const label=sub?`${entLabel(it,kind)} · ${esc(entName(sub,"sub"))}${bkTag(sub)}`
+                 :esc(entLabel(it,kind));
+  return `<div class="box entmodal ent-${esc(kind)}${sub?" ent-merged":""}">`
     +`<button class="x ico" type="button" title="Close" aria-label="Close">${ICONS.x}</button>`
-    +`<div class="mh"><h3>${esc(entName(it,kind))}${bk}</h3>`
-    +`<div class="sub">${esc(entLabel(it,kind))}</div></div>`
-    +`<div class="mb">${entBodyHTML(it,kind)}</div></div>`;}
+    +`<div class="mh"><h3>${esc(entName(it,kind))}${bkTag(it)}</h3>`
+    +`<div class="sub">${label}</div></div>`
+    +`<div class="mb">${entBodyHTML(it,kind,sub)}</div></div>`;}
 // every disclosure in the modal, wired once. A level and a section are the same control
 // with different scopes, so one handler serves both — and "Collapse all" addresses the
 // level groups, which is the fold that actually shortens a twenty-level class.
@@ -8430,8 +8456,14 @@ function wireEntFolds(root){
   if(all)all.onclick=e=>{e.stopPropagation();
     const fold=all.dataset.all==="0";
     all.dataset.all=fold?"1":"0"; all.textContent=fold?"Expand all":"Collapse all";
-    root.querySelectorAll(".entlvl").forEach(w=>{w.dataset.exp=fold?"0":"1";
-      const h=w.querySelector(".entlvlh"); if(h)h.setAttribute("aria-expanded",String(!fold));});};}
+    // D150(b), Francesco: it acts on BOTH scopes — the level groups and every feature
+    // inside them, the subclass's included. Acting on the level alone left a feature that
+    // had been folded by hand still folded after an Expand all, so "expand all" was a lie
+    // for exactly the features the reader had been looking at.
+    root.querySelectorAll(".entlvl,.entlvl .entsec.fold").forEach(w=>{
+      w.dataset.exp=fold?"0":"1";
+      const h=w.querySelector(".entlvlh,.entsech");
+      if(h)h.setAttribute("aria-expanded",String(!fold));});};}
 // D148: a condition named in rules text explains itself. `ccText` already marks them —
 // this hangs the book's own wording off the mark, wherever that text was rendered.
 function condTip(key){
@@ -8451,7 +8483,7 @@ function wireCondTips(root){
 let ENTM=null;
 function renderEntChoices(){
   const host=SPMODAL.querySelector(".entchbody"); if(!host||!ENTM)return;
-  const list=entChoicesOf(ENTM.it,ENTM.kind);
+  const list=entChoicesOf(ENTM.it,ENTM.kind,ENTM.sub);
   const blk=host.closest(".entblk");
   if(blk)blk.classList.toggle("hidden",!list.length);
   host.innerHTML="";
@@ -8460,9 +8492,10 @@ function renderEntChoices(){
   list.forEach(c=>host.append(choiceRow(c)));
   host.querySelectorAll(".pickfield").forEach(maskOverflow);
 }
-function openEntityModal(it,kind){
-  hideTip(); ENTM={it,kind};
-  SPMODAL.innerHTML=entModalHTML(it,kind);
+// `sub` merges a subclass into a class view (D150(a)); every other caller omits it
+function openEntityModal(it,kind,sub){
+  hideTip(); ENTM={it,kind,sub:sub||null};
+  SPMODAL.innerHTML=entModalHTML(it,kind,sub||null);
   SPMODAL.querySelectorAll(".bchip[data-book]").forEach(x=>attachTip(x,bookTip(x.dataset.book,x.dataset.page)));
   wireEntFolds(SPMODAL); wireCondTips(SPMODAL); renderEntChoices();
   SPMODAL.classList.remove("hidden");}
@@ -8479,7 +8512,10 @@ function attachEntity(elm,it,kind){
 // D147: a <select> can hold neither a chip nor a link, so the two facts its row cannot
 // state — which book the selection is from, and how to read what it gives — live on the
 // LABEL beside it. Same split the picker rows use, moved one element over.
-function fldDetail(lbl,it,kind){
+// `sub` merges a subclass into a class view; `nameAs` is the record the BUTTON is named
+// after, which on the subclass label is the subclass even though the modal leads with the
+// class (D150(a)).
+function fldDetail(lbl,it,kind,sub,nameAs){
   if(!it||!it.source)return lbl;
   lbl.classList.add("fldwd");
   // D148: no book chip here. Francesco, seeing it: a tag on the chip and on the label was
@@ -8487,10 +8523,11 @@ function fldDetail(lbl,it,kind){
   // and this button is the way to reach it.
   const b=el("button","fldinfo ico");
   b.type="button"; b.append(icoEl("book"));
-  b.setAttribute("aria-label",`${entName(it,kind)} — read what it gives`);
+  const named=nameAs||it, nkind=nameAs?"sub":kind;
+  b.setAttribute("aria-label",`${entName(named,nkind)} — read what it gives`);
   // attachTip makes the node's own click the tip unless one is already set (its own rule)
-  b.onclick=e=>{e.stopPropagation();hideTip();openEntityModal(it,kind);};
-  attachTip(b,entTipHTML(it,kind));
+  b.onclick=e=>{e.stopPropagation();hideTip();openEntityModal(it,kind,sub);};
+  attachTip(b,entTipHTML(named,nkind));
   lbl.append(b);
   return lbl;}
 // the one-feature modal the timeline's gains line opens: same box, the feature's own text
@@ -8598,7 +8635,11 @@ function renderClassRows(){
   state.classes.forEach((row,idx)=>{const c=CLS_BY[row.clsKey]||{name:"?"};
     const div=el("div","classrow");
     // class name is a select — change it to swap class (subclass resets, level stays)
-    const cl=el("div");cl.append(fldDetail(el("label","fld","Class"),c.source?c:null,"class"));   // D147
+    // D150(a): both of this row's detail buttons open the SAME merged modal — a subclass's
+    // features only mean anything inside the class's progression, and a separate subclass
+    // modal would undo the merge the moment you opened it.
+    const rowSub=subOfRow(row);
+    const cl=el("div");cl.append(fldDetail(el("label","fld","Class"),c.source?c:null,"class",rowSub));
     const cs=el("select");classOptions(row.clsKey).forEach(o=>cs.append(new Option(o.t,o.v)));cs.value=row.clsKey;
     if(c.source&&!visible(c))cs.classList.add("gapped");
     cs.onchange=()=>{if(cs.value===row.clsKey)return;row.clsKey=cs.value;row.subKey=null;delete state.chosen[row.id];dropRowSwaps(row.id);save();renderClassRows();render();};
@@ -8608,7 +8649,8 @@ function renderClassRows(){
     const sc=el("div");const sl=el("label","fld");
     sl.append(el("span","fldt","Subclass"));      // its own span so it can ellipsize
     if(locked)sl.append(lockChip(subLvl,"The subclass"));
-    fldDetail(sl,subOfRow(row),"sub");            // D147 — only once one is chosen
+    // named for the SUBCLASS but opening the merged view, so the two buttons agree
+    if(rowSub)fldDetail(sl,c.source?c:null,"class",rowSub,rowSub);
     sc.append(sl);
     const ss=el("select",needsSub?"alert":"");ss.dataset.sub=String(row.id);
     // the timeline's "Subclass — not chosen" affordance focuses THIS select (never a

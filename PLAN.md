@@ -141,13 +141,13 @@ Francesco's own reading** — see each D142 sub-entry's *Rejected:* clause befor
   GOTCHAS entry before touching a raw pick array — `.length` on one is almost always the
   wrong question now (`nFilled` counts what is answered, `firstOpen` finds what is owed).
 
-## 🔶 Awaiting a call — the class ⊕ subclass merge (D149(f))
+## Closed this session
 
-- [ ] **Which merge shape?** Three variants are mocked against the real stylesheet with real
-  digest content: `scratchpad/mockups/class-subclass.html` (gitignored — regenerate with
-  `python3 scratchpad/mkmerge.py`). **A · one spine, the subclass marked** (recommended) ·
-  **B · two bands** · **C · paired rail**. Their tradeoffs are in D149(f); the mockup page
-  states each one above its own variant. Nothing ships until Francesco picks. 🔶
+- [x] **The class ⊕ subclass merge** — 🔶 answered: **variant A**, plus "subclass expands
+  together with other features in expand all" (**D150**, v1.5.3). Three variants were mocked
+  against the real stylesheet at `scratchpad/mockups/class-subclass.html` (gitignored —
+  `python3 scratchpad/mkmerge.py` regenerates); B and C keep their *Rejected:* clauses in
+  D150(a) so neither is re-proposed.
 - [ ] **⚑ "The feature table should be collapsible and start out collapsed"** was read as the
   PROGRESSION table (D149(a)). If it meant the Features BLOCK, the default is one word to
   flip. ⚑ (owner: Francesco, 2026-09-01)

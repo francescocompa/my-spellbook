@@ -2338,6 +2338,19 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
    text around it on its own — the `vertical-align:-1px` that used to be here was the 1px
    it was measured out by. Measure, never nudge. */
 .spmodal .entsecb{padding-top:3px}
+/* D150(a): a subclass feature inside the shared spine — told apart by an accent rule and
+   its own tag, never by position. The rule sits on the section so a folded one still reads
+   as the subclass's; the tag rides in the header beside the name. */
+.spmodal .entsec.entsub{border-left:2px solid var(--accent);padding-left:9px;
+  border-top-color:transparent}
+.spmodal .entsec.entsub+.entsec.entsub{border-top-color:var(--line)}
+.spmodal .entsubtag{flex:0 0 auto;font-size:9px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.05em;color:var(--accent);background:var(--accent-soft);
+  border-radius:6px;padding:1px 5px;line-height:1.5}
+/* and the same mark in the progression table's Features column and the grants list */
+.spmodal .ctsub,.spmodal .egsp .ctsub{color:var(--accent)}
+/* the merged view carries two book tags — the second sits in the subtitle */
+.spmodal .mh .sub .bchip{margin-left:5px}
 /* the progression table: scrolls inside itself, never widens the page */
 .spmodal .cttwrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
 .spmodal .cttable{border-collapse:collapse;width:100%;font-size:11.5px;white-space:nowrap}

@@ -1894,6 +1894,39 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     folds (0,1,1,1 before and after). Escape closes the picker then the modal, and `ENTM`
     is cleared so a later `render()` cannot revive a modal that is gone.
 
+- **D150 (2026-09-01) DECIDED — a class and its subclass are ONE modal, on one level spine.**
+  Closes D149(f)'s 🔶. Francesco picked **variant A** off the mockup: *"go with A, but subclass
+  expands together with other features in expand all"*.
+  - **(a) One spine, the subclass MARKED — never moved.** The class modal holds both records'
+    features in a single level-ordered list, so *"what do I get at level 6"* is one place. A
+    subclass feature is told apart by an accent left rule and its own tag bearing the
+    subclass's name; the progression table's Features column and the "Spells it gives you"
+    rows carry the same mark, so the distinction reads identically in all three. The header
+    shows **two book tags** — an XPHB class can carry a TCE subclass, and D148(a)'s rule is
+    that the book is the tag, so two records means two tags. `subclassTableGroups` join the
+    progression table where a subclass has them (Rune Knight's runes). Choices and grants
+    both answer for the pair. *Rejected:* **B · two bands** (safest to read and best for
+    "what does the subclass add", but a per-level question means two places and the
+    "Features" header repeats); **C · paired rail** (the most explicit, and the only one that
+    shows a level where the subclass gives nothing — which is most of them — and it collapses
+    to one column under 720px, exactly where the distinction it is built on disappears).
+  - **(b) Expand all acts on BOTH scopes.** Francesco's amendment. It folded only the level
+    groups, so a feature the reader had folded by hand stayed folded through an "Expand all"
+    — which made the label a lie for exactly the features they had been looking at. It now
+    reaches every `.entsec.fold` inside the levels, the subclass's included, so the control
+    means what it says. Verified: two features hand-folded (one of them a subclass feature),
+    Collapse all → all zero, Expand all → all one.
+  - **(c) Both of a class row's detail buttons open the merged modal.** The Class ⓘ and the
+    Subclass ⓘ land on the same view; the subclass button keeps its own name and tip, because
+    that is what the reader clicked, but a separate subclass modal would undo the merge the
+    moment it opened. The standalone `kind:"sub"` modal stays intact for any caller that has
+    no class context.
+  - **Verified:** 0 contrast failures across **445 nodes** with every block forced open, in
+    both themes (min 4.82:1 dark / 4.87:1 light). The subclass tag measured symmetric to
+    0.00px on both axes. At 375 the merged modal has **0** horizontal page overflow and the
+    marks stay legible. The Evoker's five choices appear in the merged modal's own choices
+    block and commit through the app's one picker.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives
