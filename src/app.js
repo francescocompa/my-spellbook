@@ -10,6 +10,11 @@ const key=(n,s)=>n+"|"+s;
 // Every LOOKUP into FEAT_BY / OPT_BY goes through `baseKey`; the arrays hold the suffixed
 // form and stay unique, which is what keeps choice ids stable when a sibling is removed.
 const baseKey=k=>{const i=String(k).indexOf("##");return i<0?String(k):String(k).slice(0,i);};
+// A class or subclass menu names its book (D147) — except XPHB, the edition the app is FOR.
+// "Wizard (XPHB)" beside "Artificer (TCE)" says the second is unusual and the first is not,
+// which is the only thing the tag exists to say. Francesco: "remove XPHB from class dropdowns
+// everywhere".
+const srcTag=src=>src==="XPHB"?"":` (${src})`;
 const sameEnt=(a,b)=>baseKey(a)===baseKey(b);
 // the next free identity for one more copy — reuses a hole rather than climbing forever
 const nextCopy=(arr,k)=>{let n=1;while(arr.indexOf(n===1?k:k+"##"+n)>=0)n++;
@@ -1414,8 +1419,16 @@ function gchoiceSec(c){
     // an option group and the casting-ability question always HOLD a value (the default
     // stands until you say otherwise), so leaving one is an answer, not a hole
     optional:!isPick||!!c.optional,
-    need:isPick?c.count:1,have:isPick?a.length:(state.choices[c.id]!=null?1:0),
-    done:isPick?a.length>=c.count:state.choices[c.id]!=null,keys:isPick?a.slice():null,
+    need:isPick?c.count:1,
+    // D166(b): a defaulted option counts as ANSWERED here. The control really is showing
+    // "Wisdom", Next writes it (D130(g)'s lock), and the walk was marking it open — so the
+    // chain said something was still to decide while the card showed a decision already
+    // made (Francesco: *"an option is preselected but results not picked in the side rail"*).
+    // The Choices card's stricter count (D158(e)) is a different surface and is unchanged:
+    // this derivation is the guide's alone.
+    have:isPick?a.length:((state.choices[c.id]!=null||c.value!=null)?1:0),
+    done:isPick?a.length>=c.count:(state.choices[c.id]!=null||c.value!=null),
+    keys:isPick?a.slice():null,
     // a defaulted option reports what the CONTROL is showing, not a blank: the select
     // really does read "Wisdom", and Next is what stores it (D130(g))
     value:guideChoiceValue(c)||(!isPick&&c.value!=null
@@ -1849,6 +1862,7 @@ function renderGuide(){
   if(aside)return;
   renderGuideHead(steps);
   v.classList.toggle("gvchain",GUIDE.pane==="chain");
+  v.classList.toggle("railshut",!!GUIDE.railShut);   // D166(d): the rail, collapsed by hand
   renderGuideChain(steps,cur);
   renderGuideStage(steps,cur,new Map(state.classes.map(r=>[r.id,r])));
 }
@@ -1889,9 +1903,17 @@ function renderGuideHead(steps){
   const tg=$("#ghToggle"), chainOn=GUIDE.pane==="chain";
   tg.innerHTML="";
   const l=el("span","lbl-ico");
-  l.append(icoEl(chainOn?"compass":"order"),document.createTextNode(chainOn?"Decision":"Chain"));
+  const wide=window.innerWidth>820;
+  l.append(icoEl(chainOn&&!wide?"compass":"order"),
+    document.createTextNode(wide?(GUIDE.railShut?"Show chain":"Hide chain"):(chainOn?"Decision":"Chain")));
   tg.append(l);
-  tg.onclick=()=>{GUIDE.pane=chainOn?"stage":"chain";renderGuide();};
+  // D166(d): below the guide's one-pane breakpoint this switches WHICH pane you see; above
+  // it both are on screen, so it collapses the chain rail instead and gives the stage its
+  // width. One control, the meaning the width allows.
+  tg.onclick=()=>{
+    if(window.innerWidth<=820)GUIDE.pane=chainOn?"stage":"chain";
+    else GUIDE.railShut=!GUIDE.railShut;
+    renderGuide();};
   // the switch is not an exit and not a hide: the page SLIDES aside (D130(e)) and the
   // pinned bar over the character view says which step it is holding
   $("#ghSwap").onclick=()=>{GUIDE.aside=true;render();};
@@ -2158,7 +2180,7 @@ function renderGuideStage(steps,cur,rowOf){
     // out of it but the header's × — the same complaint the dead end-of-walk button drew
     const nav=el("div","gnav");
     const first=steps.find(x=>!x.optional&&x.status!=="done");
-    if(first){const b=el("button","btn","Go to the first open step");
+    if(first){const b=el("button","btn","Answer what is still open");
       b.onclick=()=>guideGo(first); nav.append(b);}
     const ex=el("button","btn"+(first?"":" on"),"Exit builder");
     ex.onclick=closeGuide; nav.append(ex);
@@ -2272,7 +2294,7 @@ function renderGuideStage(steps,cur,rowOf){
     const ex=el("button","btn","Exit builder"); ex.onclick=closeGuide; nav.append(ex);
   }
   const next=el("button","btn on",
-    term?(behind?"Go to the first open step":"Exit builder"):"Next →");
+    term?(behind?"Answer what is still open":"Exit builder"):"Next →");
   next.onclick=term
     ? (behind?()=>guideGo(behind):()=>closeGuide())
     : ()=>{
@@ -2363,7 +2385,7 @@ function guideSubSelect(rowId,rowOf){
   // D147: a menu option names its book unconditionally — unlike a closed select, a
   // dropdown row has the width for it, and here nothing else in the guide states it
   subs.forEach(sc=>{const k2=key(sc.name,sc.source);
-    const o=el("option",null,(sc.shortName||sc.name)+` (${sc.source})`+(k2===row.subKey?" ✓":""));
+    const o=el("option",null,(sc.shortName||sc.name)+srcTag(sc.source)+(k2===row.subKey?" ✓":""));
     o.value=k2;sel.append(o);});
   sel.onchange=()=>{const v=sel.value; sel.value="";
     if(!v||v===row.subKey)return; row.subKey=v;save();refreshAll();render();};
@@ -2572,7 +2594,7 @@ function guideSecBlock(step,sec,rowOf,inline){
       // value is its own TEXT, and re-selecting it would open a class row named after it
       const p=el("option",null,shown.size?"Another class":"Choose a class");
       p.value=""; sel.append(p);
-      rest.forEach(c=>{const o=el("option",null,c.name+` (${c.source})`);   // D147
+      rest.forEach(c=>{const o=el("option",null,c.name+srcTag(c.source));   // D147, amended
         o.value=key(c.name,c.source);sel.append(o);});
       sel.onchange=()=>{const ck=sel.value; sel.value=""; if(ck)guideTakeClass(ck);};
       b.append(sel);
@@ -2843,18 +2865,17 @@ function stagePickMount(st){
   const work=el("div","gwork");
   work.append(STAGE_PICK.box);
   work.append(stagePrev());
-  if(stagePrevOk())work.append(stagePrevToggle(work));
   st.append(work);
+  stagePrevSync();
 }
 // The pane holds the app's own detail surface and NOTHING else: with nothing selected there
 // is no pane to speak of, the picker takes the whole stage, and opening one animates the
 // picker down to make room (the CSS does that half). Its own breakpoint is wider than the
 // picker's — at 360px against a 1008px stage a detail reads, at 340 against 860 it does not.
 const STAGE_PREV_MIN=1100;
-let GPREV_SHUT=false;          // collapsed by hand, for this session
 const stagePrevOk=()=>window.innerWidth>=STAGE_PREV_MIN;
 function stagePrev(){
-  if(!STAGE_PREV)STAGE_PREV=el("div","gprev");
+  if(!STAGE_PREV){STAGE_PREV=el("div","gprev");STAGE_PREV.append(stagePrevClose());}
   if(stagePrevOk()){
     if(SPMODAL.parentElement!==STAGE_PREV){SPMODAL.classList.add("gprevbox");STAGE_PREV.append(SPMODAL);}
   } else if(SPMODAL.parentElement===STAGE_PREV){
@@ -2864,17 +2885,30 @@ function stagePrev(){
   }
   return STAGE_PREV;
 }
-// collapse / re-open, on the seam between the two columns so it is reachable either way
-function stagePrevToggle(work){
-  const b=el("button","gprevtog");
-  b.type="button";
-  const shut=GPREV_SHUT;
-  b.append(icoEl(shut?"chevleft":"chevright"));
-  b.title=shut?"Show the details":"Hide the details";
+// D166(d): it CLOSES the detail rather than collapsing it — the pane goes with it and the
+// picker takes the space back, so nothing is left sitting on the picker afterwards. Clicking
+// another name brings it back. The COLLAPSE he asked for went to the chain rail instead,
+// where there is a column worth collapsing.
+// the pane's open state, set where it CHANGES: both detail openers and the close button.
+// (`:has()` looked like the elegant answer and does not work here — see the CSS note.)
+function stagePrevSync(){
+  const w=$("#gStage .gwork"); if(!w)return;
+  const open=SPMODAL.parentElement===STAGE_PREV&&!SPMODAL.classList.contains("hidden")
+    &&stagePrevOk();
+  w.classList.toggle("prevopen",open);
+  // The TRACK carries the number, set here. Four stylesheet answers were tried and measured,
+  // and each left the pane 2px wide with every selector matching when asked: `0fr`→`minmax()`
+  // and `0px`→length both froze in transition, a `:has()` rule never re-ran on the ancestor
+  // when the descendant's class changed, and a width on the ITEM cannot grow an `auto` track
+  // that a sibling `1fr` has already claimed. The pane fades in (CSS); the width is exact.
+  w.style.gridTemplateColumns=open?"minmax(0,1fr) 420px":"minmax(0,1fr) 0px";
+}
+function stagePrevClose(){
+  const b=el("button","gprevtog"); b.type="button";
+  b.append(icoEl("x"));
+  b.title="Close the details";
   b.setAttribute("aria-label",b.title);
-  b.setAttribute("aria-expanded",String(!shut));
-  b.onclick=()=>{GPREV_SHUT=!GPREV_SHUT;render();};
-  work.classList.toggle("prevshut",GPREV_SHUT);
+  b.onclick=()=>{SPMODAL.classList.add("hidden");stagePrevSync();};
   return b;
 }
 // give the detail surface back to the page, hidden, exactly as it was
@@ -3027,6 +3061,12 @@ function renderGpick(){
   const land=g.mode==="take"?guideLandingSec(sec):sec;
   const cap=(land||sec).castMax;
   const h=el("div","gpsech");
+  // D166(c): a granted group is PREFILTERED — "a Druid cantrip", "a 1st-level Illusion" — and
+  // the list showed no sign of it, so a short list read as a short pool rather than a filtered
+  // one (his note). The funnel says the list you are looking at is already narrowed; the label
+  // beside it says by what.
+  if(sec.kind==="cpick"&&sec.choice&&sec.choice.filter)
+    h.append(Object.assign(icoEl("filter"),{className:"ico gpfilt"}));
   h.append(el("span","gpsecl",sec.label));
   h.append(el("span","gcnt"+(sec.done?" full":""),sec.have+" of "+sec.need));
   list.append(h);
@@ -8603,7 +8643,7 @@ function openSpellModal(sp){hideTip();SPMODAL.innerHTML=modalHTML(sp);
     const e=el("button","btn","Edit");e.onclick=()=>{SPMODAL.classList.add("hidden");openCustom(customFromSpell(sp),true);};
     const d=armConfirm(el("button","btn danger"),"Delete",()=>{deleteCustom(sp);SPMODAL.classList.add("hidden");});
     row.append(e,d);mb.append(row);}}
-  SPMODAL.classList.remove("hidden");}
+  SPMODAL.classList.remove("hidden"); stagePrevSync();}
 // the carousel: step through a spell's creature set in place, filtered by book
 function wireCreatureNav(sp){
   const wrap=SPMODAL.querySelector(".sblock"); if(!wrap)return;
@@ -8704,7 +8744,7 @@ function openCreatureModal(c){
   hideTip(); SPMODAL.innerHTML=creatureModalHTML(c);
   SPMODAL.querySelectorAll(".bchip[data-book]").forEach(x=>attachTip(x,bookTip(x.dataset.book,x.dataset.page)));
   wireCondTips(SPMODAL);   // D148
-  SPMODAL.classList.remove("hidden");}
+  SPMODAL.classList.remove("hidden"); stagePrevSync();}
 // the spell-name contract, for a creature: the NAME is the link, so the row around it keeps
 // doing its own job (here, toggling the mark) — same split `mkSpell` uses
 function attachCreature(elm,c){elm.classList.add("nmlink");
@@ -9044,7 +9084,7 @@ function openEntityModal(it,kind,sub){
   SPMODAL.innerHTML=entModalHTML(it,kind,sub||null);
   SPMODAL.querySelectorAll(".bchip[data-book]").forEach(x=>attachTip(x,bookTip(x.dataset.book,x.dataset.page)));
   wireEntFolds(SPMODAL); wireCondTips(SPMODAL); renderEntChoices();
-  SPMODAL.classList.remove("hidden");}
+  SPMODAL.classList.remove("hidden"); stagePrevSync();}
 // the spell-name contract again: the NAME is the link, the row/chip around it keeps its
 // own job (taking the pick, dropping it). `stopPropagation` is what enforces that split.
 function attachEntity(elm,it,kind){
@@ -9086,7 +9126,7 @@ function openFeatureModal(f,giver,kind){
     +`<div class="mb">${(f.desc||[]).length?descBlocks(f.desc):ENT_NOTEXT}</div></div>`;
   SPMODAL.querySelectorAll(".bchip[data-book]").forEach(x=>attachTip(x,bookTip(x.dataset.book,x.dataset.page)));
   wireCondTips(SPMODAL);
-  SPMODAL.classList.remove("hidden");}
+  SPMODAL.classList.remove("hidden"); stagePrevSync();}
 
 function attachSpell(elm,sp){elm.classList.add("nmlink");
   elm.addEventListener("mouseenter",e=>showTip(sp,e));elm.addEventListener("mousemove",posTip);

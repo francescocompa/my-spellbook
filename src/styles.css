@@ -2006,6 +2006,9 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
 .gh-toggle.hidden,.gh-swap.hidden{display:none}
 .gbody{flex:1;min-height:0;display:flex}
 /* the chain column: a lean timeline (rails, runs, dividers) that also reorders */
+/* D166(d): the chain rail collapses from the header, giving the stage its width back. Only
+   above the one-pane breakpoint, where there are two panes to choose between in the first place. */
+.gview.railshut .gchain{display:none}
 .gchain{flex:0 0 272px;min-width:0;overflow-y:auto;scrollbar-width:thin;
   padding:8px 10px 24px;background:var(--panel);border-right:1px solid var(--line)}
 .gchain .locard{margin-top:6px}
@@ -2108,12 +2111,18 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
    it holds the app's detail surface — while giving it no width at all, and the transition on
    `grid-template-columns` is the resize he asked to animate. Below 1100px the pane never
    opens: at 440px against a 1008px stage it was readable, at 340px against 860 it was not. */
+/* The pane's WIDTH is what animates, not the track list. `grid-template-columns` is animatable
+   on paper and is not here: measured live, the transition froze at its start value and the pane
+   stayed 0 wide however well the rule matched (`transition:none` resolved it instantly, twice,
+   with both `0fr` and `0px` as the closed end). So the second track is `auto` and the pane
+   itself grows — a width transition, which every engine does. */
 .gwork{order:2;flex:1;min-height:0;display:grid;gap:0;margin-top:12px;position:relative;
-  grid-template-columns:minmax(0,1fr) 0fr;transition:grid-template-columns .22s ease,gap .22s ease}
-@media (min-width:1100px){
-  .gwork:has(>.gprev>.spmodal:not(.hidden)):not(.prevshut){
-    grid-template-columns:minmax(0,1fr) minmax(360px,440px);gap:18px}
-}
+  grid-template-columns:minmax(0,1fr) auto;transition:gap .22s ease}
+/* `.prevopen` is set from JS, not by `:has()`. The selector MATCHES when queried, but the
+   engine does not re-run style on the ancestor when the descendant's `hidden` class changes,
+   so the rule never applied at the moment it mattered (measured three ways). A class the
+   opener sets is not clever, and it works. */
+.gwork.prevopen{gap:18px}
 @media (prefers-reduced-motion:reduce){.gwork{transition:none}}
 /* `overflow:hidden` here masked the filter popover, which hangs out of the bar (his note).
    The box does not clip at all now; the BODY is the scroller and carries the bottom radius. */
@@ -2129,19 +2138,28 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
 .box.gpin .mh{padding:12px 14px 8px}
 .box.gpin .mh-row h2,.box.gpin .mh .x,.box.gpin>.mf{display:none}
 .box.gpin .mh .sub{margin:0}
-.box.gpin #entList{max-height:none;overflow:visible}
+/* ONE scroller, and it is the body. Both lists carry their own `max-height` for the modal
+   (54vh and 48vh), which inside the stage nests a second scroller within `.mb`'s: the inner
+   one holds the tail of the list and nothing reaches it, so the last row simply is not there
+   (his note: True Strike unreachable but findable by search). */
+.box.gpin #entList,.box.gpin #gpList{max-height:none;overflow:visible}
 /* the preview pane: the app's OWN detail surface, moved into the stage. It keeps `.spmodal`,
    which is what keeps every rule that styles a detail matching — the mistake above, not
    repeated. Everything below only undoes its overlay-ness. */
 .gprev{min-height:0;min-width:0;display:flex;flex-direction:column;overflow:hidden;
-  border:1px solid var(--line);border-radius:14px;background:var(--panel)}
+  border:1px solid var(--line);border-radius:14px;background:var(--panel);
+  opacity:1;transition:opacity .18s ease}
+.gwork:not(.prevopen) .gprev{opacity:0}
+@media (prefers-reduced-motion:reduce){.gprev{transition:none}}
 /* collapsed: no width, and nothing of the border or padding left to show for it */
-.gwork:not(:has(>.gprev>.spmodal:not(.hidden))) .gprev,.gwork.prevshut .gprev{border:none}
+.gwork:not(.prevopen) .gprev{border:none}
 /* the collapse control sits ON the seam, so it is reachable in both states */
-.gprevtog{position:absolute;top:0;right:0;z-index:2;width:26px;height:26px;display:flex;
-  align-items:center;justify-content:center;border:1px solid var(--line);border-radius:8px;
-  background:var(--panel);color:var(--muted);cursor:pointer;padding:0}
-.gprevtog:hover{color:var(--accent);border-color:var(--accent)}
+/* it CLOSES the detail (his call), so it lives inside the pane and leaves nothing behind on
+   the picker when the pane goes. No border: it is an icon, not a button-shaped control. */
+.gprevtog{position:absolute;top:8px;right:10px;z-index:2;width:24px;height:24px;display:flex;
+  align-items:center;justify-content:center;border:none;border-radius:7px;
+  background:none;color:var(--muted);cursor:pointer;padding:0}
+.gprevtog:hover{color:var(--accent);background:var(--panel-2)}
 .gprevtog svg{width:13px;height:13px}
 .gprevtog:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .spmodal.gprevbox{position:static;inset:auto;display:block;min-height:0;flex:1;
@@ -2210,9 +2228,11 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
 .gcard .choicerow .cg{font-size:12.5px}
 .gcard .choicerow .pickbtn{font-size:13px;padding:8px 14px}
 .gnav{display:flex;gap:8px;margin-top:16px;max-width:640px}
+/* wider, not taller (his correction): the vertical padding is the base button's again and
+   only the horizontal grows, with Next widest of the three. */
 .gnav{gap:10px}
-.gnav .btn{font-size:14px;padding:10px 18px}
-.gnav .btn.on{font-size:15px;font-weight:600;padding:12px 26px}
+.gnav .btn{font-size:13px;padding:6px 26px}
+.gnav .btn.on{font-weight:600;padding:6px 44px}
 .gcard>.btn{align-self:flex-start}
 .grhint{font-size:11.5px;color:var(--muted);line-height:1.45}
 /* ── G3 · D126(f,h,i) ──────────────────────────────────────────────────────
@@ -2248,6 +2268,8 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
    (`.gcl`, `.goptlab`), with air above it. */
 .gpsech{display:flex;align-items:baseline;gap:10px;margin:18px 0 6px}
 .gpsech:first-child{margin-top:4px}
+.gpsech .gpfilt{color:var(--muted);display:inline-flex;align-items:center}
+.gpsech .gpfilt svg{width:11px;height:11px}
 .gpsech .gpsecl{font-family:var(--sans);font-size:10.5px;font-weight:600;
   text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
 .gphint{font-size:11.5px;line-height:1.45;color:var(--gold);margin-bottom:4px}

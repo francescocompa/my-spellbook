@@ -2589,6 +2589,48 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
   - **Enforced by:** `guidePickDrop`/`acqLevelOf`/`stagePrevOk`/`stagePrevToggle`; the `.gwork`,
     `.gprev*`, `.gpsech` and `.gnav` rules. **Affects:** D164, D115(d) (scoped, not changed).
 
+- **D166 (2026-09-02) DECIDED — seven of nine review notes, and what the other two are waiting
+  for.** Francesco's second review of the guide. Amends D165(c,f) and narrows D147.
+  - **(a) The last row of a picker was unreachable** (True Strike findable by search, not by
+    scrolling): `#gpList` keeps its own `max-height` for the modal, which inside the stage nests
+    a second scroller within the body's. The tail sat in the inner one and nothing reached it.
+    Both lists are neutralised inline now — the body is the only scroller. *(The same fix landed
+    for `#entList` in D164 and was not carried across; one list, one scroller, both of them.)*
+  - **(b) A preselected option counts as ANSWERED in the guide.** The casting-ability question
+    shows "Intelligence" and the chain called it open, so the rail asked for a decision the card
+    had already made. The Choices card's stricter count (D158(e)) is a different surface and is
+    unchanged. *Rejected:* dropping the preselection (the default is right far more often than
+    not, and Next already writes it).
+  - **(c) A prefiltered group wears a funnel.** A granted group ("a Druid cantrip") showed a
+    short list with nothing saying it was narrowed, which reads as a short pool.
+  - **(d) The detail pane CLOSES rather than collapses**, from an icon inside the pane with no
+    box around it, and nothing is left on the picker when it goes. The collapse he asked for
+    went to the chain rail instead, driven by the header control that already exists — below the
+    breakpoint it still switches panes, above it hides the rail and gives the stage its width.
+  - **(e) The walk's buttons: wider, not taller.** D165(f) grew both; the height was already right.
+  - **(f) XPHB is dropped from class and subclass menus** (narrowing D147): naming the edition
+    the app is FOR says nothing, while "Artificer (TCE)" beside it still says something.
+  - **(g) The end-of-walk primary reads "Answer what is still open"** — "Go to the first open
+    step" described the mechanism rather than the offer.
+  - **(h) Four CSS answers to one animation, all measured, all wrong** — worth writing down
+    because each looked right: `grid-template-columns` transitions froze at their start value
+    (both `0fr`→`minmax()` and `0px`→length); a `:has()` rule matched when queried but the engine
+    never re-ran style on the ancestor when the descendant's class changed; and a `width` on the
+    grid ITEM cannot grow an `auto` track a sibling `1fr` has already claimed. The track template
+    is set from JS and the pane fades. **`:has()` for a state that changes at runtime is not
+    reliable here** — set a class where the state changes.
+  - **Still open, both with his agreement:** the **class picker** (a class cannot be changed once
+    chosen — it needs the full-size picker the others have, not a bolt-on), and **highlighting
+    the next choice in a section plus a new Next state that walks the choices before the level**
+    — he asked for a mockup with options on that one, so it is a decision, not a task.
+  - **Verified live at 1280 and 375:** True Strike reachable with one scroller; the casting
+    ability reads answered in the chain with its value; the funnel shows on a granted group;
+    the pane opens 0 → 420 (picker 956 → 536) and closes back with no stray icon; the rail
+    collapses and returns from the header; buttons 34px tall and wider; no XPHB in the class or
+    subclass menus. Gate clean, engine 35 ok / 0 fail.
+  - **Enforced by:** `stagePrevSync`/`stagePrevClose`/`srcTag`/`gchoiceSec`; the `.gpsech`,
+    `.gnav`, `.gprev` and `.railshut` rules. **Affects:** D147, D158(e) (scoped), D165.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives
