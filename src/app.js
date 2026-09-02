@@ -2144,7 +2144,7 @@ function renderGuideStage(steps,cur,rowOf){
       b.onclick=()=>guideGo(first); nav.append(b);}
     const ex=el("button","btn"+(first?"":" on"),"Exit builder");
     ex.onclick=closeGuide; nav.append(ex);
-    st.append(nav); return;
+    st.append(nav); stagePickMount(st); return;
   }
   const rw=cur.row!=null?rowOf.get(cur.row):null, rc=rw&&CLS_BY[rw.clsKey];
   // answered AND sound is what earns the green: a step holding a pick that can't sit
@@ -2237,6 +2237,7 @@ function renderGuideStage(steps,cur,rowOf){
       ? "That is the end of the walk, and every decision this build carries is answered."
       : "That is the end of the walk. This step is the last one still open, and its answer is on the card above."));
   }
+  stagePickMount(st);
 }
 // What Next would LOCK before it advances — Francesco, raw: *"If I click 'next' after a
 // preselected option, it should lock that option as chosen. Only skipping it ignores it"*.
@@ -2645,6 +2646,52 @@ function openGpickSec(step,sec){
   }
   openGpick({mode:place?"place":"take",stepKey:step.key,secId:sec.id});
 }
+// ── the step's picker lives IN the stage (D161, narrowing D126(f)) ────────
+// D126(f) made the guide's picker a modal, and at 1280 that means a 760px dialog over 852px
+// of empty stage: a full-size page hiding itself to ask its own question (B1-05 measured the
+// stage 11–27% filled). Above the guide's own one-pane breakpoint the picker's BOX moves into
+// the stage instead — the SAME node, the same render functions, the same markup, so nothing
+// about either picker is duplicated and no second surface can drift from the first. Below the
+// breakpoint the modal stays exactly as it was: one narrow column is what a sheet is for.
+//
+// The stage is rebuilt from scratch on every render, so the box is held BY REFERENCE here and
+// re-appended after each rebuild. It is moved, never re-created — which is also why the modal
+// wrapper is left hidden rather than shown: inline, this is not a dialog, so it takes no role,
+// no aria-modal, no focus trap and no backdrop (v1.5.13's observer only sees shown `.modal`s).
+const STAGE_PICK_MIN=821;   // the guide's own one-pane breakpoint is 820
+let STAGE_PICK=null;        // {id, box} while a picker is hosted in the stage
+const stagePickable=()=>GUIDE.on&&!GUIDE.aside&&window.innerWidth>=STAGE_PICK_MIN;
+// true when the caller may skip showing its modal — the stage has taken the box
+function stagePickTake(id){
+  if(!stagePickable())return false;
+  const box=STAGE_PICK&&STAGE_PICK.id===id?STAGE_PICK.box:($("#"+id)||{}).firstElementChild;
+  const use=box&&box.classList.contains("box")?box:($("#"+id)||{querySelector:()=>null}).querySelector(".box");
+  if(!use)return false;
+  if(STAGE_PICK&&STAGE_PICK.id!==id)stagePickPut();   // one picker at a time
+  STAGE_PICK={id,box:use};
+  use.classList.add("gpin");
+  return true;
+}
+function stagePickPut(){
+  if(!STAGE_PICK)return;
+  const {id,box}=STAGE_PICK; STAGE_PICK=null;
+  box.classList.remove("gpin");
+  const modal=$("#"+id); if(modal)modal.append(box);
+}
+// hand an open picker BACK to its modal, still open — what a window narrowed under the
+// breakpoint has to do, since the alternative is a stage column too narrow to pick in
+function stagePickDemote(){
+  if(!STAGE_PICK)return;
+  const id=STAGE_PICK.id; stagePickPut();
+  const m=$("#"+id); if(m)m.classList.remove("hidden");
+}
+// called at the end of every stage render: the rebuild detached the box, put it back
+function stagePickMount(st){
+  if(STAGE_PICK&&!stagePickable())stagePickDemote();   // narrowed under the breakpoint mid-pick
+  // the stage element itself survives the rebuild, so this class has to be cleared too
+  st.classList.toggle("haspick",!!STAGE_PICK);
+  if(STAGE_PICK)st.append(STAGE_PICK.box);
+}
 function openGpick(spec){
   // every opener starts unfolded: this modal serves a different question each time, and a
   // level folded shut in the last one would hide spells with nothing on screen saying why
@@ -2653,11 +2700,15 @@ function openGpick(spec){
   gpickHelpShut();
   GPICK=spec;
   const s=$("#gpSearch"); if(s)s.value="";
-  $("#gpickModal").classList.remove("hidden");
+  // D161: in the stage where there is room, a modal where there is not
+  if(stagePickTake("gpickModal"))render();
+  else $("#gpickModal").classList.remove("hidden");
   renderGpick();
 }
 function closeGpick(){ if(!GPICK)return; GPICK=null;
-  const m=$("#gpickModal"); if(m)m.classList.add("hidden"); }
+  const hosted=!!STAGE_PICK; stagePickPut();
+  const m=$("#gpickModal"); if(m)m.classList.add("hidden");
+  if(hosted)render(); }
 // Re-derive the step and its sections EVERY render — not once at open. Dropping a pick
 // from inside the modal moves the row's first open slot under your feet (that is what a
 // drop is for), and a header still describing the slot it opened on would be exactly the
@@ -3688,7 +3739,18 @@ function openEntityPicker(kind,category){
     : category==="origin"?"Choose an origin feat" : category==="epic"?"Choose an epic boon" : "Choose a general feat";
   $("#entSearch").value=""; $("#entGrants").checked=false; $("#entHideNo").checked=false;
   $("#entMenuPop").classList.add("hidden");
-  $("#entityModal").classList.remove("hidden"); renderEntityList();
+  // D161: the same relocation the spell picker takes — this is the picker a guide step opens
+  // most often (species, origin feat, invocations), and the one B1-05 was measured on.
+  if(stagePickTake("entityModal"))render();
+  else $("#entityModal").classList.remove("hidden");
+  renderEntityList();
+}
+// the entity picker has no close function of its own — it is hidden from three places, and
+// all three have to release the stage's copy first
+function closeEntityPicker(){
+  const hosted=!!STAGE_PICK; stagePickPut();
+  const m=$("#entityModal"); if(m)m.classList.add("hidden");
+  if(hosted)render();
 }
 // the books present in the picker's own content — the override list never offers a book
 // that has nothing of this kind in it.
@@ -9524,8 +9586,12 @@ $("#speciesBtn").onclick=()=>openEntityPicker("species");
 $("#originBtn").onclick=()=>openEntityPicker("feat","origin");
 $("#generalBtn").onclick=()=>openEntityPicker("feat","general");
 $("#epicBtn").onclick=()=>openEntityPicker("feat","epic");
-$("#entClose").onclick=()=>$("#entityModal").classList.add("hidden");
-$("#entityModal").onclick=e=>{if(e.target.id==="entityModal")$("#entityModal").classList.add("hidden");};
+// D161: narrowing the window while the picker is hosted hands it back to its modal rather
+// than leaving it in a column it no longer fits. Widening does NOT promote a modal already
+// open — moving a surface out from under the reader's cursor is worse than leaving it.
+addEventListener("resize",()=>{ if(STAGE_PICK&&!stagePickable()){stagePickDemote();render();} });
+$("#entClose").onclick=closeEntityPicker;
+$("#entityModal").onclick=e=>{if(e.target.id==="entityModal")closeEntityPicker();};
 $("#entSearch").oninput=e=>{if(ENT){ENT.q=e.target.value;renderEntityList();}};
 $("#fBooksBtn").onclick=()=>{const p=$("#fBooksPanel");const nowHidden=p.classList.toggle("hidden");
   $("#fBooksBtn").setAttribute("aria-expanded",String(!nowHidden));};

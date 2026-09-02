@@ -206,7 +206,14 @@ D157 owns the charter, the agents, the rejected shapes — cite it. Reports land
     a bundled book re-imported reads "nothing new here · Re-read 1 book", applies, and its
     record sits beside the bundle's; removing it leaves the bundle's copy, 392 spells and a
     `built-in` chip; 936 → 937 spells on a brew; gate clean, engine 35 ok / 0 fail.
-  - [ ] **L5.4 · Guide-stage mockup round** (D158(f)), then the chosen variant. 🔶
+  - [x] **L5.4 · Guide-stage mockup round** (D158(f)), then the chosen variant — shipped
+    **v1.5.20**, **D161**. Six mockups from `scratchpad/mkguide.py`; the first round's side
+    panels were rejected as redundant with the chain rail (his call, and right), so the answer
+    became the step's own WORK: the picker's box moves into the stage above the guide's
+    breakpoint and stays a modal below it. Fill **12% → 68%**. `column-width` was tried and
+    measured wrong (a 486px lineage group pushed the list off the right edge, `scrollWidth`
+    6880 in a 964 box); it ships as a grid with groups spanning. Mobile mockup `guide6.html`
+    kept for L5.6.
   - [ ] **L5.5 · Copy the build as a level plan** to the clipboard, in the Character Ideas shape
     (A-03; `levelGains`/`levelCasting`/`timelinePicks` already derive it). Size S, format his. 🔶
   - [ ] **L5.6 · PWA install check + a mobile pass on the Pages build** (D158(r); A-08). His

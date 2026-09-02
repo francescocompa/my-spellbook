@@ -2412,6 +2412,49 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
   - **Enforced by:** `assembleData`, `planFromStage`, `trayBooks`, `engine.test.js` 9d/9e.
     **Affects:** `src/app.js`, PLAN.md (L5.3), CLAUDE.md's content line.
 
+- **D161 (2026-09-02) DECIDED — the guide step's picker lives IN the stage above the
+  breakpoint, and stays a modal below it.** AskUserQuestion, three rounds over mockups against
+  the real stylesheet (`scratchpad/mkguide.py` → `scratchpad/mockups/guide{1..6}.html`), closing
+  B1-05 and D158(f). **Narrows D126(f)**, which made the guide's picker a modal: at 1280 that
+  meant a 760 × 645 dialog over 852px of empty stage — a full-size page hiding itself to ask
+  its own question. Measured fill before: **12%** on the Species step, 11–27% across a walk.
+  - **(a) Rounds 1 and 2 were REJECTED by Francesco, and the reason is the useful part.** Two
+    of the three first variants filled the stage with a side panel ("this level holds", "level
+    2 brings", "casting now"). His note: *"The current proposed side elements has redundant
+    content and wouldn't make sense"* — correct, and precisely: the chain rail three inches to
+    the left already lists every step of the level with its value. **A summary of what is
+    already on screen is not content.** *Rejected with it:* the card owning the stage (a
+    one-section step then leaves a large bordered empty box, which reads worse than open
+    space); centring the card and adding nothing (kept as the fallback if the rework had been
+    refused).
+  - **(b) What is not on screen anywhere is the step's own WORK.** So the picker's box moves
+    into the stage. The same node, the same render functions, the same markup — it is
+    relocated, never re-created, so no second surface can drift from the first.
+  - **(c) The list uses the width it gains** (his call over the same picker merely unwrapped at
+    its old 760): a responsive grid, ~30 species on screen instead of 8. Groups span every
+    column — `column-width` was tried first and **measured wrong**: an expanded lineage group
+    is 486px against a 30px row, which pushed the flow into columns off the right edge
+    (`scrollWidth` 6880 in a 964 box, most of the list unreachable).
+  - **(d) A pick leaves the list OPEN with the row marked** (his call), which is what both
+    pickers already did — completion is said by the chain rail and the step counter, and the
+    multi-pick steps (cantrips, spellbook) need the list to stay put.
+  - **(e) Below the guide's own one-pane breakpoint (820) the picker is a modal, unchanged**,
+    with its dialog role, `aria-modal` and focus trap (v1.5.13) intact — inline it is not a
+    dialog and takes none of them. Francesco: *"Mobile would probably keep the modal though"*,
+    then asked for a mobile variant to be tried anyway; the mockup (`guide6.html`) is kept for
+    the L5.6 mobile pass. **Narrowing the window mid-pick hands the picker back to its modal**
+    rather than leaving it in a column it no longer fits; widening does not promote an open
+    modal, because moving a surface out from under the cursor is worse than leaving it.
+  - **Verified live at 1280 and 375, both themes:** stage fill **12% → 68%** (species) and
+    **55.6%** (spellbook, whose step card is taller); 0 horizontal overflow after the grid fix;
+    one scroller, not two (the list's own `max-height:54vh` is dropped inline); picking
+    Dragonborn from the stage set `state.speciesKey`, marked the row, left the list open and
+    updated card and chain; every row's text at a uniform 11px inset; at 375 the picker opens
+    as a modal with `role="dialog"` and `aria-modal="true"`; narrowing to 700 mid-pick demoted
+    it to its modal with the pick still open. Gate clean, engine 35 ok / 0 fail.
+  - **Enforced by:** `stagePickTake`/`stagePickMount`/`stagePickDemote` in `src/app.js`, the
+    `.gstage.haspick` / `.box.gpin` rules in `styles.css`. **Affects:** PLAN.md (L5.4), D126(f).
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives
