@@ -20,7 +20,7 @@ same thing, one of them is wrong:
 | `CLAUDE.md` (this) | What the project is, conventions, build/run, the verify gate, versioning |
 | `STATE.md` | Where things stand right now, and what is blocked on Francesco |
 | `PLAN.md` | The queue — what is next, what is gated |
-| `DECISIONS.md` | Every decision D7–D157 and the options rejected with them |
+| `DECISIONS.md` | Every decision D7–D158 and the options rejected with them |
 | `GOTCHAS.md` | Traps that have already cost a session. **Read before touching the extractors, the importer, grants resolution or any DOM handler.** |
 | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 | `ARCHIVE.md` | Bodies of consumed phases and old rationale — stubs in the live docs point here |
@@ -79,8 +79,9 @@ for two sessions — never re-implement one there.
 `data.js`, `dist/` and `docs/`; `app.js` renders it as a tag at the head of the footer, so any
 page — including a printed sheet — names the code that made it.
 
-- **Every commit bumps it**: `python3 bump.py` (patch, 1.2.1 → 1.2.2), which also rebuilds.
-  A version nothing was built with lies in the footer.
+- **Every commit that changes what is built bumps it** (D158(i)): `python3 bump.py` (patch,
+  1.2.1 → 1.2.2), which also rebuilds. Docs, audits and scratchpad commits carry no bump. A
+  version nothing was built with lies in the footer.
 - **MAJOR.MINOR.PATCH (D117, amended by D140)** — patch for day-to-day fixes and small
   batches (the once-per-commit default); `--minor` for larger batches that ship features;
   `--major` for overhauls and massive reworks only.

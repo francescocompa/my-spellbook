@@ -1373,7 +1373,7 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
   (`tableRows` merge, `cellFor` mark/casts/build), src/styles.css (badge gap, print
   separator).
 
-- **D137 (2026-08-31) DECIDED — the app says when its data is older than its parser**
+- **D137 (2026-08-31) DECIDED — the app says when its data is older than its parser** *(amended by D158(d): the first import merges onto the bundle.)*
   (Francesco, on the D135/D136 builds: *"the version is updated (and loaded in browser), but
   I still see at will for hex and lessons of the first ones doesn't grant extra feat
   slot"*). Not a regression — reproduced exactly by handing a v1.2.41-stamped digest to the
@@ -2272,6 +2272,75 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
   - **Enforced by:** the audit briefs (each agent is told its wave, its files, its bar) and
     the wave-2 verifiers; prose only for the rest. **Affects:** PLAN.md (Phase L opened, K
     marked paused), STATE.md, CLAUDE.md's decision range.
+
+- **D158 (2026-09-02) DECIDED — the audit's triage: every confirmed finding has a disposition,
+  and Phase L is the build list.** AskUserQuestion, 5 rounds over `audits/synthesis.md` (the
+  verified record of D157's waves 1 and 2). Raw notes kept verbatim. Also: *"for the next
+  waves, try to reduce the overall token cost"* — wave 3 runs on two Sonnet fix agents and one
+  strong-model copy agent, with no separate verification wave; the gate, a merged-tree smoke
+  and the string table are the check.
+  - **(a) Horizon: close the loop with his table.** K3/K4 and the pooling fix first, then the
+    plan leaves the app (copy as a level plan, compare two versions), then the minimal
+    ability-score model. Raw note on where a character lives: *"Notion could be a useful
+    destination, character-forge isn't in a good dev spot yet but ideally the ecosystem should
+    be connected."* So A-03 (level plan as text, in the Character Ideas shape) rises; A-09 (the
+    character-forge handoff) stays queued behind it. *Rejected:* content first; consolidation.
+  - **(b) Pooling: all three half-casters round up per class** (Artificer, Paladin, Ranger),
+    per XPHB's multiclass table. Paladin 1 / Sorcerer 4 pools to 5; the fixture asserts 5.
+    *Rejected:* Artificer only; leave floored.
+  - **(c) Ability scores + proficiency bonus: a decision entry first, the build later.** The
+    entry fixes the boundary (six scores and PB, nothing else) so the orphaned ASI note, the
+    unverifiable prerequisites and custom-source DCs have a home. Sized L (V-A §4). *Rejected:*
+    keep closed; build next.
+  - **(d) First import merges onto the bundle.** The baked data is the base the first import
+    merges into, as every later import merges into the stored digest (D86); nothing is ever
+    lost. Amends **D137**'s `IMPORTED||BAKED` and the staging base. Size M. *Rejected:* keep
+    the replace and say it plainly; leave it.
+  - **(e) "Pending" in the Choices card counts everything unanswered** — picks, unchosen
+    subclasses, either/or choices left on their default — so the card agrees with the level
+    chip, the class rows and the timeline (B1-07/08; app.js:1325–1331). *Rejected:* defaults
+    count as answers; picks only.
+  - **(f) The guide stage gets one mockup round** (two or three variants against the real
+    stylesheet) before anything ships (B1-05, under D126/D131(c)). *Rejected:* leave; widen
+    without a mockup.
+  - **(g) Geometry: a FULL retrofit** onto type, spacing, radius, shadow and z-index scales,
+    measured before and after (B2-05, size L). His call over the recommended migrate-as-touched.
+    Runs as its own Phase L item, never inside a fix batch. *Rejected:* define-and-migrate;
+    leave hand-built.
+  - **(h) The refresh dead end folds into K3**, which resumes as the first build item (C2-02).
+    No interim patch; the notice is dismissed per version until then. *Rejected:* patch now;
+    hide the notice.
+  - **(i) Versioning rule amended (D117, D140 unchanged): a commit that changes what is built
+    bumps.** Docs, audits and scratchpad commits carry no version. *Rejected:* every commit bumps.
+  - **(j) A headless engine test joins the gate as line five**, with an export shim and a boot
+    guard inside app.js (a stated step past D157(e)); the pooling correction is fixture one.
+    *Rejected:* after K3; no harness.
+  - **(k) Gate and lint:** `deadfns` and the id cross-check gate; `deadcss` only with a
+    dynamic-class allowlist (nine "dead" tokens were live by concatenation, V-C); the six
+    source assertions fold into `cparity.js`; `cparity-formrefs.js` does not gate; eslint gates
+    with `eqeqeq: ["always",{null:"ignore"}]` and unused `catch` params ignored; `package.json`
+    stays. *Rejected:* lint as an optional script; everything strict.
+  - **(l) Placeholders: drop the ellipses, keep the verbs** ("Add a class", "Filter books",
+    "All schools", "Any save"), applied by the copy rewrite in one pass. Closes the 2026-08-30
+    ⚑. *Rejected:* keep; ellipsis only where a dialog opens.
+  - **(m) Small flags, all four FIXED in wave 3:** D125's clamp on a trade (carry the clicked
+    section through `guideGo`); the `· optional` CSS twin aligned with the card's "Optional";
+    `.tlswapc` restyled to a plate like `.tlalert` (D152); `sbFav` made edition-tolerant.
+  - **(n) Items before rewards:** magic items as "prefill a custom source from an item" first
+    (DC typed by hand; the variant cross-product ported into both extractors), rewards after.
+    His call over the recommended rewards-first. *Rejected:* rewards first; park both.
+  - **(o) The model queue stays live, all four:** SHADOWED source-aware; `subclassFeature`
+    `_copy` records; long-rest swap detection; High Elf swap and Human origin categories.
+    Polymorph / Shapechange creature sets are archived as out of scope (A-19 to A-24 noise).
+  - **(p) The feature-table flag closes as read** (progression table, D149(a)). **(q) Doc diet:**
+    DECISIONS.md becomes an index with bodies archived at the next `/clean`.
+  - **(r) Usage, from him:** he uses every surface (Character card and pick modals, guided
+    builder, timeline and slices, spell table and the printed sheet); he opens the Pages build
+    on a phone at the table; NOT ticked: the 44-book library with the nag, authored custom
+    content, comparing versions by hand. So A-08 (PWA install check) and a mobile pass rise;
+    A-05 (compare) drops below A-03; the Pages first-run gets one line of copy in the rewrite.
+  - **Enforced by:** PLAN.md Phase L task lines; the gate additions in (j)/(k) once landed; the
+    rest prose. **Affects:** PLAN.md, CLAUDE.md (versioning clause, gate), STATE.md.
 
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for

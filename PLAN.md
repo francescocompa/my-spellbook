@@ -3,8 +3,8 @@
 > What is queued, and what is blocked on a decision. `STATE.md` says where things stand;
 > this says what comes next. Closed items → `ARCHIVE.md#closed-backlog`.
 >
-> **Phase K is PAUSED (D157)** — K1 shipped in v1.5.7 and K2 in v1.5.8; K3–K4 resume once
-> **phase L (the three-pillar audit, D157) is triaged.** Phases E–J are done. Below that is the standing backlog: open ⚑ flags
+> **Phase L (the audit, D157) is TRIAGED — D158 holds every disposition.** Wave 3 (L4) is the
+> fix + copy batch; the build list (L5) starts with K3/K4. Phases E–J are done. Below that is the standing backlog: open ⚑ flags
 > (calls only Francesco can make) and the Queue, whose one 🔶 (magic items / rewards) is
 > researched and awaits his call.
 
@@ -100,7 +100,7 @@ obsoletes.
   *Done when:* the six old verbs are gone, `rg` finds no dead handlers, and the D42
   nothing-prunes contract still holds on a book removal (picks flagged, never deleted).
 
-## Phase L — the three-pillar audit (D157, decided 2026-09-01) — ⏳ WAVE 1 NEXT
+## Phase L — the three-pillar audit (D157, decided 2026-09-01) — ⏳ TRIAGED (D158); L4 wave 3 in flight
 
 D157 owns the charter, the agents, the rejected shapes — cite it. Reports land in `audits/`
 (one per pillar + `synthesis.md`), a point-in-time artifact `/clean` archives once consumed.
@@ -117,59 +117,92 @@ D157 owns the charter, the agents, the rejected shapes — cite it. Reports land
 - [ ] **L2 · Wave 2, verifiers** `opus@high`, one per pillar, blind to the auditor's
   reasoning: reproduce or strike, then rank. *Done when:* each report carries a verdict per
   finding and a struck list.
-- [ ] **L3 · Synthesis + triage interview** — one ranked `audits/synthesis.md`, then one
-  AskUserQuestion round per pillar (keep / change / park / kill). *Done when:* every confirmed
-  item has a disposition, logged as decisions, and the Phase L build list below is authored.
-- [ ] **L4 · Wave 3, act** — the copy rewrite to the brief with its before/after string table
-  (D157(d), verified internally before it lands) and the trivial-fix batch, worktrees,
-  sequential squash-merge, gate each time, patch bumps. *Done when:* merged, smoke-tested on
-  the merged tree, table reviewed, vetoes reverted by name.
-- [ ] **L5 · The build list** — authored at L3 from the dispositions; K3/K4 re-queued
-  alongside it.
+- [x] **L3 · Synthesis + triage interview** — done 2026-09-02: `audits/synthesis.md`, then five
+  AskUserQuestion rounds → **D158** (every disposition, cite it).
+- [ ] **L4 · Wave 3, act** (D157(f), token-lean per D158): two Sonnet fix agents in worktrees
+  (engine/importer · UI/a11y/CSS), then the copy rewrite on the merged tree with its before/after
+  string table (D157(d), D158(l)), sequential squash-merge, gate each time, patch bumps.
+  *Done when:* merged, smoke-tested on the merged tree, the table reviewed, vetoes reverted by
+  name. Contents: the synthesis's "ships without a decision" list + D158(m)'s four flags +
+  D158(e) pending count + D158(k) gate and lint.
+- [ ] **L5 · The build list** (D158(a) order; K3/K4 re-queued at the top):
+  - [ ] **L5.1 · K3** raw-stash + automatic re-parse (absorbs the C2-02 dead end, D158(h)), then **K4**.
+  - [ ] **L5.2 · Engine test scaffold** as gate line five (D158(j)): boot guard + export shim in
+    app.js, `scratchpad/engine.test.js`, ten fixtures; **fixture one = pooling rounds up per
+    class** (D158(b), Artificer 5 / Wizard 5 → 8, Paladin 1 / Sorcerer 4 → 5). Size M/L.
+  - [ ] **L5.3 · First import merges onto the bundle** (D158(d), amends D137). Size M.
+  - [ ] **L5.4 · Guide-stage mockup round** (D158(f)), then the chosen variant. 🔶
+  - [ ] **L5.5 · Copy the build as a level plan** to the clipboard, in the Character Ideas shape
+    (A-03; `levelGains`/`levelCasting`/`timelinePicks` already derive it). Size S, format his. 🔶
+  - [ ] **L5.6 · PWA install check + a mobile pass on the Pages build** (D158(r); A-08). His
+    action first, then measured fixes.
+  - [ ] **L5.7 · Geometry full retrofit** (D158(g)), measured before/after, own release. Size L.
+  - [ ] **L5.8 · Ability scores + PB: the decision entry** (D158(c)); the build queued behind it.
+  - [ ] **L5.9 · Magic items as custom-source prefill**, then rewards (D158(n)). Size M/L + M.
+  - [ ] **L5.10 · Compare two versions** (A-05). Size M/L.
+  - [ ] **L5.11 · Doc diet**: DECISIONS.md to an index at the next `/clean` (D158(q)).
+  - Also live, unscheduled (D158(o)): SHADOWED source-aware · `subclassFeature` `_copy` · long-rest
+    swap detection · High Elf / Human origin · A-09 character-forge handoff · A-13 concept line ·
+    A-14 homebrew recipe · A-15 mirror script.
 
 ## Open ⚑ — calls for Francesco
 
-- [ ] **D125's clamp now covers the trade.** With the swap inside a step that also holds
+- [x] **D125's clamp now covers the trade.** With the swap inside a step that also holds
   picks, a trade at L4 is clamped to L1 while the L1 picks are unfilled — it could not be
   when the trade was its own pick-free step. Only bites on a part-built character. Fix if it
   matters in use: carry the clicked section through `guideGo` and skip the clamp for a swap.
   ⚑ (owner: Francesco, 2026-08-31)
-- [ ] **⚑ "The feature table should be collapsible and start out collapsed"** was read as the
+  → **D158(m): FIX in wave 3.**
+
+- [x] **⚑ "The feature table should be collapsible and start out collapsed"** was read as the
   PROGRESSION table (D149(a)). If it meant the Features BLOCK, the default is one word to
   flip. ⚑ (owner: Francesco, 2026-09-01)
-- [ ] **The `…`-placeholder family needs one call** (H6, left as scoped): "+ add a class…",
+  → **D158(p): closed as read.**
+
+- [x] **The `…`-placeholder family needs one call** (H6, left as scoped): "+ add a class…",
   "cantrip leaving…", "its replacement…", "filter books…", "note — e.g. …" — plus the
   same-shaped "no filter" options the audit had missed, `all schools` / `all classes`
   (index.html:139-140), `"any save"` / `"any damage"` (app.js:6383-6384) and `#fChosen`'s
   `picked` (index.html:135). They are internally consistent; one call settles all of them.
   ⚑ (owner: Francesco, 2026-08-30)
-- [ ] **`.gcstep.optional .gcl::after{content:" · optional"}`** (styles.css:1822) is the
+  → **D158(l): drop the ellipses, keep the verbs; the copy rewrite applies it.**
+
+- [x] **`.gcstep.optional .gcl::after{content:" · optional"}`** (styles.css:1822) is the
   CSS-authored twin of the `"Optional"` capitalised at app.js:2042. Different surface
   (chain rail, appended mid-line after a middot) and H6's audit said no CSS work — but if
   the two should match, that is the line. ⚑ (owner: Francesco, 2026-08-30)
-- [ ] **`favKey` is per PRINTING, so a mark is stored under one edition** (I4): a mark lives
+  → **D158(m): align with the card, wave 3.**
+
+- [x] **`favKey` is per PRINTING, so a mark is stored under one edition** (I4): a mark lives
   under `Find Familiar|XPHB`; if `grantRec` later resolves the other printing (reprint
   filter `all`, or a book toggled) the mark is not seen. Deterministic under the default
   filter — every surface goes through `grantRec` — but making `sbFav` edition-tolerant is a
   storage-shape change. ⚑ (owner: Francesco, 2026-08-30)
-- [ ] **The guide's ability-score note has no home** (v1.4.5): removing the `?` before
+  → **D158(m): make `sbFav` edition-tolerant, wave 3.**
+
+- [x] **The guide's ability-score note has no home** (v1.4.5): removing the `?` before
   "Character view" (D141(b)) deleted its disclosure, and *"Ability scores aren't tracked, so
   ASI = skip the step"* is the one line in it with no remaining surface. Re-home it (the ASI
   step card is the natural place) or drop it. ⚑ (owner: Francesco, 2026-08-31)
-- [ ] **`.tlswapc` and `.tlalert` now differ in KIND** (D152): the trade state is still a
+  → **D158(c): re-homed by the ability-score decision entry (L5.8).**
+
+- [x] **`.tlswapc` and `.tlalert` now differ in KIND** (D152): the trade state is still a
   translucent TINT, the alert state is an opaque plate. `.tlswapc` passes AA on its own, so
   aligning it would be a restyle rather than a fix — flagged only in case the mismatch reads
   wrong in use. ⚑ (owner: Francesco, 2026-09-01)
 
 ## Queue — open work
+  → **D158(m): restyle the trade tile to a plate, wave 3.**
 
-- [ ] **2024 pooling rounds half-casters up per class, and the app floors them** (found
+- [x] **2024 pooling rounds half-casters up per class, and the app floors them** (found
   during the v1.4.3 fix, out of its scope): `compute()`/`planSlots()` lump `artificer` and
   `"1/2"` into one bucket and take `⌊half/2⌋`, but TCE Artificer and XPHB Paladin/Ranger
   round up PER CLASS when multiclassing — Artificer 5 / Wizard 5 should pool to caster
   level 8, the app says 7. Touches the pooled slot table only. ⚑ (owner: Francesco,
   2026-08-31)
-- [ ] **Magic-item / reward ingestion** — 🔶 **RESEARCHED 2026-08-27, awaiting the call.**
+  → **D158(b): all three round up per class; fixture one of L5.2.**
+
+- [x] **Magic-item / reward ingestion** — 🔶 **RESEARCHED 2026-08-27, awaiting the call.**
   The old note said "items carry no structured uses"; that is **wrong** and the audit
   corrected it.
   - **Items.** `charges` (282), `recharge` (286, closed enum), `rechargeAmount` (254) and
@@ -193,6 +226,8 @@ D157 owns the charter, the agents, the rejected shapes — cite it. Reports land
   - **Suggested order** (not decided): rewards first as a small self-contained addition,
     then items as *"prefill a custom source from an item"* rather than a first-class entity,
     since the DC needs hand-entry regardless. ⚑ (owner: Francesco, 2026-08-27)
+  → **D158(n): items as prefill first, then rewards (L5.9).**
+
 - [ ] **`SHADOWED` is not source-aware** (D127 agent flag): with XPHB off, 90 reprinted
   subclasses stop being reprint-hidden but only 6 surface — `collapseEditions` still shadows
   them behind an XPHB winner whose book is off. Consulting `srcOn` there means re-running
@@ -202,16 +237,19 @@ D157 owns the charter, the agents, the rejected shapes — cite it. Reports land
   still unresolved (D127 scoped them out): 2014 twins' FEATURE lists may read hollow even
   though grants now resolve. If feature names ever look wrong on a 2014 subclass, this is
   why — the resolver exists, it just isn't pointed at them. ⚑ (owner: Francesco, 2026-08-29)
-- [ ] **Prerequisites we can't check**: ability scores, proficiencies, backgrounds and
+- [x] **Prerequisites we can't check**: ability scores, proficiencies, backgrounds and
   campaigns aren't in the app's model, so those alternatives read "check …" rather than
   pass/fail. Closing this means tracking ability scores — a bigger change than it looks.
   ⚑ (owner: Francesco, 2026-08-26)
-- [ ] **Polymorph / Shapechange / True Polymorph as creature sets** — Francesco:
+- [x] **Polymorph / Shapechange / True Polymorph as creature sets** — Francesco:
   "technically a spell with multiple stat block options, but perhaps it would require full
   monster catalogue". Correct: their filters are open-ended (any Beast of CR ≤ your level,
   any creature of CR ≤ …), which is the whole bestiary — 4,458 monsters. D78's carried set
   is 65. Out of scope until there is a reason to ship the catalogue; a CR-capped subset
   would still be hundreds. ⚑ (owner: Francesco, 2026-08-27)
+  → **D158(o): archived as out of scope.**
+  → **D158(c): folds into the ability-score decision entry (L5.8).**
+
 - [ ] **Detect a real long-rest spell swap in the extractors** — D73's Granted tab lists
   every `kind:"known"` pick because the digest has no flag for "you may replace this on a
   long rest". **Attempted 2026-08-27 and deliberately stopped:** the prose is there
