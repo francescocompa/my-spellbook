@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Three filter surfaces for the pickers (D172 · his "show me a mockup first").
 
-Writes scratchpad/mockups/filters{1,2,3}.html — static pages linking the REAL stylesheet, so
-what you see is the app's own type, colour and spacing. Nothing is wired.
+Writes scratchpad/mockups/filters{1,2,3}.html — SELF-CONTAINED pages with the real stylesheet
+inlined, so what you see is the app's own type, colour and spacing wherever the file is opened.
+Each carries its own dark/light switch. Nothing is wired.
 
 The set is the one he chose in the interview, and every value below is READ OFF data.json,
 not invented, so the mockups show the real size of the problem:
@@ -130,6 +131,11 @@ V2_CSS = """
   font-size:12.5px;color:var(--muted);padding:6px 0}
 .mkpanel .mopt.colhead{padding-left:0;text-transform:uppercase;font-size:10.5px;letter-spacing:.05em}
 .mkpanel .cbrow{margin:0 0 8px}
+/* `.cbtn` is `--muted`, and inside a popover `.menupop button` overrides it to `--ink`
+   (measured 16.06:1 in light against the app's own class filter). A panel is not a
+   popover, so it has to take that ink itself or the mockup misreports the real control. */
+.mkpanel .cbtn{color:var(--ink)}
+.mkpanel .cbtn.on{color:var(--accent)}
 .mkclear{margin-left:auto;font-size:10px}
 """
 V2 = f"""<div class="mkwrap">
@@ -206,23 +212,39 @@ VARIANTS = [
     ("filters3", "3 · a filter bar, one group at a time", V3_CSS, V3),
 ]
 
-SHELL = """<!doctype html><html lang="en" data-theme="{theme}"><head><meta charset="utf-8">
+# The stylesheet is INLINED, not linked. A mockup gets looked at wherever it lands — a file
+# card, an attachment, a double-click on another machine — and every one of those renders the
+# page in isolation, where `../../src/styles.css` cannot resolve and the page arrives naked.
+# Same idiom `build.py` uses for `dist/`, including its `</style` guard. One file per variant
+# instead of a dark/light pair: the theme switch below flips `data-theme` in place.
+APP_CSS = open(os.path.join(ROOT, "src", "styles.css"), encoding="utf-8").read()
+assert "</style" not in APP_CSS.lower(), "styles.css contains </style"
+
+SHELL = """<!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Filters · {title}</title>
-<link rel="stylesheet" href="../../src/styles.css">
+<style>
+{app_css}
+</style>
 <style>
 body{{margin:0;padding:22px 26px 60px;background:var(--bg)}}
 h1{{font:600 15px/1.3 var(--sans);margin:0 0 4px}}
 p.note{{font-size:12px;color:var(--muted);margin:0 0 18px;max-width:70ch}}
-.mkband{{position:fixed;right:10px;top:10px;z-index:9;font:600 11px/1.4 var(--sans);
-  background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:6px 10px;color:var(--muted)}}
+.mkband{{position:fixed;right:10px;top:10px;z-index:9;display:flex;align-items:center;gap:8px;
+  font:600 11px/1.4 var(--sans);background:var(--panel-2);border:1px solid var(--line);
+  border-radius:8px;padding:6px 10px;color:var(--muted)}}
 {css}
 </style></head><body>
 <h1>{title}</h1>
 <p class="note">{note}</p>
 {body}
 {small}
-<div class="mkband">{title}</div>
+<div class="mkband">{title}<button class="btn tiny" id="mktheme">Light</button></div>
+<script>
+var r=document.documentElement,b=document.getElementById("mktheme");
+b.onclick=function(){{var d=r.dataset.theme==="dark";r.dataset.theme=d?"light":"dark";
+  b.textContent=d?"Dark":"Light";}};
+</script>
 </body></html>"""
 
 NOTES = {
@@ -242,9 +264,13 @@ NOTES = {
 
 os.makedirs(OUT, exist_ok=True)
 for name, title, css, body in VARIANTS:
-    for theme, suffix in (("dark", ""), ("light", "-light")):
-        html = SHELL.format(theme=theme, title=title, css=css, body=body,
-                            small=SMALL, note=NOTES[name])
-        with open(os.path.join(OUT, f"{name}{suffix}.html"), "w", encoding="utf-8") as f:
-            f.write(html)
-print("wrote", ", ".join(n + "{,-light}.html" for n, _, _, _ in VARIANTS), "to scratchpad/mockups/")
+    html = SHELL.format(app_css=APP_CSS, title=title, css=css, body=body,
+                        small=SMALL, note=NOTES[name])
+    with open(os.path.join(OUT, f"{name}.html"), "w", encoding="utf-8") as f:
+        f.write(html)
+    # the old dark/light pair is gone — the page flips its own theme now
+    old = os.path.join(OUT, f"{name}-light.html")
+    if os.path.exists(old):
+        os.remove(old)
+print("wrote", ", ".join(n + ".html" for n, _, _, _ in VARIANTS),
+      "to scratchpad/mockups/ (self-contained)")

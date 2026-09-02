@@ -856,3 +856,16 @@
   side** — write it to a scratchpad file, or paste it back from the tool result — never in a
   page variable that a reload clears. And read a restore back before trusting it: comparing the
   restored value to the snapshot would have caught this at the moment it happened.
+- **A mockup that LINKS the stylesheet is a mockup he cannot open.** `mkguide.py` and the first
+  `mkfilters.py` wrote `<link rel="stylesheet" href="../../src/styles.css">`, which resolves
+  only under the dev server or a `file://` double-click inside the repo. Sent as a file, opened
+  from a card, or rendered as a static snapshot, the page arrives NAKED — and it fails
+  unevenly, so a variant that happens to style itself inline looks fine while the others look
+  broken, which is exactly the wrong signal to give someone choosing between them. **Inline the
+  stylesheet** the way `build.py` does for `dist/` (with its `</style` guard) and give the page
+  its own theme switch instead of a dark/light pair. Two more traps behind it: a panel that is
+  not a `.menupop` loses `.menupop button{color:var(--ink)}` and its `.cbtn` chips fall back to
+  `--muted`, so the mockup misreports a control that measures 16.06:1 in the real app; and the
+  pane's static-snapshot renderer runs script in a context OUT OF SYNC with what it paints, so
+  nothing measured there — colour, contrast, computed style — can be trusted. Measure against
+  the live app on the dev server.
