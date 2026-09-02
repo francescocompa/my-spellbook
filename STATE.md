@@ -12,7 +12,7 @@
 > | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 > | `ARCHIVE.md` | Bodies of consumed phases, decisions and old rationale |
 
-## TL;DR (2026-09-02 · **v1.5.15** live · `fc2469f` · D157 audit DONE through wave 3 · Phase L build list open)
+## TL;DR (2026-09-02 · **v1.5.17** built and tagged, NOT pushed · `4f7907b` · D157 audit DONE through wave 3 · **Phase K closed** · Phase L build list open)
 
 - **The three-pillar audit ran end to end this session and shipped.** D157 set the charter
   (fix trivial, report the rest, second-agent verification); six auditors and three verifiers
@@ -34,13 +34,24 @@
   boundary-aware grep cannot see a concatenated class name (nine "dead" tokens were live). The
   first-import replace (43 → 1 on an empty digest) is D137 working as decided and reverses in one
   click; D158(d) makes it merge onto the bundle (L5.3).
-- **Next action: L5.1 · K3** (raw-stash + automatic re-parse; absorbs the C2-02 dead end), then
-  K4. After it, L5.2 (engine test + pooling fixture) and L5.3 (first import merges onto the
-  bundle). Full list in PLAN Phase L. Not gated.
-- **Manual for Francesco:** ① **Veto pass over `audits/copy-table.md`** (227 rows, by surface):
+- **L5.1 shipped: K3 (v1.5.16) and K4 (v1.5.17), both committed and tagged, neither pushed.**
+  **D159** settled the three calls K3's spec left open: the stash holds RAW json for BREWS only
+  (`_meta.sources` is the core/homebrew line), "stale" now means the PARSER FINGERPRINT changed
+  (`window.__PARSER__`, a hash of both extractors that `build.py` injects) rather than the
+  version, and web books are OFFERED, never auto-downloaded. `autoReparse()` replaced the boot
+  nag; K4 then took Refresh imported data, the miss memory, the two K1/K2 orphans and the
+  remembered directory handle (the `handles` store is dropped at `IDB_V` 3). One real bug found
+  on the way: `filterDigest` did not carry the new `parserHash` forward, so an un-re-parsed book
+  read as current — the D138(a) false success, third recurrence, now in GOTCHAS.
+- **Next action: L5.2** (engine test scaffold + the pooling fixture, D158(b)/(j)), then L5.3
+  (first import merges onto the bundle). Full list in PLAN Phase L. Not gated.
+- **Manual for Francesco:** ⓪ **Push v1.5.16 + v1.5.17** (`git push && git push --tags`) — held
+  because it deploys Pages; plus one small copy call: the Library status strip now reads
+  "parser v1.5.15" on a newer app, which is accurate but says nothing about that being fine.
+  ① **Veto pass over `audits/copy-table.md`** (227 rows, by surface):
   name a row and it reverts; and say whether the ten progress ellipses ("Fetching…") go too.
-  ② **PWA install check** on your phone (L5.6, the oldest flag). ③ The stale-parser notice
-  fires on every bump until K3; dismiss per version. ④ Build "v2" health ⚠ at L1–L4 is real.
+  ② **PWA install check** on your phone (L5.6, the oldest flag). ③ *(closed by K3 — the notice no longer fires on
+  a copy-only bump.)* ④ Build "v2" health ⚠ at L1–L4 is real.
   ⑤ Print from Chrome or Safari (D108). ⑥ XMM on for Find Familiar's 2024 forms (D81).
   ⑦ Optionally ask GitHub Support to gc the pre-purge SHAs.
 
@@ -62,7 +73,7 @@ bounded set). Ability scores and proficiency are not modelled.
 ## Now
 
 The queue is `PLAN.md`: **Phase L (D157/D158)** is the live phase, L0–L4 done, **L5 is the
-build list** (K3/K4 first). Phases E–K models (D115, D118, D126, D130, D131, D132, D154–D156)
+build list** (L5.1 = K3/K4 done; **L5.2 is next**). Phases E–K models (D115, D118, D126, D130, D131, D132, D154–D156)
 still bind their surfaces; cite them. `audits/` is a point-in-time artifact: `/clean` archives it
 once L5 has consumed it. DECISIONS.md is 2,300+ lines; **D158(q) approved the index-plus-archive
 diet for the next `/clean`**, together with the audits folder.
