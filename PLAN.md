@@ -100,31 +100,39 @@ obsoletes.
   *Done when:* the six old verbs are gone, `rg` finds no dead handlers, and the D42
   nothing-prunes contract still holds on a book removal (picks flagged, never deleted).
 
-## Phase L — the three-pillar audit (D157, decided 2026-09-01) — ⏳ TRIAGED (D158); L4 wave 3 in flight
+## Phase L — the three-pillar audit (D157, decided 2026-09-01) — ✅ L0–L4 DONE (v1.5.9 → v1.5.15) · ⏳ L5 build list OPEN
 
 D157 owns the charter, the agents, the rejected shapes — cite it. Reports land in `audits/`
 (one per pillar + `synthesis.md`), a point-in-time artifact `/clean` archives once consumed.
 
-- [ ] **L0 · Deterministic sweeps** (session, scripts in `scratchpad/`, join the verify gate):
+- [x] **L0 · Deterministic sweeps** (session, scripts in `scratchpad/`, join the verify gate):
   uncalled functions · unmatched CSS selectors · duplicated helpers · storage keys and
   migrations · handler wiring against GOTCHAS. *Done when:* each script runs with nothing
   installed and prints a list the code agents start from.
-- [ ] **L1 · Wave 1, auditors in parallel** (all report; trivial fixes in worktrees only):
+  → done 2026-09-01: `scratchpad/sweeps/` (deadfns · deadcss · dupfns · storagekeys · handlers · ids), report `audits/L0-sweeps.md`; deadfns + ids gate since v1.5.12.
+
+- [x] **L1 · Wave 1, auditors in parallel** (all report; trivial fixes in worktrees only):
   A direction `opus@high` · B1 live UX `opus@high` · B2 design-system read `sonnet@medium` ·
   C1 app.js structure `sonnet@medium` · C2 browser bug sweep `sonnet@medium` · C3 extractors
   / importer / storage `sonnet@medium`. *Done when:* six reports in `audits/`, every finding
   with evidence, B1 also holding the string inventory the copy rewrite starts from.
-- [ ] **L2 · Wave 2, verifiers** `opus@high`, one per pillar, blind to the auditor's
+  → done 2026-09-01/02: six reports in `audits/` (A, B1, B2, C1, C2, C3) + `strings-inventory.md`.
+
+- [x] **L2 · Wave 2, verifiers** `opus@high`, one per pillar, blind to the auditor's
   reasoning: reproduce or strike, then rank. *Done when:* each report carries a verdict per
   finding and a struck list.
+  → done 2026-09-02: `V-A`, `V-B`, `V-C`; A 48/58 claims confirmed, B 44/45 findings, C all bugs reproduced, 2 C1 claims struck.
+
 - [x] **L3 · Synthesis + triage interview** — done 2026-09-02: `audits/synthesis.md`, then five
   AskUserQuestion rounds → **D158** (every disposition, cite it).
-- [ ] **L4 · Wave 3, act** (D157(f), token-lean per D158): two Sonnet fix agents in worktrees
+- [x] **L4 · Wave 3, act** (D157(f), token-lean per D158): two Sonnet fix agents in worktrees
   (engine/importer · UI/a11y/CSS), then the copy rewrite on the merged tree with its before/after
   string table (D157(d), D158(l)), sequential squash-merge, gate each time, patch bumps.
   *Done when:* merged, smoke-tested on the merged tree, the table reviewed, vetoes reverted by
   name. Contents: the synthesis's "ships without a decision" list + D158(m)'s four flags +
   D158(e) pending count + D158(k) gate and lint.
+  → done 2026-09-02, **v1.5.11 → v1.5.15** (two Sonnet fix agents + one copy agent, no verifier wave per D158): every item in the synthesis's "ships without a decision" list, D158(m)'s four flags, D158(e), D158(k). Smoke on the merged tree caught the dialog observer's first-open miss (v1.5.14). **Copy table awaits Francesco's veto** (⚑ below).
+
 - [ ] **L5 · The build list** (D158(a) order; K3/K4 re-queued at the top):
   - [ ] **L5.1 · K3** raw-stash + automatic re-parse (absorbs the C2-02 dead end, D158(h)), then **K4**.
   - [ ] **L5.2 · Engine test scaffold** as gate line five (D158(j)): boot guard + export shim in
@@ -147,6 +155,13 @@ D157 owns the charter, the agents, the rejected shapes — cite it. Reports land
 
 ## Open ⚑ — calls for Francesco
 
+- [ ] **Copy veto pass** — `audits/copy-table.md`, 227 rows; revert by name. Also decide the ten
+  progress ellipses ("Fetching…", kept as "still running"). ⚑ (owner: Francesco, 2026-09-02)
+- [ ] **Wave-3 leftovers, small:** the four importer strings in `extract.js` whose twins live in
+  `extract.py` (move together, cparity); `— none —` (Fighting Style) is label AND stored key, needs
+  a display/key split before it can be renamed; the `.abtile` DOM-built abchip (app.js ~3369) not
+  routed through `abChip()`; `.gmenu` selects were styled only through the removed `.grinline`
+  ancestor and render unstyled (pre-existing, found by 3b). ⚑ (owner: session, 2026-09-02)
 - [x] **D125's clamp now covers the trade.** With the swap inside a step that also holds
   picks, a trade at L4 is clamped to L1 while the L1 picks are unfilled — it could not be
   when the trade was its own pick-free step. Only bites on a part-built character. Fix if it

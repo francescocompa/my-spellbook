@@ -7,6 +7,29 @@
 > Read this before touching the extractors, the importer, the grants resolution or any
 > DOM handler. Moved out of `STATE.md` on 2026-08-27 (v1.1); nothing was dropped.
 
+- **The browser pane's storage does not persist across sessions, and a port is its own origin.**
+  Every agent and the coordinating session in the 2026-09-01 audit got an EMPTY profile (one
+  auto-created build, deterministic in size, which is why the byte lengths matched across ports
+  and looked "shared"). Francesco's real 44-book library lives in his own Chrome. A test that
+  needs a real library fetches one via **Update data** (D153, ~25 s) first. Parallel browser
+  agents share ONE pane tab and hijack each other's navigation: re-check the origin before every
+  measurement and kill servers by PID.
+- **A MutationObserver that diffs "was hidden" against "is hidden" must treat an unseen element
+  as hidden** (v1.5.14). `if(hidden===!!m._mHidden)return` read `undefined` as "was open", so the
+  FIRST open of every modal was skipped: no role, no aria-modal, no focus. Only the second open
+  worked, which is exactly the one a test tends to run.
+- **A boundary-aware grep cannot see a concatenated class name.** `"runc"+n`, `"rdot c"+n`,
+  `"libchip libo-"+o` build nine selectors that `deadcss.js` and a manual grep both called dead;
+  removing them would have unstyled the timeline's run colours and the Library's origin chips.
+  `deadcss.js` carries an allowlist now; before deleting a token, grep app.js for its PREFIX.
+- **A contrast probe that reads `getComputedStyle().color` over a `color-mix()` surface measures
+  the wrong background.** Chrome computes `color-mix()` to `color(srgb …)`; a probe that cannot
+  parse it falls through to the element underneath and reports failures D152 had already
+  measured as passing. Composite the real surface first (V-B §1 has the method).
+- **Every ingestion path resets form refs and orders by `readOrder` (C3-01, v1.5.11).** Zip,
+  web fetch and folder scan did; "Upload .json files" did not, and alphabetical order is the
+  LOSING order (bestiary before feature file), so the dependent monster vanished by default. The
+  D92 rule extends: a fourth way in reuses the same three steps as the other three.
 - **`DATA.sources` knows only books that publish SPELLS or CLASSES — not bestiary books (D107).**
   Both extractors build the source registry from spell/class content, so MM, XMM, XDMG, ToA, WDH,
   WDMM, BAM and friends are absent even when their monsters are loaded. Anything that filters a
