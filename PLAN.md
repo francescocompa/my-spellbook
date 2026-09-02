@@ -252,6 +252,18 @@ D157 owns the charter, the agents, the rejected shapes — cite it. Reports land
 
 - [ ] **Copy veto pass** — `audits/copy-table.md`, 227 rows; revert by name. Also decide the ten
   progress ellipses ("Fetching…", kept as "still running"). ⚑ (owner: Francesco, 2026-09-02)
+- [ ] **The class step needs the full-size picker the others have** (his note, 2026-09-02): a
+  class cannot be CHANGED once chosen — the step draws its value and stops, and the two big
+  buttons beside it take the NEXT level rather than edit this one. Wants the same surface
+  species and feats now have. Size M: the entity picker gains a `class` kind, and changing a
+  chosen class has to rewrite a row rather than add one, which is the part to think about.
+  ⚑ (owner: session, 2026-09-02)
+- [ ] **Highlight the next choice in a section, and a new Next state** (his note): once a choice
+  lands, mark the one to make next, and make Next walk the sections of the step before moving to
+  the level, naming where it goes ("Next: spellbook spells"). **Mockup ready with three options**
+  — `scratchpad/mockups/guide11.html`: A accent ring (the `.gcstep.cur` mark one level down),
+  B leading dot (the chain's own open mark), C the rest recede (nothing added, answered chips go
+  quiet). 🔶 his call, then build. ⚑ (owner: Francesco, 2026-09-02)
 - [ ] **Third-casters are still POOLED, then floored** — found while implementing D158(b),
   outside its scope. `Math.floor(third/3)` sums Eldritch Knight and Arcane Trickster levels
   into one bucket; the table reads "a third of your Fighter levels" and "a third of your Rogue

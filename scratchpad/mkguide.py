@@ -454,6 +454,68 @@ VARIANTS += [
     ("guide10", "10 \u00b7 rework: picker by default, no preview", V10_CSS, V10_STAGE),
 ]
 
+# ── 11 · highlighting the next choice (his ask, mockup with options) ───────
+# *"in each section, whenever a choice is made, highlight the next choice to make (ex. species
+# with free cantrip chosen, cantrip choice is highlighted somehow)"* plus *"a new state for
+# Next: it should move onto the next choice in the section before moving to next level"*.
+# Three ways to say "this one next", on the same card, so they can be compared side by side.
+def chiprow(active, styleclass):
+    return (f'<div class="gtchips gsecs {styleclass}">'
+            f'<button class="gtchip gtdone">Species <span class="lv">Aasimar</span></button>'
+            f'<button class="gtchip gtdone">Origin feat <span class="lv">Spellfire Spark</span></button>'
+            f'<button class="gtchip{" nextup" if active==2 else ""}">Cantrips <span class="lv">0 / 3</span></button>'
+            f'<button class="gtchip">Spellbook spells <span class="lv">0 / 6</span></button></div>')
+
+V11_CSS = PICK_SURFACE_CSS + """
+.mkopt{border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:14px}
+.mkopt h4{margin:0 0 4px;font:600 11px/1.3 var(--sans);text-transform:uppercase;
+  letter-spacing:.06em;color:var(--muted)}
+.mkopt p{margin:0 0 10px;font-size:12px;color:var(--muted)}
+.gstage{overflow-y:auto}
+
+/* A · the accent ring the app already uses for "you are here" (.gcstep.cur) */
+.markA .gtchip.nextup{border-color:var(--accent);background:var(--accent-soft);color:var(--ink)}
+
+/* B · a leading dot, the same mark the chain rail uses for an open step */
+.markB .gtchip.nextup::before{content:"";width:6px;height:6px;border-radius:50%;
+  background:var(--accent);display:inline-block;margin-right:7px;vertical-align:middle}
+
+/* C · the others recede instead: answered chips go quiet and the next one keeps normal weight */
+.markC .gtchip{opacity:.45}
+.markC .gtchip.nextup{opacity:1;font-weight:600}
+.markC .gtchip.gtdone{opacity:.45}
+"""
+V11_STAGE = f"""<div class="gstage">
+  <div class="mkopt">
+    <h4>A · accent ring</h4>
+    <p>The mark the guide already uses for the step you are standing on
+      (<code>.gcstep.cur</code>), reused one level down for the section that is next.</p>
+    <div class="markA">{chiprow(2,"markA")}</div>
+  </div>
+  <div class="mkopt">
+    <h4>B · leading dot</h4>
+    <p>The chain rail's own "still open" mark, in front of the chip. Quieter than a ring, and
+      it survives being next to a chip that is also hovered or focused.</p>
+    <div class="markB">{chiprow(2,"markB")}</div>
+  </div>
+  <div class="mkopt">
+    <h4>C · the rest recede</h4>
+    <p>Nothing is added: the answered chips go quiet and the next one is simply the one at full
+      strength. Reads as progress rather than as a badge, and needs no new colour.</p>
+    <div class="markC">{chiprow(2,"markC")}</div>
+  </div>
+  <div class="mkopt">
+    <h4>Next, in all three</h4>
+    <p>Next walks the sections of this step first and only then moves to the level: on a
+      Spellcasting step it goes Cantrips, then Spellbook spells, then the next level. Its label
+      says which — <b>Next: spellbook spells</b> — so the button names where it is taking you.</p>
+    <div class="gnav"><button class="btn">← Back</button><button class="btn">Skip</button>
+      <button class="btn on">Next: spellbook spells →</button></div>
+  </div>
+</div>"""
+
+VARIANTS += [("guide11", "11 \u00b7 highlighting the next choice", V11_CSS, V11_STAGE)]
+
 os.makedirs(OUT, exist_ok=True)
 for name, title, css, stage in VARIANTS:
     for theme, suffix in (("dark", ""), ("light", "-light")):
