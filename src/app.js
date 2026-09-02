@@ -2238,11 +2238,23 @@ function renderGuideStage(steps,cur,rowOf){
   // Without this the mobile card showed chips and no buttons at all — a dead end (D165).
   const openers=cur.sections.filter(x=>guideSecOpen(cur,x));
   const chipped=openers.length>1;
+  // D167: which section the walk is POINTING AT, and which one comes after it. The mark
+  // answers "which of these do I do now" — the picker's own section while it is still
+  // asking, otherwise the first that is (below the breakpoint no picker is open, and the
+  // first still asking IS the answer). `from` is where the walk stands, which is the
+  // picker's section even when that one is finished: Next then hands over to the next
+  // section still asking rather than skipping back over it.
+  const here=openers.find(x=>inline&&stagePickIsFor(x));
+  const upsec=(here&&!here.done)?here:(openers.find(x=>!x.done)||null);
+  const from=here||upsec;
+  const secNext=chipped&&from
+    ? (openers.slice(openers.indexOf(from)+1).find(x=>!x.done)||null) : null;
   if(chipped){
     const row=el("div","gtchips gsecs");
     openers.forEach(sec=>{
       const on=inline&&stagePickIsFor(sec);
-      const c=el("button","gtchip"+(on?" on":"")+(sec.done?" gtdone":""),sec.label);
+      const c=el("button","gtchip"+(on?" on":"")+(sec.done?" gtdone":"")
+        +(sec===upsec?" nextup":""),sec.label);
       if(sec.need)c.append(el("span","lv",(sec.have||0)+" / "+sec.need));
       c.onclick=()=>{const f=guideSecOpen(cur,sec); if(f)f();};
       row.append(c);});
@@ -2281,7 +2293,9 @@ function renderGuideStage(steps,cur,rowOf){
   // (you skipped or jumped past them) — the primary takes you to the first of them; and
   // nothing open anywhere — the primary leaves. Skip is gone from both: there is nothing
   // ahead to skip to, and a disabled control is worse than an absent one.
-  const term=!nxOpen&&!pend;
+  // a step's own sections come before the level it belongs to: while one is still asking,
+  // this is not the end of anything (D167)
+  const term=!nxOpen&&!pend&&!secNext;
   const behind=term?steps.find(x=>!x.optional&&x.status!=="done"&&x.key!==GUIDE.cur):null;
   if(nxAny&&!term){
     const skip=el("button","btn","Skip");
@@ -2294,9 +2308,22 @@ function renderGuideStage(steps,cur,rowOf){
     const ex=el("button","btn","Exit builder"); ex.onclick=closeGuide; nav.append(ex);
   }
   const next=el("button","btn on",
-    term?(behind?"Answer what is still open":"Exit builder"):"Next →");
+    term?(behind?"Answer what is still open":"Exit builder")
+    // D167: Next NAMES where it is taking you while it is still inside this step's own
+    // sections — "Next: spellbook spells" — and only reads the bare "Next" once the step
+    // has nothing left to ask and the walk really is moving on to the level.
+    :secNext?"Next: "+guideSecName(secNext.label)+" →":"Next →");
   next.onclick=term
     ? (behind?()=>guideGo(behind):()=>closeGuide())
+    : secNext
+    ? ()=>{
+        // same commit-then-move as below, except the move is WITHIN the step: hand the
+        // picker to the next section still asking. Out of this pass when a commit
+        // re-rendered first — opening a picker renders, and a render inside a render
+        // leaves the stage half-built (the trap `GAUTO` was written around).
+        const f=guideSecOpen(cur,secNext); if(!f)return;
+        if(pend){pend.run();setTimeout(f,0);} else f();
+      }
     : ()=>{
         // Next COMMITS what this step is showing, then advances. The advance is
         // `guideAdvance`, the same call the modal's footer button makes (D131(b)) — one
@@ -2348,6 +2375,14 @@ function renderGuideStage(steps,cur,rowOf){
 // The trailing "Next level" CLASS step has no such section by construction (D130(g),
 // refined): its "Continue X → N" is an action that GROWS the build, not a selection
 // already on screen waiting to be stored, so Next can never level you up by itself.
+// D167: the button names the chip it will take you to. A sentence-case label lowers its
+// first letter ("Spellbook spells" → "Next: spellbook spells"); one carrying a capital
+// anywhere else is a name and is left exactly as the chip prints it ("Feat / ASI",
+// "Eldritch Invocations") — the button and the chip must read as the same thing.
+function guideSecName(lab){
+  const s=String(lab||"");
+  return /[A-Z]/.test(s.slice(1))?s:s.charAt(0).toLowerCase()+s.slice(1);
+}
 function guidePending(s){
   const secs=((s&&s.sections)||[]).filter(x=>x.kind==="choice"&&x.choice
     &&x.choice.value!=null&&state.choices[x.choice.id]==null);

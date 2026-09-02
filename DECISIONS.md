@@ -2631,6 +2631,48 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
   - **Enforced by:** `stagePrevSync`/`stagePrevClose`/`srcTag`/`gchoiceSec`; the `.gpsech`,
     `.gnav`, `.gprev` and `.railshut` rules. **Affects:** D147, D158(e) (scoped), D165.
 
+- **D167 (2026-09-02) DECIDED — the next choice in a step is MARKED, and Next names it.**
+  Francesco's note, raw: *"once a choice lands, mark the one to make next"* and *"Next: it
+  should move onto the next choice in the section before moving to next level"*. Mocked as
+  three options in `scratchpad/mockups/guide11.html` (`python3 scratchpad/mkguide.py`), his
+  pick **A** with one amendment.
+  - **(a) The mark is the accent ring** — `border-color:var(--accent)` over
+    `background:var(--accent-soft)` on `.gtchip.nextup`, the same mark the chain already uses
+    for the step you are standing on (`.gcstep.cur`), one level down. *Rejected:* **B, a
+    leading dot** (the chain's own open mark — quieter, but it adds a glyph to a row that is
+    already carrying a counter) and **C, the rest recede** (answered chips dimmed, the next
+    one at full strength — it reads as progress, but it says nothing on a step whose sections
+    are all still open, which is exactly when the mark is wanted).
+  - **(b) Hover REPLACES the mark, it does not layer on it.** His amendment to A, and the one
+    thing the mockup had wrong: hovering a marked chip changed its border and ink and left the
+    accent ground behind it, so two states showed at once. `.gtchip.nextup:hover` puts the
+    ground back to `--panel`, and a hovered chip is a hovered chip.
+  - **(c) What gets marked: where the walk STANDS.** The picker's own section while it is
+    still asking; otherwise the first section that is. Below the picker's breakpoint no
+    picker is open and the first still-asking section is the answer. So filling a section
+    moves the mark to the next one still asking, which is the "once a choice lands" half.
+  - **(d) Next walks the step's own sections before the level**, and NAMES where it is going —
+    "Next: spellbook spells". Only once nothing in the step is still asking does it read the
+    bare "Next →" and advance the walk. It still commits what the step is showing first
+    (`guidePending`), and it is still forward-only (G3): a section left behind stays open and
+    the chain flags it, exactly as a skipped step does.
+  - **(e) The button prints the chip's own label**, lowering its first letter only when the
+    label carries no other capital ("Spellbook spells" → "next: spellbook spells"; "Feat /
+    ASI" and a granted group's name are left alone). The button and the chip have to read as
+    the same thing. *Rejected:* lowercasing unconditionally, which writes "eldritch
+    Invocations".
+  - **Verified live**, dark and light, at 1280 and 375: on an untouched L1 Wizard the Cantrips
+    chip carries the ring and Next reads "Next: spellbook spells"; pressing it moves the
+    picker to the spellbook list (37 spells, "0 of 6"), moves the ring with it and drops Next
+    back to "Next →"; filling the three cantrips turns that chip `gtdone` and hands the ring
+    on by itself; hover on the marked chip measured `background rgb(33,29,22)` — the plain
+    chip's own ground — with border and ink on `--free`; the mark changes no box metric
+    (12/12 and 6.5/6.5 on both chips, identical to unmarked); at 375 the same Next opens the
+    section's modal. 0 console errors; gate clean, cparity 58 ok / 0 fail, engine 35 ok / 0 fail.
+  - **Enforced by:** `guideSecName` and the `here`/`upsec`/`from`/`secNext` block in
+    `guideStage`; the `.gtchip.nextup` rules. **Affects:** PLAN.md (the open ⚑ this closes),
+    D162 (the chip row it marks), D165(h)/D166 (the walk's buttons).
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

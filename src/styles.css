@@ -2173,6 +2173,15 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
 /* a section that is answered still opens (you may want to change it), but it stops asking */
 .gtchip.gtdone{color:var(--muted);border-color:var(--line)}
 .gtchip.gtdone .lv{color:var(--good)}
+/* D167: THE ONE TO ANSWER NEXT, in the accent ring the guide already uses for "you are
+   here" (`.gcstep.cur`), one level down. A leading dot and a recede-the-rest variant were
+   mocked beside it (guide11) and this is his pick. */
+.gtchip.nextup{border-color:var(--accent);background:var(--accent-soft);color:var(--ink)}
+/* hover REPLACES the mark, it does not layer on it (his call on the mockup, where hover
+   changed the border and left the accent ground behind — two states showing at once). A
+   hovered chip is a hovered chip: the ground goes back to the panel and the hover's own
+   border and ink are all that is left. */
+.gtchip.nextup:hover{border-color:var(--free);background:var(--panel);color:var(--free)}
 .gcard{max-width:640px;padding:15px 17px;border:1px solid var(--line);border-radius:var(--radius);
   background:var(--panel);display:flex;flex-direction:column;gap:10px}
 /* an ANSWERED step keeps its card and goes green (G2 · D126(e)); the walk stays put and
@@ -2244,7 +2253,8 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
 .gtchips{display:flex;flex-wrap:wrap;gap:6px}
 .gtchip{font:inherit;font-size:12px;padding:4px 11px;border-radius:14px;cursor:pointer;
   background:var(--panel);border:1px solid var(--line-strong);color:var(--ink);
-  display:inline-flex;gap:6px;align-items:center;transition:border-color .12s,color .12s}
+  display:inline-flex;gap:6px;align-items:center;
+  transition:border-color .12s,color .12s,background-color .12s}
 .gtchip .lv{color:var(--muted);font-size:10px;font-variant-numeric:tabular-nums}
 .gtchip:hover{border-color:var(--free);color:var(--free)}
 .gtchip:hover .lv{color:var(--free)}

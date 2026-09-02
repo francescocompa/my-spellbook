@@ -260,12 +260,11 @@ D157 owns the charter, the agents, the rejected shapes — cite it. Reports land
   species and feats now have. Size M: the entity picker gains a `class` kind, and changing a
   chosen class has to rewrite a row rather than add one, which is the part to think about.
   ⚑ (owner: session, 2026-09-02)
-- [ ] **Highlight the next choice in a section, and a new Next state** (his note): once a choice
-  lands, mark the one to make next, and make Next walk the sections of the step before moving to
-  the level, naming where it goes ("Next: spellbook spells"). **Mockup ready with three options**
-  — `scratchpad/mockups/guide11.html`: A accent ring (the `.gcstep.cur` mark one level down),
-  B leading dot (the chain's own open mark), C the rest recede (nothing added, answered chips go
-  quiet). 🔶 his call, then build. ⚑ (owner: Francesco, 2026-09-02)
+- [x] **Highlight the next choice in a section, and a new Next state** (his note) — shipped
+  **v1.5.25**, **D167**. He took **A, the accent ring** (`guide11.html`), with hover REPLACING
+  the mark rather than layering on it — the one thing the mockup had wrong. B (leading dot) and
+  C (the rest recede) are rejected in D167(a). Next now walks the step's own sections before the
+  level and names where it goes ("Next: spellbook spells").
 - [ ] **Third-casters are still POOLED, then floored** — found while implementing D158(b),
   outside its scope. `Math.floor(third/3)` sums Eldritch Knight and Arcane Trickster levels
   into one bucket; the table reads "a third of your Fighter levels" and "a third of your Rogue
