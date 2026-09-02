@@ -1681,10 +1681,17 @@ let GUIDE={on:false,aside:false,desc:false,reverse:false,cur:null,curSec:null,pa
 const guideKey=s=>(s&&s.key)||"";
 const guideSecKey=sec=>sec.step+"#"+sec.id;
 function openGuide(desc,reverse){ GUIDE.on=true; GUIDE.aside=false; GUIDE.pane="stage";
+  GAUTO=null;   // D163: a fresh walk opens its first step's picker again
   GUIDE.desc=!!desc; GUIDE.reverse=!!reverse;
-  GUIDE.cur=null; GUIDE.curSec=null; GUIDE.place={}; GC.open=null; closeGpick(); render(); }
+  GUIDE.cur=null; GUIDE.curSec=null; GUIDE.place={}; GC.open=null;
+  closeGpick(); stagePickDrop(); render(); }
 function closeGuide(){ if(!GUIDE.on)return; GUIDE.on=false; GUIDE.aside=false;
-  GUIDE.reverse=false; GUIDE.cur=null; GUIDE.curSec=null; GUIDE.place={}; GC.open=null; closeGpick(); render(); }
+  GUIDE.reverse=false; GUIDE.cur=null; GUIDE.curSec=null; GUIDE.place={}; GC.open=null;
+  // D163: `closeGpick` only releases the SPELL picker (it returns early with no GPICK), so
+  // leaving the guide with the entity picker hosted stranded the detail surface inside a
+  // detached pane — and every later detail modal in the app opened into it, unstyled and
+  // never on top. Drop whatever is hosted, whichever it is.
+  closeGpick(); stagePickDrop(); render(); }
 // the shared entry for an EXISTING build (F3 · D118(i)): EVERY entry goes straight into
 // the walk, at the step D118(j)'s stateless resume computes — the "which walk?" screen a
 // ready build used to hit is gone (an entry is not a decision). The DOWN walk is still
@@ -1824,7 +1831,7 @@ function renderGuide(){
   v.classList.toggle("hidden",!GUIDE.on);
   v.classList.toggle("gvaside",aside);
   v.inert=aside;                    // slid away is out of REACH, not just out of sight
-  if(!GUIDE.on){renderGuideBack(null,null);return;}
+  if(!GUIDE.on){stagePickDrop();renderGuideBack(null,null);return;}
   const steps=(R&&R.gsteps&&R.gsteps.length)?R.gsteps:guideSteps();
   const cur=(GUIDE.cur&&steps.find(x=>x.key===GUIDE.cur))||null;
   renderGuideBack(steps,cur);
@@ -2148,7 +2155,19 @@ function renderGuideStage(steps,cur,rowOf){
   }
   // D162: a picker hosted for a step you have since walked away from is stale — the list
   // below would answer a question the card above is no longer asking. Close it.
-  if(STAGE_PICK&&STAGE_PICK.step!==GUIDE.cur){ if(GPICK)closeGpick(); else closeEntityPicker(); }
+  if(STAGE_PICK&&STAGE_PICK.step!==GUIDE.cur)stagePickDrop();
+  // D163: the picker is the step's DEFAULT surface above the breakpoint. Landing on a step
+  // that asks for a pick shows the list — his note: *"there still is the double click first to
+  // open the picker, then to select"*. `GAUTO` is a loop guard, not a memory: it only stops a
+  // step whose picker refuses to open from re-trying on every render.
+  if(stagePickable()&&!STAGE_PICK&&GAUTO!==cur.key){
+    const opens=x=>guideSecOpen(cur,x);
+    const sec=cur.sections.find(x=>opens(x)&&!x.done)||cur.sections.find(opens);
+    // OUT of this render pass, always. Opening a picker re-renders, and a render inside a
+    // render leaves the stage half-built — seen live as two cards in one state and an empty
+    // stage in another, because whether the opener re-rendered decided which half survived.
+    if(sec){GAUTO=cur.key; const f=opens(sec); if(f)setTimeout(f,0);}
+  }
   const inline=!!STAGE_PICK;   // the picker is IN the stage, so the card drops its openers
   const rw=cur.row!=null?rowOf.get(cur.row):null, rc=rw&&CLS_BY[rw.clsKey];
   // answered AND sound is what earns the green: a step holding a pick that can't sit
@@ -2705,6 +2724,7 @@ function openGpickSec(step,sec){
 // no aria-modal, no focus trap and no backdrop (v1.5.13's observer only sees shown `.modal`s).
 const STAGE_PICK_MIN=821;   // the guide's own one-pane breakpoint is 820
 let STAGE_PICK=null;        // {id, box} while a picker is hosted in the stage
+let GAUTO=null;             // the step whose picker was auto-opened (D163's loop guard)
 const stagePickable=()=>GUIDE.on&&!GUIDE.aside&&window.innerWidth>=STAGE_PICK_MIN;
 // true when the caller may skip showing its modal — the stage has taken the box
 function stagePickTake(id){
@@ -2720,8 +2740,48 @@ function stagePickTake(id){
 function stagePickPut(){
   if(!STAGE_PICK)return;
   const {id,box}=STAGE_PICK; STAGE_PICK=null;
+  stagePickBar(box,false);          // the filter bar goes back inside the body it came from
+  stagePrevPut();
   box.classList.remove("gpin");
   const modal=$("#"+id); if(modal)modal.append(box);
+}
+// D163: the stage's picker is a SURFACE, not a relocated dialog. Two things move with the
+// box and one moves out of it:
+//   · the whole box comes, so every filter, budget chip and option comes with it (his note:
+//     "make sure each picker has all its filters and options"),
+//   · its `.pickbar` is lifted OUT of the scrolling body, because a filter popover inside an
+//     `overflow-y:auto` body is a clipped menu (the trap the build switcher went fixed to
+//     escape) — and a filter bar that never scrolls away is better anyway,
+//   · the preview pane is the app's OWN detail surface (`SPMODAL`) moved into the stage, so
+//     clicking a name fills the pane instead of opening a dialog over the list. It keeps its
+//     `.spmodal` class, which is what keeps every rule that styles a detail matching.
+let STAGE_PREV=null;      // the pane wrapper while a picker is hosted
+// his note: no redundant info in the subtitle. The spell picker's sub repeats the step card's
+// context line verbatim on an ordinary take ("L1 · Wizard"); in place and trade modes it says
+// something the card does not, and the entity picker's carries a count instead. So this
+// COMPARES rather than assumes — and it runs where the sub is WRITTEN, not where the box is
+// mounted: the mount happens first and would read the previous step's text.
+function stagePickSubSync(){
+  if(!STAGE_PICK)return;
+  const psub=STAGE_PICK.box.querySelector(".mh .sub"), csub=$("#gStage .ghsub");
+  if(!psub||!csub)return;
+  psub.classList.toggle("hidden",psub.textContent.trim()===csub.textContent.trim());
+}
+function stagePickBar(box,inline){
+  const bar=box.querySelector(".pickbar"), mb=box.querySelector(".mb");
+  if(!bar||!mb)return;
+  if(inline&&bar.parentElement!==box)box.insertBefore(bar,mb);
+  else if(!inline&&bar.parentElement===box)mb.insertBefore(bar,mb.firstChild);
+}
+// close the hosted picker WITHOUT re-rendering — the one safe way to do it from inside a
+// render pass. `closeGpick`/`closeEntityPicker` both re-render, and a render inside a render
+// leaves the stage half-built (two cards on one step, an empty stage on another).
+function stagePickDrop(){
+  if(!STAGE_PICK)return;
+  const id=STAGE_PICK.id;
+  if(id==="gpickModal")GPICK=null;
+  stagePickPut();
+  const m=$("#"+id); if(m)m.classList.add("hidden");
 }
 // hand an open picker BACK to its modal, still open — what a window narrowed under the
 // breakpoint has to do, since the alternative is a stage column too narrow to pick in
@@ -2735,7 +2795,31 @@ function stagePickMount(st){
   if(STAGE_PICK&&!stagePickable())stagePickDemote();   // narrowed under the breakpoint mid-pick
   // the stage element itself survives the rebuild, so this class has to be cleared too
   st.classList.toggle("haspick",!!STAGE_PICK);
-  if(STAGE_PICK)st.append(STAGE_PICK.box);
+  if(!STAGE_PICK){stagePrevPut();return;}
+  stagePickBar(STAGE_PICK.box,true);
+  const work=el("div","gwork");
+  work.append(STAGE_PICK.box);
+  work.append(stagePrev());
+  st.append(work);
+}
+// the preview pane: a hint until you click a name, and the app's own detail surface after
+function stagePrev(){
+  if(!STAGE_PREV){
+    STAGE_PREV=el("div","gprev");
+    STAGE_PREV.append(el("p","gprevempty",
+      "Click a name to read what it gives. The + takes it."));
+  }
+  if(SPMODAL.parentElement!==STAGE_PREV){SPMODAL.classList.add("gprevbox");STAGE_PREV.append(SPMODAL);}
+  return STAGE_PREV;
+}
+// give the detail surface back to the page, hidden, exactly as it was
+function stagePrevPut(){
+  if(SPMODAL.parentElement===STAGE_PREV){
+    SPMODAL.classList.remove("gprevbox");
+    SPMODAL.classList.add("hidden");
+    document.body.appendChild(SPMODAL);
+  }
+  STAGE_PREV=null;
 }
 // D162: with the picker inline, the card's opener BUTTON is redundant — the list is the
 // control. These two say which sections have a picker at all, and which one is currently
@@ -2904,6 +2988,7 @@ function renderGpick(){
   gpickSection(list,sec,items,held,g.mode,q);
   $("#gpCount").textContent=shown+(shown===1?" spell":" spells");
   gpickFoot();
+  stagePickSubSync();   // D163: the sub is written here, so the de-duplication belongs here
 }
 // the slots a reconstruct section owns, as the targets a placement lands in (D118(f,g)) —
 // slot-level addressing, inside the modal where D130(c) put it
@@ -3954,6 +4039,7 @@ function renderEntityList(){
     const prev=list.lastElementChild;      // its divider would sit on the box's own border
     if(prev&&prev.classList.contains("entrow"))prev.classList.add("nodiv");
     list.append(box);});
+  stagePickSubSync();   // D163: the sub is written here, so the de-duplication belongs here
 }
 // ── build manager (v7 · T3) ────────────────────────────────────────────────
 // ONE flat list, grouped on render by `meta.character` (D35). Switching is non-destructive:

@@ -369,6 +369,91 @@ VARIANTS += [
     ("guide8", "8 \u00b7 reviewed: a two-section step", V8_CSS, V8_STAGE),
 ]
 
+# ── 9 and 10 · the rework (Francesco, 2026-09-02, second round) ────────────
+# What v1.5.21 got wrong, in his words: *"weird background of the header, close button without
+# our styling, but also shouldn't be there: there still is the double click first to open the
+# picker, then to select. The picker should be the default section there, it needs a rework."*
+# Both visual bugs have ONE cause, found by measuring the shipped page: relocating the modal's
+# `.box` into the stage takes it out of `.modal`, so `.modal .box` (panel, border, radius,
+# shadow), `.modal .mh` (padding, divider) and `.modal .mh .x` (the whole close button) stop
+# matching — the box goes transparent, the header paints a panel band onto nothing, and the ×
+# falls back to a raw browser button. These mockups do not relocate a dialog: the stage owns a
+# PICKER SURFACE with no title bar, no close button and no footer, showing from the moment the
+# step opens. The step card above is its title; Back / Skip / Next is its way out.
+# 9 adds what the freed width is actually good for (his idea): a preview of whatever is
+# selected, the same detail the modal shows, without the click that opens it.
+ENTROWS = "".join(entrow(*r) for r in SPECIES[:16])
+PREVIEW = """<div class="gprev">
+  <div class="gprevh"><h3>Aasimar <span class="bchip">XPHB</span></h3><div class="sub">Species</div></div>
+  <div class="gprevb">
+    <div class="entsec"><div class="entsecn">Celestial Resistance</div>
+      <p>You have Resistance to <span class="cc-dmg">Necrotic</span> damage and
+      <span class="cc-dmg">Radiant</span> damage.</p></div>
+    <div class="entsec"><div class="entsecn">Darkvision</div>
+      <p>You have Darkvision with a range of <span class="cc-range">60 feet</span>.</p></div>
+    <div class="entsec"><div class="entsecn">Healing Hands</div>
+      <p>As a Magic action, you touch a creature and roll a number of d4s equal to your
+      Proficiency. The creature regains a number of Hit Points equal to the total rolled.
+      Once you use this trait, you can't use it again until you finish a Long Rest.</p></div>
+    <div class="entsec"><div class="entsecn">Light Bearer</div>
+      <p>You know the Light cantrip. Charisma is your spellcasting ability for it.</p></div>
+  </div>
+</div>"""
+
+PICK_SURFACE_CSS = """
+/* the picker as the stage's own surface: no title bar, no close button, no footer */
+.gstage{display:flex;flex-direction:column;padding:18px 26px 18px;overflow:hidden}
+.gstep-head h2{font-size:19px;margin:0}
+.gstep-head .ghsub{margin:2px 0 0}
+.gpickin{flex:1;min-height:0;display:flex;flex-direction:column;margin-top:12px;
+  border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);overflow:hidden}
+.gpickin .pickbar{margin:0;padding:10px 12px;border-bottom:1px solid var(--line)}
+.gpickin .entlist{flex:1;min-height:0;overflow-y:auto;padding:2px 8px}
+.gnav{margin-top:14px;max-width:none}
+"""
+V9_CSS = PICK_SURFACE_CSS + """
+/* his idea: the third empty band on the right carries the detail you would otherwise have to
+   open a modal to read. One column of PICKER, one pane of preview — not two columns of list. */
+.gwork{flex:1;min-height:0;display:grid;grid-template-columns:minmax(340px,440px) minmax(0,1fr);
+  gap:18px;margin-top:12px}
+.gwork>.gpickin{margin-top:0}
+.gprev{min-height:0;display:flex;flex-direction:column;overflow:hidden;
+  border:1px solid var(--line);border-radius:var(--radius);background:var(--panel)}
+.gprevh{padding:12px 14px;border-bottom:1px solid var(--line)}
+.gprevh h3{margin:0;font-size:15px}
+.gprevh .sub{color:var(--muted);font-size:11.5px;margin-top:2px}
+.gprevb{flex:1;min-height:0;overflow-y:auto;padding:12px 14px}
+.entsec{margin-bottom:10px}
+.entsecn{font-weight:600;font-size:12.5px;margin-bottom:2px}
+.entsec p{margin:0 0 6px;font-size:12.5px;line-height:1.5;color:var(--muted)}
+"""
+V9_STAGE = f"""<div class="gstage">
+  <div class="gstep-head"><h2>Species</h2><p class="ghsub">L1 · 127 species, 12 grant spells</p></div>
+  <div class="gwork">
+    <div class="gpickin">{PICKBAR.replace("95 species","127")}<div class="entlist">{ENTROWS}</div></div>
+    {PREVIEW}
+  </div>
+  {NAV}
+</div>"""
+
+# 10 · the same surface without the preview: one column, capped and centred. The fallback if
+# the preview is more than the step needs.
+V10_CSS = PICK_SURFACE_CSS + """
+.gstage{align-items:center}
+.gstep-head,.gnav{width:min(720px,100%)}
+.gpickin{width:min(720px,100%)}
+"""
+V10_STAGE = f"""<div class="gstage">
+  <div class="gstep-head"><h2>Species</h2><p class="ghsub">L1 · 127 species, 12 grant spells</p></div>
+  <div class="gpickin">{PICKBAR.replace("95 species","127")}<div class="entlist">{ROWS}</div></div>
+  {NAV}
+</div>"""
+
+VARIANTS += [
+    ("guide9", "9 \u00b7 rework: picker by default, with a preview pane", V9_CSS, V9_STAGE),
+    ("guide10", "10 \u00b7 rework: picker by default, no preview", V10_CSS, V10_STAGE),
+]
+
 os.makedirs(OUT, exist_ok=True)
 for name, title, css, stage in VARIANTS:
     for theme, suffix in (("dark", ""), ("light", "-light")):

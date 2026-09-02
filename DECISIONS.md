@@ -2494,6 +2494,56 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
   - **Enforced by:** `guideSecOpen`/`stagePickIsFor` and the `inline` flag through
     `guideSecBlock`/`guideSecWrap`. **Affects:** PLAN.md (L5.4), D161(c), D126(f).
 
+- **D164 (2026-09-02) DECIDED — the guide stage is a PICKER SURFACE, opened by default, with a
+  preview pane.** Francesco on v1.5.21: *"weird background of the header, close button without
+  our styling, but also shouldn't be there: there still is the double click first to open the
+  picker, then to select. The picker should be the default section there, it needs a rework.
+  Also you didn't go through mockups for feedback. Lastly, we could consider to dedicate the
+  third empty section on the right to the preview of whatever is selected if there's enough
+  space"* — plus, on the mockups: *"make sure each picker has all its filters and options. Do
+  not mention redundant info in the subtitle"*. Mockups `guide9`/`guide10`, approved first.
+  Supersedes the relocation half of **D161** and **D162(c)**'s centred single column.
+  - **(a) Both visual bugs were ONE cause, and the fix is not a patch.** Relocating the modal's
+    `.box` takes it out of `.modal`, so `.modal .box` (panel, border, radius, shadow),
+    `.modal .mh` (padding, divider) and `.modal .mh .x` (the entire close button) stop matching:
+    the box goes transparent, the header paints a band onto nothing, and the × falls back to a
+    raw browser button — measured on the shipped page. Inline it is **not a dialog**, so it
+    takes the panel look explicitly and drops what only a dialog needs: no title (the step card
+    is the title), no close (Back / Skip / Next is the way out), no footer (Next did Done's job
+    already).
+  - **(b) The picker is the step's DEFAULT surface.** Landing on a step that asks for a pick
+    shows the list — the double click is gone. The auto-open is deferred out of the render pass
+    (`setTimeout(f,0)`), which is the whole lesson of (e).
+  - **(c) The preview pane is the app's OWN detail surface**, `SPMODAL`, moved into the stage
+    and keeping its `.spmodal` class — which is exactly what keeps every rule that styles a
+    detail matching, the mistake in (a) not repeated. Clicking a row's NAME fills it (his call);
+    the + still takes the pick. So a modal is removed rather than a surface added.
+  - **(d) Every filter and option comes with the picker**, because the whole box moves — but its
+    `.pickbar` is lifted OUT of the scrolling body: a filter popover inside an `overflow-y:auto`
+    parent is a clipped menu (the trap the build switcher went `position:fixed` to escape).
+    Verified live: the popover opens 518px tall, unclipped, all eight options reachable.
+  - **(e) Two re-entrancy bugs, same shape, both found by walking every step:** opening a picker
+    from inside `renderGuideStage` and closing a stale one from inside it each re-render — and a
+    render inside a render leaves the stage half-built (**two cards** on one step, an **empty
+    stage** on another). Nothing may re-render from inside a render pass: the auto-open defers,
+    and `stagePickDrop()` releases quietly.
+  - **(f) Leaving the guide must give the detail surface back.** `closeGpick` returns early when
+    the ENTITY picker is the hosted one, so exiting stranded `SPMODAL` inside a detached pane and
+    every later detail modal in the app opened into it, unstyled and never on top. Both exits and
+    the no-guide render path drop it now.
+  - **(g) No redundant subtitle.** The spell picker's sub repeats the step card's context line
+    verbatim on an ordinary take ("L1 · Wizard") and is suppressed; the entity picker's carries a
+    count ("127 species · grants spells") and stays. It COMPARES rather than assumes, and it runs
+    where the sub is written — the mount happens first and would read the previous step's text.
+  - **Verified live, 1280 and 375, both themes:** zero clicks to the list on every picker step;
+    all ten steps render exactly one card, one nav, at most one work grid; the filter popover
+    unclipped; clicking a name fills the pane and opens no dialog; taking a pick still lands and
+    the list stays; at 375 nothing auto-opens, the button is there and the modal keeps its title,
+    its × and `role="dialog"`; leaving the guide returns the detail surface to the body, hidden
+    and fixed, and a detail modal from the main page works after. Gate clean, engine 35 ok/0 fail.
+  - **Enforced by:** `stagePickMount`/`stagePrev`/`stagePickDrop`/`stagePickSubSync` in
+    `src/app.js` and the `.gwork`/`.gprev`/`.box.gpin` rules. **Affects:** D161, D162(c), D126(f).
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

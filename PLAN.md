@@ -219,6 +219,15 @@ D157 owns the charter, the agents, the rejected shapes — cite it. Reports land
     capped at 720 and centred, and the end-of-walk sentence moved INSIDE the card — his "done
     and next session overlap", two surfaces claiming the same moment with the nav between them.
     Mockups `guide7`/`guide8` approved before implementation, as he asked.
+    **Reworked again as v1.5.22 (D164)** — his notes on 1.5.21: the header's background and the
+    unstyled × were ONE bug (a node moved out of `.modal` loses every `.modal`-scoped rule), the
+    picker still took a click to reveal, and the mockups had been idealised rather than built
+    from the app's own markup. So: the stage is a picker SURFACE with no dialog chrome, open by
+    DEFAULT, with the app's own detail surface as a **preview pane** filled by clicking a name
+    (his idea for the empty right band). Every filter comes with the box and its `.pickbar` is
+    lifted out of the scroller so the popover cannot clip. Mockups `guide9`/`guide10` approved
+    first. Two re-entrancy bugs and one stranded-detail-surface regression found and fixed on
+    the way — all three are now GOTCHAS.
   - [ ] **L5.5 · Copy the build as a level plan** to the clipboard, in the Character Ideas shape
     (A-03; `levelGains`/`levelCasting`/`timelinePicks` already derive it). Size S, format his. 🔶
   - [ ] **L5.6 · PWA install check + a mobile pass on the Pages build** (D158(r); A-08). His

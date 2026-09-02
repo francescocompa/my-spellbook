@@ -169,6 +169,26 @@
   reader learned the hard way. It also skips `_img/` at the WALK (the FSA path) and by
   `webkitRelativePath` (the input path) — a synthetic entry list bypasses both, so a test that
   fabricates entries is not testing the filter.
+- **Nothing may re-render from inside a render pass (D164).** `renderGuideStage` clears the
+  stage and rebuilds it; anything it calls that itself calls `render()` — opening a picker,
+  closing a stale one — runs a SECOND clear-and-rebuild inside the first, and which half
+  survives depends on whether the callee rendered. Seen live as **two cards and two navs** on
+  one step and an **empty stage** on another, from the same two lines. Defer it
+  (`setTimeout(f,0)`) or provide a quiet variant that mutates without rendering
+  (`stagePickDrop`).
+- **A node moved out of `.modal` loses every `.modal`-scoped rule (D164).** Relocating a
+  picker's `.box` into the guide stage silently dropped `.modal .box` (panel, border, radius,
+  shadow), `.modal .mh` (padding, divider) and `.modal .mh .x` (the whole close button), so the
+  box rendered transparent with a floating header band and a raw browser button for a ×. The
+  parts that looked fine — `.pickbar`, `.entrow`, `#entList` — were the ones styled by unscoped
+  selectors. **Before relocating any node, grep for its ancestor-scoped rules**; either carry
+  the ancestor's class with it (what the preview pane does with `.spmodal`) or restate the
+  rules for the new home.
+- **A mockup that does not use the real node is not a mockup of what ships (D164).** Two rounds
+  of guide-stage mockups drew an idealised panel while the implementation relocated the real
+  dialog, so the title bar, the × and the lost styling were never in any picture Francesco
+  approved — he found them in the build. Build a mockup from the app's own markup, or say
+  plainly which parts are stand-ins.
 - **A remembered directory handle is not a granted one (D92).** *(History — K4 stopped
   remembering handles altogether; kept because it explains why.)* The handle survived in
   IndexedDB, but the READ PERMISSION died with the session and could only be re-requested inside
