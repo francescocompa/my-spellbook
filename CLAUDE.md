@@ -82,6 +82,11 @@ for two sessions — never re-implement one there.
 `data.js`, `dist/` and `docs/`; `app.js` renders it as a tag at the head of the footer, so any
 page — including a printed sheet — names the code that made it.
 
+Beside it `build.py` injects `__PARSER__`, a hash of `extract.js` + `extract.py` (**D159(b)**).
+That, not the version, is what decides whether stored data needs re-reading: since D158(i) a
+version moves on copy-only patches, which change nothing a digest holds. Nothing has to be
+maintained by hand — touch either extractor and the fingerprint moves with it.
+
 - **Every commit that changes what is built bumps it** (D158(i)): `python3 bump.py` (patch,
   1.2.1 → 1.2.2), which also rebuilds. Docs, audits and scratchpad commits carry no bump. A
   version nothing was built with lies in the footer.

@@ -109,6 +109,14 @@ def read(*p): return open(os.path.join(ROOT, *p), encoding="utf-8").read()
 # major only ever moves on Francesco's say-so.
 VERSION = read("VERSION").strip()
 
+# D159(b): what makes stored data stale is the PARSER changing, not the version moving.
+# Since D158(i) every commit that changes what is built bumps VERSION, so a copy-only patch
+# would otherwise tell every reader their library needs re-reading — and, for web-origin
+# books, start a ~21 MB refetch nobody asked for. This hash covers exactly the two files
+# that decide what a digest CONTAINS; app.js stamps it per book and compares it at boot.
+PARSER = hashlib.sha1(
+    (read("src", "extract.js") + read("extract.py")).encode("utf-8")).hexdigest()[:12]
+
 data_json = read("data", "data.json")
 assert "</script" not in data_json.lower(), "data contains </script"
 
@@ -121,6 +129,7 @@ def sub_once(html, marker, replacement):
 # 1. dev global for src/index.html
 with open(os.path.join(ROOT, "data", "data.js"), "w", encoding="utf-8") as f:
     f.write("window.__VERSION__=" + json.dumps(VERSION) + ";\n")
+    f.write("window.__PARSER__=" + json.dumps(PARSER) + ";\n")
     f.write("window.__DATA__=" + data_json + ";\n")
 
 # 2. self-contained dist/index.html
@@ -145,6 +154,7 @@ html = sub_once(html, '<script src="app.js"></script>',
 # 2a. dist/index.html — self-contained, WITH baked data (personal offline build)
 dist = sub_once(html, '<script src="../data/data.js"></script>',
                 "<script>window.__VERSION__=" + json.dumps(VERSION)
+                + ";window.__PARSER__=" + json.dumps(PARSER)
                 + ";window.__DATA__=" + data_json + ";</script>")
 # no manifest and no worker: dist/ is opened by double-click over file://, where a
 # service worker cannot register and an install prompt has no origin to attach to
@@ -157,7 +167,8 @@ copy_icon("dist")
 # 2b. docs/index.html — public GitHub Pages build. Ships the SRD 5.2 subset
 # (CC-BY-4.0, safe to distribute); importing a 5etools export adds the rest.
 srd_file = os.path.join(ROOT, "data", "data-srd.json")
-srd_js = "window.__PUBLIC__=1;window.__VERSION__=" + json.dumps(VERSION) + ";"
+srd_js = ("window.__PUBLIC__=1;window.__VERSION__=" + json.dumps(VERSION)
+          + ";window.__PARSER__=" + json.dumps(PARSER) + ";")
 if os.path.exists(srd_file):
     srd_json = read("data", "data-srd.json")
     assert "</script" not in srd_json.lower(), "SRD data contains </script"

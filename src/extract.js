@@ -836,6 +836,17 @@ function slimJson(j){ if(!j)return j;
 // feature files first: see slimJson. Exported so nothing re-implements it — a harness that
 // rolls its own file rules is exactly how the foundry.json bug hid for two sessions.
 const readOrder=n=>/^(optionalfeatures|feats)/i.test(String(n||"").split("/").pop())?0:1;
+// D159(a): which staged files the app keeps a RAW copy of, so a parser change can re-read
+// them with no folder, no download and no prompt (K3). Only brews are stashed: a 5etools
+// repo file declares no `_meta.sources` — the repo keeps its sources in `sources.json` —
+// while a brew always declares its own, so this one test draws the core/homebrew line with
+// no hand-authored list to fall out of date. Core content re-reads through D153's web fetch
+// instead, which is why extract.py carries no twin of this: nothing on the Python side ever
+// stages or stashes. Returns the source codes the file declares (empty = not a brew), which
+// is also exactly what the stash records so a removed book can prune its file.
+function brewSources(j){
+  const a=(j&&j._meta&&j._meta.sources)||[];
+  return Array.isArray(a)?a.map(s=>s&&s.json).filter(Boolean):[];}
 const CREATURE_RE=/\{@creature ([^}|]+)(?:\|([^}|]*))?[^}]*\}/g;
 const SPELL_REF_RE=/\{@spell ([^}|]+)(?:\|([^}|]*))?[^}]*\}/;
 const FIXED_FORM_RE=/must be|is always|always takes the form/i;
@@ -1195,8 +1206,13 @@ async function unzipJsonFiles(buf,onFile){
     let json=null;try{json=JSON.parse(td.decode(raw));}catch(_){json=null;}
     if(onFile)onFile(e.name,i+1,wanted.length);
     json=dropFoundryStubs(json);
-    if(json&&usefulJson(json))out.push({name:e.name.split("/").pop(),json:slimJson(json)}); }
+    if(json&&usefulJson(json)){const brew=brewSources(json);
+      // the RAW record, before slimJson thins it — a stash of slimmed data could not replay
+      // a future change to slimJson/carriedMonster (D159(a)). Held only for brews, so a
+      // full-library zip carries nothing extra.
+      out.push(brew.length?{name:e.name.split("/").pop(),json:slimJson(json),raw:json,brew}
+                          :{name:e.name.split("/").pop(),json:slimJson(json)});} }
   return out;}
 
-window.SB_extract={buildDigest,unzipJsonFiles,slimJson,zipWanted,dropFoundryStubs,readOrder,resetFormRefs,usefulJson};
+window.SB_extract={buildDigest,unzipJsonFiles,slimJson,zipWanted,dropFoundryStubs,readOrder,resetFormRefs,usefulJson,brewSources};
 })();

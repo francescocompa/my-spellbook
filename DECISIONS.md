@@ -2342,6 +2342,44 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
   - **Enforced by:** PLAN.md Phase L task lines; the gate additions in (j)/(k) once landed; the
     rest prose. **Affects:** PLAN.md, CLAUDE.md (versioning clause, gate), STATE.md.
 
+- **D159 (2026-09-02) DECIDED — what K3 stashes, and what makes a book stale.** AskUserQuestion,
+  one round of three, asked because D154(g) named "raw JSON" as the pattern while rejecting
+  "stash-everything-including-zips" on cost — the boundary between those two was never drawn —
+  and because **D158(i) later made every build commit bump VERSION**, which would have turned
+  D154(g)'s automatic re-parse into a full re-read (and, for web books, a ~21 MB download) on
+  every copy-only patch. Measured first, against the 2.33.3 mirror through the real `zipWanted`
+  and `slimJson`: 186 wanted files = **20.8 MB raw · 12.7 MB slimmed · 4.0 MB stored digest**.
+  - **(a) The stash holds RAW json, and only for brews — never for core 5etools files**, which
+    D153's web fetch can re-read instead. Raw because a slimmed stash cannot replay a future
+    `slimJson`/`carriedMonster` change: it would re-parse from already-thinned data and could
+    not recover a record slimming had dropped. **The core/brew line is `_meta.sources`**: a
+    5etools repo file declares none (the repo's sources live in `sources.json`), a brew always
+    declares its own — so the test needs no hand-authored list and no second table. A core book
+    added by zip and never web-fetched therefore has no stash and is NAMED by the notice, the
+    same treatment a pre-K3 legacy book gets. Cost for Francesco's library (44 books, all from
+    the web fetch): near zero. *Rejected:* **raw for everything hand-added** (~25 MB total,
+    truest possible replay — it reverses D154(g)'s cost call); **slimmed for everything**
+    (12.7 MB, but buys the saving with a quiet correctness hole).
+  - **(b) Stale means the PARSER changed, not the version.** `build.py` injects
+    `window.__PARSER__` — a hash of `extract.js` + `extract.py` — beside `__VERSION__`, and a
+    book is stale when its stamped hash differs from the current one. A copy-only patch triggers
+    nothing; an extractor fix triggers everything. VERSION stays what every surface shows
+    (footer, status strip, per-book stamp); the hash is an internal field. *Rejected:* keeping
+    VERSION as the test (re-reads the whole library on every release, D158(i)); a fingerprint
+    that also replaces the version on screen.
+  - **(c) Stashed books re-parse automatically; web books are OFFERED.** The background pass
+    after boot heals everything the stash covers and reports once, after, in a fading notice —
+    D154(g) as written. Web-origin books are named in that same notice with one action
+    (**Update data**), because a multi-MB download that starts on its own is exactly what
+    D153 refused. *Rejected:* everything automatic including the refetch; everything offered
+    (that keeps the nag K3 exists to delete).
+  - **(d) Stash bookkeeping:** one IndexedDB store (`raw`, `IDB_V` 1 → 2), keyed by file name,
+    each record carrying the source codes it declares — so removing a book can prune its
+    stashed file, and the auto pass knows exactly which books the stash can heal without
+    attributing books to files after the fact.
+  - **Enforced by:** K3's code; the gate unchanged. **Affects:** PLAN.md (K3/K4), `build.py`,
+    `src/app.js`, `src/extract.js`, STATE.md.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

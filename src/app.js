@@ -127,14 +127,17 @@ function loadJSON(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):
 //
 // ONE database, two stores: `kv` for content, `handles` for the D92 directory handle (which is a
 // live object localStorage could never have held anyway).
-const IDB_NAME="spellForge", IDB_V=1, KV="kv", HANDLES="handles", IMPORT_KEY="import";
+// `raw` (IDB_V 2, D159(a)) is the brew stash: the raw file behind every hand-added brew, so
+// a parser change can re-read it with no folder, no permission prompt and no download.
+const IDB_NAME="spellForge", IDB_V=2, KV="kv", HANDLES="handles", RAW="raw", IMPORT_KEY="import";
 let IMPORT_CACHE=null;      // the digest in memory; IndexedDB is only where it persists
 let IDB_OK=true;            // false after a real failure — private windows can refuse outright
 function idbOpen(){return new Promise((res,rej)=>{
   let r; try{r=indexedDB.open(IDB_NAME,IDB_V);}catch(e){return rej(e);}
   r.onupgradeneeded=()=>{const db=r.result;
     if(!db.objectStoreNames.contains(KV))db.createObjectStore(KV);
-    if(!db.objectStoreNames.contains(HANDLES))db.createObjectStore(HANDLES);};
+    if(!db.objectStoreNames.contains(HANDLES))db.createObjectStore(HANDLES);
+    if(!db.objectStoreNames.contains(RAW))db.createObjectStore(RAW);};
   r.onerror=()=>rej(r.error); r.onblocked=()=>rej(new Error("database is busy in another tab"));
   r.onsuccess=()=>res(r.result);});}
 function idbTx(store,mode,fn){return idbOpen().then(db=>new Promise((res,rej)=>{
@@ -218,6 +221,35 @@ async function importDrop(){
   IMPORT_CACHE=null;
   if(IDB_OK){try{await idbDel(KV,IMPORT_KEY);}catch(_){}}
   try{localStorage.removeItem(LS_IMPORT);}catch(_){}
+}
+// ── the raw stash (D159(a) · K3) ───────────────────────────────────────────
+// One record per brew FILE, keyed by its name: the raw json, the source codes the file
+// declares, and what last read it. This is what lets the automatic re-parse run with no
+// folder and nothing downloaded — and it stays small because ONLY brews are stashed
+// (`brewSources`; a full 5etools library is 20.8 MB raw against a 4.0 MB digest, which is
+// the duplication D154(g) refused). Core content re-reads through D153's web fetch instead.
+//
+// Every one of these swallows its own failure on purpose: a stash is an optimisation, and
+// a browser that refuses it (a private window, a full quota) must still import, remove and
+// boot normally — it just falls back to naming the book instead of healing it silently.
+async function rawStash(entries){
+  if(!IDB_OK)return;
+  const pv=window.__VERSION__||"dev", ph=window.__PARSER__||"";
+  for(const e of entries||[]){
+    if(!e||!e.raw||!(e.brew||[]).length)continue;
+    try{await idbPut(RAW,e.name,{name:e.name,brew:e.brew,json:e.raw,
+      parser:pv,hash:ph,at:new Date().toISOString()});}catch(_){}
+  }
+}
+async function rawAll(){
+  if(!IDB_OK)return [];
+  try{return (await idbTx(RAW,"readonly",s=>s.getAll()))||[];}catch(_){return [];}
+}
+// a removed book has no reason to keep its file; a file whose books have ALL gone is dropped
+async function rawPrune(live){
+  if(!IDB_OK)return;
+  try{ for(const r of await rawAll())
+    if(!(r.brew||[]).some(c=>live.has(c)))await idbDel(RAW,r.name); }catch(_){}
 }
 let DATA, IMPORTED=null, CUSTOM=null;
 // mutable indexes — rebuilt after every content change
@@ -5108,6 +5140,16 @@ function openHb(){closeMenu();$("#hbSearch").value="";
 
 // ── 5etools importer: parse raw files in-browser via SB_extract ─────────────
 let IMPORT_STAGE=[];
+// D159(a): every staging path builds its entry here — the SLIMMED json the parser reads,
+// plus, for a brew only, the raw file it came from. `slimJson` copies rather than mutates,
+// so the raw reference stays whole. A core 5etools file carries nothing extra: it is not
+// stashed, because D153's web fetch is how those come back.
+function stageEntry(name,json){
+  const SX=window.SB_extract;
+  const brew=(SX&&SX.brewSources)?SX.brewSources(json):[];
+  const e={name,json:(SX&&SX.slimJson)?SX.slimJson(json):json};
+  if(brew.length){e.raw=json;e.brew=brew;}
+  return e;}
 function looksLookupFile(j){const ks=Object.keys(j||{});if(!ks.length)return false;const v=j[ks[0]];if(!v||typeof v!=="object")return false;const vv=v[Object.keys(v)[0]];return !!(vv&&typeof vv==="object"&&(vv.class||vv.subclass||vv.feat||vv.race));}
 function countFile(j){const parts=[];[["spell","sp"],["class","cls"],["subclass","sub"],["feat","ft"],["race","spc"],["optionalfeature","opt"],["book","bk"]].forEach(([k,l])=>{if(Array.isArray(j[k])&&j[k].length)parts.push(j[k].length+" "+l);});
   if(!parts.length&&looksLookupFile(j))parts.push("lookup");return parts.join(" · ")||"?";}
@@ -5191,7 +5233,7 @@ function stageFiles(fileList){
     results.forEach(r=>{
       if(r.error){IMPORT_STAGE.push({name:r.name,error:true});return;}
       // a bestiary file is mostly monsters this app never uses — slim it before staging
-      IMPORT_STAGE.push({name:r.name,json:(SX&&SX.slimJson)?SX.slimJson(r.json):r.json});});
+      IMPORT_STAGE.push(stageEntry(r.name,r.json));});
     renderImportStage();scheduleBuild();});}
 function importSummary(r){return `${r.spells} spell${r.spells===1?"":"s"} · ${r.classes} class${r.classes===1?"":"es"} · ${r.subclasses} subclass${r.subclasses===1?"":"es"} · ${r.feats} feat${r.feats===1?"":"s"} · ${r.species} species`
   // Warn on the real symptom — spells no class can reach — not on a missing file. A brew
@@ -5388,6 +5430,11 @@ function filterDigest(d,keep){
     // the CURRENT version — so a partial refresh read as "all current" again, the exact
     // false success D138(a) closed. applyPlan overwrites these for the books it re-parsed.
     if(was.parser)out.sources[src].parser=was.parser;
+    // D159(b): the FINGERPRINT has to survive the rebuild for the same reason the version
+    // does, and more sharply — a book that loses it falls back to comparing versions, which
+    // are equal on any Apply within one release, so a stale book would go quiet instead of
+    // being named. That is the D138(a) false success again, one field along.
+    if(was.parserHash)out.sources[src].parserHash=was.parserHash;
     if(was.parsedAt)out.sources[src].parsedAt=was.parsedAt;
     if(was.origin)out.sources[src].origin=was.origin;});
   return out;
@@ -5654,7 +5701,7 @@ async function stageScanBooks(codes){
       const j=window.SB_extract.dropFoundryStubs(JSON.parse(await f.text()));
       // same gate as the unzip path: parse, keep only what the digest can use, slim
       if(j&&window.SB_extract.usefulJson(j)){
-        IMPORT_STAGE.push({name:e.path.split("/").pop(),json:window.SB_extract.slimJson(j)});staged++;}
+        IMPORT_STAGE.push(stageEntry(e.path.split("/").pop(),j));staged++;}
     }catch(_){}
     if(i%5===0||i===entries.length){
       prog.textContent=`Reading ${i}/${entries.length} file${entries.length===1?"":"s"}…`;
@@ -5722,6 +5769,10 @@ async function applyPlan(rep,refreshed){
   // go quiet on a library that was still stale. Only the books that came through the
   // parser THIS time get the new stamp; every other source keeps the one it had.
   const now=new Date().toISOString(), pv=window.__VERSION__||"dev";
+  // D159(b): the version is what every surface SHOWS, but the fingerprint is what decides
+  // whether this book needs re-reading — since D158(i) a version moves on copy-only patches,
+  // which change nothing a digest holds.
+  const ph=window.__PARSER__||"";
   out.meta=Object.assign({},out.meta,{importedAt:now,parser:pv});
   // D154(d): a book's ORIGIN is stamped at the same moment its parser is — the origin chip
   // has to survive a re-parse, and this is the only place that knows which door it came in.
@@ -5729,13 +5780,18 @@ async function applyPlan(rep,refreshed){
   const org=WEB_PENDING?"web":"file";
   const parsed=Object.keys(((PLAN.incoming||{}).sources)||{});
   parsed.forEach(c=>{ if(out.sources[c])out.sources[c]=Object.assign({},out.sources[c],
-    {parser:pv,parsedAt:now,origin:org}); });
+    {parser:pv,parserHash:ph,parsedAt:now,origin:org}); });
   const btn=$("#importApply"); if(btn)btn.disabled=true;
   rep.textContent="Storing…";
   const err=await importSave(out);
   if(btn)btn.disabled=false;
   // T7: name what is using the space, never "something went wrong"
   if(err){rep.textContent=err;return err;}
+  // D159(a): the raw brew files ride along AFTER the digest is safely stored — a stash write
+  // that fails must never cost the import it came in on. Re-running it on a re-parse is the
+  // point, not a waste: it re-stamps each stashed file with the parser that just read it.
+  const kept=new Set(Object.keys(out.sources||{}));
+  await rawStash(IMPORT_STAGE.filter(e=>e&&e.raw&&(e.brew||[]).some(c=>kept.has(c))));
   // D153: a web fetch's version is recorded only once it is APPLIED — this record is what
   // the boot update-check compares against the repo's latest release.
   if(WEB_PENDING){
@@ -5913,6 +5969,9 @@ async function refreshImported(fromModal){
 // twins, D135's designations and feat slots, D136's Hex and Synaptic Static): the app knew
 // which parser made its data (D111 stamps it) and said nothing. It says it here.
 // Version-aware and dismissible per version, so it names a real gap once and then stops.
+// what the leftover notice already said and had dismissed. It holds the PARSER FINGERPRINT
+// now (D159(b)); a value left over from the version era simply never matches, so the notice
+// speaks once more after this release and then settles.
 const LS_PARSER_NAG="spellForge.parserNag.v1";
 const verParts=v=>String(v||"").split(".").map(n=>parseInt(n,10)||0);
 function verLt(a,b){const A=verParts(a),B=verParts(b);
@@ -5926,8 +5985,14 @@ function staleBooks(){
   if(!IMPORTED)return [];
   const app=window.__VERSION__; if(!app)return [];
   const fallback=(IMPORTED.meta||{}).parser||null;   // pre-D138 digests have only this one
+  const ph=window.__PARSER__||"";
   return Object.keys(IMPORTED.sources||{}).filter(c=>{
-    const p=((IMPORTED.sources[c])||{}).parser||fallback;
+    const s=(IMPORTED.sources[c])||{};
+    // D159(b): a book stamped with a fingerprint is judged by it ALONE — same extractors,
+    // same data, whatever the version says. One stamped before K3 has only a version and
+    // falls back to the old comparison, which is what names it for a re-add.
+    if(ph&&s.parserHash)return s.parserHash!==ph;
+    const p=s.parser||fallback;
     return !p||verLt(p,app);});
 }
 // What the last refresh LEARNED it cannot heal (the 2026-08-31 episode): a refresh only
@@ -5945,34 +6010,79 @@ function refreshMissed(){
   const behind=new Set(staleBooks());
   return codes.filter(c=>behind.has(c));
 }
-function staleParserNotice(){
-  const app=window.__VERSION__; if(!app||!IMPORTED)return;
+// ── the parser moved on: re-read what we can, name what we can't (D154(g) · D159) ──
+// `assembleData` hands the IMPORTED digest to the app WHOLE, so every extractor fix stays
+// invisible until the books are re-read. D137 answered that with a boot NAG and a Refresh
+// that needed the original folder back; K3 answers it by doing the work. Every brew is
+// stashed raw at import (D159(a)), so this re-reads it in the background and reports ONCE,
+// after — which is the whole difference from the nag it replaces.
+//
+// Two things it will not do silently. A `web` book comes back from jsDelivr, and that is
+// ~21 MB nobody asked for (D153 refused exactly that download). A `file` book stored before
+// K3 has no stash to read. Both are NAMED, each with the one action that fixes it, and that
+// notice is dismissible per fingerprint so it says its piece once.
+async function autoReparse(){
+  if(!IMPORTED)return;
   const behind=staleBooks(); if(!behind.length)return;
-  const total=Object.keys(IMPORTED.sources||{}).length;
-  const made=(IMPORTED.meta||{}).parser||null;
+  const key=window.__PARSER__||window.__VERSION__||"dev";
+  const stash=await rawAll();
+  const covered=new Set(); stash.forEach(r=>(r.brew||[]).forEach(c=>covered.add(c)));
+  let healed=[];
+  if(behind.some(c=>covered.has(c))&&!REFRESH_BUSY&&!SCAN_BUSY&&!WEB_BUSY)
+    healed=await reparseFromStash(stash,behind);
+  const left=staleBooks();
+  if(!left.length){
+    // good news, so it fades — and it cannot repeat: what it healed is not stale any more
+    if(healed.length)appNotice("Re-read "+nBooks(healed.length)+" with the current parser.","ok",9000);
+    return;}
   let seen=null; try{seen=localStorage.getItem(LS_PARSER_NAG);}catch(_){}
-  if(seen===app)return;                       // already said for this version, and dismissed
-  // books the last refresh could not re-read route to the Library, not to another refresh —
-  // "Refresh now" on a book the folder cannot provide is the one action that cannot help
-  const miss=refreshMissed(), allMiss=miss.length&&miss.length===behind.length;
-  const which=behind.length===total?"Your imported books were"
-    :`${behind.length} of your ${total} imported books (${behind.slice(0,3).map(bookName).join(", ")}`
-      +`${behind.length>3?`, +${behind.length-3} more`:""}) ${behind.length===1?"was":"were"}`;
-  const tail=allMiss
-    ?` The last refresh couldn’t re-read ${miss.length===1?"it; the folder doesn’t hold it. Re-add the file":"them; the folder doesn’t hold them. Re-add the files"} in the Library.`
-    :miss.length?` Refresh to re-read them, but ${nBooks(miss.length)} ${miss.length===1?"wasn’t in the folder last time and needs":"weren’t in the folder last time and need"} re-adding in the Library.`
-    :" Refresh to re-read them and pick up the fixes since.";
-  const n=appNotice(`${which} read by ${made&&behind.length===total?"parser v"+made:"an older parser"}`
-    +`; this is v${app}.`+tail,"ask");
+  if(seen===key)return;                  // already said for these extractors, and dismissed
+  const web=left.filter(c=>bookOrigin(c)==="web"), files=left.filter(c=>bookOrigin(c)!=="web");
+  const names=cs=>cs.slice(0,3).map(bookName).join(", ")+(cs.length>3?", +"+(cs.length-3)+" more":"");
+  const bits=[];
+  if(healed.length)bits.push("Re-read "+nBooks(healed.length)+" with the current parser.");
+  if(web.length)bits.push(nBooks(web.length)+" ("+names(web)+") came from 5etools online and "
+    +(web.length===1?"needs":"need")+" fetching again.");
+  if(files.length)bits.push(nBooks(files.length)+" ("+names(files)+") "
+    +(files.length===1?"was":"were")+" added before the app kept a copy, so "
+    +(files.length===1?"its file has":"their files have")+" to be added again.");
+  const n=appNotice(bits.join(" "),"ask");
   const act=(label,fn)=>{const b=el("button","anact",label);
-    b.onclick=()=>{ try{localStorage.setItem(LS_PARSER_NAG,app);}catch(_){}
+    b.onclick=()=>{ try{localStorage.setItem(LS_PARSER_NAG,key);}catch(_){}
       n.remove(); fn(); };
     n.insertBefore(b,n.querySelector(".anx"));};
-  if(!allMiss)act("Refresh now",()=>refreshImported(false));
-  if(miss.length)act("Open Library",()=>openImport(false,"man"));
-  // the × means "not now", so it must not come back every boot on the same version
+  if(web.length)act("Update data",()=>{openImport(false);webSync();});
+  if(files.length)act("Open Library",()=>openImport(false));
+  // the × means "not now", so it must not come back every boot on the same extractors
   const x=n.querySelector(".anx");
-  if(x)x.addEventListener("click",()=>{try{localStorage.setItem(LS_PARSER_NAG,app);}catch(_){}});
+  if(x)x.addEventListener("click",()=>{try{localStorage.setItem(LS_PARSER_NAG,key);}catch(_){}});
+}
+// The stash read back through the same pipeline every other import uses: stage, build, apply.
+// Nothing new is added and nothing is dropped — the keep-set is exactly what is already
+// stored, so this can only ever re-stamp books you already have. Returns the codes it healed.
+async function reparseFromStash(stash,behind){
+  const SX=window.SB_extract; if(!SX)return [];
+  const live=new Set(Object.keys((IMPORTED&&IMPORTED.sources)||{}));
+  // a stashed file whose books have all been removed must not resurrect them
+  const use=stash.filter(r=>(r.brew||[]).some(c=>live.has(c)));
+  if(!use.length)return [];
+  IMPORT_STAGE=[]; cancelBuild();
+  // the C3-01 contract, the same one every ingestion path keeps: reset the form refs and
+  // read in `readOrder` BEFORE anything is slimmed, or a bestiary read first drops the
+  // forms a feature file was about to name
+  SX.resetFormRefs();
+  use.slice().sort((a,b)=>SX.readOrder(a.name)-SX.readOrder(b.name))
+    .forEach(r=>IMPORT_STAGE.push(stageEntry(r.name,r.json)));
+  const rep=$("#importReport");
+  buildImport(null,true);
+  // buildImport bails on unusable files without touching PLAN — the false-success trap
+  if(!PLAN||!Object.keys((PLAN.incoming&&PLAN.incoming.sources)||{}).length){
+    IMPORT_STAGE=[]; renderImportStage(); planFromStage(null,null); return [];}
+  PLAN.keep=new Set(live);
+  const err=await applyPlan(rep,true);
+  if(err)return [];
+  const still=new Set(staleBooks());
+  return behind.filter(c=>!still.has(c));
 }
 // D154(a): ONE page. The Sources|Manage tabs are gone, so `tab` is accepted and ignored —
 // every caller that used to ask for "man" now gets the same page everyone else gets.
@@ -9508,6 +9618,7 @@ async function removeBooks(codes){
   else err=await importSave(filterDigest(IMPORTED,keep));
   if(err){rep.textContent=err;return;}
   gone.forEach(c=>LIB_SEL.delete(c));
+  await rawPrune(keep);   // D159(d): the file behind a removed brew goes with it
   assembleData();
   // the removed book leaves the enabled set with it — but only once the reassembly has
   // said whether anything still provides it. Asking BAKED directly is not the same
@@ -9677,7 +9788,7 @@ $("#importPick").onclick=e=>{e.stopPropagation();closeMenu();
   $("#importFiles").setAttribute("accept",".json,application/json");$("#importFiles").click();};
 $("#importFiles").onchange=e=>{stageFiles(e.target.files);e.target.value="";};
 $("#importPasteAdd").onclick=()=>{const t=$("#importPaste").value.trim();if(!t)return;
-  try{IMPORT_STAGE.push({name:"pasted "+(IMPORT_STAGE.length+1),json:JSON.parse(t)});
+  try{IMPORT_STAGE.push(stageEntry("pasted "+(IMPORT_STAGE.length+1),JSON.parse(t)));
     $("#importPaste").value="";$("#importReport").textContent="";
     $("#pasteBox").classList.add("hidden");   // it landed in the tray; the box has done its job
     renderImportStage();scheduleBuild();}
@@ -10281,6 +10392,8 @@ function pruneState(){
   maybeOnboard();
   fillIcons(); wireHelpNotes();
   refreshAll();render();
-  staleParserNotice();
+  // K3: the re-parse runs AFTER the first paint and reports itself, so a boot never waits
+  // on it. Fire-and-forget like the update check beside it.
+  autoReparse().catch(()=>{});
   webUpdateNotice();   // D153: fire-and-forget — quiet offline, quiet when current
 })();

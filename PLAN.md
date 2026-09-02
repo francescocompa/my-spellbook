@@ -36,7 +36,7 @@ eighteen items, models D142–D145) — `ARCHIVE.md#phase-j`; "Closed in v1.4.7"
 (a drop re-dating every pick below it, D146) — `ARCHIVE.md#closed-v1-4-14`; "Closed in
 v1.5.3" (the class ⊕ subclass merge, D150) — `ARCHIVE.md#closed-v1-5-3`.
 
-## Phase K — the Library redesigned (D154, decided 2026-09-01) — ⏸ PAUSED by D157 after K2; K3–K4 OPEN
+## Phase K — the Library redesigned (D154, decided 2026-09-01) — K1–K3 DONE; **K4 is next**
 
 The design is LOCKED — one page, one list, selection bar, no refresh verbs; the approved
 mockup is `scratchpad/mockups/library4.html` (`python3 scratchpad/mklib4.py` regenerates)
@@ -77,7 +77,7 @@ obsoletes.
   brew brought the filter row out at the ≥9 threshold and the list scrolled inside itself;
   checkbox and counts centred to 0.00px on every row at 1280 and 375 in both themes, 0
   overflow out of the box, footer in view. **D156 records the add-only model.**
-- [ ] **K3 · Raw-stash + web refetch (the model half).** Hand-added files stash raw JSON in
+- [x] **K3 · Raw-stash + web refetch (the model half)** — shipped **v1.5.16** (D154(g) + **D159**). Hand-added files stash raw JSON in
   IndexedDB at import; a parser bump triggers an automatic background re-parse (stash for
   `file` books, D153 refetch for `web` books) that reports once, after, via a fading
   notice. Migration: a pre-K3 digest has no stash — its `file` books keep working and get
@@ -85,6 +85,26 @@ obsoletes.
   survive and drive the auto pass. *Done when:* bumping VERSION and reloading re-parses
   everything without a prompt and the footer stamp matches; a stashless legacy book is
   named, not silently stale.
+  **D159 settled the three calls this spec left open:** the stash holds RAW json and only for
+  brews (`_meta.sources` is the core/homebrew line — measured 20.8 MB raw · 12.7 MB slimmed ·
+  4.0 MB digest, so stashing core content is the duplication D154(g) refused); **"stale" now
+  means the PARSER FINGERPRINT changed** (`window.__PARSER__`, a hash of both extractors
+  injected by `build.py`), not the version, because since D158(i) a version moves on copy-only
+  patches; and web books are OFFERED, never auto-downloaded (D153).
+  **Verified** in the pane, every staging route and both branches: paste and zip carry `raw`
+  for a brew and nothing for a core-shaped file; Apply stamped both books
+  `parserHash=44301f13e4be` and stashed only the brew; flipping the fingerprint and reloading
+  **re-read the brew with no prompt** (its stamp followed, its spell intact) and left the
+  stashless book NAMED — *"Re-read 1 book with the current parser. 1 book (K3CORE) was added
+  before the app kept a copy…"*, waiting (`ask`), one action, dismissed per fingerprint and
+  silent on the next boot; a web-origin stale book got **Update data** and downloaded nothing;
+  healing everything gave the fading `ok` notice with no actions; **a version-only bump
+  (1.5.15 → 1.5.16) changed nothing at all** — no re-parse, no notice, footer `v1.5.16`;
+  removal pruned the stash to 0 along with the digest; 0 console errors; gate clean,
+  cparity 58 ok / 0 fail.
+  **Found and fixed while verifying:** `filterDigest` carried `parser`/`parsedAt`/`origin`
+  forward but not the new `parserHash`, so a book not re-parsed in an Apply lost its
+  fingerprint and then read as current — the D138(a) false success, one field along.
 - [ ] **K4 · Retire the old machinery.** K1/K2 already orphaned two functions — `folderForget`
   (app.js:5489) and `clearImport` (app.js:5970) are defined and never called, their only
   callers having been the Forget-folder and Remove-imported-data buttons. `entryWalk` and the
@@ -94,8 +114,9 @@ obsoletes.
   folder-scan chain (`folderRecall`/`folderUsable`/`scanHandle`/`stageScanBooks` — the folder
   survives as an INPUT). Remove: Refresh imported data (both surfaces),
   Rescan/Forget folder + the linked-folder row (folder picker stays as input), the
-  standing Remove-imported-data button, Clear staged (the tray's Discard covers it), the
-  stale-parser boot nag (refitted by K3), and their wiring/notices. GOTCHAS entries touching
+  standing Remove-imported-data button, Clear staged (the tray's Discard covers it), and
+  their wiring/notices — the stale-parser boot nag is already gone, K3 replaced
+  `staleParserNotice()` with `autoReparse()`. GOTCHAS entries touching
   `refreshImported`/folder recall get updated, not deleted — they explain history.
   *Done when:* the six old verbs are gone, `rg` finds no dead handlers, and the D42
   nothing-prunes contract still holds on a book removal (picks flagged, never deleted).
@@ -134,7 +155,7 @@ D157 owns the charter, the agents, the rejected shapes — cite it. Reports land
   → done 2026-09-02, **v1.5.11 → v1.5.15** (two Sonnet fix agents + one copy agent, no verifier wave per D158): every item in the synthesis's "ships without a decision" list, D158(m)'s four flags, D158(e), D158(k). Smoke on the merged tree caught the dialog observer's first-open miss (v1.5.14). **Copy table awaits Francesco's veto** (⚑ below).
 
 - [ ] **L5 · The build list** (D158(a) order; K3/K4 re-queued at the top):
-  - [ ] **L5.1 · K3** raw-stash + automatic re-parse (absorbs the C2-02 dead end, D158(h)), then **K4**.
+  - [x] **L5.1 · K3** raw-stash + automatic re-parse — v1.5.16, **D159** (absorbed the C2-02 dead end, D158(h)). **K4 is next.**
   - [ ] **L5.2 · Engine test scaffold** as gate line five (D158(j)): boot guard + export shim in
     app.js, `scratchpad/engine.test.js`, ten fixtures; **fixture one = pooling rounds up per
     class** (D158(b), Artificer 5 / Wizard 5 → 8, Paladin 1 / Sorcerer 4 → 5). Size M/L.
