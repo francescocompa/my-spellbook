@@ -12,7 +12,7 @@
 > | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 > | `ARCHIVE.md` | Bodies of consumed phases, decisions and old rationale |
 
-## TL;DR (2026-09-02 · **v1.5.21** built and tagged, NOT pushed · `f252cf3` · D157 audit DONE through wave 3 · **Phase K closed** · L5.1–L5.4 shipped, L5.4 revised)
+## TL;DR (2026-09-02 · **v1.5.23** live · D157 audit DONE through wave 3 · **Phase K closed** · L5.1–L5.4 shipped, the guide stage reworked twice on his review)
 
 - **The three-pillar audit ran end to end this session and shipped.** D157 set the charter
   (fix trivial, report the rest, second-agent verification); six auditors and three verifiers
@@ -58,8 +58,7 @@
 - **Next action: L5.7** (the geometry retrofit, D158(g), size L, its own release) or **L5.9/
   L5.10** (magic items as prefill, compare two versions). **L5.5 and L5.6 need Francesco**:
   the level-plan copy format, and the PWA check on his phone.
-- **Manual for Francesco:** ⓪ **Push v1.5.16 → v1.5.20** (`git push && git push --tags`) — five
-  tagged releases held back, because pushing deploys Pages. Two small calls with them: the
+- **Manual for Francesco:** ⓪ *(the v1.5.16 → v1.5.23 backlog is pushed.)* Two small calls: the
   Library status strip now reads "parser v1.5.15" on a newer app (accurate, but it names a
   version that is behind and says nothing about that being fine); **the rest of his "visual bugs
   in the guided builder" are unlisted** — the end-of-walk overlap is fixed, an element-by-element
