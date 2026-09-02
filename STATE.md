@@ -12,7 +12,7 @@
 > | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 > | `ARCHIVE.md` | Bodies of consumed phases, decisions and old rationale |
 
-## TL;DR (2026-09-02 · **v1.5.17** built and tagged, NOT pushed · `4f7907b` · D157 audit DONE through wave 3 · **Phase K closed** · Phase L build list open)
+## TL;DR (2026-09-02 · **v1.5.20** built and tagged, NOT pushed · `aed62f1` · D157 audit DONE through wave 3 · **Phase K closed** · L5.1–L5.4 shipped)
 
 - **The three-pillar audit ran end to end this session and shipped.** D157 set the charter
   (fix trivial, report the rest, second-agent verification); six auditors and three verifiers
@@ -43,11 +43,23 @@
   remembered directory handle (the `handles` store is dropped at `IDB_V` 3). One real bug found
   on the way: `filterDigest` did not carry the new `parserHash` forward, so an un-re-parsed book
   read as current — the D138(a) false success, third recurrence, now in GOTCHAS.
-- **Next action: L5.2** (engine test scaffold + the pooling fixture, D158(b)/(j)), then L5.3
-  (first import merges onto the bundle). Full list in PLAN Phase L. Not gated.
-- **Manual for Francesco:** ⓪ **Push v1.5.16 + v1.5.17** (`git push && git push --tags`) — held
-  because it deploys Pages; plus one small copy call: the Library status strip now reads
-  "parser v1.5.15" on a newer app, which is accurate but says nothing about that being fine.
+- **L5.2 (v1.5.18)** the headless engine test joined the gate as its eighth line — ten fixtures,
+  35 assertions, mutation-checked — and with it **the pooling correction (D158(b))**: a
+  half-caster contributes ⌈its own level/2⌉, so Artificer 5 / Wizard 5 reads 8, not 7.
+  **L5.3 (v1.5.19, D160)**: `assembleData` merges the bundle under the import, so a first
+  import takes 43 books → 44 instead of 43 → 1; the bundle is merged at assembly, never
+  written to storage. **L5.4 (v1.5.20, D161)**: the guide step's picker moved INTO the stage
+  above the 820px breakpoint (fill 12% → 68%), after two rounds of side-panel mockups he
+  rejected as restating the chain rail; below the breakpoint it stays a modal.
+- **Next action: L5.7** (the geometry retrofit, D158(g), size L, its own release) or **L5.9/
+  L5.10** (magic items as prefill, compare two versions). **L5.5 and L5.6 need Francesco**:
+  the level-plan copy format, and the PWA check on his phone.
+- **Manual for Francesco:** ⓪ **Push v1.5.16 → v1.5.20** (`git push && git push --tags`) — five
+  tagged releases held back, because pushing deploys Pages. Two small calls with them: the
+  Library status strip now reads "parser v1.5.15" on a newer app (accurate, but it names a
+  version that is behind and says nothing about that being fine), and **third-casters are still
+  pooled then floored** — Fighter 5 (EK) + Rogue 5 (AT) reads 3 where the table gives 2, the
+  same shape as the half-caster bug D158(b) fixed but a separate rules call (⚑ in PLAN).
   ① **Veto pass over `audits/copy-table.md`** (227 rows, by surface):
   name a row and it reverts; and say whether the ten progress ellipses ("Fetching…") go too.
   ② **PWA install check** on your phone (L5.6, the oldest flag). ③ *(closed by K3 — the notice no longer fires on
