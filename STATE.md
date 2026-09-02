@@ -12,7 +12,7 @@
 > | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 > | `ARCHIVE.md` | Bodies of consumed phases, decisions and old rationale |
 
-## TL;DR (2026-09-02 · **v1.5.20** built and tagged, NOT pushed · `aed62f1` · D157 audit DONE through wave 3 · **Phase K closed** · L5.1–L5.4 shipped)
+## TL;DR (2026-09-02 · **v1.5.21** built and tagged, NOT pushed · `f252cf3` · D157 audit DONE through wave 3 · **Phase K closed** · L5.1–L5.4 shipped, L5.4 revised)
 
 - **The three-pillar audit ran end to end this session and shipped.** D157 set the charter
   (fix trivial, report the rest, second-agent verification); six auditors and three verifiers
@@ -49,15 +49,21 @@
   **L5.3 (v1.5.19, D160)**: `assembleData` merges the bundle under the import, so a first
   import takes 43 books → 44 instead of 43 → 1; the bundle is merged at assembly, never
   written to storage. **L5.4 (v1.5.20, D161)**: the guide step's picker moved INTO the stage
-  above the 820px breakpoint (fill 12% → 68%), after two rounds of side-panel mockups he
-  rejected as restating the chain rail; below the breakpoint it stays a modal.
+  above the 820px breakpoint, after two rounds of side-panel mockups he rejected as restating
+  the chain rail; below the breakpoint it stays a modal. **Revised as v1.5.21 (D162)** on his
+  notes: the list REPLACES the opener button, a multi-section step shows chips instead of a
+  button per section (and loses the headers those chips repeat), **one column always**
+  (D161(c) reversed), and the end-of-walk sentence moved inside the card — "done and next
+  session overlap" was two surfaces claiming the same moment with the nav between them.
 - **Next action: L5.7** (the geometry retrofit, D158(g), size L, its own release) or **L5.9/
   L5.10** (magic items as prefill, compare two versions). **L5.5 and L5.6 need Francesco**:
   the level-plan copy format, and the PWA check on his phone.
 - **Manual for Francesco:** ⓪ **Push v1.5.16 → v1.5.20** (`git push && git push --tags`) — five
   tagged releases held back, because pushing deploys Pages. Two small calls with them: the
   Library status strip now reads "parser v1.5.15" on a newer app (accurate, but it names a
-  version that is behind and says nothing about that being fine), and **third-casters are still
+  version that is behind and says nothing about that being fine); **the rest of his "visual bugs
+  in the guided builder" are unlisted** — the end-of-walk overlap is fixed, an element-by-element
+  sweep found nothing else, so the others need him to point; and **third-casters are still
   pooled then floored** — Fighter 5 (EK) + Rogue 5 (AT) reads 3 where the table gives 2, the
   same shape as the half-caster bug D158(b) fixed but a separate rules call (⚑ in PLAN).
   ① **Veto pass over `audits/copy-table.md`** (227 rows, by surface):
