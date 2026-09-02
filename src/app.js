@@ -2167,9 +2167,12 @@ function renderGuideChain(steps,cur){
     // walk itself moves only from a row, so expanding is never an answer
     card.onclick=e=>{ if(e.target.closest(".gcstep"))return;
       e.stopPropagation();
-      // D170: collapsed, a card shows a level and its state and nothing to act on — so
-      // clicking one opens the rail ON that level rather than toggling something invisible
-      if(GUIDE.railShut){GUIDE.railShut=false; GC.open=lv; renderGuide(); return;}
+      // D172(a): collapsed, a tile is a JUMP — it takes the walk to that level and the rail
+      // stays as it is (his correction to D170(c), which opened the rail instead: the rail is
+      // collapsed because you wanted the width, and a click that gives it back undoes the
+      // thing you asked for). Expanding is what the header chevron is for.
+      if(GUIDE.railShut){const first=group&&group[0];
+        if(first){GUIDE.pane="stage"; guideGo(first);} return;}
       GC.open=open?-1:lv; renderGuide(); };
     // the drag is wired with the level's PLAN INDEX, never its position in the column —
     // which is precisely why inverting the display leaves `wireRowDrag` untouched and the
