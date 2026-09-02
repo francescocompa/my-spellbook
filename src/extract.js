@@ -1170,9 +1170,9 @@ async function unzipJsonFiles(buf,onFile){
   // hold something that size. Say that instead.
   if(count===0xffff||cdOff===0xffffffff)
     throw new Error("this is a ZIP64 archive (over 4 GB, or more than 65,535 files). A complete 5etools "
-      +"data export is about 25 MB — if this is a whole-repository download, unzip it and stage just the "
+      +"data export is about 25 MB. If this is a whole-repository download, unzip it and stage only the "
       +".json files you want.");
-  if(cdOff+4>n)throw new Error("this zip's directory points past the end of the file — it may be truncated "
+  if(cdOff+4>n)throw new Error("this zip's directory points past the end of the file. It may be truncated "
       +"or still downloading.");
   const entries=[];let p=cdOff;
   for(let i=0;i<count;i++){ if(dv.getUint32(p,true)!==0x02014b50)break;

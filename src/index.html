@@ -47,16 +47,16 @@
            the one that had to be named, because "Custom spell…" and "Library…" were sitting
            among build actions and read as things you do to the character. -->
       <div class="menupop hidden" id="menuPop">
-        <button id="buildsBtn"><span class="mi ico" data-ico="stack"></span>Builds…</button>
-        <button id="guideBtn"><span class="mi ico" data-ico="spark"></span>Guided builder…</button>
+        <button id="buildsBtn"><span class="mi ico" data-ico="stack"></span>Builds</button>
+        <button id="guideBtn"><span class="mi ico" data-ico="spark"></span>Guided builder</button>
         <button id="testBtn"><span class="mi ico" data-ico="dice"></span>Random character</button>
-        <button id="printBtn"><span class="mi ico" data-ico="print"></span>Print / save as PDF…</button>
+        <button id="printBtn"><span class="mi ico" data-ico="print"></span>Print / save as PDF</button>
         <div class="sep"></div>
         <div class="mopt colhead">Content</div>
-        <button id="libBtn"><span class="mi ico" data-ico="book"></span>Library…</button>
+        <button id="libBtn"><span class="mi ico" data-ico="book"></span>Library</button>
         <button id="refreshBtn"><span class="mi ico" data-ico="download"></span>Refresh imported data</button>
-        <button id="customBtn"><span class="mi ico" data-ico="pencil"></span>Custom spell…</button>
-        <button id="hbBtn"><span class="mi ico" data-ico="stack"></span>My homebrew…</button>
+        <button id="customBtn"><span class="mi ico" data-ico="pencil"></span>Custom spell</button>
+        <button id="hbBtn"><span class="mi ico" data-ico="stack"></span>My homebrew</button>
         <div class="sep"></div>
         <button id="themeBtn"><span class="mi ico" data-ico="theme"></span>Toggle theme</button>
         <div class="sep"></div>
@@ -64,6 +64,11 @@
       </div>
     </div>
   </header>
+
+  <!-- D158(r): the Pages first-run line. One sentence naming what the page is, shown only
+       on the public build, only while nothing has been imported and nothing built. -->
+  <p class="note firstrun hidden" id="firstRun" style="margin:-2px 0 10px">A D&amp;D 2024 spell
+    planner, with the SRD 5.2 built in. Add more books from the Library.</p>
 
   <!-- B2-02: the app body had no <main> landmark; this wraps the actual content region
        (both views plus their print-only siblings), leaving .wrap's own layout untouched. -->
@@ -87,7 +92,7 @@
       <div class="card gcta hidden" id="guideCta">
         <h2>Start guided</h2>
         <div class="body">
-          <p class="gctap">A level-by-level walk through every decision this build carries — class, species, feats, spells and the choices they open. Nothing is forced: skip anything, jump anywhere, leave whenever.</p>
+          <p class="gctap">A level-by-level walk through every decision this build carries: class, species, feats, spells and the choices they open. Skip a step or leave at any point.</p>
           <button class="btn on lbl-ico gctab" id="guideCtaBtn"><span class="ico" data-ico="spark"></span>Start guided</button>
         </div>
       </div>
@@ -100,18 +105,18 @@
           <div class="fieldset">
             <label class="fld">Classes &amp; levels</label>
             <div id="classRows"></div>
-            <select id="addClass"><option value="">+ add a class…</option></select>
+            <select id="addClass"><option value="">Add a class</option></select>
           </div>
           <div class="fieldset">
             <label class="fld" id="speciesFld">Species / lineage</label>
-            <button class="picksel" id="speciesBtn"><span id="speciesBtnLbl">— none —</span><span class="pk-caret">⌄</span></button>
+            <button class="picksel" id="speciesBtn"><span id="speciesBtnLbl">None</span><span class="pk-caret">⌄</span></button>
           </div>
           <div class="fieldset">
             <label class="fld">Feats</label>
             <!-- each slot carries its own count, in line with its field (D44) -->
-            <div class="fldrow"><button class="picksel ph" id="originBtn"><span class="lbl-ico"><span class="ico" data-ico="plus"></span>origin feat…</span><span class="pk-caret">⌄</span></button><span class="cnt" id="originCnt"></span></div>
-            <div class="fldrow"><button class="picksel ph" id="generalBtn"><span class="lbl-ico"><span class="ico" data-ico="plus"></span>general feat…</span><span class="pk-caret">⌄</span></button><span class="cnt" id="generalCnt"></span></div>
-            <div class="fldrow hidden" id="epicRow"><button class="picksel ph" id="epicBtn"><span class="lbl-ico"><span class="ico" data-ico="plus"></span>epic boon…</span><span class="pk-caret">⌄</span></button><span class="cnt" id="epicCnt"></span></div>
+            <div class="fldrow"><button class="picksel ph" id="originBtn"><span class="lbl-ico"><span class="ico" data-ico="plus"></span>Add an origin feat</span><span class="pk-caret">⌄</span></button><span class="cnt" id="originCnt"></span></div>
+            <div class="fldrow"><button class="picksel ph" id="generalBtn"><span class="lbl-ico"><span class="ico" data-ico="plus"></span>Add a general feat</span><span class="pk-caret">⌄</span></button><span class="cnt" id="generalCnt"></span></div>
+            <div class="fldrow hidden" id="epicRow"><button class="picksel ph" id="epicBtn"><span class="lbl-ico"><span class="ico" data-ico="plus"></span>Add an epic boon</span><span class="pk-caret">⌄</span></button><span class="cnt" id="epicCnt"></span></div>
             <div class="chips" id="featChips"></div>
           </div>
           <div class="fieldset hidden" id="optFeatBlock"></div>
@@ -120,8 +125,8 @@
           <div class="fieldset hidden" id="formPinBlock"></div>
           <!-- custom spell sources: magic items, boons… (D55) -->
           <div class="fieldset">
-            <label class="fld">Spell sources <span class="fldnote">items, boons…</span></label>
-            <button class="picksel ph" id="csrcAdd"><span class="lbl-ico"><span class="ico" data-ico="plus"></span>custom source…</span></button>
+            <label class="fld">Spell sources <span class="fldnote">items, boons</span></label>
+            <button class="picksel ph" id="csrcAdd"><span class="lbl-ico"><span class="ico" data-ico="plus"></span>Add a custom source</span></button>
             <div class="chips" id="csrcChips"></div>
           </div>
         </div>
@@ -156,21 +161,21 @@
         <h2>Eligible spells <span class="count" id="spCount"></span></h2>
         <div class="body">
           <div class="filters">
-            <input type="search" id="fq" placeholder="filter by name…">
+            <input type="search" id="fq" placeholder="Filter by name">
             <button class="btn iconbtn ico" id="filterBtn" data-ico="filter" title="Filters" aria-label="Filters"></button>
-            <button class="cbtn lbl-ico" id="fChosen"><span class="ico" data-ico="check"></span>picked</button>
+            <button class="cbtn lbl-ico" id="fChosen"><span class="ico" data-ico="check"></span>Picked</button>
           </div>
           <div class="filterpanel hidden" id="filterPanel">
             <div class="full"><label class="fld">Level</label><div class="cbrow" id="fLevel"></div></div>
-            <div><label class="fld">School</label><select id="fSchool"><option value="">all schools</option></select></div>
-            <div><label class="fld">Class / list</label><select id="fClass"><option value="">all classes</option></select></div>
+            <div><label class="fld">School</label><select id="fSchool"><option value="">All schools</option></select></div>
+            <div><label class="fld">Class / list</label><select id="fClass"><option value="">Any source</option></select></div>
             <div><label class="fld">Source book</label>
               <button class="btn srctoggle" id="fBooksBtn" aria-expanded="false">Books <span class="badge" id="fBooksN"></span></button></div>
             <div><label class="fld">Casting time</label><div class="cbrow" id="fTime"></div></div>
             <div><label class="fld">Components</label><div class="cbrow" id="fComp"></div></div>
             <div><label class="fld">Tags</label><div class="cbrow" id="fTags"></div></div>
-            <div><label class="fld">Saving throw</label><select id="fSave"><option value="">any save</option></select></div>
-            <div><label class="fld">Damage type</label><select id="fDmg"><option value="">any damage</option></select></div>
+            <div><label class="fld">Saving throw</label><select id="fSave"><option value="">Any save</option></select></div>
+            <div><label class="fld">Damage type</label><select id="fDmg"><option value="">Any damage</option></select></div>
             <div><label class="fld">Editions</label><select id="fReprint">
               <option value="dedupe">Hide reprinted (newest only)</option>
               <option value="all">Show all versions</option></select></div>
@@ -237,7 +242,7 @@
     <div class="sub" id="pickSub"></div>
   </div>
   <div class="mb">
-    <div class="pickbar"><input type="search" id="pickSearch" placeholder="filter by name…">
+    <div class="pickbar"><input type="search" id="pickSearch" placeholder="Filter by name">
       <div class="menu pickfiltermenu">
         <button class="btn iconbtn ico" id="pickLevelBtn" data-ico="filter" title="Filter by level" aria-label="Filter by level"></button>
         <div class="menupop hidden" id="pickLevelPop"><label class="fld">Filter by level</label><div class="cbrow" id="pickLevels"></div></div>
@@ -257,7 +262,7 @@
   </div>
   <div class="mb">
     <div class="pickbar">
-      <input type="search" id="entSearch" placeholder="filter by name…">
+      <input type="search" id="entSearch" placeholder="Filter by name">
       <div class="menu pickermenu">
         <button class="btn iconbtn ico" id="entMenuBtn" data-ico="filter" title="Filters" aria-label="Filters"></button>
         <div class="menupop hidden" id="entMenuPop">
@@ -305,27 +310,27 @@
   <div class="mh"><h2 id="importTitle">Library</h2><button class="helpbtn" data-help="importHelp" aria-expanded="false" aria-label="About the library"></button><button class="x ico" id="importClose" data-ico="x" aria-label="Close"></button></div>
   <div class="mb">
     <div class="helpbody hidden" id="importHelp">
-      <p>This is every book the planner knows about. The <b>switch</b> on a row says whether
-      the planner uses that book — turning one off costs nothing and deletes nothing. The
-      <b>checkbox</b> selects rows so you can act on several at once; selecting anything
-      raises a bar with Remove in it. Removing is the only thing here that deletes.</p>
+      <p>Every book the planner knows about. The <b>switch</b> on a row says whether the
+      planner uses that book; turning one off deletes nothing. The <b>checkbox</b> selects
+      rows so you can act on several at once, and raises a bar with Remove in it. Removing
+      is the only thing here that deletes.</p>
       <p><b>Update data</b> pulls the current 5etools release straight from the public
-      repository — no download step. The app checks for a newer release when it opens. If the
-      repository ever moves, its address is editable under <b>Actions → 5etools address…</b>.</p>
+      repository. The app checks for a newer release when it opens. If the repository moves,
+      edit its address under <b>Actions → 5etools address</b>.</p>
       <p>Or load a 5etools <code>data</code> export yourself from <b>＋ Add files</b>: the
       <b>.zip</b>, the unzipped <b>folder</b>, individual JSON files, or pasted JSON.
-      Everything is parsed and stored in this browser — nothing is uploaded.</p>
-      <p><b>Homebrew &amp; Unearthed Arcana work too.</b> Download any brew as JSON from the
+      Everything is parsed and stored in this browser. Nothing is uploaded.</p>
+      <p><b>Homebrew and Unearthed Arcana work too.</b> Download a brew as JSON from the
       <a href="https://github.com/TheGiddyLimit/homebrew" target="_blank" rel="noopener">5etools homebrew repository</a>
       (D&amp;D Beyond drops live there), or UA from the
       <a href="https://github.com/TheGiddyLimit/unearthed-arcana" target="_blank" rel="noopener">prerelease repository</a>
-      — around 60 KB each. A cloned repository also scans fine as a folder: it is filed by
-      category (<code>spell/</code>, <code>class/</code>, <code>collection/</code>…), so one
-      brew's content scatters across folders, and the list below is how you find it.
-      <b>Not the repository's “Download ZIP”</b> — that is every brew plus artwork, gigabytes
-      no browser tab can open.</p>
+      . They run around 60 KB each. A cloned repository scans fine as a folder: it is filed
+      by category (<code>spell/</code>, <code>class/</code>, <code>collection/</code>), so one
+      brew's content scatters across folders and the list below is how you find it.
+      <b>Do not use the repository's “Download ZIP”</b>: that is every brew plus artwork,
+      gigabytes no browser tab can open.</p>
     </div>
-    <p class="importwelcome hidden" id="importWelcome">This planner ships without spell data. Load a 5etools <code>data</code> export to fill it with spells, classes, subclasses, feats and species. Everything is parsed and stored in your browser — nothing is uploaded.</p>
+    <p class="importwelcome hidden" id="importWelcome">This planner ships without spell data. Load a 5etools <code>data</code> export to fill it with spells, classes, subclasses, feats and species. Everything is parsed and stored in your browser. Nothing is uploaded.</p>
 
     <!-- D154(h): the PENDING-IMPORT TRAY. It sits above the status strip and exists only
          while something is staged: what you dropped, what is new in it, and one commit.
@@ -334,19 +339,18 @@
          both have to show when there is no tray at all. -->
     <div id="importReport" class="note"></div>
     <div class="libtray hidden" id="libTray">
-      <div class="trayh"><b>Pending import</b><span class="traysub">nothing is stored yet</span>
+      <div class="trayh"><b>Pending import</b><span class="traysub">Nothing is stored yet</span>
         <button class="helpbtn" data-help="planHelp" aria-expanded="false" aria-label="About this list"></button></div>
       <div class="helpbody hidden" id="planHelp">
-        <p>These are the files you just added and the books they hold. A tick means <b>add
-        this book to my data</b>. A book you already have is re-read rather than duplicated —
-        only identical entries are replaced — and it is listed above the ticks rather than
-        among them, because declining is not what the tick is for: <b>removing</b> a book you
-        have is the list's own selection bar, never this tray.</p>
+        <p>The files you just added and the books they hold. A tick means <b>add this book
+        to my data</b>. A book you already have is re-read rather than duplicated, and only
+        identical entries are replaced; it is listed above the ticks, not among them. To
+        <b>remove</b> a book you have, use the list's own selection bar.</p>
         <p>Nothing is written until you press Add. Your builds are never touched.</p>
       </div>
       <div id="importStaged" class="importstaged"></div>
       <p class="note hidden" id="importPlanNote" style="margin:8px 0 0;color:var(--gold)">Nothing
-        imported yet — adding these puts the app's built-in books behind them.</p>
+        imported yet. Adding these puts the app's built-in books behind them.</p>
       <p class="note hidden" id="importMissNote" style="margin:8px 0 0;color:var(--gold)"></p>
       <p class="note hidden" id="trayUpd" style="margin:8px 0 0"></p>
       <div class="quick hidden" id="importPlanQuick"></div>
@@ -371,14 +375,14 @@
       <label class="fld" style="display:block">GitHub repository
         <input id="webSrcRepo" type="text" spellcheck="false" placeholder="5etools-mirror-3/5etools-src" style="width:100%">
       </label>
-      <p class="note" style="margin:4px 0 0">The 5etools mirror moves every year or two — if
+      <p class="note" style="margin:4px 0 0">The 5etools mirror moves every year or two. If
         fetching stops working, put the new <code>owner/repository</code> here. Empty means
         the default above.</p>
     </div>
     <div id="folderProgress" class="note"></div>
 
     <div class="prepnav" style="border:none;padding:0 0 8px">
-      <input type="search" id="libSrcSearch" placeholder="search books…" style="flex:1">
+      <input type="search" id="libSrcSearch" placeholder="Filter books" style="flex:1">
       <div class="menu"><button class="btn" id="srcActBtn" aria-haspopup="true" aria-expanded="false">Actions</button>
         <div class="menupop hidden" id="srcActPop">
           <button id="srcAll">Enable all</button>
@@ -387,7 +391,7 @@
           <button id="srcSelAll">Select all</button>
           <button id="srcSelShown">Select shown</button>
           <div class="sep"></div>
-          <button id="webSrcTog">5etools address…</button>
+          <button id="webSrcTog">5etools address</button>
         </div></div>
     </div>
 
@@ -407,7 +411,7 @@
     <input type="file" id="importFiles" accept=".json,.zip,application/json,application/zip" multiple hidden>
     <input type="file" id="folderInput" webkitdirectory directory multiple hidden>
     <div id="pasteBox" class="hidden" style="margin:10px 0 0">
-      <textarea id="importPaste" placeholder="paste 5etools JSON here…" style="width:100%;min-height:70px;font-family:var(--sans);font-size:12px;padding:8px;border-radius:8px;border:1px solid var(--line-strong);background:var(--bg);color:var(--ink)"></textarea>
+      <textarea id="importPaste" placeholder="Paste 5etools JSON here" style="width:100%;min-height:70px;font-family:var(--sans);font-size:12px;padding:8px;border-radius:8px;border:1px solid var(--line-strong);background:var(--bg);color:var(--ink)"></textarea>
       <div class="prepnav" style="border:none;padding:4px 0 0">
         <span class="prepnav-sp"></span>
         <button class="btn" id="importPasteAdd">Add pasted JSON</button>
@@ -421,8 +425,8 @@
       <div class="menupop hidden" id="addFilesPop">
         <button id="importPickZip">Upload .zip</button>
         <button id="importPick">Upload .json files</button>
-        <button id="folderPick">Choose a folder…</button>
-        <button id="pasteTog">Paste JSON…</button>
+        <button id="folderPick">Choose a folder</button>
+        <button id="pasteTog">Paste JSON</button>
       </div></div>
   </div>
 </div></div>
@@ -432,7 +436,7 @@
   <div class="mh"><h2>My homebrew</h2><span class="sub" id="hbSub" style="color:var(--muted);font-size:12px"></span><button class="x ico" id="hbClose" data-ico="x" aria-label="Close"></button></div>
   <div class="mb">
     <div class="prepnav" style="border:none;padding:0 0 10px">
-      <input type="search" id="hbSearch" placeholder="filter by name…" style="flex:1">
+      <input type="search" id="hbSearch" placeholder="Filter by name" style="flex:1">
       <button class="btn on" id="hbNew">New spell</button>
     </div>
     <div id="hbList"></div>
@@ -461,15 +465,15 @@
   </div>
   <div class="mb">
     <div class="pickbar">
-      <input type="search" id="buildSearch" placeholder="filter by name…">
-      <button class="btn lbl-ico" id="buildExportAll"><span class="ico" data-ico="download"></span>Export all…</button>
-      <button class="btn lbl-ico" id="buildImport"><span class="ico" data-ico="download"></span>Import…</button>
+      <input type="search" id="buildSearch" placeholder="Filter by name">
+      <button class="btn lbl-ico" id="buildExportAll"><span class="ico" data-ico="download"></span>Export all</button>
+      <button class="btn lbl-ico" id="buildImport"><span class="ico" data-ico="download"></span>Import</button>
       <button class="btn on lbl-ico" id="buildNew"><span class="ico" data-ico="plus"></span>New build</button>
     </div>
     <div class="importdrop bimport hidden" id="bImportBox">
       <input type="file" id="bImportFile" accept=".json,application/json" hidden>
-      <p class="note" style="margin:0 0 8px">Drop a <code>.spellbook.json</code> build or a <code>.spellbook-backup.json</code> from another device here, <u id="bImportPick">browse…</u>, or paste it below. Importing <b>adds</b> — it never replaces or removes anything you already have.</p>
-      <textarea id="bImportPaste" placeholder="paste an exported build here…"></textarea>
+      <p class="note" style="margin:0 0 8px">Drop a <code>.spellbook.json</code> build or a <code>.spellbook-backup.json</code> from another device here, <u id="bImportPick">browse</u>, or paste it below. Importing <b>adds</b>: it never replaces or removes anything you already have.</p>
+      <textarea id="bImportPaste" placeholder="Paste an exported build here"></textarea>
       <div class="prepnav" style="border:none;padding:8px 0 0">
         <span class="cverr" id="bImportErr"></span>
         <span class="prepnav-sp"></span>
@@ -488,7 +492,7 @@
   <div class="mb">
     <div class="fieldset">
       <label class="fld" for="nbChar">Character name</label>
-      <input type="text" id="nbChar" placeholder="follows the classes you pick…" autocomplete="off" spellcheck="false">
+      <input type="text" id="nbChar" placeholder="Follows the classes you pick" autocomplete="off" spellcheck="false">
     </div>
     <div class="fieldset">
       <label class="fld" for="nbVer">Version name</label>
@@ -510,36 +514,36 @@
   <div class="mb">
     <div class="prgrid">
       <div><label class="fld" for="prTheme">Colour</label><select id="prTheme">
-        <option value="light">Light — on white</option>
-        <option value="dark">Dark — as on screen</option></select></div>
+        <option value="light">Light, on white</option>
+        <option value="dark">Dark, as on screen</option></select></div>
       <div><label class="fld" for="prOrient">Page</label><select id="prOrient">
         <option value="portrait">Portrait</option>
-        <option value="landscape">Landscape — fits every column</option></select></div>
+        <option value="landscape">Landscape, fits every column</option></select></div>
     </div>
     <label class="propt"><input type="checkbox" id="prTracker">
       <span><b>Slot &amp; use tracker</b><em>Boxes to tick: every spell slot, Pact Magic, each limited free cast, each item's charges.</em></span></label>
     <label class="propt"><input type="checkbox" id="prCards">
       <span><b>Spell cards</b><em>Full rules text for every spell on the sheet, as an appendix. The table's spell names link to them.</em></span></label>
     <label class="propt"><input type="checkbox" id="prEligible">
-      <span><b>All preparable spells, unticked</b><em>For classes that prepare from their whole list (Cleric, Druid, Paladin) — print everything you could prepare with an empty box, and prepare on paper.</em></span></label>
+      <span><b>All preparable spells, unticked</b><em>For classes that prepare from their whole list (Cleric, Druid, Paladin). Prints everything you could prepare with an empty box, so you can prepare on paper.</em></span></label>
     <label class="propt"><input type="checkbox" id="prBreak">
       <span><b>A page per spell level</b><em>Start each level group on a fresh page. Easier to flip through, more pages.</em></span></label>
     <label class="propt"><input type="checkbox" id="prNotes">
       <span><b>Ruled notes page</b><em>A blank page at the end to write on.</em></span></label>
     <p class="note" id="prCount"></p>
     <p class="note prfoot">The file's name and its clickable spell links come from your browser's own
-      PDF export. Chrome and Safari honour both; some in-app PDF writers ignore them and save the
-      page under the app's name — open this page in a browser to print if that happens.</p>
+      PDF export. Chrome and Safari honour both. Some in-app PDF writers ignore them and save the
+      page under the app's name; open this page in a browser to print if that happens.</p>
   </div>
   <div class="prepnav">
     <span class="prepnav-sp"></span>
-    <button class="btn on" id="prGo">Print…</button>
+    <button class="btn on" id="prGo">Print</button>
   </div>
 </div></div>
 <div class="modal hidden" id="csrcModal"><div class="box narrow">
   <div class="mh mh-stack">
     <div class="mh-row"><h2 id="csrcTitle">Custom spell source</h2><button class="x ico" id="csrcClose" data-ico="x" aria-label="Close"></button></div>
-    <div class="sub">A thing this character owns that grants spells — a magic item, a boon, a blessing.</div>
+    <div class="sub">Something this character owns that grants spells: a magic item, a boon or a blessing.</div>
   </div>
   <!-- D94 · direction A: the two things you always fill — the name and the spells — ARE the
        surface. How it works collapses to one readable line; the numbers a source rarely
@@ -550,7 +554,7 @@
     <div class="fieldset">
       <label class="fld" for="csrcName">Name</label>
       <input type="text" id="csrcName" placeholder="Staff of Fire" autocomplete="off" spellcheck="false">
-      <input type="text" id="csrcKind" class="csrckind" placeholder="magic item, boon, blessing… (optional)"
+      <input type="text" id="csrcKind" class="csrckind" placeholder="Magic item, boon, blessing (optional)"
              autocomplete="off" spellcheck="false">
     </div>
 
@@ -577,10 +581,10 @@
       <label class="fld">Spells</label>
       <div id="csrcRows"></div>
       <div class="csaddrow">
-        <input type="search" id="csrcSearch" placeholder="add a spell by name…" autocomplete="off">
+        <input type="search" id="csrcSearch" placeholder="Add a spell by name" autocomplete="off">
         <!-- D96: some items grant a CHOICE, not a spell — "choose one 1st-level spell from the
              bard or cleric list", re-chosen each long rest (Silverquill Primer). -->
-        <button class="btn" id="csrcAddPick" title="Grant a choice from a filtered list">or a choice…</button>
+        <button class="btn" id="csrcAddPick" title="Grant a choice from a filtered list">Or a choice</button>
       </div>
       <div id="csrcHits"></div>
     </div>
@@ -673,7 +677,7 @@
       the same.</p>
     </div>
     <div class="pickbar">
-      <input type="search" id="gpSearch" placeholder="filter by name…">
+      <input type="search" id="gpSearch" placeholder="Filter by name">
       <span class="gpcount" id="gpCount"></span>
     </div>
     <div id="gpList"></div>
@@ -690,7 +694,7 @@
   </div>
   <div class="mb">
     <div class="prepbar">
-      <input type="search" id="prepSearch" placeholder="filter by name…">
+      <input type="search" id="prepSearch" placeholder="Filter by name">
       <div class="menu prepfiltermenu">
         <button class="btn" id="prepLevelBtn">Levels</button>
         <div class="menupop hidden" id="prepLevelPop"><label class="fld">Filter by level</label><div class="cbrow" id="prepLevels"></div></div>
@@ -721,7 +725,7 @@
     <!-- D142(d): the picker gets the same bar every other picker has — 65 forms were
          reachable only by scrolling. The filters control is the funnel icon everywhere. -->
     <div class="pickbar">
-      <input type="search" id="famSearch" placeholder="filter by name…">
+      <input type="search" id="famSearch" placeholder="Filter by name">
       <div class="menu pickermenu">
         <button class="btn iconbtn ico" id="famMenuBtn" data-ico="filter" title="Filters" aria-label="Filters"></button>
         <div class="menupop hidden" id="famMenuPop">

@@ -1,7 +1,7 @@
 # My Spellbook
 
 A one-page, offline tool for planning a D&D 2024 character's spells: it works out
-**which spells you can take, at which level at most, and from which source** —
+**which spells you can take, at which level at most, and from which source**,
 across multiclassing, subclass grants, feats, species, and their choices.
 
 Open **`dist/index.html`** in any browser (double-click). Fully self-contained,
@@ -18,21 +18,21 @@ live at <https://francescocompa.github.io/my-spellbook/>.
 - **Build** any character: class + subclass + level rows (true multiclass;
   non-caster classes allowed), species, spell-granting feats, manual extras.
 - **Saved builds**: many characters, each with several versions, from one manager
-  (⋯ → Builds…) and a switcher in the header. Everything auto-saves. Books are a
+  (⋯ → Builds) and a switcher in the header. Everything auto-saves. Books are a
   global setting, but every build remembers the ones it was made with and tells you
-  when they're off — picks are flagged, never removed. **Export** any build to a
+  when they're off: picks are flagged, never removed. **Export** any build to a
   `.spellbook.json` file and **import** it back on another machine; importing always
   adds a build, never overwrites one.
-- **Level preview**: click the level chip to see the build at any lower level —
+- **Level preview**: click the level chip to see the build at any lower level:
   grants that haven't unlocked disappear, budgets follow, nothing is changed. For a
   multiclass build an **order** panel sets which class each character level is taken
   in. To actually *build* a loadout at a level, **save it as a version**.
-- **Custom spell sources**: a magic item, boon or blessing that grants spells —
+- **Custom spell sources**: a magic item, boon or blessing that grants spells,
   with a shared charge pool (or per-spell uses), its own save DC / attack bonus /
   casting ability, a fixed cast level, and a choice of always-prepared, cast-without-
-  preparing, or simply added to your spell list. Stored inside the build, so it
+  preparing, or added to your spell list. Stored inside the build, so it
   travels with an export.
-- **Choices to make** panel surfaces every spell choice a build implies —
+- **Choices to make** panel surfaces every spell choice a build implies:
   subclass options (Circle of the Land terrain), Magic Initiate's list, "choose N"
   picks (which open a filtered spell-pick modal), Fighting-Style spell options
   (Ranger → Druidic Warrior), and the Cleric/Druid order extra-cantrip.
@@ -43,7 +43,7 @@ live at <https://francescocompa.github.io/my-spellbook/>.
 - **Homebrew & Unearthed Arcana**: the importer takes per-brew JSON from the
   5etools [homebrew](https://github.com/TheGiddyLimit/homebrew) (D&D Beyond drops
   included) and [prerelease](https://github.com/TheGiddyLimit/unearthed-arcana)
-  repositories alongside your core data — their books appear under "Homebrew & UA"
+  repositories alongside your core data. Their books appear under "Homebrew & UA"
   in the Library. An import **merges** into what you already have (keyed by book);
   nothing is stored until you commit the staged tray.
 - **Casting ability** is resolved per source (defaults to your shared class stat;
@@ -53,17 +53,17 @@ live at <https://francescocompa.github.io/my-spellbook/>.
   source; daily casters can show all eligible and toggle selection inline.
 - **Spell details**: hover a spell for a tooltip; click for a full modal
   (centered on desktop, bottom-sheet on mobile). A spell that prints creatures shows them
-  as a **carousel** — Find Familiar carries all 65 CR-0 beasts, filterable by book. When one
+  as a **carousel**. Find Familiar carries all 65 CR-0 beasts, filterable by book. When one
   of your features changes *how* you cast a granted spell ("without expending a spell slot,
   and you automatically succeed on the save"), that note appears with the spell.
 
 ## The rules that matter
 
 - **Max spell level per class** is set by that class's own level; multiclassing
-  only changes *slots*. Higher slots just upcast.
+  only changes *slots*. Higher slots only upcast.
 - **The swap distribution** (level-swap casters): each class level you add the new
   prepared spells at that level's max, plus one swap. So not every slot can be top
-  level — the tool computes the best-case count per level.
+  level, and the tool computes the best-case count per level.
 - **Magical Secrets** (Bard) is a list expansion (Cleric/Druid/Wizard, level-gated).
 
 ## Repo layout
@@ -91,7 +91,7 @@ docs/             the public GitHub Pages build (SRD 5.2 inlined; more imported 
 python3 serve.py 8000            # then open http://localhost:8000/src/index.html
 ```
 
-Use `serve.py`, **not** `python3 -m http.server` — the latter evaluates `os.getcwd()`
+Use `serve.py`, **not** `python3 -m http.server`: the latter evaluates `os.getcwd()`
 at argparse time, which the preview sandbox blocks. `serve.py` sends
 `Cache-Control: no-store`, so a plain reload always picks up edits.
 
@@ -106,18 +106,18 @@ Built to match the `monster-forge` / `character-forge` house style: vanilla JS,
 5etools as the data source, no build framework.
 
 ## Known gaps / next
-`PLAN.md` is the live queue — this list is only the long-standing ones.
+`PLAN.md` is the live queue; this list is only the long-standing ones.
 - **After updating the app, re-import your 5etools data.** Creature sets and grant notes are
   produced by the extractors, so an import made before them carries neither, and per-spell
   data cannot be back-filled. The baked stat blocks survive an old import; the rest doesn't.
 - A handful of 2024 features grant spells in **prose only** (Mystic Arcanum, the Wizard school
   Savants, Knowledge Domain's Mind Magic, the Cleric capstone). 5etools models none of them, so
-  they are hand-authored in `PROSE_GRANTS` in both extractors — re-run the audit sweeps in
+  they are hand-authored in `PROSE_GRANTS` in both extractors. Re-run the audit sweeps in
   `GOTCHAS.md` after a 5etools update to catch new ones.
 - Features that let you cast for free a spell you **already know** (Paladin's Smite, Ranger's
-  Favored Enemy, and ~10 more) carry no note yet — notes only reach spells a feature *grants*.
+  Favored Enemy, and ~10 more) carry no note yet: notes only reach spells a feature *grants*.
 - Polymorph / Shapechange / True Polymorph name open-ended creature sets (any beast up to a CR),
-  which is the whole bestiary — out of scope against the 65 stat blocks the digest carries.
+  which is the whole bestiary, out of scope against the 65 stat blocks the digest carries.
 - Prerequisites the app can't verify (ability scores, proficiencies, backgrounds,
   campaigns) read "can't check" rather than pass/fail; closing that means modelling
   ability scores.

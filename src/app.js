@@ -193,7 +193,7 @@ async function importSave(digest){
       const st=await storageReport(), w=digestWeight(digest);
       if(e&&(e.name==="QuotaExceededError"||/quota/i.test(e.message||"")))
         return `Not enough room to store this. It holds ${w.total} entries across ${w.books} books`
-          +(w.top.length?` — the largest are ${w.top.join(", ")}`:"")
+          +(w.top.length?`. The largest are ${w.top.join(", ")}`:"")
           +(st.quota?`. This browser allows ${fmtBytes(st.quota)} for the whole site and ${fmtBytes(st.usage)} is already used`:"")
           +". Untick some books and apply again.";
       IDB_OK=false;   // not a quota problem — fall through and try localStorage
@@ -204,8 +204,8 @@ async function importSave(digest){
     // Don't quote a ceiling — the localStorage limit is 5 MB by convention but browsers vary
     // widely (this one takes tens of MB), and a wrong number is worse than no number.
     const w=digestWeight(digest), st=await storageReport();
-    return `This browser can’t store the import: its database is unavailable — a private window `
-      +`blocks it — and the fallback store is full. This holds ${w.total} entries across `
+    return `This browser can’t store the import: its database is unavailable (a private `
+      +`window blocks it) and the fallback store is full. This holds ${w.total} entries across `
       +`${w.books} books`+(w.top.length?`, the largest being ${w.top.join(", ")}`:"")
       +(st.quota?`; the site is allowed ${fmtBytes(st.quota)} in total`:"")
       +". Untick some books and apply again.";
@@ -486,7 +486,7 @@ function appNotice(msg,kind,fade){
 // be said once, not swallowed per keystroke
 let LS_WARNED=false;
 function storageNotice(e){ if(LS_WARNED)return; LS_WARNED=true;
-  appNotice("Changes aren't saving — browser storage is full or blocked. The app keeps running, but edits are lost on reload. ("+((e&&e.message)||e)+")"); }
+  appNotice("Changes aren't saving: browser storage is full or blocked. The app keeps running, but edits are lost on reload. ("+((e&&e.message)||e)+")"); }
 function persistBuilds(){ try{localStorage.setItem(LS_BUILDS,JSON.stringify(BUILDS));}catch(e){storageNotice(e);} }
 function saveSources(){ try{localStorage.setItem(LS_SOURCES,JSON.stringify([...SRC]));}catch(e){storageNotice(e);} }
 // auto-save: every edit writes through to the active build (D34) — no dirty state to lose
@@ -1264,7 +1264,7 @@ function buildHealth(){
       const canCast=maxLvlAt(sched.caster,Math.max(1,cl),c);
       if(sp.level>canCast)
         add(at,"spelllevel",`${sp.name} is level ${sp.level}, but ${c.name} ${cl}`
-          +` — which is where it arrives — casts at most level ${canCast||1}.`);
+          +`, which is where it arrives, casts at most level ${canCast||1}.`);
     });
   });
 
@@ -2220,7 +2220,7 @@ function guideSubSelect(rowId,rowOf){
   // its TEXT as the value, so the reset below would match nothing (the control goes
   // blank) and re-selecting the prompt would hand the handler a sentence to act on —
   // the same trap the class step's "another class…" prompt below is written around
-  const p=el("option",null,row.subKey?"change the subclass…":"choose a subclass…");
+  const p=el("option",null,row.subKey?"Change the subclass":"Choose a subclass");
   p.value=""; sel.append(p);
   // D147: a menu option names its book unconditionally — unlike a closed select, a
   // dropdown row has the width for it, and here nothing else in the guide states it
@@ -2290,7 +2290,7 @@ function guideSecBlock(step,sec,rowOf){
         slot.append(el("span","lv",secIsCantrip(sec)?"C":"\u2013"));
         slot.append(el("span",null,"Empty slot"));
         slot.onclick=()=>openGpickSec(step,sec);
-        attachTip(slot,tipBlock("An empty slot","This level's slot, still open. Fill it here — "
+        attachTip(slot,tipBlock("An empty slot","This level's slot, still open. Fill it here: "
           +"everything you learned later keeps the level you learned it at."));
         chips.append(slot); return;
       }
@@ -2315,8 +2315,8 @@ function guideSecBlock(step,sec,rowOf){
     if(chips.children.length)b.append(chips);
     const noun=guideNoun(sec);
     const btn=el("button","btn"+(sec.done?"":" on gbig"),
-      GUIDE.reverse&&sec.kind==="pick"?"Place picks here…"
-      :sec.done?"Change…":"Choose "+noun+"…");
+      GUIDE.reverse&&sec.kind==="pick"?"Place picks here"
+      :sec.done?"Change":"Choose "+noun);
     // each section opens its OWN picker, scoped to its own pool (D131(a))
     btn.onclick=()=>openGpickSec(step,sec);
     b.append(btn);
@@ -2333,14 +2333,14 @@ function guideSecBlock(step,sec,rowOf){
   if(sec.kind==="species"){
     if(sec.done&&!multi)b.append(val(sec.value));
     const btn=el("button","btn"+(sec.done?"":" on gbig"),
-      sec.done?"Change the species…":"Choose a species…");
+      sec.done?"Change the species":"Choose a species");
     btn.onclick=()=>openEntityPicker("species"); b.append(btn);
     return guideSecWrap(step,sec,b);
   }
   if(sec.kind==="feat"){
     if(sec.done&&!multi)b.append(val(sec.value));
     const btn=el("button","btn"+(sec.done?"":" on gbig"),
-      sec.done?"Change the feat…":"Choose a feat…");
+      sec.done?"Change the feat":"Choose a feat");
     btn.onclick=()=>openEntityPicker("feat",
       sec.slot==="epic"?"epic":sec.slot==="origin"?"origin":"general");
     b.append(btn);
@@ -2357,8 +2357,8 @@ function guideSecBlock(step,sec,rowOf){
   }
   if(sec.kind==="optfeat"){
     if(sec.done&&!multi)b.append(val(sec.value));
-    const btn=guideOptBtn(sec.pool,sec.done?"Change it…"
-      :"Choose "+String(sec.label).replace(/s$/,"").toLowerCase()+"…",sec.done?"":" on gbig");
+    const btn=guideOptBtn(sec.pool,sec.done?"Change it"
+      :"Choose "+String(sec.label).replace(/s$/,"").toLowerCase(),sec.done?"":" on gbig");
     if(btn)b.append(btn);
     else b.append(hint("This slot's progression has no chooser of its own. Its options are on the character view, under Optional features."));
     return guideSecWrap(step,sec,b);
@@ -2402,7 +2402,7 @@ function guideSecBlock(step,sec,rowOf){
       const sel=el("select","gmenu");
       // explicit empty value on the prompt (see `guideSubSelect`): without it the prompt's
       // value is its own TEXT, and re-selecting it would open a class row named after it
-      const p=el("option",null,shown.size?"another class…":"choose a class");
+      const p=el("option",null,shown.size?"Another class":"Choose a class");
       p.value=""; sel.append(p);
       rest.forEach(c=>{const o=el("option",null,c.name+` (${c.source})`);   // D147
         o.value=key(c.name,c.source);sel.append(o);});
@@ -2775,8 +2775,8 @@ function gpickRow(sp,held,sec,mode){
   const full=!on&&sec&&sec.kind==="cpick"&&sec.have>=sec.need;
   const lbl=mode==="trade"?"Trade it in"
     :mode==="place"?(on?"Already in this slot":"Place it in the selected slot")
-    :on?"Picked — click to drop it"
-    :full?"This group is full — drop one of its picks first":"Take it";
+    :on?"Picked. Click to drop it"
+    :full?"This group is full. Drop one of its picks first":"Take it";
   if(full)b.classList.add("tkfull");
   b.title=lbl; b.setAttribute("aria-label",lbl);
   // a nested action stops its click: the commit re-renders this list, and a bubbling
@@ -2876,7 +2876,7 @@ function csrcRecharge(cs,e){
 // twice per long rest" is a legal item, and a choice you can never change is legal too. The
 // app's own `swappable` is derived from grant kind and can't express any of this; a custom
 // source can simply be told.
-const CSRC_SWAP=[["","chosen once — can't be changed"],["lr","re-chosen on a long rest"],
+const CSRC_SWAP=[["","chosen once, can't be changed"],["lr","re-chosen on a long rest"],
                  ["sr","re-chosen on a short rest"],["dawn","re-chosen at dawn"],
                  ["level","re-chosen when you gain a level"]];
 const csrcSwapText=v=>((CSRC_SWAP.find(x=>x[0]===(v||""))||[])[1])||"";
@@ -2921,7 +2921,7 @@ function csrcPickDesc(e){
   // the swap clause rides the DESC, so it reaches the Choices panel — which is the one place
   // you are actually deciding, and therefore the one place "when can I change this?" matters
   const sw=csrcSwapText(p.swap);
-  return `choose ${n>1?n+" spells":"a spell"}`+(bits.length?" · "+bits.join(" · "):" — any spell")
+  return `choose ${n>1?n+" spells":"a spell"}`+(bits.length?" · "+bits.join(" · "):" · any spell")
     +(p.swap==null?"":" · "+sw);
 }
 function customSourceGrants(cs){
@@ -3490,7 +3490,7 @@ function openOffListPick(idx){
   FOLDED.pick.clear();
   PICK={classIdx:idx,maxLevel:rec.maxLvl,offList:true,levelSet:new Set(),onlyPicked:false};
   $("#pickSearch").value="";
-  $("#pickTitle").textContent=classLabel(rec)+" — Magical Secrets";
+  $("#pickTitle").textContent=classLabel(rec)+" · Magical Secrets";
   const c=R.cart[idx];
   $("#pickSub").textContent=`spells from other lists · ${(c.ms&&c.ms.offCount)||0} of ${(c.ms&&c.ms.cap)||0} used`;
   $("#pickModal").classList.remove("hidden"); renderPickList(); }
@@ -3501,17 +3501,17 @@ function openLevelPick(idx,maxLevel){ const rec=R.casters.find(r=>r.idx===idx); 
   // the set being edited is the SPELLBOOK for a wizard and the KNOWN list for a level-swap
   // caster — calling either "prepare" contradicts the D20/D62 vocabulary the cards use
   const v=pickVerbs(idx,rec);
-  $("#pickTitle").textContent=classLabel(rec)+" — "+v.title;
-  $("#pickSub").textContent=`Level 1–${ROMAN[maxLevel]} · ${v.sub}`;
+  $("#pickTitle").textContent=classLabel(rec)+" · "+v.title;
+  $("#pickSub").textContent=`Level 1–${ROMAN[maxLevel]}`+(v.sub?" · "+v.sub:"");
   $("#pickModal").classList.remove("hidden"); renderPickList(); }
 // one vocabulary per caster kind, everywhere the by-level picker speaks (D20/D62)
 function pickVerbs(idx,rec){ const c=R.cart[idx];
-  return c&&c.known?{title:"Spellbook",sub:"click to add or remove from your book",n:"In your book",
-      on:"In your book — click to remove",off:"Add it to your spellbook"}
-    :(rec||{}).static?{title:"Known spells",sub:"click to learn or drop",n:"Known",
-      on:"Known — click to drop",off:"Learn it"}
-    :{title:"Prepare spells",sub:"click to prepare or unprepare",n:"Prepared",
-      on:"Prepared — click to unprepare",off:"Prepare it"};}
+  return c&&c.known?{title:"Spellbook",sub:"",n:"In your book",
+      on:"In your book. Click to remove",off:"Add it to your spellbook"}
+    :(rec||{}).static?{title:"Known spells",sub:"",n:"Known",
+      on:"Known. Click to drop",off:"Learn it"}
+    :{title:"Prepare spells",sub:"",n:"Prepared",
+      on:"Prepared. Click to unprepare",off:"Prepare it"};}
 function renderPickList(){
   const list=$("#pickList"); list.innerHTML="";
   const q=$("#pickSearch").value.toLowerCase(), isClass=PICK.classIdx!=null;
@@ -3542,7 +3542,7 @@ function renderPickList(){
     const meta=el("div","meta");[ROMAN[sp.level],sp.school,cap1(sp.time),sp.range].filter(Boolean).forEach(x=>meta.append(el("span",null,x)));d.append(meta);
     const take=el("div","take");const b=el("button","tk ico-only"+(on?" on":""));
     b.append(icoEl(on?"check":"plus"));
-    const tlbl=on?(isClass?pv.on:"Picked — click to remove")
+    const tlbl=on?(isClass?pv.on:"Picked. Click to remove")
                  :(isClass?pv.off:"Pick it");
     b.title=tlbl; b.setAttribute("aria-label",tlbl);
     b.onclick=()=>{ if(isClass){ toggle(PICK.classIdx,k,false); renderPickList(); return; }
@@ -3715,7 +3715,7 @@ function renderEntityList(){
     row.append(main);
     const btn=el("button","tk ico-only"+(on?" on":""));
     btn.append(icoEl(on?"check":"plus"));
-    const blbl=on?"Selected — click to remove":"Select";
+    const blbl=on?"Selected. Click to remove":"Select";
     btn.setAttribute("aria-label",blbl);
     btn.title=blbl+(pr.state==="no"?" · you don’t meet its prerequisites, you can still take it":"");
     btn.onclick=()=>{
@@ -3733,7 +3733,7 @@ function renderEntityList(){
     // button of its own, shown only where the rule actually applies.
     if(rep&&on){
       const more=el("button","tk ico-only more");more.append(icoEl("plus"));
-      const ml=`Take ${it.name} again — you can gain it more than once`;
+      const ml=`Take ${it.name} again: you can gain it more than once`;
       more.setAttribute("aria-label",ml); more.title=ml;
       more.onclick=()=>{ const nk=nextCopy(held,k);
         if(ENT.kind==="opt")takeOpt(nk);
@@ -3964,7 +3964,7 @@ function renderBuildList(){
   });
   const total=BUILDS.order.length;
   $("#buildSub").textContent=`${total} build${total===1?"":"s"} across ${chars.length} character${chars.length===1?"":"s"}`
-    +(q?` · ${shown} shown`:"")+" · click one to switch";
+    +(q?` · ${shown} shown`:"");
   if(!shown)box.append(el("div","empty","Nothing matches that filter."));
   renderBuildSwitch();          // a rename here must show up in the header switcher
 }
@@ -4064,7 +4064,7 @@ function renderBswPop(){
   // creating a character is the one ACTION here, not another place to navigate to
   const nb=el("button","bswact primary");nb.append(icoEl("plus","mi"));nb.append(document.createTextNode("New build"));
   nb.onclick=()=>openNewBuild();
-  const man=el("button","bswact");man.append(icoEl("stack","mi"));man.append(document.createTextNode("Manage builds…"));
+  const man=el("button","bswact");man.append(icoEl("stack","mi"));man.append(document.createTextNode("Manage builds"));
   man.onclick=()=>{closeMenu();openBuilds();};
   foot.append(nb,man);
 }
@@ -4116,7 +4116,7 @@ function backupObj(){
 }
 function exportAll(){
   const o=backupObj();
-  if(!o.builds.length){$("#buildSub").textContent="Nothing to export yet — this browser holds no builds.";return;}
+  if(!o.builds.length){$("#buildSub").textContent="Nothing to export yet: this browser holds no builds.";return;}
   const d=new Date(), p=n=>String(n).padStart(2,"0");
   const name=`my-spellbook-${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}.spellbook-backup.json`;
   const url=URL.createObjectURL(new Blob([JSON.stringify(o,null,1)],{type:"application/json"}));
@@ -4335,7 +4335,7 @@ function csrcSyncNums(){
   const dc=$("#csrcDC").value.trim(),atk=$("#csrcAtk").value.trim(),ab=$("#csrcAbility").value;
   const bits=[]; if(dc)bits.push("DC "+dc); if(atk)bits.push(atk); if(ab)bits.push(ABIL[ab]||ab);
   const sub=$("#csrcNumsSub");
-  if(sub)sub.textContent=bits.length?"set — "+bits.join(", "):"uses mine";
+  if(sub)sub.textContent=bits.length?"set: "+bits.join(", "):"uses mine";
   const wrap=$("#csrcNumsWrap"); if(wrap)wrap.classList.toggle("hasval",!!bits.length);
   const box=$("#csrcNums"),btn=$("#csrcNumsBtn");
   if(box)box.classList.toggle("hidden",!CSRC_OPEN.nums);
@@ -4356,7 +4356,7 @@ function csrcSummary(){
     :`${esc(named[0])}, ${esc(named[1])} and ${named.length-2} more`;
   let how;
   if(CSRC.mode==="always")how=`have ${list} always prepared`;
-  else if(CSRC.mode==="list")how=`add ${list} to your spell list — you prepare them normally`;
+  else if(CSRC.mode==="list")how=`add ${list} to your spell list, prepared as normal`;
   else {
     // D95: one source can spend a pool AND carry spells on their own uses, so the sentence
     // has to be able to say both. Each spell is named with what IT costs while the list is
@@ -4390,13 +4390,13 @@ function csrcSummary(){
         `${csrcPickPhrase(e)} and cast it <b>${esc(csrcRecharge(CSRC,e))}</b>`)));
     // "all" only earns its place when there are two budgets to gather up; with one clause it
     // reads as a tic bolted onto the end of a sentence that was already finished
-    how=clauses.length>1 ? clauses.join(", and ")+" — all without preparing"
+    how=clauses.length>1 ? clauses.join(", and ")+", all without preparing"
                          : (clauses[0]||`cast ${list}`)+" without preparing";}
   const dc=$("#csrcDC").value.trim(),atk=$("#csrcAtk").value.trim(),ab=$("#csrcAbility").value;
   const num=[]; if(dc)num.push(`saves are <b>DC ${esc(dc)}</b>`);
   if(atk)num.push(`attacks <b>${esc(atk)}</b>`);
   if(ab)num.push(`it casts with <b>${esc(ABIL[ab]||ab)}</b>`);
-  return `<b>${esc(name)}</b> — ${how}.`+(num.length?" "+cap1(num.join(", "))+".":"");
+  return `<b>${esc(name)}</b>: ${how}.`+(num.length?" "+cap1(num.join(", "))+".":"");
 }
 function csrcSyncSummary(){const b=$("#csrcSummary"); if(!b)return;
   b.innerHTML=csrcSummary();
@@ -4410,7 +4410,7 @@ function renderCsrcRows(){
   const box=$("#csrcRows"); box.innerHTML="";
   const spends=CSRC.mode==="innate";
   if(!CSRC.spells.length){
-    box.append(el("div","csempty","No spells yet — search below to add one."));return;}
+    box.append(el("div","csempty","No spells yet. Search below to add one."));return;}
   CSRC.spells.forEach((e,i)=>{
     const isPick=csrcIsPick(e);
     const sp=isPick?null:SPELL_BY[e.key];
@@ -4490,7 +4490,7 @@ function renderCsrcRows(){
       // A note rides the grant (D79's shape), so it lands in the spell modal and on the
       // table's source badge exactly like a feature's own modification note.
       const nt=el("input");nt.type="text";nt.className="csnote";
-      nt.placeholder="note — e.g. deals cold damage instead";
+      nt.placeholder="Note";
       nt.value=e.note||""; nt.spellcheck=false;
       nt.oninput=()=>{e.note=nt.value.trim()||null;};
       sub.append(nt);
@@ -4525,7 +4525,7 @@ function csrcFilterEditor(e){
   const n=el("input");n.type="number";n.min=1;n.max=9;n.value=Math.max(1,p.take||1);n.className="csn2";
   n.oninput=()=>{p.take=Math.max(1,+n.value||1);csrcSyncSummary();
     const t=box.parentNode&&box.parentNode.querySelector(".csnm"); if(t)t.textContent=cap1(csrcPickDesc(e));};
-  take.append(n); take.append(el("span","csfnote","spell(s) — nothing ticked below means ANY"));
+  take.append(n); take.append(el("span","csfnote","spell(s). Nothing ticked below means ANY"));
   box.append(take);
   const swrow=el("div","csfrow");
   swrow.append(el("span","csflbl","Change"));
@@ -4629,7 +4629,7 @@ function renderGapBar(){
   const txt=el("div","gaptxt");
   txt.append(el("b",null,`${n} pick${n===1?"":"s"} need${n===1?"s":""} `
     +(absent.length&&off.length?"books you don’t have loaded or turned on"
-      :absent.length?"a book that isn’t loaded — re-import it":"a book you have turned off")));
+      :absent.length?"a book that isn’t loaded, so re-import it":"a book you have turned off")));
   txt.append(el("span",null,[...g.books].map(bookName).join(", ")));
   bar.append(txt);
   if(off.length){
@@ -4656,7 +4656,7 @@ function askSources(b,missing,after){
     r.append(Object.assign(el("span","askn"),{textContent:`${k} pick${k===1?"":"s"}`}));
     box.append(r);});
   const idle=idleBooksFor(b,missing);
-  $("#srcAskNote").textContent="Nothing is removed either way — keep your books and those picks "
+  $("#srcAskNote").textContent="Nothing is removed either way. Keep your books and those picks "
     +"stay in the build, flagged."
     +(idle?` It was also built with ${idle} other book${idle===1?"":"s"} nothing depends on; those are left alone.`:"");
   $("#srcAskModal").classList.remove("hidden");
@@ -4697,7 +4697,7 @@ function openPrqPop(anchorEl,pick){
   PRQPOP.innerHTML="";
   PRQPOP.append(el("div","prqh",cands.length?`Take this ${noun}`:"Nothing matching in your books"));
   const cur=pick.kind==="species"&&RACE_BY[state.speciesKey];
-  if(cur)PRQPOP.append(el("div","prqn",`Replaces ${cur.name} — you can only have one species.`));
+  if(cur)PRQPOP.append(el("div","prqn",`Replaces ${cur.name}: you can only have one species.`));
   cands.slice(0,8).forEach(o=>{
     const row=el("div","prqrow");
     row.append(el("span","prqnm",o.name));
@@ -4763,14 +4763,14 @@ function renderPrepStep(){
   $("#prepTitle").textContent="Spell preparation";
   let sub="";
   if(st.type==="granted"){
-    sub="Spells you chose from a grant rather than from a class list. Some sources — the 2024 "
-      +"species lineages among them — let you replace the choice after every long rest.";
+    sub="Spells you chose from a grant rather than from a class list. Some sources, the 2024 "
+      +"species lineages among them, let you replace the choice after every long rest.";
   } else {
     const rec=prepRec(); if(!rec){ $("#prepModal").classList.add("hidden"); return; }
     const bk=R.cart[rec.idx]&&R.cart[rec.idx].known&&R.cart[rec.idx].known.book;
     sub=bk
-      ? `Prepared from your spellbook — pick which of the book's spells are live. Change them after every long rest; the book itself only grows on level-up.`
-      : `Prepared from the ${classLabel(rec)} list — any mix of levels up to ${ROMAN[rec.maxLvl]}. Change them freely after every long rest.`;
+      ? `Prepared from your spellbook: pick which of the book's spells are live. Change them after every long rest; the book itself only grows on level-up.`
+      : `Prepared from the ${classLabel(rec)} list, any mix of levels up to ${ROMAN[rec.maxLvl]}. Change them freely after every long rest.`;
   }
   const ps=$("#prepSub"); if(ps)ps.textContent=sub;
   const steps=$("#prepSteps"); steps.innerHTML="";
@@ -4808,7 +4808,7 @@ function renderPrepSwap(){
   h.append(el("b",null,"Cantrip swap"));
   h.append(el("span","cgn","One per long rest"));
   h.append(Object.assign(el("div","cgcat"),
-    {textContent:`Recorded at L${lv} — below that level the cantrip you traded away is still yours.`}));
+    {textContent:`Recorded at L${lv}. Below that level the cantrip you traded away is still yours.`}));
   box.append(h);
   host.append(box);
   if(!known.length){box.append(el("div","empty","No cantrip to trade yet."));return;}
@@ -4817,9 +4817,9 @@ function renderPrepSwap(){
     .filter(e=>e.sp.level===0&&e.takers.some(t=>t.idx===rec.idx)&&!held.has(key(e.sp.name,e.sp.source)))
     .map(e=>e.sp).sort((a,b)=>a.name.localeCompare(b.name));
   const line=el("div","swaprow");
-  const outSel=el("select"); outSel.append(el("option","","cantrip leaving…"));
+  const outSel=el("select"); outSel.append(el("option","","Cantrip leaving"));
   known.forEach(k=>{const o=el("option",null,name(k));o.value=k;outSel.append(o);});
-  const inSel=el("select"); inSel.append(el("option","","its replacement…"));
+  const inSel=el("select"); inSel.append(el("option","","Its replacement"));
   pool.forEach(sp=>{const o=el("option",null,sp.name);o.value=key(sp.name,sp.source);inSel.append(o);});
   const b=el("button","btn on","Swap");
   line.append(outSel,inSel,b);
@@ -4827,8 +4827,8 @@ function renderPrepSwap(){
   const note=el("div","swnote"); box.append(note);
   const say=t=>{note.textContent=t;};
   say(standing&&standing.row!==rec.idx
-    ? `L${lv} already records a cantrip swap for another class — clear its pill in the timeline, or move the view to another level.`
-    : `Pick the cantrip leaving and the one arriving — ${classLabel(rec)} may replace one after each long rest.`);
+    ? `L${lv} already records a cantrip swap for another class. Clear its pill in the timeline, or move the view to another level.`
+    : `Pick the cantrip leaving and the one arriving. ${classLabel(rec)} may replace one after each long rest.`);
   b.onclick=()=>{
     const out=outSel.value, into=inSel.value;
     if(!out||!into){say("Pick both sides first.");return;}
@@ -4887,7 +4887,7 @@ function renderGrantedList(){
     if(!pool.length)box.append(el("div","empty","Nothing matches here."));
     pool.slice(0,300).forEach(sp=>{const k=key(sp.name,sp.source);const on=cur.includes(k);
       shownTotal++;
-      box.append(prepRow(sp,on,on?"Chosen — click to drop it":"Choose it",()=>{
+      box.append(prepRow(sp,on,on?"Chosen. Click to drop it":"Choose it",()=>{
         let a=state.choices[c.id]||[];
         if(a.includes(k))a=a.filter(v=>v!==k);
         else if(a.length<c.count)a=[...a,k];
@@ -4932,12 +4932,12 @@ function renderPrepList(){
     &&(!PREP.onlyPicked||cur.has(key(sp.name,sp.source))));
   items.sort((a,b)=>a.level-b.level||a.name.localeCompare(b.name));
   items.slice(0,400).forEach(sp=>{const k=key(sp.name,sp.source);const on=cur.has(k);
-    const d=prepRow(sp,on,on?"Prepared — click to unprepare":"Prepare it",
+    const d=prepRow(sp,on,on?"Prepared. Click to unprepare":"Prepare it",
       ()=>{toggle(rec.idx,k,false,field);renderPrepList();});
     if(on&&over)d.querySelector(".tk").classList.add("over");
     list.append(d);});
   if(!items.length)list.append(el("div","empty",PREP.onlyPicked?"Nothing prepared yet."
-    :book?"Your spellbook is empty — copy spells into it first."
+    :book?"Your spellbook is empty. Copy spells into it first."
          :"No eligible spells at this level yet."));
 }
 
@@ -4946,7 +4946,7 @@ function saveCustom(){try{localStorage.setItem(LS_CUSTOM,JSON.stringify(CUSTOM||
 const SCHOOLS=["Abjuration","Conjuration","Divination","Enchantment","Evocation","Illusion","Necromancy","Transmutation"];
 const CT_OPTS=[["action","Action","action"],["bonus action","Bonus action","bonus"],["reaction","Reaction","reaction"],["1 minute","1 minute","long"],["10 minutes","10 minutes","long"],["1 hour","1 hour","long"],["8 hours","8 hours","long"],["24 hours","24 hours","long"]];
 const DUR_OPTS=["Instantaneous","1 round","1 minute","10 minutes","1 hour","8 hours","24 hours","7 days","Until dispelled","Special"];
-const SAVE_OPTS=[["","— none —"],["strength","Strength"],["dexterity","Dexterity"],["constitution","Constitution"],["intelligence","Intelligence"],["wisdom","Wisdom"],["charisma","Charisma"]];
+const SAVE_OPTS=[["","None"],["strength","Strength"],["dexterity","Dexterity"],["constitution","Constitution"],["intelligence","Intelligence"],["wisdom","Wisdom"],["charisma","Charisma"]];
 const LVL_OPTS=[["0","Cantrip"],["1","1st"],["2","2nd"],["3","3rd"],["4","4th"],["5","5th"],["6","6th"],["7","7th"],["8","8th"],["9","9th"]];
 const CSTEP_NAMES=["Identity","Mechanics","Lists & text"];
 let CFORM=null,CSTEP=0,CEDIT=false;
@@ -4969,7 +4969,7 @@ function openCustom(prefill,editing){
 function customTemplateRow(){
   const wrap=el("div","ctpl c-full");
   const row=el("div","csaddrow");
-  const inp=el("input");inp.type="search";inp.placeholder="start from an existing spell…";
+  const inp=el("input");inp.type="search";inp.placeholder="Start from an existing spell";
   inp.autocomplete="off";
   const hits=el("div","ctplhits");
   inp.oninput=()=>{
@@ -5026,9 +5026,9 @@ function renderCustomStep(){
       const b=el("button","cchip"+(on?" on":""),c.name);
       b.onclick=()=>{F.classes=on?F.classes.filter(x=>x!==c.k):[...F.classes,c.k];renderCustomStep();};chips.append(b);});
     g.append(field("On which class lists",chips,"c-full"));
-    const dsc=el("textarea","carea");dsc.value=F.desc;dsc.placeholder="What the spell does…";dsc.oninput=e=>F.desc=e.target.value;
+    const dsc=el("textarea","carea");dsc.value=F.desc;dsc.placeholder="What the spell does";dsc.oninput=e=>F.desc=e.target.value;
     g.append(field("Description",dsc,"c-full"));
-    const hi=el("textarea","carea");hi.value=F.higher;hi.placeholder="At higher levels…";hi.oninput=e=>F.higher=e.target.value;
+    const hi=el("textarea","carea");hi.value=F.higher;hi.placeholder="At higher levels";hi.oninput=e=>F.higher=e.target.value;
     g.append(field("At higher levels",hi,"c-full"));
   }
   body.append(g);
@@ -5050,7 +5050,7 @@ function customPreview(){const sp=customSpellObj();const box=el("div","cpreview"
   box.append(el("div","cpv-h",sp.name||"Untitled spell"));
   box.append(el("div","cpv-sub",metaLine(sp)+(sp.cls.length?" · "+sp.cls.map(c=>c[0]).join(", "):"")));
   const line=el("div","cpv-meta");[cap1(sp.time),sp.range,sp.durTxt,compText(sp)].forEach(x=>line.append(el("span",null,x)));box.append(line);
-  const dfn=defenceHTML(sp);if(dfn!=="—"){const d=el("div","cpv-def");d.innerHTML="Defence — "+dfn;box.append(d);}
+  const dfn=defenceHTML(sp);if(dfn!=="—"){const d=el("div","cpv-def");d.innerHTML="Defence: "+dfn;box.append(d);}
   if(sp.desc.length){const p=el("div","cpv-desc");p.innerHTML=ccText(sp.desc[0].slice(0,220))+(sp.desc[0].length>220?"…":"");box.append(p);}
   return box;}
 function compileCustom(){const sp=customSpellObj();
@@ -5083,7 +5083,7 @@ function renderHbList(){
   $("#hbSub").textContent=all.length
     ? `${all.length} spell${all.length===1?"":"s"}`+(q&&rows.length!==all.length?` · ${rows.length} shown`:"")
     : "";
-  if(!all.length){box.append(el("div","empty","No homebrew spells yet — “New spell” writes one."));return;}
+  if(!all.length){box.append(el("div","empty","No homebrew spells yet. “New spell” writes one."));return;}
   if(!rows.length){box.append(el("div","empty","Nothing matches that."));return;}
   rows.forEach(sp=>{
     const r=el("div","hbrow");
@@ -5146,11 +5146,11 @@ function cancelBuild(){clearTimeout(BUILD_TIMER);BUILD_TIMER=null;}
 // It is not permissions — it is size. Refuse it up front, by name and by measured size.
 const MAX_ZIP=512*1024*1024;
 function fsize(b){return b>=1073741824?(b/1073741824).toFixed(1)+" GB":Math.round(b/1048576)+" MB";}
-const ZIP_TOOBIG=" Unzip it yourself and stage just the .json files you want — imports <b>add</b> to what "
+const ZIP_TOOBIG=" Unzip it yourself and stage only the .json files you want: imports <b>add</b> to what "
   +"you already have, so a big collection can go in a few batches.";
 async function stageZip(file){const rep=$("#importReport");
   if(file.size>MAX_ZIP){
-    rep.innerHTML="<b>"+esc(file.name)+" is "+fsize(file.size)+"</b> — too large for a browser tab to open. "
+    rep.innerHTML="<b>"+esc(file.name)+" is "+fsize(file.size)+"</b>, too large for a browser tab to open. "
       +"A complete 5etools <code>data</code> export is about 25 MB zipped."+ZIP_TOOBIG;
     return;}
   try{
@@ -5162,7 +5162,7 @@ async function stageZip(file){const rep=$("#importReport");
     // unzipJsonFiles has always taken a progress callback — nothing ever passed one, so a long
     // unpack was indistinguishable from a hang.
     const entries=await window.SB_extract.unzipJsonFiles(buf,(name,i,total)=>{
-      rep.textContent="Unpacking "+file.name+" — "+i+"/"+total+": "+name;});
+      rep.textContent="Unpacking "+file.name+" · "+i+"/"+total+": "+name;});
     if(!entries.length){rep.textContent="No recognised 5etools files in "+file.name+".";return;}
     entries.forEach(e=>IMPORT_STAGE.push(e));rep.textContent="";renderImportStage();scheduleBuild();}
   catch(e){rep.innerHTML="Couldn’t read <b>"+esc(file.name)+"</b>: "+esc(e.message||String(e))
@@ -5199,7 +5199,7 @@ function importSummary(r){return `${r.spells} spell${r.spells===1?"":"s"} · ${r
   // …and only advise the lookup file when one wasn't supplied. With it present the
   // remainder are spells nothing in the data can cast, which is not a mistake to correct.
   +(r.noAccess?` · ⚠ ${r.noAccess} spell${r.noAccess===1?"":"s"} no class can reach`
-    +(r.lookup?"":" — add generated/gendata-spell-source-lookup.json"):"")
+    +(r.lookup?"":"; add generated/gendata-spell-source-lookup.json"):"")
   // a file that threw mid-parse left part of a book behind — the exact half-import
   // failure the report exists to surface
   +((r.errors||[]).length?` · ⚠ ${r.errors.length} file${r.errors.length===1?"":"s"} failed: ${r.errors.join(" · ")}`:"");}
@@ -5235,7 +5235,7 @@ async function webTree(repo,ver){
   let t,ref="v"+ver;   // the repo tags with a leading v; remember which form answered
   try{t=await webJson("https://api.github.com/repos/"+repo+"/git/trees/"+encodeURIComponent(ref)+"?recursive=1");}
   catch(_){ref=ver;t=await webJson("https://api.github.com/repos/"+repo+"/git/trees/"+encodeURIComponent(ref)+"?recursive=1");}
-  if(t&&t.truncated)throw new Error("the repository’s file list came back truncated — try again later.");
+  if(t&&t.truncated)throw new Error("the repository’s file list came back truncated. Try again later.");
   return {ref,paths:((t&&t.tree)||[]).filter(e=>e.type==="blob"&&/^data\//.test(e.path)
     &&window.SB_extract.zipWanted(e.path)).map(e=>e.path)};}
 async function webFetchAll(repo,ver,ref,paths,onFile){
@@ -5283,9 +5283,9 @@ async function webSync(){
     const ver=await webResolve(repo);
     rep.textContent="Listing the files of v"+ver+"…";
     const tree=await webTree(repo,ver);
-    if(!tree.paths.length)throw new Error("no data files found in "+repo+" — is the repository address right?");
+    if(!tree.paths.length)throw new Error("no data files found in "+repo+". Is the repository address right?");
     const entries=await webFetchAll(repo,ver,tree.ref,tree.paths,(p,i,n)=>{
-      rep.textContent="Fetching v"+ver+" — "+i+"/"+n+": "+p.split("/").pop();});
+      rep.textContent="Fetching v"+ver+" · "+i+"/"+n+": "+p.split("/").pop();});
     if(!entries.length)throw new Error("nothing usable came back. Your data is unchanged.");
     entries.forEach(e=>IMPORT_STAGE.push(e));
     WEB_PENDING={repo,version:ver};
@@ -5310,7 +5310,7 @@ async function webUpdateNotice(){
   if(!latest||!verLt(rec.version,latest))return;
   let seen=null; try{seen=localStorage.getItem(LS_WEB_NAG);}catch(_){}
   if(seen===latest)return;
-  const n=appNotice("5etools has newer data — v"+latest+" is out; you have v"+rec.version+".","ask");
+  const n=appNotice("5etools has newer data: v"+latest+" is out and you have v"+rec.version+".","ask");
   const b=el("button","anact","Fetch it now");
   b.onclick=()=>{n.remove();openImport(false);webSync();};
   n.insertBefore(b,n.querySelector(".anx"));
@@ -5463,14 +5463,14 @@ function renderImportPlan(){
   const mn=$("#importMissNote");
   if(mn){mn.classList.toggle("hidden",!miss.size);
     if(miss.size)mn.textContent="Couldn’t re-read "
-      +(miss.size===1?"this book earlier — the linked folder doesn’t hold it":"these books earlier — the linked folder doesn’t hold them")
+      +(miss.size===1?"this book earlier; the linked folder doesn’t hold it":"these books earlier; the linked folder doesn’t hold them")
       +": "+[...miss].map(bookName).join(", ")+". Adding "
       +(miss.size===1?"its file":"their files")+" here fixes that.";}
   // a re-read is not a decision, so it is one sentence, not 44 rows of untickable ticks
   const un=$("#trayUpd");
   if(un){un.classList.toggle("hidden",!upd.length);
     if(upd.length)un.textContent=`${nBooks(upd.length)} you already have will be re-read with `
-      +`parser v${window.__VERSION__||"dev"} — only identical entries are replaced.`;}
+      +`parser v${window.__VERSION__||"dev"}. Only identical entries are replaced.`;}
   const q=PLAN_Q.trim().toLowerCase();
   const shown=q?fresh.filter(c=>c.toLowerCase().includes(q)
     ||trayName(c).toLowerCase().includes(q)):fresh;
@@ -5493,7 +5493,7 @@ function renderImportPlan(){
   qb.classList.toggle("hidden",fresh.length<9);
   if(fresh.length>=9){
     const f=el("input","planq"); f.type="search"; f.value=PLAN_Q;
-    f.placeholder="filter books…"; f.spellcheck=false;
+    f.placeholder="Filter books"; f.spellcheck=false;
     f.oninput=e=>{PLAN_Q=e.target.value;renderImportPlan();
       const n=$("#importPlanQuick .planq"); if(n){n.focus();n.setSelectionRange(n.value.length,n.value.length);}};
     qb.append(f);
@@ -5605,7 +5605,7 @@ async function runScan(entries){
     }catch(_){bad++;}
     // yield to the paint loop, or a 1,300-file scan freezes the tab it is reporting into
     if(i%15===0||i===entries.length-1){
-      if(prog)prog.textContent=`Scanning ${i+1}/${entries.length} — ${Object.keys(books).length} books so far…`;
+      if(prog)prog.textContent=`Scanning ${i+1}/${entries.length} · ${Object.keys(books).length} books so far…`;
       await new Promise(r=>setTimeout(r,0));}
   }
   return {books,read,bytes,skipped,bad,ms:Math.round(performance.now()-t0)};
@@ -5619,7 +5619,7 @@ async function scanEntries(entries,label){
     SCAN=await runScan(entries);
     SCAN.entries=entries;   // kept so Apply re-reads only the ticked books' files
     const n=Object.keys(SCAN.books).length, withC=scanBooks().length;
-    prog.innerHTML=`Scanned <b>${esc(label||"folder")}</b> — ${SCAN.read} file${SCAN.read===1?"":"s"}, `
+    prog.innerHTML=`Scanned <b>${esc(label||"folder")}</b> · ${SCAN.read} file${SCAN.read===1?"":"s"}, `
       +`${Math.round(SCAN.bytes/1048576)} MB, <b>${withC}</b> book${withC===1?"":"s"} with content`
       +(n>withC?` (${n-withC} more declare nothing this app uses)`:"")
       +`. Tick what you want below, then Apply.`;
@@ -5642,7 +5642,7 @@ async function stageScanBooks(codes){
   Object.values(SCAN.books).forEach(b=>b.files.forEach(p=>claimed.add(p)));
   const wanted=window.SB_extract.zipWanted;
   const entries=(SCAN.entries||[]).filter(e=>want.has(e.path)||(wanted(e.path)&&!claimed.has(e.path)));
-  if(!entries.length){prog.textContent="Those files are no longer reachable — rescan the folder.";return 0;}
+  if(!entries.length){prog.textContent="Those files are no longer reachable. Rescan the folder.";return 0;}
   // same contract as the unzip path: feature files first, so the form refs a feature adds
   // to a familiar spell are registered before slimJson decides which monsters survive
   entries.sort((a,b)=>window.SB_extract.readOrder(a.path)-window.SB_extract.readOrder(b.path));
@@ -5684,7 +5684,7 @@ function buildImport(only,auto){
     Object.keys(PLAN.merged.sources||{}).forEach(c=>{
       if(!prevKeep.has(c)&&!PLAN.fresh.has(c))PLAN.keep.delete(c);});
     renderImportPlan();}
-  rep.innerHTML=`Read ${files.length} file${files.length===1?"":"s"} — ${importSummary(report)}.`;
+  rep.innerHTML=`Read ${files.length} file${files.length===1?"":"s"} · ${importSummary(report)}.`;
 }
 // D112: one Apply reconciles everything — a ticked "available" book is read from the scanned
 // folder first, then the whole keep-set is stored in one write.
@@ -5712,7 +5712,7 @@ async function applyImport(){
 // importSave uses — the refresh needs the outcome to report it somewhere other than `rep`.
 async function applyPlan(rep,refreshed){
   const out=filterDigest(PLAN.merged,PLAN.keep);
-  if(!digestSize(out)){const m="That would leave no content at all — keep at least one book.";
+  if(!digestSize(out)){const m="That would leave no content at all. Keep at least one book.";
     rep.textContent=m;return m;}
   // D111: stamp what made this data, so Refresh can say whether the new parser ran.
   // PER BOOK as well as per digest (D138): a refresh only re-reads the books the folder
@@ -5800,7 +5800,7 @@ function refreshPaint(){
   if(RBAR&&!document.getElementById("appNotice")){RQUIET=true;return;}
   const p=$("#folderProgress"); let d=p?(p.textContent||"").trim():"";
   if(d===RSEEN)d="";
-  RBAR=appNotice(RSTAGE+(d?" — "+d:""),"busy");
+  RBAR=appNotice(RSTAGE+(d?" · "+d:""),"busy");
 }
 function refreshStage(msg){ RSTAGE=msg;
   const rep=$("#importReport"); if(rep)rep.textContent=msg;
@@ -5833,8 +5833,8 @@ async function refreshImported(fromModal){
   if(!RMODAL)RTICK=setInterval(refreshPaint,180);
   try{
     if(!stored.length)return refreshAsk(
-      "Nothing imported yet — Refresh re-reads books you already imported. Drop your 5etools files here first.",
-      "Nothing imported yet — import your files in the Library.");
+      "Nothing imported yet. Refresh re-reads books you already imported. Drop your 5etools files here first.",
+      "Nothing imported yet. Import your files in the Library.");
     // openImport's handle recall is fire-and-forget, so on the first click of a session FOLDER
     // is still null and this would fall through to "choose the folder" — a button that only
     // opens the modal. Wait for the recall here; the permission prompt is still inside this
@@ -5849,16 +5849,16 @@ async function refreshImported(fromModal){
     }
     // a scan from earlier in this session still counts — the webkitdirectory path has no handle
     if(!SCAN)return refreshAsk(
-      FOLDER?"That folder wasn’t opened — permission is asked once per session. <b>Choose it again</b> above, or drop the .zip and Apply."
-            :"Refresh needs your 5etools files — <b>choose the folder</b> above (it will be remembered), or drop the .zip and Apply.",
-      FOLDER?"Refresh needs the folder — permission wasn’t granted. Choose it in the Library."
-            :"Refresh needs the folder — choose it in the Library.");
+      FOLDER?"That folder wasn’t opened; permission is asked once per session. <b>Choose it again</b> above, or drop the .zip and Apply."
+            :"Refresh needs your 5etools files. <b>Choose the folder</b> above (it will be remembered), or drop the .zip and Apply.",
+      FOLDER?"Refresh needs the folder and permission wasn’t granted. Choose it in the Library."
+            :"Refresh needs the folder. Choose it in the Library.");
     const kept=stored.filter(c=>SCAN.books[c]);
     if(!kept.length){
       refreshMissRemember(stored);   // every stored book: the folder can heal none of them
       return refreshAsk(
-        "The scanned folder holds none of your imported books — <b>choose the folder</b> that has them, or drop the files.",
-        "Refresh found none of your books in that folder — choose another in the Library.");}
+        "The scanned folder holds none of your imported books. <b>Choose the folder</b> that has them, or drop the files.",
+        "Refresh found none of your books in that folder. Choose another in the Library.");}
     IMPORT_STAGE=[]; cancelBuild();
     refreshStage("Reading "+nBooks(kept.length)+"…");
     SCAN_BUSY=true;
@@ -5893,7 +5893,7 @@ async function refreshImported(fromModal){
     const one=missCodes.length===1;
     const caveat=` ${nBooks(missCodes.length)} (${names}) ${one?"wasn’t":"weren’t"} in that folder and kept ${one?"its":"their"} stored data.`;
     if(rep)rep.innerHTML+="<br>"+esc(caveat.trim())
-      +` Re-add ${one?"it":"them"} below — drop the file${one?"":"s"}, or choose the folder that has ${one?"it":"them"}.`;
+      +` Re-add ${one?"it":"them"} below: drop the file${one?"":"s"}, or choose the folder that has ${one?"it":"them"}.`;
     refreshStop();
     if(RMODAL)renderImportPlan();   // the note above the book list marks what to drop in
     else{
@@ -5959,11 +5959,11 @@ function staleParserNotice(){
     :`${behind.length} of your ${total} imported books (${behind.slice(0,3).map(bookName).join(", ")}`
       +`${behind.length>3?`, +${behind.length-3} more`:""}) ${behind.length===1?"was":"were"}`;
   const tail=allMiss
-    ?` The last refresh couldn’t re-read ${miss.length===1?"it — the folder doesn’t hold it. Re-add the file":"them — the folder doesn’t hold them. Re-add the files"} in the Library.`
-    :miss.length?` Refresh to re-read them — but ${nBooks(miss.length)} ${miss.length===1?"wasn’t in the folder last time and needs":"weren’t in the folder last time and need"} re-adding in the Library.`
+    ?` The last refresh couldn’t re-read ${miss.length===1?"it; the folder doesn’t hold it. Re-add the file":"them; the folder doesn’t hold them. Re-add the files"} in the Library.`
+    :miss.length?` Refresh to re-read them, but ${nBooks(miss.length)} ${miss.length===1?"wasn’t in the folder last time and needs":"weren’t in the folder last time and need"} re-adding in the Library.`
     :" Refresh to re-read them and pick up the fixes since.";
   const n=appNotice(`${which} read by ${made&&behind.length===total?"parser v"+made:"an older parser"}`
-    +` — this is v${app}.`+tail,"ask");
+    +`; this is v${app}.`+tail,"ask");
   const act=(label,fn)=>{const b=el("button","anact",label);
     b.onclick=()=>{ try{localStorage.setItem(LS_PARSER_NAG,app);}catch(_){}
       n.remove(); fn(); };
@@ -6002,7 +6002,7 @@ function renderLibStatus(){
   const stale=!!(rec&&rec.version&&WEB_LATEST&&verLt(rec.version,WEB_LATEST));
   const bits=[`<b>${nsrc} book${nsrc===1?"":"s"}</b>`];
   if(rec&&rec.version)bits.push(stale
-    ? `5etools <b>v${esc(WEB_LATEST)} is out</b> — you have v${esc(rec.version)}`
+    ? `5etools <b>v${esc(WEB_LATEST)} is out</b> · you have v${esc(rec.version)}`
     : `5etools v${esc(rec.version)}`);
   else bits.push(IMPORTED?"imported by hand":"built-in books only");
   if(repo!==WEB_REPO_DEFAULT)bits.push("from "+esc(repo));
@@ -6026,9 +6026,18 @@ async function clearImport(){await importDrop();assembleData();pruneState();refr
 // no-content build (public deploy): pop the import modal in welcome mode, once
 let onboardShown=false;
 function maybeOnboard(){
+  renderFirstRun();
   if(hasContent()){onboardShown=false;return;}
   if(onboardShown)return; onboardShown=true;
   openImport(true);}
+// D158(r): the Pages build's first-run line. It names what the page is for a visitor who
+// arrived cold, and it is gone the moment anything is imported or built. The local and
+// dist builds bake every book, so the line would be a lie there: `__PUBLIC__` gates it.
+function renderFirstRun(){
+  const p=$("#firstRun"); if(!p)return;
+  const first=!!(typeof window!=="undefined"&&window.__PUBLIC__)
+    &&!IMPORTED&&BUILDS.order.length<=1&&guideEmpty();
+  p.classList.toggle("hidden",!first);}
 
 // ── table view: spell-table columns (D29) ──────────────────────────────────
 // The registry is the single source of truth: order, label, and how a cell renders.
@@ -6213,7 +6222,7 @@ function renderTable(){
 
   const tbl=$("#spellTable");tbl.innerHTML="";
   $("#tableChip").textContent=rows.length?rows.length+" spell"+(rows.length===1?"":"s"):"";
-  $("#tableEmpty").textContent=rows.length?"":"Nothing selected yet — pick spells in the Build tab (or use Prepare daily); subclass/feat/species grants appear here too.";
+  $("#tableEmpty").textContent=rows.length?"":"Nothing selected yet. Pick spells in the Build tab, or use Prepare daily; subclass, feat and species grants appear here too.";
   const prepBtn=$("#prepDailyBtn");if(prepBtn)prepBtn.style.display=prepSteps().length?"":"none";
   if(!rows.length)return;
 
@@ -6245,7 +6254,7 @@ function renderTable(){
   const hrow=el("tr");cols.forEach(k=>hrow.append(el("th",k==="name"?"nm":null,TABLE_COLS[k].label)));
   const thead=el("thead");thead.append(hrow);tbl.append(thead);
   const tbody=el("tbody");tbl.append(tbody);
-  attachTip(hrow.firstChild,tipBlock("Preparation status","Hover a marker for what it means."));
+  attachTip(hrow.firstChild,tipBlock("Preparation status","Each marker in this column says how the spell is prepared."));
   const span=cols.length;
 
   let lastOuter=null,lastLevel=null,groupN=0;
@@ -6345,7 +6354,7 @@ const METAMAGIC_WHEN={
     why:"deals a damage type Transmuted Spell can change"},
   "Twinned Spell":{tag:"twin",
     test:sp=>Array.isArray(sp.higher)&&/target one additional/i.test(sp.higher.join(" ")),
-    why:"can target one additional creature from a higher slot — Twinned adds one without spending it"},
+    why:"can target one additional creature from a higher slot; Twinned adds one without spending it"},
 };
 // the taken metamagic options with a predicate, and the class rows whose own
 // progressions grant Metamagic — tags only make sense on that class's spells
@@ -6368,15 +6377,15 @@ function cellFor(k,row){
     // a merged row (D136) may hold both facts: the free cast takes the marker, and the
     // always-prepared half says so here rather than in a row of its own
     const alsoP=row.alsoPrepared?" It is also always prepared by another source.":"";
-    if(type==="free"){ind.innerHTML=ICONS.check;ind.classList.add("always");attachTip(ind,tipBlock("Always prepared","A free grant — it doesn’t count against your prepared list."));}
-    else if(type==="swap"){ind.innerHTML=ICONS.dot;ind.classList.add("on");attachTip(ind,tipBlock("Prepared","Swappable on a long rest — change it in Choices."+alsoP));}
+    if(type==="free"){ind.innerHTML=ICONS.check;ind.classList.add("always");attachTip(ind,tipBlock("Always prepared","A free grant. It doesn’t count against your prepared list."));}
+    else if(type==="swap"){ind.innerHTML=ICONS.dot;ind.classList.add("on");attachTip(ind,tipBlock("Prepared","Swappable on a long rest. Change it in Choices."+alsoP));}
     else if(type==="cast"){ind.innerHTML=ICONS.spark;ind.classList.add("innate");attachTip(ind,tipBlock("Innate / free cast","Cast without preparing it."+(recharge?" Cadence: "+recharge+".":"")+alsoP));}
-    else if(sp.level===0){ind.innerHTML=ICONS.dot;ind.classList.add("on");attachTip(ind,tipBlock("Cantrip","Always known — not re-prepared daily."));}
+    else if(sp.level===0){ind.innerHTML=ICONS.dot;ind.classList.add("on");attachTip(ind,tipBlock("Cantrip","Always known, not re-prepared daily."));}
     else if(row.inBook&&!row.prepared){ind.innerHTML=ICONS.book;ind.classList.add("inbook");
       attachTip(ind,tipBlock("In your spellbook, not prepared","A wizard knows every spell in its book but casts only the ones prepared after a long rest. Use Prepare daily."));}
     else if(row.inBook){ind.innerHTML=ICONS.dot;ind.classList.add("on");
-      attachTip(ind,tipBlock("Prepared today","Chosen from your spellbook this long rest — change it with Prepare daily."));}
-    else if(row.levelSwap){ind.innerHTML=ICONS.dot;ind.classList.add("on");attachTip(ind,tipBlock("Known","This class learns spells on level-up, not daily — you can swap one whenever you gain a level."));}
+      attachTip(ind,tipBlock("Prepared today","Chosen from your spellbook this long rest. Change it with Prepare daily."));}
+    else if(row.levelSwap){ind.innerHTML=ICONS.dot;ind.classList.add("on");attachTip(ind,tipBlock("Known","This class learns spells on level-up, not daily. You can swap one whenever you gain a level."));}
     else{ind.innerHTML=ICONS.dot;ind.classList.add("on");attachTip(ind,tipBlock("Prepared today","Change it with Prepare daily."));}
     return ind;}
   if(k==="name"){const td=el("td","nm");
@@ -6534,7 +6543,7 @@ function compEffect(sp,mods){
   return {gone,iffy,why};
 }
 const CMOD_LETTER={v:"Verbal",s:"Somatic",m:"Material"};
-const castModLabel=m=>m.label||`${m.feature} — no ${String(m.drop||"").split("").map(L=>CMOD_LETTER[L]).join(" / ")}`;
+const castModLabel=m=>m.label||`${m.feature} · no ${String(m.drop||"").split("").map(L=>CMOD_LETTER[L]).join(" / ")}`;
 function castModTip(m,letters){
   const eff=letters.filter(Boolean).length?[["Removes",esc(letters.map(L=>CMOD_LETTER[L]).join(", "))]]:[];
   return tipRows(m.giver+" · "+m.feature, eff
@@ -6647,8 +6656,8 @@ function renderLevelChip(){
   chip.onclick=e=>{e.stopPropagation();hideTip();toggleTimeline();};
   attachTip(chip,tipBlock("The build at every level",
     (view<total?`Viewing level ${view} of ${total}. `:"")
-    +"Open the timeline to jump to a level, reorder how the levels were taken, and move picks between them."
-    +(h.levels.length?` ${issueCount(h.findings.length)} to check, at ${h.levels.map(l=>"L"+l).join(", ")} — the timeline marks the rows.`:"")));
+    +"Open the timeline to jump to a level, reorder the levels, or move picks between them."
+    +(h.levels.length?` ${issueCount(h.findings.length)} to check, at ${h.levels.map(l=>"L"+l).join(", ")}. The timeline marks the rows.`:"")));
 }
 // The build-health surfaces (E4 · D115(f), consolidated by E5). One sweep, two
 // altitudes: the level CHIP carries the ⚠ (its tip names the offending levels, the
@@ -6685,7 +6694,7 @@ function levelGains(row,cl,charLv,open){
   const feat=(f,giver,gkind)=>g.push({t:f.name,feat:f,giver,gkind});
   (c.features||[]).forEach(f=>{if(f.level===cl)feat(f,c,"class");});
   if(sub&&cl>=(c.subclassLevel||3))(sub.features||[]).forEach(f=>{if(f.level===cl)feat(f,sub,"sub");});
-  if(c.subclassLevel===cl&&!sub)push("Subclass — not chosen",{kind:"subclass",row:row.id});
+  if(c.subclassLevel===cl&&!sub)push("Subclass not chosen",{kind:"subclass",row:row.id});
   // a feat slot at this CHARACTER level is open when no non-origin feat maps to it —
   // asked of featAcqLevels, the same mapper the chips and the sweep read (D114)
   const slotOpen=!open||!(open.featAt.get(charLv)>0);
@@ -6810,7 +6819,7 @@ function renderSwapArm(){
   bar.append(txt);
   if(SWAPARM.kind==="spell"){
     const b=el("button","btn");
-    const bl=el("span","lbl-ico");bl.append(icoEl("retrain"),document.createTextNode("Choose replacement…"));
+    const bl=el("span","lbl-ico");bl.append(icoEl("retrain"),document.createTextNode("Choose replacement"));
     b.append(bl);
     // the cap is `guideSwapMax`'s, shared with the guide's trade card (G3) so the two
     // replacement surfaces can never offer different levels for the same trade
@@ -6852,11 +6861,11 @@ function timelinePicks(){
     // chip's tip has to give, so a refusal is never mute (SWAP_RULES)
     const cn=(CLS_BY[row.clsKey]||{}).name||"This class", rule=swapRule(row);
     const noCt=rule.cantrip==="levelup"?null
-      :rule.cantrip==="lr"?`${cn} replaces a cantrip after a long rest, not on level-up — do it in Prepare daily.`
+      :rule.cantrip==="lr"?`${cn} replaces a cantrip after a long rest, not on level-up. Do it in Prepare daily.`
       :`${cn} has no cantrip swap on level-up.`;
     const noSp=rule.spell?null
-      :sched.book?"A spellbook only grows — copying in is the wizard's move; its prepared list changes on a long rest instead."
-      :`${cn} re-prepares its spells on a long rest, not on level-up — nothing is traded away here.`;
+      :sched.book?"A spellbook only grows. Copying in is the wizard's move; its prepared list changes on a long rest instead."
+      :`${cn} re-prepares its spells on a long rest, not on level-up, so nothing is traded away here.`;
     // HAVE is counted where each pick actually lands, not clamped to the slot count —
     // an off-schedule pick (past the budget) lands at the row's top level and has to
     // make that level read OVER, which is exactly where the sweep flags it too
@@ -7139,7 +7148,7 @@ function renderTimeline(){
           :g.pick.kind==="feat"?(g.pick.slot==="epic"
               ?"Open the epic boon picker. Taking the ability score improvement instead means leaving this empty."
               :"Open the feat picker. Taking the ability score improvement instead means leaving this empty.")
-          :`Open the ${lc(g.pick.prog.name)} picker — this level still has room.`));
+          :`Open the ${lc(g.pick.prog.name)} picker. This level still has room.`));
         gl.append(a);});
       body.append(gl);
     }
@@ -7164,29 +7173,29 @@ function renderTimeline(){
         attachTip(ct,tipBlock("Picks at this level",
           `${tot} slot${tot===1?"":"s"} open here, ${got} taken.`
           +(cnt.swWant?` ${cnt.swWant===1?"One is":cnt.swWant+" are"} the retrained pick.`:"")
-          +(off?` The schedule wants ${cnt.want} — this level is ${off>0?"over":"under"} by ${Math.abs(off)}.`:"")));
+          +(off?` The schedule wants ${cnt.want}, so this level is ${off>0?"over":"under"} by ${Math.abs(off)}.`:"")));
         tiles.append(ct);}
       if(cast&&(cast.spellUp||cast.slotUp||cast.pactUp)){
       if(cast.pact){
         if(cast.spellUp)tiles.append(lvTile("spell",ROMAN[cast.spell],"spell",
-          tipBlock("Max spell level — raised here",
+          tipBlock("Max spell level, raised here",
             "The highest level this class can cast, set by its OWN level.")));
         // "2×2nd", not "2× 2nd": the tile is a square the size of every other one, and
         // the spaced form overshot it into the row beside it
         if(cast.pactUp)tiles.append(lvTile("pact",cast.pact.num+"×"+ROMAN[cast.pact.lvl],"pact",
-          tipBlock("Pact Magic slots — changed here",
+          tipBlock("Pact Magic slots, changed here",
             `${cast.pact.num} slot${cast.pact.num===1?"":"s"}, all level ${cast.pact.lvl}, back on a short rest. `
             +"Pact Magic is its own clock beside regular spell slots.")));
       } else if(cast.spell===cast.slot){
         tiles.append(lvTile("cast",ROMAN[cast.spell],"spell",
-          tipBlock("Max spell level — raised here",
-            "Top slot level agrees with it here. They are two different clocks — the row notes them separately when multiclassing pulls them apart.")));
+          tipBlock("Max spell level, raised here",
+            "Top slot level agrees with it here. They are two different clocks, and the row notes them separately when multiclassing pulls them apart.")));
       } else {
         if(cast.spellUp)tiles.append(lvTile("spell",ROMAN[cast.spell],"spell",
-          tipBlock("Max spell level — raised here",
+          tipBlock("Max spell level, raised here",
             "The highest level this class can prepare, set by its OWN level. Multiclassing never raises it.")));
         if(cast.slotUp)tiles.append(lvTile("slot",ROMAN[cast.slot],"slot",
-          tipBlock("Top slot level — raised here",
+          tipBlock("Top slot level, raised here",
             "The highest slot you have, from your COMBINED caster level. Higher slots let you upcast; they don't widen the list.")));
       }}
       if(tiles.children.length)card.append(tiles);}   // right edge, after the body
@@ -7259,12 +7268,12 @@ function renderTimeline(){
         if(pk.kind==="sp"||pk.kind==="ct"){
           const kn=pk.kind==="ct"?"cantrip":"spell";
           const can=!armed&&!pk.traded&&swapLevelOk(pk,view,kn);
-          const why=armed?`Armed — traded at L${SWAPARM.level} for the next ${kn} you take. Click to cancel.`
+          const why=armed?`Armed. Traded at L${SWAPARM.level} for the next ${kn} you take. Click to cancel.`
             :pk.traded?`Traded for ${pk.traded.forName} at L${pk.traded.at}. Click that level to move the trade; the pill's × clears it.`
             :!pk.swappable?pk.noswap
-            :swapAt(view,kn)?`L${view} already carries a ${kn} trade — clear its pill first.`
-            :!(view>pk.lv)?`Learned at L${pk.lv}. A trade happens at a later level-up — jump to one first.`
-            :!pk.lvls.includes(view)||pk.lvls.filter(x=>x<=view).length<2?`L${view} isn't a level-up of this class — jump to one of its levels to trade there.`
+            :swapAt(view,kn)?`L${view} already carries a ${kn} trade. Clear its pill first.`
+            :!(view>pk.lv)?`Learned at L${pk.lv}. A trade happens at a later level-up, so jump to one first.`
+            :!pk.lvls.includes(view)||pk.lvls.filter(x=>x<=view).length<2?`L${view} isn't a level-up of this class. Jump to one of its levels to trade there.`
             :`Click to trade this away at L${view}: it stays known below, and the next ${kn} you take for this class replaces it from L${view} on.`;
           chipEl.classList.toggle("canswap",can||armed);
           // the click goes on BEFORE attachTip (its standing rule); a chip with no
@@ -7273,7 +7282,7 @@ function renderTimeline(){
             if(armed){SWAPARM=null;render();return;}
             SWAPARM={row:pk.rowId,kind:kn,out:pk.key,level:view,label:pk.label};
             render();};
-          attachTip(chipEl,tipBlock(pk.label+(can?" — trade away here":""),why));
+          attachTip(chipEl,tipBlock(pk.label+(can?" · trade away here":""),why));
         }
         if(!pk.fixed){
           chipEl.draggable=true;
@@ -7301,7 +7310,7 @@ function renderTimeline(){
           attachTip(pill,tipBlock(kind==="cantrip"?"Cantrip trade":"Spell trade",
             (rest?"Replaced on a long rest, standing here: ":"Taken at this level: ")
             +pickName(ev.out)+" for "+pickName(ev.in)+". "
-            +(rest?"That class replaces one cantrip per long rest — the level only records where it happened."
+            +(rest?"That class replaces one cantrip per long rest; the level only records where it happened."
                   :"A level-up carries one spell trade and one cantrip trade, where the class's rules grant them.")
             +" × clears it."));});
       }
@@ -7346,7 +7355,7 @@ function renderTimeline(){
     l.append(icoEl(ico),document.createTextNode(txt));b.append(l);};
   icoBtn(fork,"fork","Fork a variant");
   fork.disabled=PREVIEW.level==null;
-  fork.title=PREVIEW.level==null?"Jump to a lower level first — the fork branches there":"";
+  fork.title=PREVIEW.level==null?"Jump to a lower level first: the fork branches there":"";
   fork.onclick=()=>{savePreviewAsVersion();closeTimeline();};
   if(guide)icoBtn(guide,"compass","Guide from here");
   box.scrollTop=keepScroll;
@@ -7361,7 +7370,7 @@ function tlOrderStrip(total){
   const wrap=el("div","tlorder");
   const b=el("button","gwalkbtn");
   b.append(icoEl(asc?"walkup":"walkdn"));
-  b.setAttribute("aria-label","Levels listed "+(asc?"lowest":"highest")+" first — flip the order");
+  b.setAttribute("aria-label","Levels listed "+(asc?"lowest":"highest")+" first. Flip the order");
   // the click goes on BEFORE attachTip — its standing rule
   b.onclick=e=>{e.stopPropagation(); TL.asc=!TL.asc; renderTimeline();};
   attachTip(b,tipBlock(asc?"Reading up, from L1":"Reading down, from L"+total,
@@ -7404,7 +7413,7 @@ function tlAddRow(plan,rowOf,total){
   one(lastId,true);
   if(otherId!=null)one(otherId,false);
   const sel=el("select","tladdsel");
-  sel.append(el("option","","another class…"));
+  sel.append(el("option","","Another class"));
   DATA.classes.filter(visible).forEach(c=>{const o=el("option",null,c.name);
     o.value=key(c.name,c.source);
     // a class already at 20 can take no further level — say so rather than accept the
@@ -7433,8 +7442,8 @@ function renderSlots(){
   const sr=$("#slotRow");sr.innerHTML="";
   if(R.mcSlots)R.mcSlots.forEach((n,i)=>{if(n>0){const d=el("div","slot");d.append(el("div","lv",ROMAN[i+1]));d.append(el("div","n",String(n)));sr.append(d);}});
   if(R.pactRec){const p=R.pactRec.pact;const d=el("div","slot pact");d.append(el("div","lv","Pact "+ROMAN[p.lvl]));d.append(el("div","n",String(p.num)));sr.append(d);
-    const t=el("div","note");t.style.flexBasis="100%";t.textContent=`Pact Magic: ${p.num} slot${p.num>1?"s":""} @ level ${p.lvl}, short-rest recharge — separate from the above.`;sr.append(t);}
-  if(!R.mcSlots&&!R.pactRec)sr.append(el("div","note","No slots — add a spellcasting class."));
+    const t=el("div","note");t.style.flexBasis="100%";t.textContent=`Pact Magic: ${p.num} slot${p.num>1?"s":""} @ level ${p.lvl}, short-rest recharge, separate from the above.`;sr.append(t);}
+  if(!R.mcSlots&&!R.pactRec)sr.append(el("div","note","No slots. Add a spellcasting class."));
   const cw=$("#castsWrap");cw.innerHTML="";
   if(R.freeCasts.length){cw.append(el("label","fld","Free / innate casts"));const box=el("div","casts");
     R.freeCasts.forEach(c=>{const row=el("div","ct");const n=el("span");
@@ -7463,9 +7472,9 @@ function renderCart(){
     const kn=c.known;
     const kindLabel=kn?"spellbook":r.static?"level-swap":"daily";
     const kindTip=kn
-      ? `Wizard spellbook: it grows a fixed amount each level, and every spell added must be no higher than your current top slot (${ROMAN[r.maxLvl]}) — so the count at each level is capped and can't be retrained. The tiles show that free allowance. You then prepare ${kn.prepares} of them each long rest (the slots table). Separately, you can copy found spells into the book beyond the allowance — those show as “copied”.`
+      ? `Wizard spellbook: it grows a fixed amount each level, and every spell added must be no higher than your current top slot (${ROMAN[r.maxLvl]}), so the count at each level is capped and can't be retrained. The tiles show that free allowance. You then prepare ${kn.prepares} of them each long rest (the slots table). Separately, you can copy found spells into the book beyond the allowance; those show as “copied”.`
       : r.static
-      ? `Level-swap caster: a fixed known list of ${r.prepared}, learned as you level up and capped at your top slot each time (plus one swap per level). So the count you can hold at each level is limited — the tiles show it, highest levels capped tightest.`
+      ? `Level-swap caster: a fixed known list of ${r.prepared}, learned as you level up and capped at your top slot each time (plus one swap per level). So the count you can hold at each level is limited: the tiles show it, highest levels capped tightest.`
       : `Daily caster: re-prepare any ${r.prepared} eligible spells each long rest, any mix of levels up to ${ROMAN[r.maxLvl]}. Cantrips are fixed and not re-prepared daily.`;
     const bh=el("div","bh");const nm=el("div","nm");nm.innerHTML=esc(r.name)+(r.viaSub?` <small>· ${esc(r.viaSub.shortName)}</small>`:"")+` <small>· L${r.level}</small>`;bh.append(nm);
     const kchip=el("span","kind"+(kn?" wiz":r.static?"":" daily"),kindLabel);kchip.title=kindTip;bh.append(kchip);
@@ -7535,12 +7544,12 @@ function renderCart(){
         const isErr=!!c.overLevels[L]||(overFree&&!copied);
         const cell=el("div","dcell"+(L===r.maxLvl?" top":"")+(isErr?" over":copied?" copied":""));
         cell.style.cursor="pointer";
-        cell.title=`${ROMAN[L]}-level ${wiz?"in your spellbook":r.static?"in your known spells":"prepared"} — ${atL} of up to ${ceil} at this level`
+        cell.title=`${ROMAN[L]}-level ${wiz?"in your spellbook":r.static?"in your known spells":"prepared"} · ${atL} of up to ${ceil} at this level`
           +(copied?` (+${atL-free} copied in beyond the free allowance)`
-            :overFree?` — you are over your ${wiz?"spellbook":r.static?"known":"prepared"} total, so there is no room left at any level until you drop some`
+            :overFree?`. You are over your ${wiz?"spellbook":r.static?"known":"prepared"} total, so there is no room left at any level until you drop some`
             // an EMPTY tile zeroed by the shared over-total must not promise growth (D70's
             // reason-clause, not its maths): leveling can't fill it while the total is over
-            :(room<0&&atL===0&&!wiz)?` — no room here while you are over your ${r.static?"known":"prepared"} total`
+            :(room<0&&atL===0&&!wiz)?`. No room here while you are over your ${r.static?"known":"prepared"} total`
             :r.static&&!kn?` (fills up gradually as you level)`:"")+`. Tap to edit.`;
         cell.onclick=()=>openLevelPick(r.idx,L);
         cell.innerHTML=`<b>${atL}<span class="dcap">/${ceil}</span></b><small>${ROMAN[L]}${L===r.maxLvl?" · max":""}</small>`;dist.append(cell);}
@@ -7558,7 +7567,7 @@ function renderCart(){
           // the pick itself carries the gap flag (D42's visible contract, at chip altitude):
           // its book is off, nothing is removed, the banner has the one-click fix
           if(!srcOn(p.sp.source)){chip.classList.add("gapped");
-            chip.title=bookName(p.sp.source)+" is turned off in Sources — the pick is kept, not removed. The banner above can turn the book back on.";}
+            chip.title=bookName(p.sp.source)+" is turned off in Sources. The pick is kept, not removed, and the banner above can turn the book back on.";}
           const nm=el("span",null,p.sp.name);attachSpell(nm,p.sp);chip.append(nm);const x=xBtn(null,()=>removeChosen(r.idx,p.k));chip.append(x);cc.append(chip);});
       b.append(cc);}
     // granted (free) for this class
@@ -7568,7 +7577,7 @@ function renderCart(){
   const granted=[...R.pool.values()].filter(e=>e.grants.length);
   if(granted.length){const g=el("div","budget");const gbh=el("div","bh");
     gbh.append(el("span","nm","Always prepared"));
-    gbh.append(el("span","ml","Granted — they don’t use your prepared slots"));g.append(gbh);
+    gbh.append(el("span","ml","Granted, so they don’t use your prepared slots"));g.append(gbh);
     const cc=el("div","cartchips");granted.sort((a,b)=>a.sp.level-b.sp.level||a.sp.name.localeCompare(b.sp.name)).forEach(e=>{
       const chip=el("span","cartchip gr");chip.append(el("span","lv",e.sp.level===0?"C":ROMAN[e.sp.level].replace(/\D/g,"")));
       const nm=el("span",null,e.sp.name);attachSpell(nm,e.sp);chip.append(nm);cc.append(chip);});
@@ -7596,11 +7605,11 @@ function renderSpells(){
   // level filter chips (present levels only)
   const presentLevels=[...new Set(items.map(i=>i.sp.level))].sort((a,b)=>a-b);
   buildToggleRow($("#fLevel"),presentLevels.map(l=>[String(l),l===0?"Cantrip":ROMAN[l]]),F.levels,true);
-  syncOpt($("#fSchool"),[...new Set(items.map(i=>i.sp.school).filter(Boolean))].sort().map(s=>[s,s]),F.school,"all schools");
+  syncOpt($("#fSchool"),[...new Set(items.map(i=>i.sp.school).filter(Boolean))].sort().map(s=>[s,s]),F.school,"All schools");
   const accessNames=[...new Set([].concat(...items.map(i=>i.takers.map(t=>t.name).concat([...i.srcs]))))].sort();
-  syncOpt($("#fClass"),[[ALL_SPELLS,"every spell (ignore eligibility)"]].concat(accessNames.map(s=>[s,s])),F.cls,"any source");
-  syncOpt($("#fSave"),[...new Set([].concat(...items.map(i=>i.sp.save)))].sort().map(s=>[s,cap1(s)]),F.save,"any save");
-  syncOpt($("#fDmg"),[...new Set([].concat(...items.map(i=>i.sp.dmg)))].sort().map(s=>[s,cap1(s)]),F.dmg,"any damage");
+  syncOpt($("#fClass"),[[ALL_SPELLS,"Every spell (ignore eligibility)"]].concat(accessNames.map(s=>[s,s])),F.cls,"Any source");
+  syncOpt($("#fSave"),[...new Set([].concat(...items.map(i=>i.sp.save)))].sort().map(s=>[s,cap1(s)]),F.save,"Any save");
+  syncOpt($("#fDmg"),[...new Set([].concat(...items.map(i=>i.sp.dmg)))].sort().map(s=>[s,cap1(s)]),F.dmg,"Any damage");
   renderFilterBooks(new Set(items.map(i=>i.sp.source)));
   buildToggleRow($("#fTime"),[["action","Action"],["bonus","Bonus"],["reaction","Reaction"],["long","Longer"]],F.time);
   buildToggleRow($("#fComp"),[["v","V"],["s","S"],["m","M"]],F.comp);
@@ -7686,7 +7695,7 @@ function lvlTools(l){const t=el("div","lvltools");const n=pickedAtLevel(l);
 function mkEmpty(){const e=el("div","empty");
   if(!R.casters.length){e.innerHTML="<b>Add a spellcasting class</b><br>Then its spells appear here to browse and pick.";return e;}
   const q=(state.filters.q||"").trim();
-  e.innerHTML="<b>Nothing matches</b><br>Loosen the filters — or make it yourself.";
+  e.innerHTML="<b>Nothing matches</b><br>Loosen the filters, or make it yourself.";
   const b=el("button","btn on");b.style.marginTop="12px";
   b.classList.add("lbl-ico");b.innerHTML="";
   b.append(icoEl("plus"),document.createTextNode(q?`Create “${q}” as a custom spell`:"Create a custom spell"));
@@ -8056,7 +8065,7 @@ function renderFormPins(){
     const btn=el("button","picksel"+(o.marked.length?"":" ph"));
     const bl=el("span","lbl-ico");
     bl.append(icoEl("star"),document.createTextNode(
-      o.marked.length?o.marked.map(c=>c.name).join(", "):`choose a ${o.sp.name} form…`));
+      o.marked.length?o.marked.map(c=>c.name).join(", "):`Choose a ${o.sp.name} form`));
     btn.append(bl); btn.append(el("span","pk-caret","⌄"));
     btn.title=`Choose which ${o.sp.name} forms this character uses`;
     btn.onclick=()=>openFam(o.sp);
@@ -8067,7 +8076,7 @@ function renderFormPins(){
         state.sbFavSkip=[...new Set([...(state.sbFavSkip||[]),o.key])];
         save(); renderFormPins();});
       x.setAttribute("aria-label","Dismiss");
-      x.title="Dismiss — you can still mark forms in the spell's own details";
+      x.title="Dismiss. You can still mark forms in the spell's own details";
       row.append(x);}
     box.append(row);
     if(!o.marked.length)box.append(el("div","note",
@@ -8112,7 +8121,7 @@ function famRow(sp,c,marked){
   row.append(main);
   const btn=el("button","tk ico-only"+(on?" on":""));
   btn.append(icoEl(on?"check":"plus"));
-  const lbl=on?"Marked — click to unmark":"Mark this form";
+  const lbl=on?"Marked. Click to unmark":"Mark this form";
   btn.setAttribute("aria-label",lbl); btn.title=lbl+" · only marked forms print";
   // the whole row is the target; the button stops its own click so one tap is one toggle
   const hit=e=>{e.stopPropagation(); toggleFav(sp,c._ck); renderFam();};
@@ -8297,7 +8306,7 @@ function metamagicHTML(sp){
 }
 function openSpellModal(sp){hideTip();SPMODAL.innerHTML=modalHTML(sp);
   SPMODAL.querySelectorAll(".mmchip").forEach(c=>attachTip(c,
-    tipBlock(c.dataset.mmn,"This spell "+c.dataset.mmw+". Advisory — the option's full text has the final word.")));
+    tipBlock(c.dataset.mmn,"This spell "+c.dataset.mmw+". Advisory: the option's full text has the final word.")));
   const at=SPMODAL.querySelector(".acc-toggle");
   if(at)at.onclick=()=>{const a=at.closest(".access");a.dataset.exp=a.dataset.exp==="1"?"0":"1";};
   const sbt=SPMODAL.querySelector(".sb-toggle");
@@ -8354,7 +8363,7 @@ function wireCreatureNav(sp){
     nav.querySelector(".sb-pos").textContent=`${i+1} / ${list.length}`;
     if(favBtn){const on=favsFor(sp).includes(b._ck);
       favBtn.classList.toggle("on",on); favBtn.setAttribute("aria-pressed",String(on));
-      favBtn.title=on?"Marked — this form prints and comes first":"Mark this form: only marked forms print";}
+      favBtn.title=on?"Marked. This form prints and comes first":"Mark this form: only marked forms print";}
     const body=wrap.querySelector(".sb-body"); if(body)body.innerHTML=sbBodyHTML(b);
     nav.querySelector(".sb-prev").disabled=list.length<2;
     nav.querySelector(".sb-next").disabled=list.length<2;
@@ -8382,7 +8391,7 @@ function wireCreatureNav(sp){
     const list=panel.querySelector(".sb-booklist"), note=panel.querySelector(".sb-booknote");
     const off=srcs.filter(x=>!bookSel.has(x));
     note.textContent=off.length
-      ? `${off.length} of these books ${off.length===1?"is":"are"} off in your sources — tick one to include its forms here.`
+      ? `${off.length} of these books ${off.length===1?"is":"are"} off in your sources. Tick one to include its forms here.`
       : "";
     const forms=code=>all.filter(y=>y.source===code).length;
     // a bestiary book has no spell count to sort on, so sort by what IS being counted
@@ -8781,7 +8790,7 @@ function fldDetail(lbl,it,kind,sub,nameAs){
   const b=el("button","fldinfo ico");
   b.type="button"; b.append(icoEl("book"));
   const named=nameAs||it, nkind=nameAs?"sub":kind;
-  b.setAttribute("aria-label",`${entName(named,nkind)} — read what it gives`);
+  b.setAttribute("aria-label",`${entName(named,nkind)}: read what it gives`);
   // attachTip makes the node's own click the tip unless one is already set (its own rule)
   b.onclick=e=>{e.stopPropagation();hideTip();openEntityModal(it,kind,sub);};
   attachTip(b,entTipHTML(named,nkind));
@@ -8837,11 +8846,11 @@ function mkSpell(i,chosenKeys){
     const btn=el("button","tk"+(on?" on":"")+(over?" over":""));
     if(on)btn.append(icoEl("check"));
     btn.append(document.createTextNode(t.name+" "));btn.append(el("span","c",`${sel}/${cap}`));
-    btn.title=(on?"Prepared — click to remove. ":"Not prepared — click to add. ")+`${t.name}: ${sel} of ${cap} ${t.cantrip?"cantrips":(cart&&cart.known?"in spellbook":"prepared")}`+(over?" (over your forecast)":"");
+    btn.title=(on?"Prepared. Click to remove. ":"Not prepared. Click to add. ")+`${t.name}: ${sel} of ${cap} ${t.cantrip?"cantrips":(cart&&cart.known?"in spellbook":"prepared")}`+(over?" (over your forecast)":"");
     btn.onclick=()=>toggle(t.idx,k,t.cantrip);take.append(btn);
   });
   i.grants.forEach(g=>{const b=el("span","tk gr",g.src+" ");b.append(icoEl("spark"));
-    attachTip(b,tipBlock("Always prepared","Free from "+g.src+" — it doesn’t count against your prepared list."));take.append(b);});
+    attachTip(b,tipBlock("Always prepared","Free from "+g.src+". It doesn’t count against your prepared list."));take.append(b);});
   d.append(take);return d;
 }
 // the one display capitaliser (H6): first letter up, the rest untouched — never applied to a
@@ -8910,7 +8919,7 @@ function renderClassRows(){
     const ss=el("select",needsSub?"alert":"");ss.dataset.sub=String(row.id);
     // the timeline's "Subclass — not chosen" affordance focuses THIS select (never a
     // second chooser of its own), so the row has to be findable from outside
-    ss.append(new Option(locked?"— locked —":"— none —",""));
+    ss.append(new Option(locked?"Locked":"None",""));
     const subList=(SUBS_OF[key(c.name,c.source)]||[]).filter(x=>visible(x)||key(x.name,x.source)===row.subKey)
       .sort((a,b)=>a.shortName.localeCompare(b.shortName));
     const subDup=dupNames(subList.map(x=>x.shortName));   // D147 — same rule as the class list
@@ -8926,7 +8935,7 @@ function renderClassRows(){
     st.append(dec,li,inc);lv.append(st);div.append(lv);
     const rm=xBtn("rm",()=>{delete state.chosen[row.id];dropRowSwaps(row.id);state.classes.splice(idx,1);renderClassRows();render();});
     rm.title="Remove class";div.append(rm);
-    if(needsSub)div.append(el("div","subalert","subclass — pick one"));
+    if(needsSub)div.append(el("div","subalert","subclass · pick one"));
     const cm=castModLine(row.id); if(cm)div.append(cm);
     wrap.append(div);
   });
@@ -8937,7 +8946,7 @@ function renderClassRows(){
 function refreshAddClass(){const s=$("#addClass");s.innerHTML="";
   const opts=classOptions();
   const noneLabel=(DATA.classes||[]).length?"every class is already in this build":"No classes loaded";
-  s.append(new Option(opts.length?"+ add a class…":noneLabel,""));
+  s.append(new Option(opts.length?"Add a class":noneLabel,""));
   opts.forEach(o=>s.append(new Option(o.t,o.v)));s.value="";
   s.disabled=!opts.length;}
 function refreshSpecies(){const r=state.speciesKey?RACE_BY[state.speciesKey]:null;
@@ -8950,7 +8959,7 @@ function refreshSpecies(){const r=state.speciesKey?RACE_BY[state.speciesKey]:nul
   const sfld=$("#speciesFld");
   if(sfld){sfld.className="fld";sfld.textContent="Species / lineage";fldDetail(sfld,r,"species");}
   const lbl=$("#speciesBtnLbl");
-  if(lbl){lbl.textContent=r?r.name:"— none —";   // D147: the label's chip names the book
+  if(lbl){lbl.textContent=r?r.name:"None";   // D147: the label's chip names the book
     const btn=$("#speciesBtn");if(btn)btn.classList.toggle("gapped",!!(r&&!visible(r)));
     if(r&&!visible(r))lbl.textContent=r.name+" · "+r.source+" is off";}
   if(!ENT)return; if($("#entityModal")&&!$("#entityModal").classList.contains("hidden")&&ENT.kind==="species")renderEntityList();}
@@ -9154,8 +9163,8 @@ function slotCount(node,have,cap,note){
   node.className="cnt "+st;
   node.textContent=`${have}/${cap}`;
   const TIP={
-    over:["More than your level grants",`You have taken ${have} where your level grants ${cap}. Nothing is removed — check with your DM.`],
-    none:["None at this level","Your level grants none of these yet. You can still take one — it will read as more than your level grants."],
+    over:["More than your level grants",`You have taken ${have} where your level grants ${cap}. Nothing is removed; check with your DM.`],
+    none:["None at this level","Your level grants none of these yet. You can still take one, and it will read as more than your level grants."],
     done:["Slots filled",`All ${cap} taken.`],
     need:["Still to choose",`${cap-have} of ${cap} left to choose.`]};
   attachTip(node,tipBlock(TIP[st][0],TIP[st][1]+(note?" "+note:"")));}
@@ -9261,7 +9270,7 @@ function renderOptFeats(){
     box.append(el("label","fld",sl.name));
     const row=el("div","fldrow");
     const btn=el("button","picksel ph");const bl=el("span","lbl-ico");
-    bl.append(icoEl("plus"),document.createTextNode(`${sl.name.replace(/s$/,"").toLowerCase()}…`));btn.append(bl);
+    bl.append(icoEl("plus"),document.createTextNode(`Add ${/^[aeiou]/i.test(sl.name)?"an":"a"} ${sl.name.replace(/s$/,"").toLowerCase()}`));btn.append(bl);
     btn.append(el("span","pk-caret","⌄"));
     btn.onclick=()=>openEntityPicker("opt",sl);
     row.append(btn);
@@ -9276,7 +9285,7 @@ function renderOptFeats(){
       const ord=(seenOpt.get(baseKey(k))||0)+1; seenOpt.set(baseKey(k),ord);
       const c=el("span","chip"+(grantsAny(o.grants)?" hasspell":"")+(pr.state==="no"?" unmet":""));
       if(pr.state==="no"){const w=icoEl("warn","warn");
-        attachTip(w,tipBlock("Prerequisite not met",`${o.name} needs ${pr.why}. Kept in the build — nothing is removed.`));c.append(w);}
+        attachTip(w,tipBlock("Prerequisite not met",`${o.name} needs ${pr.why}. Kept in the build; nothing is removed.`));c.append(w);}
       c.append(attachEntity(el("span",null,o.name),o,"opt"));   // D147
       if(ord>1)c.append(el("span","chipn","#"+ord));
       const b=xBtn(null,()=>{const i=state.optFeats.indexOf(k);if(i>=0)dropOptAt(i);save();refreshAll();render();});
@@ -9292,7 +9301,7 @@ function renderFeatChips(){const box=$("#featChips");box.innerHTML="";FCHIP_ORD.
   const sl=featSlotOf(fk);
   const c=el("span","chip"+(sl==="epic"?" epic":sl==="origin"?" origin":"")+(grantsAny(f.grants)?" hasspell":"")
     +(pr.state==="no"?" unmet":""));
-  if(pr.state==="no"){const w=icoEl("warn","warn");attachTip(w,tipBlock("Prerequisite not met",`${f.name} needs ${pr.why}. Kept in the build — nothing is removed.`));c.append(w);}
+  if(pr.state==="no"){const w=icoEl("warn","warn");attachTip(w,tipBlock("Prerequisite not met",`${f.name} needs ${pr.why}. Kept in the build; nothing is removed.`));c.append(w);}
   if(grantsAny(f.grants))c.append(icoEl("spark","fmark"));
   c.append(attachEntity(el("span",null,f.name),f,"feat"));   // D147
   if(ord>1)c.append(el("span","chipn","#"+ord));   // a repeatable feat taken again (D135)
@@ -9447,7 +9456,7 @@ function renderLibList(){
     ||code.toLowerCase().includes(q)||String(s.name||"").toLowerCase().includes(q));
   wrap.innerHTML="";
   if(!all.length){wrap.append(el("div","empty",
-    Object.keys(DATA.sources).length?"No book matches that.":"No books yet — add some below."));
+    Object.keys(DATA.sources).length?"No book matches that.":"No books yet. Add some below."));
     renderLibSelBar();return;}
   const byGroup={};
   all.forEach(([code,s])=>{const g=srcGroupOf(code,s);(byGroup[g]=byGroup[g]||[]).push([code,s]);});
@@ -9697,7 +9706,7 @@ $("#webSrcRepo").onchange=e=>{const v=e.target.value.trim();
 // what left is the permission dance the user had to perform to keep it alive.
 function folderButtons(){
   const p=$("#folderPick");
-  if(p)p.textContent=FOLDER?"Choose another folder…":"Choose a folder…";
+  if(p)p.textContent=FOLDER?"Choose another folder":"Choose a folder";
 }
 async function scanHandle(h,remember){
   if(remember)await folderRemember(h);
@@ -9747,7 +9756,7 @@ function doBuildImport(txt){
     const g=importGaps(b.state,b.meta.sources);
     showBuildImport(false); renderBuildList();
     // never silently activate: the file may expect books this browser hasn't got
-    const note=g.missing.size?`Added “${b.meta.character} · ${b.meta.name}”. It expects ${[...g.missing].join(", ")}, which isn't loaded here — import that data to see those picks resolve.`
+    const note=g.missing.size?`Added “${b.meta.character} · ${b.meta.name}”. It expects ${[...g.missing].join(", ")}, which isn't loaded here. Import that data to see those picks resolve.`
       :g.off.size?`Added “${b.meta.character} · ${b.meta.name}”. It expects ${[...g.off].map(bookName).join(", ")}, currently turned off.`
       :`Added “${b.meta.character} · ${b.meta.name}”.`;
     $("#buildSub").textContent=note;
@@ -9897,7 +9906,7 @@ function applyPrintOpts(){
 // The name the PDF is saved under: browsers take it from document.title at print time.
 function printDocName(){
   const m=(activeBuild()||{}).meta||{};
-  const n=[m.character,m.name].filter(x=>String(x||"").trim()).join(" — ");
+  const n=[m.character,m.name].filter(x=>String(x||"").trim()).join(" · ");
   return (n||"My Spellbook").replace(/[\\/:*?"<>|]+/g," ").trim();
 }
 function printHeadLine(){
@@ -9930,7 +9939,7 @@ const BOX_CAP=6;    // past this, boxes stop being tickable and become a written
 function useBoxes(short){
   if(!short||short==="at will"||short==="—"||short==="chg")return null;
   let m=short.match(/^(\d+)\/(LR|SR|dawn)$/); if(m)return {n:+m[1],note:USE_UNIT[m[2]]};
-  m=short.match(/^(\d+) ever$/); if(m)return {n:+m[1],note:"total — never regained"};
+  m=short.match(/^(\d+) ever$/); if(m)return {n:+m[1],note:"total, never regained"};
   return null;
 }
 function boxes(n){const bx=el("span","trbox");for(let i=0;i<n;i++)bx.append(el("span","tb"));return bx;}
@@ -10017,13 +10026,13 @@ function renderPrintLegend(){
   const rows=PRINT_ROWS, has=f=>rows.some(f);
   const items=[];
   const ico=(n,cls)=>{const w=el("span","lgi"+(cls?" "+cls:""));w.innerHTML=ICONS[n];return w;};
-  if(has(r=>r.type==="free"))items.push([ico("check","always"),"Always prepared — a free grant that costs you nothing"]);
-  if(has(r=>r.type==="cast"))items.push([ico("spark","innate"),"Innate — cast without preparing it"]);
+  if(has(r=>r.type==="free"))items.push([ico("check","always"),"Always prepared: a free grant that costs you nothing"]);
+  if(has(r=>r.type==="cast"))items.push([ico("spark","innate"),"Innate: cast without preparing it"]);
   if(has(r=>r.inBook&&!r.prepared))items.push([ico("book","inbook"),"In your spellbook, not prepared today"]);
   if(has(r=>!r.blank&&r.type!=="free"&&r.type!=="cast"&&!(r.inBook&&!r.prepared)))
     items.push([ico("dot","on"),"Prepared or known"]);
-  if(has(r=>r.blank))items.push([el("span","prepbox"),"You could prepare this — tick what you take"]);
-  if(has(r=>r.sp.ritual))items.push([el("span","lgt","R"),"Ritual — castable without a slot at 10 extra minutes"]);
+  if(has(r=>r.blank))items.push([el("span","prepbox"),"You could prepare this: tick what you take"]);
+  if(has(r=>r.sp.ritual))items.push([el("span","lgt","R"),"Ritual: castable without a slot at 10 extra minutes"]);
   if(has(r=>r.sp.conc))items.push([ico("check"),"In the Conc column: concentration"]);
   if(has(r=>r.sp.atk))items.push([el("span","savechip atk","Atk"),"A spell attack roll"]);
   if(has(r=>(r.sp.save||[]).length))items.push([el("span","savechip dex","Dex"),"The save your target rolls"]);
@@ -10053,7 +10062,7 @@ function printCardHTML(sp){
   const cre=printCreatures(sp);
   const all=buildCreatures(sp);
   const sb=cre.map(b=>`<div class="pcsb"><div class="pcsbn">${esc(b.name)}</div>${sbBodyHTML(b)}</div>`).join("")
-    ||(all.length>1?`<p class="pcnote">${all.length} forms — mark the ones you use in the spell's details to print them.</p>`:"");
+    ||(all.length>1?`<p class="pcnote">${all.length} forms. Mark the ones you use in the spell's details to print them.</p>`:"");
   return `<div class="pcard" id="${esc(cardId(sp))}">`
     +`<h4><a href="#row-${esc(cardId(sp))}">${esc(sp.name)}</a><span class="pcbk">${esc(bk)}</span></h4>`
     +`<div class="pcsub">${metaLine(sp)}</div>`
@@ -10134,7 +10143,7 @@ function printCountNote(){
   n.textContent=bits.join(" · ")+".";
   // ticking a setting that changes nothing reads as a broken setting unless it says why
   if(PRINT.eligible&&!rows.some(r=>r.blank))
-    n.textContent+=" Nothing to prepare — no class here prepares from a whole list.";
+    n.textContent+=" Nothing to prepare: no class here prepares from a whole list.";
 }
 $("#printBtn").onclick=()=>{closeMenu();openPrintModal();};
 $("#prClose").onclick=()=>$("#printModal").classList.add("hidden");
@@ -10258,7 +10267,7 @@ function pruneState(){
   // set it aside, start on baked, and say so. Refresh imported data re-parses and heals it.
   try{ assembleData(); }               // now with whatever IndexedDB held
   catch(e){ IMPORT_CACHE=null; assembleData();
-    appNotice("Imported data was unreadable, so the app started on its bundled data — your builds are untouched. Use ⋯ → Refresh imported data (or re-import) to restore the library. ("+((e&&e.message)||e)+")"); }
+    appNotice("Imported data was unreadable, so the app started on its bundled data. Your builds are untouched. Use ⋯ → Refresh imported data (or re-import) to restore the library. ("+((e&&e.message)||e)+")"); }
   loadSources();
   loadBuilds();                        // "loaded" | "migrated" | "fresh" — return value unused
   applyState(activeBuild().state);
