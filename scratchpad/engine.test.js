@@ -225,6 +225,21 @@ const casterLevel = (slots) => {
     m.spells.map((s) => s.name + (s.fixed ? "*" : "")), ["A", "B*", "C"]);
   eq("9b · both source registries are present", Object.keys(m.sources).sort(), ["X", "Y"]);
   eq("9c · digestSize counts entries, not books", SB.digestSize(m), 3);
+  // D158(d): this is the shape assembleData now uses for the FIRST import — bundle as base,
+  // import on top. Nothing the bundle carries may disappear, and the import must still win
+  // on its own records.
+  const baked = SB.emptyDigest();
+  baked.spells = [{ name: "Fireball", source: "XPHB" }, { name: "Shield", source: "XPHB" }];
+  baked.sources = { XPHB: { name: "Player's Handbook (2024)" } };
+  const brewOnTop = SB.emptyDigest();
+  brewOnTop.spells = [{ name: "Shield", source: "XPHB", reparsed: true }, { name: "Stash Bolt", source: "HB1" }];
+  brewOnTop.sources = { XPHB: { name: "Player's Handbook (2024)" }, HB1: { name: "A Brew" } };
+  const assembled = SB.mergeDigests(baked, brewOnTop);
+  eq("9d · a first import ADDS to the bundle, it does not replace it",
+    [assembled.spells.map((s) => s.name), Object.keys(assembled.sources).sort()],
+    [["Fireball", "Shield", "Stash Bolt"], ["HB1", "XPHB"]]);
+  eq("9e · the imported copy of a bundled record wins",
+    assembled.spells.find((s) => s.name === "Shield").reparsed, true);
 }
 
 // ── 10 · what gets stashed is decided by the file itself (D159(a)) ─────────

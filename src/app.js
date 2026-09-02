@@ -336,18 +336,43 @@ function assembleData(){
   // was working a moment ago. Content beats presence: an empty import falls back to baked.
   const impOk=IMPORTED&&(((IMPORTED.spells||[]).length)||((IMPORTED.classes||[]).length));
   if(IMPORTED&&!impOk)IMPORTED=null;
-  const base=IMPORTED||BAKED||emptyDigest();
+  // D158(d), amending D137: the bundle is the BASE, not an alternative. `IMPORTED||BAKED`
+  // meant the FIRST import replaced the app's own content wholesale — 43 books became 1 —
+  // which reads as data loss even though one click undid it. Every LATER import already
+  // merged into the stored digest (D86); this makes the first one behave the same way.
+  // The import wins record by record (`mergeDigests` is keyed), so a freshly parsed book
+  // still overrides the baked copy of itself — which is the whole point of re-importing.
+  // Note what this does NOT do: the bundle is merged at ASSEMBLY, never written into
+  // storage. Copying it into IndexedDB would duplicate 4 MB and, worse, freeze a stale
+  // copy of the bundle that would then win over the newer one a release later.
+  const base=IMPORTED?mergeDigests(BAKED||emptyDigest(),IMPORTED):(BAKED||emptyDigest());
   DATA={meta:base.meta||{},sources:Object.assign({},base.sources),
     spells:(base.spells||[]).slice(),classes:base.classes||[],subclasses:base.subclasses||[],
     feats:base.feats||[],races:base.races||[],optfeats:base.optfeats||[],
-    // "Name|SRC" -> stat block (D78). The BAKED blocks are kept underneath an import so
-    // an older import (built before creature sets existed) doesn't blank the summon blocks
-    // the app already shipped with; the import's own map wins where they collide.
+    // "Name|SRC" -> stat block (D78), and D148's conditions. `mergeDigests` already laid the
+    // baked maps underneath the import's, so an older import (made before creature sets or
+    // conditions existed) cannot blank what the app shipped with — the fallbacks below are
+    // for the no-import path only.
     monsters:Object.assign({},(BAKED&&BAKED.monsters)||{},base.monsters||{}),
-    // D148: same merge rule as the stat blocks — an import made before conditions existed
-    // must not blank the ones the app already shipped with; the import's own map wins.
     conditions:Object.assign({},(BAKED&&BAKED.conditions)||{},base.conditions||{}),
     fullMc:base.fullMc||FULL_MC,pact:base.pact||PACT};
+  // D158(d): the merge is record by record, so a book's STORED count is no longer the whole
+  // truth about it — a brew that adds one XPHB spell would otherwise make the bundle's XPHB
+  // row read "1 spell" while 392 are on screen. Recount from the assembled arrays, exactly as
+  // `filterDigest` recounts after dropping a book. Only with an import: without one the
+  // bundle's own counts came from the extractor and are already right.
+  if(IMPORTED){
+    const cnt={};
+    const bump=(src,f)=>{if(!src)return;
+      (cnt[src]=cnt[src]||{spells:0,classes:0,subclasses:0,feats:0,species:0})[f]++;};
+    DATA.spells.forEach(e=>bump(e.source,"spells"));
+    DATA.classes.forEach(e=>bump(e.source,"classes"));
+    DATA.subclasses.forEach(e=>bump(e.source,"subclasses"));
+    DATA.feats.forEach(e=>bump(e.source,"feats"));
+    DATA.races.forEach(e=>bump(e.source,"species"));
+    Object.keys(cnt).forEach(c=>{ if(DATA.sources[c])
+      DATA.sources[c]=Object.assign({},DATA.sources[c],{counts:cnt[c]}); });
+  }
   const csp=(CUSTOM&&CUSTOM.spells)||[];
   if(csp.length){ DATA.spells=DATA.spells.concat(csp);
     DATA.sources[HB_SRC]=Object.assign({name:"Homebrew",group:"other"},DATA.sources[HB_SRC],
@@ -5457,6 +5482,12 @@ function planFromStage(incoming,report,only){
   PLAN_Q="";
   const stored=IMPORTED||emptyDigest();
   const merged=mergeDigests(stored,incoming||emptyDigest());
+  // `had` and `fresh` are STORAGE questions and must stay storage questions: `fresh` is what
+  // `buildImport` uses to tell a book you unticked from one that has only just arrived, so
+  // widening it to include the bundle makes every bundled book look deliberately unticked and
+  // the next Apply drops it (seen live while building D158(d)). The reader-facing "do I
+  // already have this" — which the bundle DOES answer, since it is merged in at assembly —
+  // is `trayBooks()`, one screen down.
   const had=new Set(Object.keys(stored.sources||{}));
   const fresh=new Set(Object.keys((incoming&&incoming.sources)||{}).filter(c=>!had.has(c)));
   // Default: everything merged is kept (staging files is itself the choice of what to add).
@@ -5481,7 +5512,9 @@ let PLAN_Q="";   // the tray's own filter, when a fetch stages more new books th
 // ticks rather than sitting among them pretending to be a choice.
 function trayBooks(){
   if(!PLAN)return {fresh:[],upd:[]};
-  const had=new Set(Object.keys(PLAN.stored.sources||{}));
+  // same "already have" rule as planFromStage (D158(d)): the bundle counts, because it is
+  // merged in at assembly. A book you can already see is a RE-READ, never a new arrival.
+  const had=new Set([...Object.keys(PLAN.stored.sources||{}),...Object.keys((DATA&&DATA.sources)||{})]);
   const inc=Object.keys(PLAN.incoming.sources||{});
   const fresh=inc.filter(c=>!had.has(c));
   // the folder offers books no staged file carries; ticking one is what reads it (D112)

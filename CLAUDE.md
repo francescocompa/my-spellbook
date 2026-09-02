@@ -44,7 +44,8 @@ same thing, one of them is wrong:
   subset is committed, inside `docs/`.
 
 Content at runtime = baked/SRD bundle ⊕ imported 5etools (IndexedDB) ⊕ custom homebrew
-(localStorage).
+(localStorage) — a real merge since **D158(d)/D160**: the bundle is the base every import
+lands on, including the first, and it is merged at assembly, never copied into storage.
 
 ## Build / run
 

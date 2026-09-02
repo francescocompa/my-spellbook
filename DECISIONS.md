@@ -2380,6 +2380,38 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
   - **Enforced by:** K3's code; the gate unchanged. **Affects:** PLAN.md (K3/K4), `build.py`,
     `src/app.js`, `src/extract.js`, STATE.md.
 
+- **D160 (2026-09-02) DECIDED — the first import merges at ASSEMBLY, and the bundle is never
+  written to storage.** D158(d) settled the behaviour ("the baked data is the base the first
+  import merges into; nothing is ever lost") and named two things to amend — D137's
+  `IMPORTED||BAKED` and the staging base. Building it surfaced that those are two different
+  questions, and answering them the same way breaks the app; this entry records the split so it
+  is not re-litigated.
+  - **(a) `assembleData` merges: `IMPORTED ? mergeDigests(BAKED, IMPORTED) : BAKED`.** The
+    import wins record by record (the merge is keyed), so re-importing a book still overrides
+    the baked copy of itself. *Rejected:* **writing `BAKED ⊕ incoming` into IndexedDB on the
+    first Apply** — it duplicates 4 MB, and worse, it freezes a copy of the bundle that then
+    WINS over the newer bundle a release later. The stored digest holds imports only.
+  - **(b) The staging base stays a STORAGE question.** `planFromStage`'s `had`/`fresh` say what
+    the stored digest holds, because `buildImport` uses `fresh` to tell a book you unticked
+    from one that has just arrived. Widening it to include the bundle was tried and reverted
+    the same hour: every bundled book then looked deliberately unticked and the next Apply
+    dropped it. The reader-facing "do I already have this" lives in `trayBooks()`, which DOES
+    count the bundle — so importing a book the app ships with reads "nothing new here · Re-read
+    1 book", which is the truth.
+  - **(c) Removing a book you also have from the bundle removes YOUR copy, and the bundle's
+    stays.** Its origin chip flips back to `built-in` and the switch is how you hide it. The
+    selection bar already refuses to arm Remove for a bundle-only book, so this is consistent
+    rather than new. *Rejected:* a "removed" list that suppresses bundled books — a second,
+    invisible piece of state to explain and to migrate.
+  - **(d) Source counts are recomputed at assembly whenever an import is present.** A merged
+    book's stored count is only its own half — a brew adding one XPHB spell made the Library
+    row read "1 spell" beside 392 on screen. Same recount `filterDigest` already does.
+  - **Verified live:** 43 books → **44** on the first import (was 43 → 1), storage holding one
+    book; a bundled book re-imported reads as a re-read, applies, and its extra record shows
+    beside the bundle's; removing it leaves the bundle's copy and its 392 spells. Fixtures 9d/9e.
+  - **Enforced by:** `assembleData`, `planFromStage`, `trayBooks`, `engine.test.js` 9d/9e.
+    **Affects:** `src/app.js`, PLAN.md (L5.3), CLAUDE.md's content line.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

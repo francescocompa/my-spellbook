@@ -194,7 +194,18 @@ D157 owns the charter, the agents, the rejected shapes — cite it. Reports land
     live app now reads `1st 4 · 2nd 3 · 3rd 2` for Paladin 1 / Sorcerer 4 (caster level 5).
     eslint needed one global (`module`, guarded by the shim's `typeof` test); config comment
     says why.
-  - [ ] **L5.3 · First import merges onto the bundle** (D158(d), amends D137). Size M.
+  - [x] **L5.3 · First import merges onto the bundle** (D158(d), amends D137) — shipped
+    **v1.5.19**, implementation calls in **D160**. `assembleData` is now
+    `IMPORTED ? mergeDigests(BAKED,IMPORTED) : BAKED`; the bundle is merged at ASSEMBLY and
+    never written to storage (that would duplicate 4 MB and freeze a stale bundle that wins
+    over the next release's). The staging base stays a storage question — widening it was
+    tried and reverted the same hour, because `buildImport` reads `fresh` to tell an unticked
+    book from a new one and every bundled book then looked unticked. Source counts are
+    recomputed at assembly so a merged book's row matches what is on screen.
+    **Verified:** first import takes 43 books → **44** (was 43 → 1) with one book in storage;
+    a bundled book re-imported reads "nothing new here · Re-read 1 book", applies, and its
+    record sits beside the bundle's; removing it leaves the bundle's copy, 392 spells and a
+    `built-in` chip; 936 → 937 spells on a brew; gate clean, engine 35 ok / 0 fail.
   - [ ] **L5.4 · Guide-stage mockup round** (D158(f)), then the chosen variant. 🔶
   - [ ] **L5.5 · Copy the build as a level plan** to the clipboard, in the Character Ideas shape
     (A-03; `levelGains`/`levelCasting`/`timelinePicks` already derive it). Size S, format his. 🔶
