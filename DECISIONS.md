@@ -2897,6 +2897,61 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
   - **Enforced by:** `.menupop .cbtn`, `.cbtn.abt.*`, `.swk.swoff`; `buildToggleRow`'s `clsOf`.
     **Affects:** D172(f) (the gate it closes), PLAN.md (Phase M), D142(b), D148, D31.
 
+- **D174 (2026-09-02) DECIDED — the filter menu is a stack of GROUPS that open one at a time,
+  and every axis reads "empty means all".** M1b and M2 of Phase M, on the surface D173 chose.
+  - **(a) A calmer chip.** His note on the chosen mockup: *"try a different visual than these
+    chips, it can feel overwhelming now"*. The overwhelm was an OUTLINE PER ITEM: at rest
+    nothing is selected, so ~68 borders were each drawing a box around something you had not
+    chosen. The resting chip is filled and BORDERLESS (`--panel-2`, `--ink`) — plainly a
+    control, no line noise — and the outline is spent only on what you have chosen. The filter
+    card's own rows keep the outlined chip: short, on a panel, never sixty items.
+    *Rejected:* going back to bare text (that was D173(a)'s bug) and a checklist (calmer still,
+    and four times taller).
+  - **(b) EMPTY MEANS ALL, everywhere.** The spell picker's levels have always worked that way
+    (`PICK.levelSet`); the feat categories and the class's main scores were preset-to-ALL and
+    had to be *narrowed down*. One convention now, which is also what lets a resting menu show
+    nothing selected — half of why the old rows read as a wall. D171(b)'s Mystic guard survives
+    it unchanged: an untouched row still filters nothing.
+  - **(c) One group open at a time**, each closed row STATING what it is narrowed to — "all",
+    the single value by name ("Evocation" says more than "1 of 8" and costs the same room), or
+    a count. Nine groups is nine lines until you ask for one. The idiom is the chain rail's,
+    which has opened one level at a time since D130(a).
+  - **(d) The margins, and the two rules that were eating them.** His *"increase slightly the
+    left and right margins"*: 14px → 18–20px, measured symmetric. Getting there needed the
+    menu to name its wrappers — `.pickermenu .menupop` and `.pickfiltermenu .menupop` predate
+    it and outrank a bare `.menupop.fmenu` by coming later at equal weight, which is why the
+    main picker's menu first came out 180px wide with its chips wrapping.
+  - **(e) Books stay individually checkable** (his note). The book checklist is the one group
+    that is not a toggle row — a `custom` body holding `renderSourceChecklist` and its four
+    quick actions, with its scroll position held across the rebuild.
+  - **(f) M2: the spell filters, on BOTH spell pickers** (D172(b,c)) — School, Cast time,
+    Duration, Components, Damage, Save, Condition, plus Ritual and Concentration as switches,
+    and Level where the pool spans more than one. The guide's picker had a search box and
+    nothing else. **A row's items come from the POOL IN FRONT OF YOU**, not a hand-written
+    list, so a class-scoped picker offers the schools that class has and a new book brings its
+    own damage type with it; a row with fewer than two values does not draw at all.
+    Multi-select is OR within an axis and AND across them. **Components are the exception and
+    deliberately so** — they are properties of one spell rather than alternatives, so V+M asks
+    for spells with both.
+  - **(g) Duration is DERIVED, not extracted.** `durTxt` is the printed string and `conc` is
+    its own flag; `durCat` buckets them in `app.js` (instant · rounds · minutes · hours · days
+    · until dispelled · special) rather than adding a field to both extractors for one filter.
+    "24 hours" reads as hours, because that is what the book prints.
+  - **Verified live, dark and light, at 1280 and 375:** the class menu is 2 rows / 86px at rest
+    against a stacked wall before; narrowing Main score to Int leaves Artificer and Wizard and
+    the row reads "Int", adding Wis reads "2 of 6"; the guide picker's School → Evocation takes
+    37 spells to 8 and its Damage row offers the 9 types that pool actually has; Fire leaves
+    Burning Hands and Chromatic Orb, and Concentration on top of it leaves none — correct, and
+    every axis clears back to 37. The main picker's menu is 270x361 with no inner scroll and
+    draws its Level row where the pool spans levels. Margins 18/18 and 20/20, symmetric.
+    Books: 31 individual checkboxes plus the four quick actions, 363px inside the 520 cap.
+    At 375 the menu is 270x454, fully in viewport, no horizontal overflow. Resting chip text
+    17.84:1, selected 5.57:1 with a 6.57:1 border; group label and value 6.55:1. 0 console
+    errors; gate clean, cparity 58 ok / 0 fail, engine 35 ok / 0 fail.
+  - **Enforced by:** `filterMenu`/`filterSum`; `spFiltNew`/`spFiltOk`/`spFiltItems`/
+    `spFiltGroups`/`durCat`; `entFilterGroups`/`entBooksGroup`; `gpickMenu`; the `.fmenu`
+    block and `.menupop .cbtn`. **Affects:** PLAN.md (M1b, M2 done), D171(b), D173(a), D31.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

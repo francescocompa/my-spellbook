@@ -3130,7 +3130,8 @@ function openGpick(spec){
   // (the same rule `openPick` follows, D94). The `?` disclosure resets with them.
   FOLDED.gpick.clear();
   gpickHelpShut();
-  GPICK=spec;
+  GPICK=spec; GPICK.filt=spFiltNew();
+  const m=$("#gpMenuPop"); if(m)m.classList.add("hidden");
   const s=$("#gpSearch"); if(s)s.value="";
   // D161: in the stage where there is room, a modal where there is not
   if(stagePickTake("gpickModal"))render();
@@ -3219,11 +3220,13 @@ function renderGpick(){
     // live status only — what a trade DOES to the order moved behind the `?` (D131(c))
     $("#gpSub").textContent="a "+kw+" for "+cname+" · L"+g.lv+capTxt;
     const mine=new Set((((state.chosen[g.row]||{})[g.kind==="cantrip"?"cantrips":"spells"])||[]));
-    const items=[...R.pool.values()].filter(i=>{
+    let items=[...R.pool.values()].filter(i=>{
       const k=key(i.sp.name,i.sp.source);
       if(!i.takers.some(t=>t.idx===g.row)||mine.has(k)||k===g.out)return false;
       return g.kind==="cantrip"?i.sp.level===0:(i.sp.level>=1&&i.sp.level<=(g.castMax||9));
-    }).map(i=>i.sp).filter(sp=>!q||sp.name.toLowerCase().includes(q));
+    }).map(i=>i.sp);
+    gpickMenu(items);
+    items=items.filter(sp=>(!q||sp.name.toLowerCase().includes(q))&&spFiltOk(GPICK.filt,sp));
     shown=items.length;
     gpickSection(list,null,items,new Set(),"trade",null);
     $("#gpCount").textContent=shown+(shown===1?" spell":" spells");
@@ -3268,7 +3271,8 @@ function renderGpick(){
       +" above this slot's cap, so they fit a later slot."));
   }
   const all=guideEligible(sec,g.mode,cap);
-  const items=all.filter(sp=>!q||sp.name.toLowerCase().includes(q));
+  gpickMenu(all);
+  const items=all.filter(sp=>(!q||sp.name.toLowerCase().includes(q))&&spFiltOk(GPICK.filt,sp));
   shown=items.length;
   const held=g.mode==="place"
     ? new Set([((state.chosen[sec.row]||{})[sec.pick==="cantrip"?"cantrips":"spells"]||[])[guideTarget(sec)]].filter(k=>k&&!isHole(k)))
@@ -3278,6 +3282,17 @@ function renderGpick(){
   $("#gpCount").textContent=shown+(shown===1?" spell":" spells");
   gpickFoot();
   stagePickSubSync();   // D163: the sub is written here, so the de-duplication belongs here
+}
+// M2 · D172(c): the guide picker's filter menu — the same builder, the same controls, the
+// same set as the main picker's. Its LEVEL row is deliberately absent: this list is a
+// section's own pool, already scoped to the levels that section can take, and `gpickSection`
+// groups by level down the page. Built from the pool BEFORE the filter is applied, or
+// narrowing to one school would leave that school as the only chip on offer.
+function gpickMenu(pool){
+  if(!GPICK.filt)GPICK.filt=spFiltNew();
+  const host=$("#gpMenuPop"); if(!host)return;
+  filterMenu(host,spFiltGroups(GPICK.filt,pool,renderGpick),GPICK.filt,renderGpick);
+  const b=$("#gpMenuBtn"); if(b)b.classList.toggle("on",spFiltNarrowed(GPICK.filt));
 }
 // the slots a reconstruct section owns, as the targets a placement lands in (D118(f,g)) —
 // slot-level addressing, inside the modal where D130(c) put it
@@ -4054,7 +4069,7 @@ let PICK=null;
 // every opener starts from an unfolded list: this picker serves a different choice each
 // time, and a level folded in the last one would hide spells with nothing on screen to
 // explain why (the same reason the custom-source disclosures reset on open, D94)
-function openPick(choice){ FOLDED.pick.clear(); PICK={...choice,levelSet:new Set(),onlyPicked:false}; $("#pickSearch").value="";
+function openPick(choice){ FOLDED.pick.clear(); PICK={...choice,levelSet:new Set(),onlyPicked:false,filt:spFiltNew()}; $("#pickSearch").value="";
   // a designation names a spell rather than granting one, so it never says "Choose 1 spell"
   $("#pickTitle").textContent=choice.mark?"Designate a spell"
     :"Choose "+choice.count+(choice.count>1?" spells":" spell");
@@ -4070,7 +4085,7 @@ function openPick(choice){ FOLDED.pick.clear(); PICK={...choice,levelSet:new Set
 function openOffListPick(idx){
   const rec=R.casters.find(r=>r.idx===idx); if(!rec)return;
   FOLDED.pick.clear();
-  PICK={classIdx:idx,maxLevel:rec.maxLvl,offList:true,levelSet:new Set(),onlyPicked:false};
+  PICK={classIdx:idx,maxLevel:rec.maxLvl,offList:true,levelSet:new Set(),onlyPicked:false,filt:spFiltNew()};
   $("#pickSearch").value="";
   $("#pickTitle").textContent=classLabel(rec)+" · Magical Secrets";
   const c=R.cart[idx];
@@ -4079,7 +4094,7 @@ function openOffListPick(idx){
 // prepare-by-level: click a level tile → prepare from that class's eligible spells (levels 1..maxLevel)
 function openLevelPick(idx,maxLevel){ const rec=R.casters.find(r=>r.idx===idx); if(!rec)return;
   FOLDED.pick.clear();
-  PICK={classIdx:idx,maxLevel,levelSet:new Set(),onlyPicked:false}; $("#pickSearch").value="";
+  PICK={classIdx:idx,maxLevel,levelSet:new Set(),onlyPicked:false,filt:spFiltNew()}; $("#pickSearch").value="";
   // the set being edited is the SPELLBOOK for a wizard and the KNOWN list for a level-swap
   // caster — calling either "prepare" contradicts the D20/D62 vocabulary the cards use
   const v=pickVerbs(idx,rec);
@@ -4104,16 +4119,20 @@ function renderPickList(){
   if(PICK.offList){const rec=R.casters.find(r=>r.idx===PICK.classIdx);
     const own=rec&&rec.listClass?rec.listClass[0].toLowerCase():"";
     base=base.filter(sp=>!sp.cls.some(([cn,cs])=>cn.toLowerCase()===own&&srcOn(cs)));}
-  // quick level filters (present levels only)
-  const presentLevels=[...new Set(base.map(s=>s.level))].sort((a,b)=>a-b);
-  const lvBox=$("#pickLevels");
-  if(lvBox)buildToggleRow(lvBox,presentLevels.map(l=>[String(l),l===0?"C":String(l)]),PICK.levelSet,true,renderPickList);
-  const plb=$("#pickLevelBtn");if(plb)plb.innerHTML="Levels"+(PICK.levelSet.size?` <span class="badge">${PICK.levelSet.size}</span>`:"");
+  // M2: one filter menu, built from the pool in front of you — level included, which is
+  // what the standalone level popover used to be on its own
+  if(!PICK.filt)PICK.filt=spFiltNew();
+  filterMenu($("#pickLevelPop"),
+    spFiltGroups(PICK.filt,base,renderPickList,{levels:PICK.levelSet}),PICK.filt,renderPickList);
+  // D142(c): the icon says THAT the list is narrowed, never by how much
+  const plb=$("#pickLevelBtn");
+  if(plb)plb.classList.toggle("on",!!(PICK.levelSet.size||spFiltNarrowed(PICK.filt)));
   const cur = isClass ? new Set(((R&&R.cart[PICK.classIdx])||state.chosen[PICK.classIdx]||{}).spells||[]) : new Set(state.choices[PICK.id]||[]);
   const pv=isClass?pickVerbs(PICK.classIdx,R.casters.find(r=>r.idx===PICK.classIdx)):null;
   const po=$("#pickOnly");if(po){po.classList.toggle("on",!!PICK.onlyPicked);
     po.innerHTML=(isClass?pv.n:"Picked")+(cur.size?` <span class="badge">${cur.size}</span>`:"");}
   let items=base.filter(sp=>(!q||sp.name.toLowerCase().includes(q))&&(!PICK.levelSet.size||PICK.levelSet.has(sp.level))
+    &&spFiltOk(PICK.filt,sp)
     &&(!PICK.onlyPicked||cur.has(key(sp.name,sp.source))));
   items.sort((a,b)=>a.level-b.level||a.name.localeCompare(b.name));
   const pickRow=sp=>{const k=key(sp.name,sp.source);const on=cur.has(k);
@@ -4154,6 +4173,8 @@ function renderPickList(){
 
 // ── species / feat picker modal (search + source filter + grant preview) ─────
 let ENT=null;
+// is this category one the slot may legally draw on at all? `catList` is [[id,label],…]
+const catIn=(catList,id)=>(catList||[]).some(c=>c[0]===id);
 // a compact preview of what a species/feat grants, for the picker rows
 function grantPreview(grants){
   if(!grantsAny(grants))return "";
@@ -4187,13 +4208,16 @@ function entItems(srcSet){
   // already holds); one that would only DUPLICATE that row under another printing does not.
   if(ENT.kind==="class"){const taken=takenClasses();
     // D171: the class filter is its MAIN SCORE — the 2024 class table's primary ability.
-    // Only when it has been narrowed: a preset that matches everything must filter nothing,
-    // or a class the books do not state a primary for (the UA Mystic) would vanish silently.
-    const narrowed=!sameSet(ENT.abils,ENT.presetAbils);
+    // Empty narrows nothing (D174(b)), which is also what keeps a class the books state no
+    // primary for (the UA Mystic) from vanishing until you deliberately narrow.
     return DATA.classes.filter(o=>vis(o)
       &&(state.classes.some(r=>r.clsKey===key(o.name,o.source))||!taken.has(clsIdOf(key(o.name,o.source))))
-      &&(!narrowed||((o.traits&&o.traits.primary)||[]).some(a=>ENT.abils.has(a))));}
-  return DATA.feats.filter(f=>vis(f)&&!isFeatFS(f)&&ENT.cats.has(featCatId(f)));
+      &&(!ENT.abils.size||((o.traits&&o.traits.primary)||[]).some(a=>ENT.abils.has(a))));}
+  // D174(b): empty narrows nothing here too. The list a slot may legally draw on is
+  // `catList` (D84) — narrowing within it is the player's, and an untouched row is the
+  // whole of it.
+  return DATA.feats.filter(f=>vis(f)&&!isFeatFS(f)
+    &&(!ENT.cats.size?catIn(ENT.catList,featCatId(f)):ENT.cats.has(featCatId(f))));
 }
 // D168: `at` is the class picker's context — {lv} is the CHARACTER level whose class is
 // being rewritten, and no `at` at all means the growth step, where a pick takes the next
@@ -4208,20 +4232,23 @@ function openEntityPicker(kind,category,at){
   // origin-slot ones, because origin is a subset of general (D84). Narrowing is the
   // player's, and attribution follows the SLOT they opened, not the feat's category.
   const slots=SLOTS_FOR[kind==="feat"?(category||"general"):""]||[];
+  // the categories this SLOT may legally draw on (D84) — for a general slot that includes
+  // the origin-slot ones, because origin is a subset of general. It is the list the row
+  // offers AND the pool an un-narrowed row means (D174(b)).
   const catList=kind==="feat"?featCatsFor(slots):[];
-  const preset=new Set(catList.map(c=>c[0]));
   const lv=(kind==="class"&&at&&at.lv!=null)?at.lv:null;
-  // D171: the six main scores, preset to all — narrowing is the player's, exactly as the
-  // feat categories work, and an untouched preset filters nothing
-  const presetAbils=new Set(Object.keys(ABIL));
+  // D174(b): ONE convention for every filter row — an EMPTY set narrows nothing. The spell
+  // picker's levels have always worked this way (`PICK.levelSet`), and it is what lets a
+  // resting menu show no selection at all, which is half of why the old preset-all row
+  // looked like a wall. D171's Mystic guard survives it: an untouched row still filters
+  // nothing, so a class the books state no primary for is only ever hidden deliberately.
   ENT={kind,category,slot,lv,q:"",books:new Set(SRC),grantsOnly:false,hideNo:false,
-       cats:new Set(preset),presetCats:preset,catList,
-       abils:new Set(presetAbils),presetAbils};
+       cats:new Set(),catList,abils:new Set(),open:null};
   $("#entTitle").textContent = kind==="opt"?`Choose ${slot.name.replace(/s$/,"").toLowerCase()}`
     : kind==="species"?"Choose a species / lineage"
     : kind==="class"?(lv!=null?"Change the class at level "+lv:"Choose a class")
     : category==="origin"?"Choose an origin feat" : category==="epic"?"Choose an epic boon" : "Choose a general feat";
-  $("#entSearch").value=""; $("#entGrants").checked=false; $("#entHideNo").checked=false;
+  $("#entSearch").value="";
   $("#entMenuPop").classList.add("hidden");
   // D161: the same relocation the spell picker takes — this is the picker a guide step opens
   // most often (species, origin feat, invocations), and the one B1-05 was measured on.
@@ -4239,37 +4266,57 @@ function closeEntityPicker(){
 // the books present in the picker's own content — the override list never offers a book
 // that has nothing of this kind in it.
 function entBookCodes(){return new Set(entItems(ALL_SRC).map(i=>i.source));}
-function renderEntBooks(){
+// D174: the books group, as the one `custom` body in the menu — the checklist stays, per
+// book, with its four quick actions above it (his note: *"make sure books can still be
+// filtered individually"*). The scroll position is held across the rebuild: the checklist
+// IS the scroller and it is rebuilt on every tick, so ticking a book near the bottom would
+// otherwise throw you back to the top.
+let ENT_SRC_TOP=0;
+function entBooksGroup(){
   const codes=entBookCodes();
-  // the checklist IS the scroller, and it is rebuilt on every tick — hold its position or
-  // ticking a book near the bottom throws you back to the top of the list
-  const wrap=$("#entSrcList"), top=wrap.scrollTop;
-  const n=renderSourceChecklist(wrap,ENT.books,()=>{renderEntityList();},codes);
-  wrap.scrollTop=top;
   const on=[...ENT.books].filter(c=>codes.has(c)).length;
-  $("#entBooksN").textContent=`${on}/${n}`;
+  const total=codes.size;
+  return {key:"books",head:"Books",kind:"custom",
+    summary:()=>on>=total?FILTER_ALL:on+" of "+total,
+    fill:body=>{
+      const q=srcQuick(ENT.books,()=>renderEntityList(),codes);
+      const quick=el("div","quick");
+      [["All",()=>q.all()],["None",()=>q.none()],["2024 core",()=>q.core()],
+       ["My sources",()=>{ENT.books=new Set(SRC);renderEntityList();}]]
+        .forEach(([t,fn])=>{const b=el("button","btn tiny",t);
+          b.onclick=e=>{e.stopPropagation();fn();};quick.append(b);});
+      body.append(quick);
+      const wrap=el("div","srcscroll");
+      renderSourceChecklist(wrap,ENT.books,()=>{ENT_SRC_TOP=wrap.scrollTop;renderEntityList();},codes);
+      wrap.onscroll=()=>{ENT_SRC_TOP=wrap.scrollTop;};
+      body.append(wrap);
+      wrap.scrollTop=ENT_SRC_TOP;
+    }};
+}
+// which groups this KIND has. A filter that cannot mean anything for a kind is absent, not
+// disabled (D171(a)): a class has no prerequisites, and its spells are its whole list.
+function entFilterGroups(){
+  const g=[];
+  if(ENT.kind==="feat")g.push({key:"cat",head:"Category",kind:"toggle",
+    items:ENT.catList||[],set:ENT.cats});
+  if(ENT.kind==="class")g.push({key:"abil",head:"Main score",kind:"toggle",
+    items:Object.keys(ABIL).map(a=>[a,ABIL_SHORT[a]]),set:ENT.abils,clsOf:a=>"abt "+a});
+  if(ENT.kind!=="class"){
+    g.push({key:"grants",head:"Spellcasting",kind:"switch",
+      get:()=>ENT.grantsOnly,set:v=>{ENT.grantsOnly=v;}});
+    g.push({key:"prq",head:"Eligible only",kind:"switch",
+      get:()=>ENT.hideNo,set:v=>{ENT.hideNo=v;}});
+  }
+  g.push(entBooksGroup());
+  return g;
+}
+function renderEntBooks(){
+  filterMenu($("#entMenuPop"),entFilterGroups(),ENT,()=>renderEntityList());
 }
 function renderEntityList(){
   if(!ENT)return;
   const list=$("#entList"); list.innerHTML="";
-  // feat kind: epic boon is always offered, just not preselected below level 19 (D31)
-  $("#entCatHead").classList.toggle("hidden",ENT.kind!=="feat");
-  $("#entCats").classList.toggle("hidden",ENT.kind!=="feat");
-  if(ENT.kind==="feat")buildToggleRow($("#entCats"),ENT.catList||[],ENT.cats,false,()=>renderEntityList());
-  // D171: a filter that cannot mean anything here does not draw. A class has no
-  // prerequisites, so "hide ones I can't take" answers a question nobody asked; and its
-  // spells are its whole list, not a grant, so "grants spells" would tick every row.
-  const isCls=ENT.kind==="class";
-  $("#entAbHead").classList.toggle("hidden",!isCls);
-  $("#entAbs").classList.toggle("hidden",!isCls);
-  $("#entGrantsRow").classList.toggle("hidden",isCls);
-  $("#entHideNoRow").classList.toggle("hidden",isCls);
-  $("#entTogSep").classList.toggle("hidden",isCls);
-  // D173(b): each ability chip carries its own code, so the `--ab-*` token can colour it
-  if(isCls)buildToggleRow($("#entAbs"),
-    Object.keys(ABIL).map(a=>[a,ABIL_SHORT[a]]),ENT.abils,false,()=>renderEntityList(),
-    a=>"abt "+a);
-  renderEntBooks();
+  renderEntBooks();   // D174: builds the whole menu, groups and all
   renderEntBudget();
   const q=ENT.q.toLowerCase();
   let items=entItems(ENT.books)
@@ -4298,8 +4345,8 @@ function renderEntityList(){
   // button pushes the icon off centre and names a number nothing acts on
   const nf=[ENT.kind!=="class"&&ENT.grantsOnly,ENT.kind!=="class"&&ENT.hideNo,
       !sameSet(ENT.books,SRC)].filter(Boolean).length
-    +(ENT.kind==="feat"&&!sameSet(ENT.cats,ENT.presetCats)?1:0)
-    +(ENT.kind==="class"&&!sameSet(ENT.abils,ENT.presetAbils)?1:0);
+    +(ENT.kind==="feat"&&ENT.cats.size?1:0)
+    +(ENT.kind==="class"&&ENT.abils.size?1:0);
   $("#entMenuBtn").classList.toggle("on",!!nf);
   // D168: what "selected" means for a class. Rewriting a level, it is the class that level
   // was taken in — the answer this step already holds. On the growth step nothing is
@@ -9467,6 +9514,163 @@ function syncOpt(sel,pairs,cur,allLabel){
   if(!same){sel.innerHTML="";want.forEach(([v,t])=>sel.append(new Option(t,v)));}
   sel.value=pairs.some(p=>p[0]===cur)?cur:"";
 }
+// ── the filter menu (M1b · D174) ───────────────────────────────────────────
+// ONE builder for every picker's filter surface. A menu is a list of GROUPS and only one is
+// open at a time (the idiom the chain rail already uses for levels), because the set Phase M
+// agreed on is nine groups and ~68 toggles and arriving as a wall is what "overwhelming"
+// means. A closed group is not a hidden one: its row states what it is narrowed to.
+//
+// A group is `{key, head, kind, ...}`:
+//   `toggle` — `items` [[value,label]], a `set`, optional `clsOf`; an EMPTY set means "all",
+//              which is the spell picker's own long-standing convention (`PICK.levelSet`) and
+//              the reason a resting menu has nothing selected and nothing outlined
+//   `switch` — `get()`/`set(v)`, drawn as a row with the Library's `.swk`
+//   `custom` — `fill(body)`, for the one group that is not a toggle row: the book checklist
+// `summary` is what the closed row says; a group with none says "all".
+function filterMenu(host,groups,state,onChange){
+  host.innerHTML="";
+  host.classList.add("fmenu");
+  groups.forEach(g=>{
+    if(g.hidden)return;
+    if(g.kind==="switch"){
+      const row=el("label","mopt");
+      row.append(el("span",null,g.head));
+      const sw=el("button","swk"+(g.get()?"":" swoff")); sw.type="button";
+      sw.setAttribute("role","switch");
+      sw.setAttribute("aria-checked",String(!!g.get()));
+      sw.setAttribute("aria-label",g.head);
+      sw.onclick=e=>{e.stopPropagation(); g.set(!g.get()); onChange();};
+      row.append(sw); host.append(row); return;
+    }
+    const open=state.open===g.key;
+    const box=el("div","fgrp");
+    const head=el("button","fghead"); head.type="button";
+    head.setAttribute("aria-expanded",String(open));
+    head.append(el("span","fgh",g.head));
+    const sum=g.summary?g.summary():filterSum(g);
+    head.append(el("span","fgv"+(sum===FILTER_ALL?"":" narrowed"),sum));
+    head.append(el("span","lvlcar"+(open?" up":"")));
+    // the group's own row re-renders the whole menu, so the click must not travel on to
+    // the document handler that closes popovers (`.menupop` lives inside one)
+    head.onclick=e=>{e.stopPropagation(); state.open=open?null:g.key; onChange();};
+    box.append(head);
+    if(open){
+      const body=el("div","fgbody");
+      if(g.kind==="custom")g.fill(body);
+      else{
+        const row=el("div","cbrow");
+        buildToggleRow(row,g.items,g.set,!!g.numeric,onChange,g.clsOf);
+        body.append(row);
+      }
+      box.append(body);
+    }
+    host.append(box);
+  });
+}
+// ── the spell filter (M2 · D174) ───────────────────────────────────────────
+// The set D172(b) settled, on BOTH spell pickers (D172(c)) — the guide's had a search box
+// and nothing else, and it is the surface the guided builder puts you in. Every axis is
+// already in `data.json`, so nothing here touches the extractors.
+//
+// EMPTY MEANS ALL on every axis (D174(b)). Multi-select is OR within an axis and AND
+// across them — pick Evocation and Illusion and you get both schools, pick Evocation and
+// Fire and you get evocations that deal fire. COMPONENTS are the one exception and
+// deliberately so: they are properties of one spell rather than alternatives, so ticking V
+// and M asks for spells with BOTH, which is the only reading of that pair anyone wants.
+const SP_TIME=[["action","Action"],["bonus","Bonus action"],["reaction","Reaction"],
+  ["long","Longer"]];
+const SP_COMP=[["v","V"],["s","S"],["m","M"],["mcost","M with cost"]];
+// D174: duration has no category in the data — `durTxt` is the printed string and `conc`
+// is its own flag — so the bucket is DERIVED here rather than added to both extractors for
+// one filter. "24 hours" reads as hours because that is what the book prints.
+const SP_DUR=[["inst","Instant"],["round","Rounds"],["min","Minutes"],["hour","Hours"],
+  ["day","Days"],["disp","Until dispelled"],["other","Special"]];
+function durCat(sp){
+  const t=String(sp.durTxt||"").toLowerCase();
+  if(!t)return "other";
+  if(t.startsWith("instant"))return "inst";
+  if(t.startsWith("until dispelled"))return "disp";
+  if(/\bround/.test(t))return "round";
+  if(/\bminute/.test(t))return "min";
+  if(/\bhour/.test(t))return "hour";
+  if(/\bday/.test(t))return "day";
+  return "other";
+}
+const spFiltNew=()=>({school:new Set(),time:new Set(),dur:new Set(),comp:new Set(),
+  dmg:new Set(),save:new Set(),cond:new Set(),ritual:false,conc:false,open:null});
+const spFiltNarrowed=f=>!!(f&&(f.school.size||f.time.size||f.dur.size||f.comp.size
+  ||f.dmg.size||f.save.size||f.cond.size||f.ritual||f.conc));
+function spFiltOk(f,sp){
+  if(!f)return true;
+  if(f.school.size&&!f.school.has(sp.school))return false;
+  if(f.time.size&&!f.time.has(sp.tcat))return false;
+  if(f.dur.size&&!f.dur.has(durCat(sp)))return false;
+  if(f.comp.size){const c=sp.comp||{};
+    for(const k of f.comp){
+      if(k==="mcost"?!(c.m&&c.cost):!c[k])return false;   // components are AND, see above
+    }}
+  if(f.dmg.size&&!(sp.dmg||[]).some(d=>f.dmg.has(d)))return false;
+  if(f.save.size&&!(sp.save||[]).some(d=>f.save.has(d)))return false;
+  if(f.cond.size&&!(sp.cond||[]).some(d=>f.cond.has(d)))return false;
+  if(f.ritual&&!sp.ritual)return false;
+  if(f.conc&&!sp.conc)return false;
+  return true;
+}
+// the values a row offers come from the SPELLS IN FRONT OF YOU, not from a hand-written
+// list — a picker scoped to one class shows the schools that class has, and a book that
+// brings a damage type nobody has seen brings its own chip with it. Empty rows are dropped.
+function spFiltItems(pool){
+  const set=(get)=>{const s2=new Set();pool.forEach(sp=>{const v=get(sp);
+    (Array.isArray(v)?v:[v]).forEach(x=>{if(x!=null&&x!=="")s2.add(x);});});return s2;};
+  const asPairs=(s2,fmt)=>[...s2].sort().map(v=>[v,fmt?fmt(v):cap1(String(v))]);
+  const has=(s2,pairs)=>pairs.filter(p=>s2.has(p[0]));
+  const comps=new Set();
+  pool.forEach(sp=>{const c=sp.comp||{};
+    if(c.v)comps.add("v"); if(c.s)comps.add("s"); if(c.m)comps.add("m");
+    if(c.m&&c.cost)comps.add("mcost");});
+  return {
+    school:asPairs(set(sp=>sp.school)),
+    time:has(set(sp=>sp.tcat),SP_TIME),
+    dur:has(set(sp=>durCat(sp)),SP_DUR),
+    comp:has(comps,SP_COMP),
+    dmg:asPairs(set(sp=>sp.dmg)),
+    save:asPairs(set(sp=>sp.save),v=>ABIL_SHORT[String(v).slice(0,3)]||cap1(v)),
+    cond:asPairs(set(sp=>sp.cond)),
+    lvl:[...set(sp=>sp.level)].sort((a,b)=>a-b).map(l=>[l,l===0?"C":String(l)]),
+  };
+}
+// the group spec both spell pickers hand to `filterMenu`. `opt.levels` adds the level row
+// (the main picker's, which had a popover of its own); the guide's sections are already
+// level-scoped, but the row still draws where a pool spans more than one.
+function spFiltGroups(f,pool,onChange,opt){
+  opt=opt||{};
+  const it=spFiltItems(pool), g=[];
+  const add=(key,head,items,set,clsOf,numeric)=>{
+    if(items.length>1)g.push({key,head,kind:"toggle",items,set,clsOf,numeric});};
+  if(opt.levels)add("lvl","Level",it.lvl,opt.levels,null,true);
+  add("school","School",it.school,f.school);
+  add("time","Cast time",it.time,f.time);
+  add("dur","Duration",it.dur,f.dur);
+  add("comp","Components",it.comp,f.comp);
+  add("dmg","Damage",it.dmg,f.dmg);
+  // a save is an ability, so it wears the ability's own colour (D173(b))
+  add("save","Save",it.save,f.save,v=>"abt "+String(v).slice(0,3));
+  add("cond","Condition",it.cond,f.cond);
+  g.push({key:"ritual",head:"Ritual",kind:"switch",get:()=>f.ritual,set:v=>{f.ritual=v;}});
+  g.push({key:"conc",head:"Concentration",kind:"switch",get:()=>f.conc,set:v=>{f.conc=v;}});
+  return g;
+}
+const FILTER_ALL="all";
+// what a closed group says. A single choice is worth naming — "Evocation" tells you more
+// than "1 of 8" and costs the same room; two or more is a count, because a list of names
+// truncates and a truncated list reads as the whole of it (the rule D130(a) settled).
+function filterSum(g){
+  const n=g.set?g.set.size:0;
+  if(!n)return FILTER_ALL;
+  if(n===1){const only=[...g.set][0], hit=(g.items||[]).find(p=>String(p[0])===String(only));
+    return hit?hit[1]:String(only);}
+  return n+" of "+(g.items||[]).length;
+}
 // `clsOf` adds per-item classes — D173(b)'s ability chips are the only caller, and they need
 // the item's own value to reach the `--ab-*` token that colours them.
 function buildToggleRow(box,pairs,set,numeric,cb,clsOf){box.innerHTML="";pairs.forEach(([v,t])=>{const val=numeric?+v:v;
@@ -10163,12 +10367,10 @@ $("#fBooksBtn").onclick=()=>{const p=$("#fBooksPanel");const nowHidden=p.classLi
 {const F=()=>state.filters.books,q=()=>srcQuick(F(),renderSpells);
  $("#fSrcAll").onclick=()=>q().all(); $("#fSrcNone").onclick=()=>q().none(); $("#fSrc2024").onclick=()=>q().core();
  $("#fSrcReset").onclick=()=>{state.filters.books=new Set(SRC);renderSpells();};}
+// D174: the menu's own controls are built and wired by `filterMenu` — the toggles, the
+// switches and the book checklist's quick actions all live in `entFilterGroups`. Only the
+// button that opens it is static.
 $("#entMenuBtn").onclick=e=>{e.stopPropagation();toggleMenu("#entMenuPop");};
-$("#entHideNo").onchange=e=>{if(ENT){ENT.hideNo=e.target.checked;renderEntityList();}};
-{const q=()=>srcQuick(ENT.books,renderEntityList,entBookCodes());
- $("#entSrcAll").onclick=()=>q().all(); $("#entSrcNone").onclick=()=>q().none(); $("#entSrc2024").onclick=()=>q().core();
- $("#entSrcReset").onclick=()=>{ENT.books=new Set(SRC);renderEntityList();};}
-$("#entGrants").onchange=e=>{if(ENT){ENT.grantsOnly=e.target.checked;renderEntityList();}};
 $("#fq").oninput=e=>{state.filters.q=e.target.value;render();};
 $("#filterBtn").onclick=()=>{$("#filterPanel").classList.toggle("hidden");$("#filterBtn").classList.toggle("on");};
 $("#afClear").onclick=()=>$("#clearFilters").click();
@@ -10478,6 +10680,7 @@ $("#bswBtn").onclick=e=>{e.stopPropagation();renderBswPop();toggleMenu("#bswPop"
   $("#bswBtn").setAttribute("aria-expanded",String(!$("#bswPop").classList.contains("hidden")));};
 $("#tMenuBtn").onclick=e=>{e.stopPropagation();toggleMenu("#tMenuPop");};
 $("#pickLevelBtn").onclick=e=>{e.stopPropagation();toggleMenu("#pickLevelPop");};
+$("#gpMenuBtn").onclick=e=>{e.stopPropagation();toggleMenu("#gpMenuPop");};
 // A handler that re-renders DETACHES the click's target, so a closer asking
 // `e.target.closest(".menu")` afterwards finds nothing and an INSIDE click reads as outside
 // (E5) — every filter control in a picker's ⋯ popover rebuilds its own row, which is how

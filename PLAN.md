@@ -3,8 +3,8 @@
 > What is queued, and what is blocked on a decision. `STATE.md` says where things stand;
 > this says what comes next. Closed items → `ARCHIVE.md#closed-backlog`.
 >
-> **Phase M (the filter system, D172) is the live phase and it is UNGATED** — he chose the
-> sectioned popover (D173), whose control standard shipped as v1.5.30. M1b → M4 remain.
+> **Phase M (the filter system, D172) is the live phase.** The surface is chosen (D173) and
+> **M1a, M1b and M2 have shipped** (v1.5.30, v1.5.31) — **M3 and M4 remain.**
 >
 > **Phase L (the audit, D157) is TRIAGED — D158 holds every disposition.** Wave 3 (L4) shipped;
 > the build list (L5) is under way — **L5.1 through L5.4 are done** and the guided builder's
@@ -253,7 +253,7 @@ D157 owns the charter, the agents, the rejected shapes — cite it. Reports land
     swap detection · High Elf / Human origin · A-09 character-forge handoff · A-13 concept line ·
     A-14 homebrew recipe · A-15 mirror script.
 
-## Phase M — the filter system (D172, decided 2026-09-02) — ✅ UNGATED: **variant 1**, the sectioned popover (D173)
+## Phase M — the filter system (D172, decided 2026-09-02) — ⏳ M1a/M1b/M2 DONE (v1.5.30, v1.5.31) · M3, M4 on
 
 Every picker's filters, audited against 5etools' own source and rebuilt to one standard.
 **D172 owns the SET and D173 the SURFACE — cite them, don't re-derive.** Nothing here needs
@@ -265,18 +265,16 @@ regenerates the mockups; `filters1.html` is the one that was chosen.
   popover (`.menupop button` was stripping it, so unselected rows read as loose text on
   `#pickLevels`/`#prepLevels`/`#entCats`/`#entAbs`), an ability toggle wears its `--ab-*`
   signature colour, and the OFF switch is outlined rather than a flat grey track.
-- [ ] **M1b · The container** — the sectioned popover itself: noun headings
-  (`.mopt.colhead`), toggle rows for enumerations, `.swk` for binaries, the book checklist,
-  and a max-height with a scroll that does not run past the list it filters (D173's side
-  note: 857px of content against a 518px box, better than it was and still over). Size S/M.
-  *Done when:* one filter surface renders for every picker, measured at 1280 and 375 in both
-  themes.
-- [ ] **M2 · The spell filters** (D172(b)) — School · Cast time · Duration · Components +
-  Ritual + Concentration · Damage · Save · Condition, on BOTH spell pickers (D172(c)); the
-  guide's has none today. Duration needs a category DERIVED in `app.js` from `durTxt`+`conc`
-  — deliberately not an extractor field. Size M/L.
-  *Done when:* each filter narrows the list correctly against a known spell, the guide picker
-  and the main picker offer the same set, and the ⋯ button's narrowed-count follows.
+- [x] **M1b · The container** — shipped **v1.5.31**, **D174(a–e)**. `filterMenu` builds every
+  picker's menu from a spec: groups that open ONE AT A TIME, each closed row stating what it
+  is narrowed to; a calmer chip (filled, borderless at rest — the outline is spent only on
+  what you chose, his *"can feel overwhelming"*); empty-means-all on every axis; margins
+  18–20px symmetric; books still individually checkable; `max-height:min(70vh,520px)`.
+- [x] **M2 · The spell filters** (D172(b)) — shipped **v1.5.31**, **D174(f,g)**. School, Cast
+  time, Duration, Components, Damage, Save, Condition + Ritual/Concentration switches, on BOTH
+  spell pickers, with Level where the pool spans more than one. Rows are built from the pool in
+  front of you, so a class-scoped picker offers only what that class has. Duration is derived
+  in `durCat` rather than added to the extractors.
 - [ ] **M3 · The feat filters** (D172(d)) — prerequisite STATE (eligible / not yet / can't
   verify, replacing the binary "hide ones I can't take") and ability bonus. Size S.
 - [ ] **M4 · The wording pass** — his *"dry, streamlined"*: every group a noun, every binary a

@@ -243,8 +243,9 @@
   <div class="mb">
     <div class="pickbar"><input type="search" id="pickSearch" placeholder="Filter by name">
       <div class="menu pickfiltermenu">
-        <button class="btn iconbtn ico" id="pickLevelBtn" data-ico="filter" title="Filter by level" aria-label="Filter by level"></button>
-        <div class="menupop hidden" id="pickLevelPop"><label class="fld">Filter by level</label><div class="cbrow" id="pickLevels"></div></div>
+        <!-- M2 · D174: level folded into the one filter menu, built by `filterMenu` -->
+        <button class="btn iconbtn ico" id="pickLevelBtn" data-ico="filter" title="Filters" aria-label="Filters"></button>
+        <div class="menupop hidden" id="pickLevelPop"></div>
       </div>
       <button class="btn" id="pickOnly" title="Show only the spells already picked here">Picked</button>
       <button class="btn" id="pickClear" title="Clear all selections in this picker">Clear</button>
@@ -264,24 +265,10 @@
       <input type="search" id="entSearch" placeholder="Filter by name">
       <div class="menu pickermenu">
         <button class="btn iconbtn ico" id="entMenuBtn" data-ico="filter" title="Filters" aria-label="Filters"></button>
-        <div class="menupop hidden" id="entMenuPop">
-          <div class="mopt colhead" id="entCatHead">Feat category</div>
-          <div class="cbrow" id="entCats"></div>
-          <div class="mopt colhead" id="entAbHead">Main score</div>
-          <div class="cbrow" id="entAbs"></div>
-          <div class="sep" id="entTogSep"></div>
-          <label class="mopt" id="entGrantsRow"><span>Only ones that grant spells</span><input type="checkbox" id="entGrants"></label>
-          <label class="mopt" id="entHideNoRow"><span>Hide ones I can’t take</span><input type="checkbox" id="entHideNo"></label>
-          <div class="sep"></div>
-          <div class="mopt colhead">Books <span class="badge" id="entBooksN"></span></div>
-          <div class="quick">
-            <button class="btn tiny" id="entSrcAll">All</button>
-            <button class="btn tiny" id="entSrcNone">None</button>
-            <button class="btn tiny" id="entSrc2024">2024 core</button>
-            <button class="btn tiny" id="entSrcReset">My sources</button>
-          </div>
-          <div class="srcscroll" id="entSrcList"></div>
-        </div>
+        <!-- M1b · D174: built by `filterMenu` from a spec, so one surface serves every
+             picker and a group that cannot mean anything for a kind simply is not in the
+             list. Nothing static here but the container. -->
+        <div class="menupop hidden" id="entMenuPop"></div>
       </div>
     </div>
     <div id="entList"></div>
@@ -677,6 +664,12 @@
     </div>
     <div class="pickbar">
       <input type="search" id="gpSearch" placeholder="Filter by name">
+      <div class="menu pickermenu">
+        <!-- M2 · D172(c): the guide's picker had a search box and nothing else, and it is
+             the surface the guided builder puts you in. Same menu, same controls. -->
+        <button class="btn iconbtn ico" id="gpMenuBtn" data-ico="filter" title="Filters" aria-label="Filters"></button>
+        <div class="menupop hidden" id="gpMenuPop"></div>
+      </div>
       <span class="gpcount" id="gpCount"></span>
     </div>
     <div id="gpList"></div>

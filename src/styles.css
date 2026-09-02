@@ -390,14 +390,60 @@
 /* D173(a): `.menupop button` sets border:none, background:none, 13px, left-aligned, 8px 11px
    — and it OUTRANKS `.cbtn` (one class + one type beats one class), so every toggle row that
    lives inside a popover lost its box and rendered as loose menu text. Francesco, on the
-   filter mockup: *"in the unselected state they simply look like random text"*. It is the
-   same control as the filter card's `#fLevel` row and it has to read like it, so the chip is
-   restored here rather than the menu rule weakened — `.menupop button` is right for the menu
-   ROWS it was written for. Reaches #pickLevels, #prepLevels, #entCats and #entAbs. */
-.menupop .cbtn{font-size:11.5px;padding:3px 9px;border-radius:16px;text-align:center;
-  border:1px solid var(--line-strong);background:var(--panel);color:var(--muted)}
+   filter mockup: *"in the unselected state they simply look like random text"*.
+   D174(a) settles what it looks like instead. An OUTLINE PER ITEM is what made sixty-odd of
+   them "overwhelming" (his word): at rest nothing is selected, so every one of those borders
+   is drawing a box around a thing you have not chosen. So the resting chip is a filled,
+   BORDERLESS pill — plainly a control, no line noise — and the outline is spent only on what
+   you HAVE chosen. The filter card's own rows (`#fLevel`) keep the outlined chip: they are
+   short, they sit on a panel rather than in a menu, and nothing there is ever sixty items. */
+.menupop .cbtn{font-size:11.5px;padding:3px 10px;border-radius:16px;text-align:center;
+  border:1px solid transparent;background:var(--panel-2);color:var(--ink)}
 .menupop .cbtn:hover{border-color:var(--accent);color:var(--accent)}
 .menupop .cbtn.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+
+/* ── the filter menu (M1b · D174) ─────────────────────────────────────────
+   Every picker's filters, as GROUPS that open one at a time. Nine groups is nine lines
+   until you ask for one — which is what keeps the spell picker's set (School, Cast time,
+   Duration, Components, Damage, Save, Condition, Level, Books ≈ 68 toggles) from arriving
+   as a wall. A closed group STATES what it is narrowed to, so nothing is hidden by being
+   shut: "all" when it filters nothing, the count or the single value when it does. */
+/* his note: *"increase slightly the left and right margins inside the popover"*. The menu's
+   own 5px plus a row's 9px put content 14px from the edge; this is 6 + 13 = 19px, and the
+   groups' full-width hover and rules run to the menu's edge so the extra air reads as margin
+   rather than as a narrower list. */
+/* Two WRAPPER rules predate this one and outrank a bare `.menupop.fmenu` by coming later at
+   equal weight: `.pickermenu .menupop` (min-width 320, padding 8) and `.pickfiltermenu
+   .menupop` (min-width 180, padding 10) — the second is why the main picker's menu came out
+   180px wide with its chips wrapping. The filter menu names both, so one surface is one
+   surface wherever it is mounted. The max-height is M1b's own requirement: a filter menu may
+   never run past the list it filters. */
+.menupop.fmenu,
+.pickermenu .menupop.fmenu,
+.pickfiltermenu .menupop.fmenu{padding:6px;min-width:270px;max-width:326px;
+  max-height:min(70vh,520px);overflow-y:auto}
+/* the wrappers' own row padding would double up inside a group body */
+.pickermenu .menupop.fmenu .cbrow,
+.pickfiltermenu .menupop.fmenu .cbrow{padding:0;margin:0}
+.pickermenu .menupop.fmenu .quick{margin:0 0 8px}
+.fgrp+.fgrp{border-top:1px solid var(--line)}
+.fghead{display:flex;align-items:center;gap:8px;width:100%;padding:7px 13px;
+  border:none;background:none;color:var(--ink);font:inherit;font-size:12.5px;
+  text-align:left;cursor:pointer;border-radius:7px}
+.fghead:hover{background:var(--panel-2)}
+.fghead .fgh{text-transform:uppercase;font-size:10.5px;letter-spacing:.05em;
+  color:var(--muted);font-weight:700}
+/* what the group is narrowed to, stated on the closed row. Accent when it is narrowed at
+   all — the same "this is doing something" mark the ⋯ button carries (D142(c)). */
+.fghead .fgv{margin-left:auto;font-size:11px;color:var(--muted);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fghead .fgv.narrowed{color:var(--accent);font-weight:600}
+.fgbody{padding:2px 13px 11px}
+.fgbody .cbrow{gap:6px;display:flex;flex-wrap:wrap}
+/* a switch is a row, not a group: it has one state and nothing to open */
+.fmenu .mopt{padding:7px 13px}
+.fmenu .quick{margin:0 0 8px}
+.fmenu .srcscroll{max-height:210px}
 /* an armed destructive button — first click asks, second commits (no native dialogs) */
 .armed,.menupop button.armed{background:var(--bad-soft);border-color:var(--bad);color:var(--bad);font-weight:600}
 /* ── build switcher (v7 · T4) ─────────────────────────────────────────────
