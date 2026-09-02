@@ -767,7 +767,6 @@ function statblock(m){
   const size=(m.size||[]).map(x=>SIZE_NAME[x]||x).join(" or ");
   const hp=m.hp||{};
   const senses=(m.senses||[]).slice(); if(m.passive!=null)senses.push("Passive Perception "+m.passive);
-  const pick=o=>{const r={};Object.keys(o||{}).forEach(k=>{r[k]=o[k];});return r;};
   const ab={};["str","dex","con","int","wis","cha"].forEach(k=>{if(m[k]!=null)ab[k]=m[k];});
   const saves={};Object.keys(m.save||{}).forEach(k=>{saves[ABILITY_FULL[k]||k]=m.save[k];});
   const skills={};Object.keys(m.skill||{}).forEach(k=>{if(k!=="other")skills[k[0].toUpperCase()+k.slice(1)]=m.skill[k];});

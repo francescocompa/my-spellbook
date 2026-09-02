@@ -58,7 +58,7 @@ module.exports = [
     },
     rules: {
       "no-undef": "error",
-      "no-unused-vars": ["error", { caughtErrorsIgnorePattern: "^[_e]$" }],
+      "no-unused-vars": ["error", { args: "none", caughtErrorsIgnorePattern: "^[_e]$" }],
       "no-redeclare": "error",
       eqeqeq: ["error", "always", { null: "ignore" }],
     },
@@ -72,7 +72,7 @@ module.exports = [
     },
     rules: {
       "no-undef": "error",
-      "no-unused-vars": ["error", { caughtErrorsIgnorePattern: "^[_e]$" }],
+      "no-unused-vars": ["error", { args: "none", caughtErrorsIgnorePattern: "^[_e]$" }],
       "no-redeclare": "error",
       eqeqeq: ["error", "always", { null: "ignore" }],
     },
@@ -86,7 +86,7 @@ module.exports = [
     },
     rules: {
       "no-undef": "error",
-      "no-unused-vars": ["error", { caughtErrorsIgnorePattern: "^[_e]$" }],
+      "no-unused-vars": ["error", { args: "none", caughtErrorsIgnorePattern: "^[_e]$" }],
       "no-redeclare": "error",
       eqeqeq: ["error", "always", { null: "ignore" }],
     },

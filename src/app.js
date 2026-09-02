@@ -5524,6 +5524,7 @@ let FOLDER=null, SCAN_BUSY=false;
 // the one database with the imported content (D93); `handles` is its own store.
 async function folderRemember(h){try{await idbPut(HANDLES,"dir",h);}catch(_){}}
 async function folderRecall(){try{return (await idbGet(HANDLES,"dir"))||null;}catch(_){return null;}}
+// eslint-disable-next-line no-unused-vars -- orphaned by K1/K2, deleted by K4 (PLAN)
 async function folderForget(){try{await idbDel(HANDLES,"dir");}catch(_){} FOLDER=null;}
 // Permission does NOT survive a reload: a remembered handle must be re-granted, and the grant
 // has to be asked for inside a user gesture. `ask` is false on the silent boot check.
@@ -6009,6 +6010,7 @@ function renderLibStatus(){
       const mb=e.usage/1048576;
       st.textContent=`≈ ${mb<1?"<1":Math.round(mb)} MB in this browser`;}).catch(()=>{});
 }
+// eslint-disable-next-line no-unused-vars -- orphaned by K1/K2, deleted by K4 (PLAN)
 async function clearImport(){await importDrop();assembleData();pruneState();refreshAll();render();}
 // no-content build (public deploy): pop the import modal in welcome mode, once
 let onboardShown=false;
