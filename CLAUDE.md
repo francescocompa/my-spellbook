@@ -70,7 +70,16 @@ node scratchpad/cparity.js        # extractor parity — MUST be 0 fail after an
 node scratchpad/sweeps/deadfns.js # dead functions — MUST exit 0 (K4 spent the allowlist)
 node scratchpad/sweeps/ids.js     # a lookup for an id defined nowhere — MUST exit 0
 npx eslint src/app.js src/extract.js docs/sw.js   # D158(k) rules — MUST exit 0 (npm install once)
+node scratchpad/engine.test.js    # the engine's rules, headless (D158(j)) — MUST exit 0
 ```
+
+`engine.test.js` loads `app.js` in node behind its boot guard (`__SB_HEADLESS__`) and calls
+the engine through the export shim at the foot of that file. It asserts the rules that break
+SILENTLY — a slot table off by one, an empty slot spliced out of an acquisition order, a
+per-book stamp lost in a digest rebuild. **Adding a per-book field means adding it to fixture 8
+and to `filterDigest`'s carry-forward list in the same commit** (that hole has opened three
+times). A fixture that cannot fail is worse than none: change the rule, watch it go red, put it
+back.
 
 `cparity.js` drives the **real** predicates (`zipWanted`, `dropFoundryStubs`, `readOrder`,
 `carriedMonster`). A harness that rolls its own copy is how the `foundry.json` corruption hid

@@ -34,11 +34,16 @@ const globals = require("globals");
 // (ESLint's own scope analysis covers same-file declarations) — the only globals worth
 // listing here are names DEFINED IN A DIFFERENT FILE that app.js reads bare (not through
 // `window.foo`, which is plain property access and needs no global declaration at all).
-// That is exactly one name: `SB_extract`, which extract.js attaches to `window` and app.js
+// That is one name: `SB_extract`, which extract.js attaches to `window` and app.js
 // calls bare. `window.__DATA__` / `window.__VERSION__` / `window.__PUBLIC__` (data.js,
 // build.py) and `window.__CACHE__`-style sw.js constants are all read through `window.`,
 // so they need nothing listed.
-const appGlobals = { SB_extract: "readonly" };
+// …plus `module`, which app.js reads ONLY inside the headless export shim at its foot
+// (D158(j)): `typeof module!=="undefined"&&module.exports` is false in every browser and true
+// under `require()` in `scratchpad/engine.test.js`, which is how the gate calls the engine
+// directly. It is guarded by a typeof test, so listing it here silences no-undef without
+// pretending app.js is a CommonJS module — it is still a plain script everywhere it ships.
+const appGlobals = { SB_extract: "readonly", module: "readonly" };
 
 // extract.js is the in-browser importer AND, via `new Function(src)()` in
 // scratchpad/cparity.js, a Node-loaded parity harness target — but the SOURCE ITSELF makes

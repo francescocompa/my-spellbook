@@ -178,9 +178,22 @@ D157 owns the charter, the agents, the rejected shapes — cite it. Reports land
 
 - [ ] **L5 · The build list** (D158(a) order; K3/K4 re-queued at the top):
   - [x] **L5.1 · K3** raw-stash + automatic re-parse — v1.5.16, **D159** (absorbed the C2-02 dead end, D158(h)). **K4 is next.**
-  - [ ] **L5.2 · Engine test scaffold** as gate line five (D158(j)): boot guard + export shim in
-    app.js, `scratchpad/engine.test.js`, ten fixtures; **fixture one = pooling rounds up per
-    class** (D158(b), Artificer 5 / Wizard 5 → 8, Paladin 1 / Sorcerer 4 → 5). Size M/L.
+  - [x] **L5.2 · Engine test scaffold** — shipped **v1.5.18**, the gate's **eighth** line
+    (D158(j)): a boot guard (`__SB_HEADLESS__`) and an export shim in app.js,
+    `scratchpad/engine.test.js` with a permissive DOM stub, **ten fixtures / 33 assertions**.
+    **Fixture one is the pooling correction (D158(b)), which this task also SHIPPED:** every
+    half-caster now contributes ⌈its own level/2⌉ instead of joining one bucket floored once,
+    in both `compute()` and `planSlots()`. Artificer 5 / Wizard 5 → **8** (was 7), Paladin 1 /
+    Sorcerer 4 → **5** (was 4), Paladin 3 / Ranger 3 → **4** (was 3); even splits unchanged.
+    The other nine cover the own clock and the AT/EK rows, single-caster vs pooled, the pact
+    pool staying separate, `verLt`, D146's empty slot, the per-book stamp carry-forward
+    (fixture 8 guards the hole that has opened three times), the keyed digest merge, and
+    D159(a)'s brew test.
+    **Verified:** 33 ok / 0 fail, and **mutation-checked** — reverting the pooling fix reddens
+    1a/1b/1c and dropping `parserHash` from `filterDigest` reddens 8b, exit 1 either way; the
+    live app now reads `1st 4 · 2nd 3 · 3rd 2` for Paladin 1 / Sorcerer 4 (caster level 5).
+    eslint needed one global (`module`, guarded by the shim's `typeof` test); config comment
+    says why.
   - [ ] **L5.3 · First import merges onto the bundle** (D158(d), amends D137). Size M.
   - [ ] **L5.4 · Guide-stage mockup round** (D158(f)), then the chosen variant. 🔶
   - [ ] **L5.5 · Copy the build as a level plan** to the clipboard, in the Character Ideas shape
@@ -200,6 +213,12 @@ D157 owns the charter, the agents, the rejected shapes — cite it. Reports land
 
 - [ ] **Copy veto pass** — `audits/copy-table.md`, 227 rows; revert by name. Also decide the ten
   progress ellipses ("Fetching…", kept as "still running"). ⚑ (owner: Francesco, 2026-09-02)
+- [ ] **Third-casters are still POOLED, then floored** — found while implementing D158(b),
+  outside its scope. `Math.floor(third/3)` sums Eldritch Knight and Arcane Trickster levels
+  into one bucket; the table reads "a third of your Fighter levels" and "a third of your Rogue
+  levels" separately, so Fighter 5 (EK) + Rogue 5 (AT) should pool to 2, and the app says 3.
+  Same shape as the half-caster bug, one class-pair rarer. One line in each of `compute()` and
+  `planSlots()`, plus a fixture. ⚑ (owner: Francesco, 2026-09-02)
 - [ ] **Wave-3 leftovers, small:** the four importer strings in `extract.js` whose twins live in
   `extract.py` (move together, cparity); `— none —` (Fighting Style) is label AND stored key, needs
   a display/key split before it can be renamed; the `.abtile` DOM-built abchip (app.js ~3369) not

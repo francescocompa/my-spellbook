@@ -640,9 +640,14 @@ const reprintOk=o=>state.filters.reprint==="all" ||
 const visible=o=>srcOn(o.source)&&reprintOk(o);
 
 // ── rules helpers ────────────────────────────────────────────────────────
-// D68's TWO clocks round in OPPOSITE directions, and nothing below may mix them. Pooled
-// SLOTS floor each class into the combined caster level — that math lives inline where
-// 2+ casters combine (compute() and planSlots(): full + ⌊half/2⌋ + ⌊third/3⌋). A class's
+// D68's TWO clocks are different, and nothing below may mix them. Pooled SLOTS combine each
+// class into one caster level — that math lives inline where 2+ casters combine (compute()
+// and planSlots(): full + Σ⌈half/2⌉ + ⌊third/3⌋). **D158(b): a half-caster rounds UP, PER
+// CLASS.** The table says "half your levels (rounded up) in the Paladin and Ranger classes"
+// and TCE says the same of the Artificer; pooling the three into one bucket and flooring it
+// cost a slot level on every odd split — Artificer 5 / Wizard 5 pooled to 7 where the rules
+// give 8. Third-casters are still pooled and floored, which is a separate reading and a
+// separate call (⚑ in PLAN). A class's
 // OWN clock rounds UP: the mirror's own tables give a half-caster 2nd-level spells at
 // class level 5 (⌈l/2⌉ — Paladin, Ranger, Artificer identically) and a third-caster at 7
 // (⌈l/3⌉ — AT/EK rowsSpellProgression: 2nd/3rd/4th at 7/13/19), with nothing before a
@@ -3085,9 +3090,13 @@ function compute(){
   const nonPact=casters.filter(r=>!r.isPact);
   let mcSlots=null,mcLevel=0;
   if(nonPact.length===1){mcSlots=nonPact[0].ownSlots;mcLevel=eclOwn(nonPact[0].caster,nonPact[0].level);}
-  else if(nonPact.length>1){let full=0,half=0,third=0;
-    nonPact.forEach(r=>{if(r.caster==="full")full+=r.level;else if(r.caster==="artificer"||r.caster==="1/2")half+=r.level;else if(r.caster==="1/3")third+=r.level;});
-    mcLevel=full+Math.floor(half/2)+Math.floor(third/3); if(mcLevel>0)mcSlots=DATA.fullMc[Math.min(mcLevel,20)-1];}
+  else if(nonPact.length>1){let sum=0,third=0;
+    // D158(b): each half-caster contributes ⌈its own level/2⌉ — one bucket floored at the
+    // end is a different (and wrong) sum the moment two of them are odd
+    nonPact.forEach(r=>{if(r.caster==="full")sum+=r.level;
+      else if(r.caster==="artificer"||r.caster==="1/2")sum+=Math.ceil(r.level/2);
+      else if(r.caster==="1/3")third+=r.level;});
+    mcLevel=sum+Math.floor(third/3); if(mcLevel>0)mcSlots=DATA.fullMc[Math.min(mcLevel,20)-1];}
   const pactRec=records.find(r=>r.isPact);
 
   // shared casting stat: default for feats/species that let you choose
@@ -6683,7 +6692,7 @@ function openGainChooser(pick){
 // The cards used to derive both from the class's own slot table, which put the slot gain
 // on the wrong level for every multiclass. Both are shown, separately.
 function planSlots(levels){
-  let full=0,half=0,third=0,n=0,one=null,pact=null;
+  let sum=0,third=0,n=0,one=null,pact=null;
   state.classes.forEach(r=>{
     const lvl=levels.get(r.id)||0; if(!lvl)return;
     const c=CLS_BY[r.clsKey]; if(!c)return;
@@ -6691,13 +6700,13 @@ function planSlots(levels){
     const caster=c.caster||(sub&&sub.caster)||null; if(!caster)return;
     if(caster==="pact"){const p=DATA.pact[Math.min(lvl,20)-1];pact={num:p[0],lvl:p[1]};return;}
     n++; one={c,caster,lvl};
-    if(caster==="full")full+=lvl;
-    else if(caster==="artificer"||caster==="1/2")half+=lvl;
+    if(caster==="full")sum+=lvl;
+    else if(caster==="artificer"||caster==="1/2")sum+=Math.ceil(lvl/2);   // D158(b), per class
     else if(caster==="1/3")third+=lvl;
   });
   let slots=null;
   if(n===1)slots=(one.c.slots&&one.c.slots[one.lvl-1])||DATA.fullMc[Math.min(eclOwn(one.caster,one.lvl),20)-1]||null;
-  else if(n>1){const mc=full+Math.floor(half/2)+Math.floor(third/3);
+  else if(n>1){const mc=sum+Math.floor(third/3);
     if(mc>0)slots=DATA.fullMc[Math.min(mc,20)-1];}
   return {slots,pact};
 }
@@ -10197,7 +10206,11 @@ function pruneState(){
 // anything. It matters that nothing below runs early: `maybeOnboard()` pops the welcome
 // importer when the app has no content, and firing that over a library still loading is the
 // same failure the "empty import must not beat baked data" gotcha describes.
-(async()=>{
+// D158(j): the headless engine test loads this file to call its pure functions. Boot touches
+// IndexedDB, localStorage and the DOM — none of which are real there — and it would also
+// overwrite the state a fixture is about to set. `__SB_HEADLESS__` is set ONLY by the
+// harness, never by a browser, so a page always boots.
+if(!globalThis.__SB_HEADLESS__)(async()=>{
   try{ await importLoad(); }catch(_){}
   dropLegacyFolderDb();
   // a stored digest that assembleData chokes on must not brick every boot from here on —
@@ -10224,3 +10237,31 @@ function pruneState(){
   autoReparse().catch(()=>{});
   webUpdateNotice();   // D153: fire-and-forget — quiet offline, quiet when current
 })();
+
+// ── headless export shim (D158(j)) ─────────────────────────────────────────
+// `scratchpad/engine.test.js` requires this file and calls the engine directly. Nothing here
+// runs in a browser: `module` does not exist there. The setters are the whole reason the shim
+// is more than a list of names — `DATA`, `state` and the indexes are module-scope `let`s a
+// test could not otherwise stand up. Keep this list in step with what the fixtures use; a
+// name added here is a name the gate can regress-test.
+if(typeof module!=="undefined"&&module.exports){
+  module.exports={
+    // the casting engine
+    eclOwn,maxLvlAt,planSlots,topSlot,
+    // acquisition-order helpers (D146's empty slot is a rule, not a convention)
+    isHole,hole,holeTag,baseKey,sameEnt,trimHoles,noHoles,nextCopy,copyCount,
+    // storage and digest integrity
+    mergeDigests,filterDigest,digestSize,emptyDigest,verLt,
+    // let the fixture stand the module up
+    // `state` and `PREVIEW` are const objects, so they are PATCHED, never replaced — the
+    // same reason the app itself never reassigns them.
+    set:{
+      data:v=>{DATA=v;},
+      clsBy:v=>{CLS_BY=v;},
+      subBy:v=>{SUB_BY=v;},
+      imported:v=>{IMPORTED=v;},
+      state:v=>{Object.keys(state).forEach(k=>{delete state[k];});Object.assign(state,v);},
+      preview:v=>{Object.assign(PREVIEW,v);},
+    },
+  };
+}
