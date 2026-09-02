@@ -3,6 +3,9 @@
 > What is queued, and what is blocked on a decision. `STATE.md` says where things stand;
 > this says what comes next. Closed items → `ARCHIVE.md#closed-backlog`.
 >
+> **Phase M (the filter system, D172) is the newest phase and it is GATED** on his pick between
+> three mocked surfaces — see below.
+>
 > **Phase L (the audit, D157) is TRIAGED — D158 holds every disposition.** Wave 3 (L4) shipped;
 > the build list (L5) is under way — **L5.1 through L5.4 are done** and the guided builder's
 > rework (L5.4) drew three rounds of his review, D161 → D166. Two of his notes are still open
@@ -250,10 +253,41 @@ D157 owns the charter, the agents, the rejected shapes — cite it. Reports land
     swap detection · High Elf / Human origin · A-09 character-forge handoff · A-13 concept line ·
     A-14 homebrew recipe · A-15 mirror script.
 
+## Phase M — the filter system (D172, decided 2026-09-02) — 🔶 GATED on his mockup pick
+
+Every picker's filters, audited against 5etools' own source and rebuilt to one standard.
+**D172 owns the SET — cite it, don't re-derive it** — and the SURFACE is the one open call:
+`python3 scratchpad/mkfilters.py` → `mockups/filters{1,2,3}.html` (popover · panel · bar).
+Nothing here needs the extractors: every value is already in `data.json`.
+
+- [ ] **M1 · The surface** 🔶 — his pick of filters1/2/3, then build the container and the
+  standard: noun headings (`.mopt.colhead`), toggle rows (`.cbrow`/`.cbtn`) for enumerations,
+  the Library's switch (`.swk`) for binaries, the book checklist for books. Size M.
+  *Done when:* one filter surface renders for every picker, measured at 1280 and 375 in both
+  themes, and no popover scrolls taller than the list it filters.
+- [ ] **M2 · The spell filters** (D172(b)) — School · Cast time · Duration · Components +
+  Ritual + Concentration · Damage · Save · Condition, on BOTH spell pickers (D172(c)); the
+  guide's has none today. Duration needs a category DERIVED in `app.js` from `durTxt`+`conc`
+  — deliberately not an extractor field. Size M/L.
+  *Done when:* each filter narrows the list correctly against a known spell, the guide picker
+  and the main picker offer the same set, and the ⋯ button's narrowed-count follows.
+- [ ] **M3 · The feat filters** (D172(d)) — prerequisite STATE (eligible / not yet / can't
+  verify, replacing the binary "hide ones I can't take") and ability bonus. Size S.
+- [ ] **M4 · The wording pass** — his *"dry, streamlined"*: every group a noun, every binary a
+  labelled toggle, one name per thing ("Books", never "Source book"). It lands WITH M1's
+  standard, not before it. Feeds the copy-veto pass. Size S.
+- Not in scope, with his agreement (D172(e)): species size / speed / traits / creature type —
+  we extract none of it, and it would mean both extractors, cparity and a data refresh.
+
 ## Open ⚑ — calls for Francesco
 
+- [ ] **🔶 Pick the filter surface** — `scratchpad/mockups/filters{1,2,3}.html`, both themes
+  (`python3 scratchpad/mkfilters.py` regenerates): **1** one popover sectioned · **2** a panel
+  beside the list · **3** a bar with one popover per group and chips for what is narrowed.
+  D172(f); Phase M is blocked on it. ⚑ (owner: Francesco, 2026-09-02)
 - [ ] **Copy veto pass** — `audits/copy-table.md`, 227 rows; revert by name. Also decide the ten
-  progress ellipses ("Fetching…", kept as "still running"). ⚑ (owner: Francesco, 2026-09-02)
+  progress ellipses ("Fetching…", kept as "still running"). Phase M's **M4** will add the filter
+  strings to it. ⚑ (owner: Francesco, 2026-09-02)
 - [x] **The class step needs the full-size picker the others have** (his note, 2026-09-02) —
   shipped **v1.5.26**, **D168**. The entity picker has a `class` kind (with the D148 class body
   in the preview pane), a change REWRITES the level's row in `state.levelOrder`, and a change

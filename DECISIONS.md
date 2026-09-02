@@ -2822,6 +2822,47 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     `presetAbils`) and `renderEntityList`; `classPreview`/`classScores`; `#entAbs`. **Affects:**
     D168(a), D147, D31.
 
+- **D172 (2026-09-02) DECIDED — the filter set, picker by picker; the surface is still his to
+  choose.** His note: *"Audit and rework all filters, studying how they are implemented in
+  5etools. Interview me and ask me which of those filters I want to include (for each picker),
+  then standardize them visually as well"*. The audit read 5etools' own source in the mirror
+  (`5etools-v2.33.3/js/filter-*.js`), not a recollection of it.
+  - **(a) A collapsed rail tile JUMPS, it does not expand** — his correction to **D170(c)**,
+    given in the same round. The rail is collapsed because you wanted the width; a click that
+    gives it back undoes the thing you asked for. The header chevron is what expands it.
+    Shipped as v1.5.29.
+  - **(b) The spell set, all four groups he was offered:** School · Cast time + Duration ·
+    Components with Ritual and Concentration · Damage type, Saving throw, Condition inflicted.
+    Level and search already exist. Every one of these is already in `data.json`
+    (`school`, `tcat`, `comp`, `ritual`, `conc`, `dmg`, `save`, `cond`), so this is UI only —
+    no extractor work and no `cparity` exposure. The one derivation needed is a DURATION
+    CATEGORY: we store `durTxt` and `conc` and no category, so instantaneous / rounds /
+    hours+ / permanent has to be derived in `app.js` rather than added to both extractors.
+  - **(c) The GUIDE's spell picker gets the same set and the same controls.** It has only a
+    search box today, and it is the surface the guided builder puts him in — the audit's own
+    finding, not one of his notes. One filter vocabulary across both spell pickers.
+  - **(d) Feats: prerequisite STATE and ability bonus.** The state filter replaces
+    "hide ones I can't take" with the three-way the prereq engine already computes — eligible /
+    not yet / can't verify — which is D-prereq's advisory model made visible instead of the
+    binary that flattened it. *Rejected:* a repeatable switch (offered, not taken).
+  - **(e) Species keeps books and nothing more.** 5etools filters species on size, speed,
+    traits, creature type and languages; **we extract none of it**, so it would mean both
+    extractors, cparity and a data refresh. Offered with that cost stated and not taken.
+  - **(f) The visual standard is GATED on a mockup** — his call, the way every guide round has
+    gone. `python3 scratchpad/mkfilters.py` → `mockups/filters{1,2,3}.html`, each in both
+    themes, every value read off `data.json` so the size is real (~68 toggles for the spell
+    picker against a `.menupop` whose min-width is 180px): **1** one popover sectioned, the
+    honest baseline that scrolls taller than the list it filters; **2** a filter panel beside
+    the list, everything visible at once, costing width the stage has and a phone does not;
+    **3** a filter bar whose group buttons each open one small popover, with the active
+    choices as removable chips — the only one where the narrowing is readable without opening
+    anything. **His pick, then the build.** The wording pass he asked for separately
+    (*"dry, streamlined"* — "Only ones that grant spells" → "Spellcasting" with an on/off
+    toggle) lands WITH the chosen surface rather than before it: it is the same standard.
+  - **Enforced by:** the collapsed-tile branch in the chain card's `onclick` (a);
+    `scratchpad/mkfilters.py` (f). **Affects:** PLAN.md (Phase M), D170(c) (corrected),
+    D31, D147.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives
