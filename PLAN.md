@@ -3,8 +3,8 @@
 > What is queued, and what is blocked on a decision. `STATE.md` says where things stand;
 > this says what comes next. Closed items → `ARCHIVE.md#closed-backlog`.
 >
-> **Phase M (the filter system, D172) is the newest phase and it is GATED** on his pick between
-> three mocked surfaces — see below.
+> **Phase M (the filter system, D172) is the live phase and it is UNGATED** — he chose the
+> sectioned popover (D173), whose control standard shipped as v1.5.30. M1b → M4 remain.
 >
 > **Phase L (the audit, D157) is TRIAGED — D158 holds every disposition.** Wave 3 (L4) shipped;
 > the build list (L5) is under way — **L5.1 through L5.4 are done** and the guided builder's
@@ -253,18 +253,24 @@ D157 owns the charter, the agents, the rejected shapes — cite it. Reports land
     swap detection · High Elf / Human origin · A-09 character-forge handoff · A-13 concept line ·
     A-14 homebrew recipe · A-15 mirror script.
 
-## Phase M — the filter system (D172, decided 2026-09-02) — 🔶 GATED on his mockup pick
+## Phase M — the filter system (D172, decided 2026-09-02) — ✅ UNGATED: **variant 1**, the sectioned popover (D173)
 
 Every picker's filters, audited against 5etools' own source and rebuilt to one standard.
-**D172 owns the SET — cite it, don't re-derive it** — and the SURFACE is the one open call:
-`python3 scratchpad/mkfilters.py` → `mockups/filters{1,2,3}.html` (popover · panel · bar).
-Nothing here needs the extractors: every value is already in `data.json`.
+**D172 owns the SET and D173 the SURFACE — cite them, don't re-derive.** Nothing here needs
+the extractors: every value is already in `data.json`. `python3 scratchpad/mkfilters.py`
+regenerates the mockups; `filters1.html` is the one that was chosen.
 
-- [ ] **M1 · The surface** 🔶 — his pick of filters1/2/3, then build the container and the
-  standard: noun headings (`.mopt.colhead`), toggle rows (`.cbrow`/`.cbtn`) for enumerations,
-  the Library's switch (`.swk`) for binaries, the book checklist for books. Size M.
+- [x] **M1a · The control standard** — shipped **v1.5.30**, **D173**. His three notes on the
+  chosen mockup, all of them real and already shipped: a toggle chip keeps its box inside a
+  popover (`.menupop button` was stripping it, so unselected rows read as loose text on
+  `#pickLevels`/`#prepLevels`/`#entCats`/`#entAbs`), an ability toggle wears its `--ab-*`
+  signature colour, and the OFF switch is outlined rather than a flat grey track.
+- [ ] **M1b · The container** — the sectioned popover itself: noun headings
+  (`.mopt.colhead`), toggle rows for enumerations, `.swk` for binaries, the book checklist,
+  and a max-height with a scroll that does not run past the list it filters (D173's side
+  note: 857px of content against a 518px box, better than it was and still over). Size S/M.
   *Done when:* one filter surface renders for every picker, measured at 1280 and 375 in both
-  themes, and no popover scrolls taller than the list it filters.
+  themes.
 - [ ] **M2 · The spell filters** (D172(b)) — School · Cast time · Duration · Components +
   Ritual + Concentration · Damage · Save · Condition, on BOTH spell pickers (D172(c)); the
   guide's has none today. Duration needs a category DERIVED in `app.js` from `durTxt`+`conc`
@@ -281,10 +287,8 @@ Nothing here needs the extractors: every value is already in `data.json`.
 
 ## Open ⚑ — calls for Francesco
 
-- [ ] **🔶 Pick the filter surface** — `scratchpad/mockups/filters{1,2,3}.html`, **self-contained,
-  each with its own dark/light switch** (`python3 scratchpad/mkfilters.py` regenerates): **1** one
-  popover sectioned · **2** a panel beside the list · **3** a bar with one popover per group and
-  chips for what is narrowed. D172(f); Phase M is blocked on it. ⚑ (owner: Francesco, 2026-09-02)
+- [x] **🔶 Pick the filter surface** — **variant 1, the sectioned popover** (D173), with three
+  fixes he attached to it, all shipped in v1.5.30. Phase M is unblocked.
 - [ ] **Copy veto pass** — `audits/copy-table.md`, 227 rows; revert by name. Also decide the ten
   progress ellipses ("Fetching…", kept as "still running"). Phase M's **M4** will add the filter
   strings to it. ⚑ (owner: Francesco, 2026-09-02)

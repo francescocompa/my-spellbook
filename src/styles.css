@@ -387,6 +387,17 @@
 .menupop button:hover{background:var(--panel-2)}
 .menupop button.danger{color:var(--bad)} .menupop button.danger:hover{background:var(--bad-soft)}
 .menupop .sep{height:1px;background:var(--line);margin:4px 2px}
+/* D173(a): `.menupop button` sets border:none, background:none, 13px, left-aligned, 8px 11px
+   — and it OUTRANKS `.cbtn` (one class + one type beats one class), so every toggle row that
+   lives inside a popover lost its box and rendered as loose menu text. Francesco, on the
+   filter mockup: *"in the unselected state they simply look like random text"*. It is the
+   same control as the filter card's `#fLevel` row and it has to read like it, so the chip is
+   restored here rather than the menu rule weakened — `.menupop button` is right for the menu
+   ROWS it was written for. Reaches #pickLevels, #prepLevels, #entCats and #entAbs. */
+.menupop .cbtn{font-size:11.5px;padding:3px 9px;border-radius:16px;text-align:center;
+  border:1px solid var(--line-strong);background:var(--panel);color:var(--muted)}
+.menupop .cbtn:hover{border-color:var(--accent);color:var(--accent)}
+.menupop .cbtn.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
 /* an armed destructive button — first click asks, second commits (no native dialogs) */
 .armed,.menupop button.armed{background:var(--bad-soft);border-color:var(--bad);color:var(--bad);font-weight:600}
 /* ── build switcher (v7 · T4) ─────────────────────────────────────────────
@@ -1110,6 +1121,21 @@ table.spelltable td.hasast{cursor:pointer}
   --cc-dice:#6bb6e6;--cc-dc:#e7c070;--cc-dmg:#e06a6a;--cc-cond:#b48ce6;--cc-range:#4db6ac;
 }
 /* casting-ability chips + group labels */
+/* D173(b): an ability TOGGLE takes the signature colour every other stated ability has
+   (D142(b)'s `--ab-*` tokens, D148's rule that an ability stated as a fact is always
+   coloured) — the same treatment `.abtile` already gets, on the filter row's own chip.
+   Unselected it is the ink; selected it is the border and the fill too, so a row of six
+   reads as six abilities rather than six words. Specificity is deliberate: three classes
+   beats `.menupop .cbtn`, four beats `.menupop .cbtn.on`. */
+.cbtn.abt.str{color:var(--ab-str)} .cbtn.abt.dex{color:var(--ab-dex)}
+.cbtn.abt.con{color:var(--ab-con)} .cbtn.abt.int{color:var(--ab-int)}
+.cbtn.abt.wis{color:var(--ab-wis)} .cbtn.abt.cha{color:var(--ab-cha)}
+.cbtn.abt.str.on{color:var(--ab-str);border-color:var(--ab-str);background:color-mix(in srgb,var(--ab-str) 14%,transparent)}
+.cbtn.abt.dex.on{color:var(--ab-dex);border-color:var(--ab-dex);background:color-mix(in srgb,var(--ab-dex) 14%,transparent)}
+.cbtn.abt.con.on{color:var(--ab-con);border-color:var(--ab-con);background:color-mix(in srgb,var(--ab-con) 14%,transparent)}
+.cbtn.abt.int.on{color:var(--ab-int);border-color:var(--ab-int);background:color-mix(in srgb,var(--ab-int) 14%,transparent)}
+.cbtn.abt.wis.on{color:var(--ab-wis);border-color:var(--ab-wis);background:color-mix(in srgb,var(--ab-wis) 14%,transparent)}
+.cbtn.abt.cha.on{color:var(--ab-cha);border-color:var(--ab-cha);background:color-mix(in srgb,var(--ab-cha) 14%,transparent)}
 .abchip{display:inline-block;font-size:10px;font-weight:700;padding:1px 6px;border-radius:9px;line-height:1.5;background:var(--panel-2)}
 .abchip.str{color:var(--ab-str)}.abchip.dex{color:var(--ab-dex)}.abchip.con{color:var(--ab-con)}
 .abchip.int{color:var(--ab-int)}.abchip.wis{color:var(--ab-wis)}.abchip.cha{color:var(--ab-cha)}
@@ -2612,8 +2638,13 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
   display:inline-block;flex:0 0 auto;border:none;padding:0;cursor:pointer}
 .swk::after{content:"";position:absolute;right:2px;top:2px;width:11px;height:11px;
   border-radius:50%;background:var(--bg);transition:right .12s,left .12s}
-.swk.swoff{background:var(--line-strong)}
-.swk.swoff::after{right:auto;left:2px}
+/* D173(c): OFF measured 3.63:1 against the panel where ON measures 6.57 — it passes the
+   3:1 bar for a control on its own, and beside an accent track it still read as an absence
+   (his *"disabled toggle is almost invisible"*). The track becomes an OUTLINED one with a
+   solid knob, both on `--muted`: the shape says switch at rest, the fill says off. The ring
+   is an inset shadow, not a border — a border would resize the 26x15 track. */
+.swk.swoff{background:var(--panel-2);box-shadow:inset 0 0 0 1.5px var(--muted)}
+.swk.swoff::after{right:auto;left:2px;background:var(--muted)}
 .swk:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 /* D154(e): the selection bar. Removal lives here and nowhere else. */
 .libselbar{display:flex;align-items:center;gap:8px;padding:7px 10px;margin:0 0 10px;

@@ -4265,8 +4265,10 @@ function renderEntityList(){
   $("#entGrantsRow").classList.toggle("hidden",isCls);
   $("#entHideNoRow").classList.toggle("hidden",isCls);
   $("#entTogSep").classList.toggle("hidden",isCls);
+  // D173(b): each ability chip carries its own code, so the `--ab-*` token can colour it
   if(isCls)buildToggleRow($("#entAbs"),
-    Object.keys(ABIL).map(a=>[a,ABIL_SHORT[a]]),ENT.abils,false,()=>renderEntityList());
+    Object.keys(ABIL).map(a=>[a,ABIL_SHORT[a]]),ENT.abils,false,()=>renderEntityList(),
+    a=>"abt "+a);
   renderEntBooks();
   renderEntBudget();
   const q=ENT.q.toLowerCase();
@@ -9465,8 +9467,10 @@ function syncOpt(sel,pairs,cur,allLabel){
   if(!same){sel.innerHTML="";want.forEach(([v,t])=>sel.append(new Option(t,v)));}
   sel.value=pairs.some(p=>p[0]===cur)?cur:"";
 }
-function buildToggleRow(box,pairs,set,numeric,cb){box.innerHTML="";pairs.forEach(([v,t])=>{const val=numeric?+v:v;
-  const b=el("button","cbtn"+(set.has(val)?" on":""),t);
+// `clsOf` adds per-item classes — D173(b)'s ability chips are the only caller, and they need
+// the item's own value to reach the `--ab-*` token that colours them.
+function buildToggleRow(box,pairs,set,numeric,cb,clsOf){box.innerHTML="";pairs.forEach(([v,t])=>{const val=numeric?+v:v;
+  const b=el("button","cbtn"+(set.has(val)?" on":"")+(clsOf?" "+clsOf(val):""),t);
   b.onclick=()=>{set.has(val)?set.delete(val):set.add(val); if(cb)cb(); else {save();render();}};box.append(b);});}
 
 // ── builder UI ───────────────────────────────────────────────────────────

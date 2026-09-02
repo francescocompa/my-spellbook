@@ -55,8 +55,16 @@ FEAT_GROUPS = [("Category", ["Origin", "General", "Fighting Style", "Epic Boon"]
 CLASS_GROUPS = [("Main score", SAVE, ["Int"])]
 
 
+# D173(b): an ability toggle carries its own code so the `--ab-*` token can colour it. The
+# mockup has to do this too or it misreports the control it is asking him to judge.
+ABIL = {"Str": "str", "Dex": "dex", "Con": "con", "Int": "int", "Wis": "wis", "Cha": "cha"}
+
+
 def cbrow(items, on):
-    btns = "".join(f'<button class="cbtn{" on" if i in on else ""}">{i}</button>' for i in items)
+    def cls(i):
+        ab = ABIL.get(i)
+        return "cbtn" + (" on" if i in on else "") + (f" abt {ab}" if ab else "")
+    btns = "".join(f'<button class="{cls(i)}">{i}</button>' for i in items)
     return f'<div class="cbrow">{btns}</div>'
 
 
@@ -131,10 +139,10 @@ V2_CSS = """
   font-size:12.5px;color:var(--muted);padding:6px 0}
 .mkpanel .mopt.colhead{padding-left:0;text-transform:uppercase;font-size:10.5px;letter-spacing:.05em}
 .mkpanel .cbrow{margin:0 0 8px}
-/* `.cbtn` is `--muted`, and inside a popover `.menupop button` overrides it to `--ink`
-   (measured 16.06:1 in light against the app's own class filter). A panel is not a
-   popover, so it has to take that ink itself or the mockup misreports the real control. */
-.mkpanel .cbtn{color:var(--ink)}
+/* D173(a) restored the chip inside a popover, so a PANEL (which is not one) now has to
+   opt into the same treatment or it under-reports the control. Ability chips keep their
+   own colour — `.cbtn.abt.<ab>` is three classes and outranks this. */
+.mkpanel .cbtn{color:var(--muted)}
 .mkpanel .cbtn.on{color:var(--accent)}
 .mkclear{margin-left:auto;font-size:10px}
 """

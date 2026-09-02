@@ -2863,6 +2863,40 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     `scratchpad/mkfilters.py` (f). **Affects:** PLAN.md (Phase M), D170(c) (corrected),
     D31, D147.
 
+- **D173 (2026-09-02) DECIDED — the filter surface is the SECTIONED POPOVER, and three defects
+  it exposed are fixed.** His pick of the three mocked in D172(f): **variant 1**. Closes that
+  gate; Phase M's M2–M4 can proceed on it. The three notes he attached are all REAL and all
+  already shipped, on rows that exist today — this is not mockup polish.
+  - **(a) A toggle chip keeps its box inside a popover.** *"In the unselected state they simply
+    look like random text."* `.menupop button` sets `border:none; background:none; 13px;
+    text-align:left; padding:8px 11px` and it OUTRANKS `.cbtn` (one class + one type beats one
+    class), so every toggle row inside a popover was stripped to a menu row: no border, no
+    radius, wrong size, left-ranged. Only the SELECTED ones read as controls, because
+    `.cbtn.on`'s background survived — which is exactly why the rest looked like loose words.
+    `#pickLevels`, `#prepLevels`, `#entCats` and `#entAbs` were all affected, and the same
+    control outside a popover (`#fLevel` on the filter card) always looked right, so the app
+    had two treatments of one control. `.menupop .cbtn` restores the chip; the menu rule is
+    left alone, because it is correct for the menu ROWS it was written for.
+  - **(b) An ability toggle wears its signature colour.** `--ab-*` (D142(b)) on the chip's ink,
+    and on its border and 14% fill when selected — the same treatment `.abtile` already had,
+    and what D148 requires of an ability stated as a fact. `buildToggleRow` gained a `clsOf`
+    argument so a row can carry per-item classes; the ability rows are its only caller.
+  - **(c) The OFF switch reads as a control, not as an absence.** *"Disabled toggle is almost
+    invisible."* Measured: OFF 3.63:1 against the panel where ON is 6.57 — passing on its own
+    and invisible beside its own on-state. The track is outlined now (an INSET shadow, not a
+    border, which would resize the 26x15 track) with a solid knob, both `--muted`.
+  - **Verified live in both themes, measured after a real frame:** ability inks 7.80–7.98:1
+    (light) and 6.71–7.31:1 (dark) on the panel; the chip's border 3.63 / 3.51; the off
+    switch's ring 6.55 (light) and 6.36 (dark) against 6.52 for the on track — the asymmetry
+    that made it disappear is gone. Chips measure 11.5px, `3px 9px`, radius 16, centred, inside
+    the popover and out. Gate clean, cparity 58 ok / 0 fail, engine 35 ok / 0 fail.
+  - **A side effect worth naming:** with the chips at their real size the sectioned popover's
+    content dropped from a menu-row stack to 857px against a 518px box. Variant 1's known
+    weakness — it is taller than the list it filters — is *smaller*, not solved: it still needs
+    a max-height and a scroll, and M1 has to give it one.
+  - **Enforced by:** `.menupop .cbtn`, `.cbtn.abt.*`, `.swk.swoff`; `buildToggleRow`'s `clsOf`.
+    **Affects:** D172(f) (the gate it closes), PLAN.md (Phase M), D142(b), D148, D31.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives
