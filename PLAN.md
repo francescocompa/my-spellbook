@@ -281,10 +281,10 @@ Nothing here needs the extractors: every value is already in `data.json`.
 
 ## Open ⚑ — calls for Francesco
 
-- [ ] **🔶 Pick the filter surface** — `scratchpad/mockups/filters{1,2,3}.html`, both themes
-  (`python3 scratchpad/mkfilters.py` regenerates): **1** one popover sectioned · **2** a panel
-  beside the list · **3** a bar with one popover per group and chips for what is narrowed.
-  D172(f); Phase M is blocked on it. ⚑ (owner: Francesco, 2026-09-02)
+- [ ] **🔶 Pick the filter surface** — `scratchpad/mockups/filters{1,2,3}.html`, **self-contained,
+  each with its own dark/light switch** (`python3 scratchpad/mkfilters.py` regenerates): **1** one
+  popover sectioned · **2** a panel beside the list · **3** a bar with one popover per group and
+  chips for what is narrowed. D172(f); Phase M is blocked on it. ⚑ (owner: Francesco, 2026-09-02)
 - [ ] **Copy veto pass** — `audits/copy-table.md`, 227 rows; revert by name. Also decide the ten
   progress ellipses ("Fetching…", kept as "still running"). Phase M's **M4** will add the filter
   strings to it. ⚑ (owner: Francesco, 2026-09-02)

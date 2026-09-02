@@ -2849,8 +2849,8 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     traits, creature type and languages; **we extract none of it**, so it would mean both
     extractors, cparity and a data refresh. Offered with that cost stated and not taken.
   - **(f) The visual standard is GATED on a mockup** — his call, the way every guide round has
-    gone. `python3 scratchpad/mkfilters.py` → `mockups/filters{1,2,3}.html`, each in both
-    themes, every value read off `data.json` so the size is real (~68 toggles for the spell
+    gone. `python3 scratchpad/mkfilters.py` → `mockups/filters{1,2,3}.html`, self-contained
+    (the stylesheet inlined, a theme switch on each), every value read off `data.json` so the size is real (~68 toggles for the spell
     picker against a `.menupop` whose min-width is 180px): **1** one popover sectioned, the
     honest baseline that scrolls taller than the list it filters; **2** a filter panel beside
     the list, everything visible at once, costing width the stage has and a phone does not;
