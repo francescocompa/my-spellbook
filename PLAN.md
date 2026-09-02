@@ -228,6 +228,13 @@ D157 owns the charter, the agents, the rejected shapes — cite it. Reports land
     lifted out of the scroller so the popover cannot clip. Mockups `guide9`/`guide10` approved
     first. Two re-entrancy bugs and one stranded-detail-surface regression found and fixed on
     the way — all three are now GOTCHAS.
+    **Eight adjustments on his review shipped as v1.5.23 (D165)**, including the one real bug:
+    a pick taken beyond what the level asks for could not be dropped (the character view's
+    pull-back rule reached a surface it was never meant for). The detail pane now opens only
+    above 1100px and only once something is selected, animating the picker down and collapsing
+    by hand; the filter popover is unmasked; the picker's grouping header is a label; the walk's
+    buttons grew; the level chip left the top bar; and a finished section hands the picker to
+    the next one still asking.
   - [ ] **L5.5 · Copy the build as a level plan** to the clipboard, in the Character Ideas shape
     (A-03; `levelGains`/`levelCasting`/`timelinePicks` already derive it). Size S, format his. 🔶
   - [ ] **L5.6 · PWA install check + a mobile pass on the Pages build** (D158(r); A-08). His

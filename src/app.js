@@ -1119,6 +1119,17 @@ function sliceChosen(row){
 // where a pick made STANDING AT L inserts (D115(d)): after every position acquired by L.
 // The schedule is cumulative, so acquisition level is monotone in position — the slice
 // boundary is a single index, and "visible" is exactly "position < sliceInsertAt".
+// the character level a pick SITS at, read off the row's own schedule (D115). `sliceInsertAt`
+// answers "where does a new pick go"; this answers "when did that one arrive", which is what
+// tells a pick belonging to a later level from one belonging to this one.
+function acqLevelOf(row,arr,i){
+  if(!row||i<0)return null;
+  const sched=rowSched(row)||{cant:null,spells:null};
+  const sa=arr==="cantrips"?sched.cant:sched.spells;
+  if(!sa)return null;                       // a preparer's list has no acquisition slots
+  const lvls=charLevelMap().get(row.id)||[];
+  return acqAt(sa,i,lvls);
+}
 function sliceInsertAt(row,arr,L){
   const ch=state.chosen[row.id]; if(!ch||!ch[arr])return 0;
   const sched=rowSched(row)||{cant:null,spells:null};
@@ -1869,9 +1880,9 @@ function renderGuideHead(steps){
   $("#ghName").textContent=(b&&b.meta.character)||"New build";
   const ver=$("#ghVer"); ver.textContent=(b&&b.meta.name)||"";
   ver.classList.toggle("hidden",!ver.textContent);
-  const total=state.classes.reduce((a,r)=>a+(r.level||0),0);
-  const view=PREVIEW.level==null?total:PREVIEW.level;
-  $("#ghLvl").textContent=total?`L${view} / ${total}`:"no levels yet";
+  // D165: the level chip is gone from the top bar (his note). The chain rail names every
+  // level down its length and the step card names the one you are standing on, so a third
+  // reading of it in the header was the same fact a third time.
   const need=steps.filter(x=>!x.optional), doneN=need.filter(x=>x.done).length;
   $("#ghProgN").textContent=doneN+" / "+need.length+" decided";
   $("#ghBar").style.width=(need.length?Math.round(doneN/need.length*100):0)+"%";
@@ -2160,6 +2171,18 @@ function renderGuideStage(steps,cur,rowOf){
   // that asks for a pick shows the list — his note: *"there still is the double click first to
   // open the picker, then to select"*. `GAUTO` is a loop guard, not a memory: it only stops a
   // step whose picker refuses to open from re-trying on every render.
+  // D165: *"sometimes it is unintuitive that there is still something to choose (ex. cantrips
+  // and spells)"*. A step that carries two pick sections answered one of them and sat there,
+  // with only a chip to say the other was still open. Finishing one now hands the picker to
+  // the next section still asking — only after a TAKE, so dropping a pick to change your mind
+  // never yanks the list away.
+  if(GADV&&STAGE_PICK){
+    GADV=false;
+    const open=cur.sections.filter(x=>guideSecOpen(cur,x));
+    const here=open.find(x=>stagePickIsFor(x));
+    const next=open.find(x=>!x.done&&x!==here);
+    if(here&&here.done&&next){const f=guideSecOpen(cur,next); if(f)setTimeout(f,0);}
+  }
   if(stagePickable()&&!STAGE_PICK&&GAUTO!==cur.key){
     const opens=x=>guideSecOpen(cur,x);
     const sec=cur.sections.find(x=>opens(x)&&!x.done)||cur.sections.find(opens);
@@ -2186,28 +2209,32 @@ function renderGuideStage(steps,cur,rowOf){
   // "— passing on it is an answer", was the explanation, and went with D131(c).
   card.append(el("p","ghsub",["L"+cur.lv, rc?rc.name:null, cur.sub||null,
       cur.optional?"optional":null].filter(Boolean).join(" · ")));
-  // D162: several sections, one inline list — the sections become a chip row (the guide's
-  // own `.gtchip`), the open one marked, so exactly one picker is on screen (D131(a)) and
-  // nothing repeats it. With one section there is nothing to switch between, so no row.
-  if(inline){
-    const secs=cur.sections.filter(x=>guideSecOpen(cur,x));
-    if(secs.length>1){
-      const row=el("div","gtchips gsecs");
-      secs.forEach(sec=>{
-        const on=stagePickIsFor(sec);
-        const c=el("button","gtchip"+(on?" on":""),sec.label);
-        if(sec.need)c.append(el("span","lv",(sec.have||0)+" / "+sec.need));
-        c.onclick=()=>{const f=guideSecOpen(cur,sec); if(f)f();};
-        row.append(c);});
-      card.append(row);
-    }
+  // D162: a step with SEVERAL pick sections shows them as a chip row (the guide's own
+  // `.gtchip`), the open one marked — one opener per section was the redundancy Francesco
+  // named. The row draws whether or not the picker is inline: at mobile the picker is a
+  // modal and the chips open it, which is what keeps the second section reachable there.
+  // Without this the mobile card showed chips and no buttons at all — a dead end (D165).
+  const openers=cur.sections.filter(x=>guideSecOpen(cur,x));
+  const chipped=openers.length>1;
+  if(chipped){
+    const row=el("div","gtchips gsecs");
+    openers.forEach(sec=>{
+      const on=inline&&stagePickIsFor(sec);
+      const c=el("button","gtchip"+(on?" on":"")+(sec.done?" gtdone":""),sec.label);
+      if(sec.need)c.append(el("span","lv",(sec.have||0)+" / "+sec.need));
+      c.onclick=()=>{const f=guideSecOpen(cur,sec); if(f)f();};
+      row.append(c);});
+    card.append(row);
   }
+  // an opener BUTTON is redundant beside an open list, and beside a chip that opens the same
+  // picker — so it draws only when neither is there
+  const noOpener=inline||chipped;
   let any=false;
-  cur.sections.forEach(sec=>{const bl=guideSecBlock(cur,sec,rowOf,inline);
+  cur.sections.forEach(sec=>{const bl=guideSecBlock(cur,sec,rowOf,noOpener);
     if(bl){card.append(bl);any=true;}});
   // D162: with the list inline, every section can legitimately draw nothing — its chip and
   // the list below carry it. Saying "nothing to answer here" over an open picker is a lie.
-  if(!any&&!inline)card.append(el("div","grhint","Nothing to answer here. Skip or Next moves the walk along."));
+  if(!any&&!noOpener)card.append(el("div","grhint","Nothing to answer here. Skip or Next moves the walk along."));
   st.append(card);
   // Back · Skip · Next walk the chain; Next seeks the next open decision. Back is
   // HIDDEN where there is nowhere to go back to (D126(i)) — a dead control is worse
@@ -2358,9 +2385,24 @@ function guideOptBtn(pool,label,cls){
 // but the last one: the array position IS the acquisition slot, so a splice re-dated
 // everything below it. `toggle` leaves an EMPTY SLOT now, and the promise is kept.
 // A granted choice is a SET, not an order — it has no slots and needs none.
+// D165: remove a pick the guide shows as taken, wherever it sits in the acquisition order.
+// `toggle` is the character view's writer and carries D115(d)'s pull-back — clicking a pick
+// the build acquires LATER moves it back to the level you are standing on rather than deleting
+// it. That is right for a table you browse at a level and wrong for a picker whose row shows a
+// ✓: there a click that shuffles the order and removes nothing reads as broken (Francesco:
+// *"I can't deselect these new choices"*). In the guide, a held pick drops — still leaving its
+// SLOT (D146), still clearing a stale prepared entry.
+function guidePickDrop(rowId,arr,k){
+  const ch=state.chosen[rowId]; if(!ch||!ch[arr])return false;
+  const i=ch[arr].indexOf(k); if(i<0)return false;
+  dropSlot(ch[arr],i);
+  if(arr==="spells"&&ch.prep){const j=ch.prep.indexOf(k); if(j>=0)ch.prep.splice(j,1);}
+  save(); render(); return true;
+}
 function guideDrop(sec,k){
   if(sec.kind==="cpick"){
     state.choices[sec.cid]=(state.choices[sec.cid]||[]).filter(v=>v!==k); render(); return;}
+  if(guidePickDrop(sec.row,sec.pick==="cantrip"?"cantrips":"spells",k))return;
   toggle(sec.row,k,sec.pick==="cantrip");
 }
 // What a section is asking for, in a word — one owner for both surfaces that name it
@@ -2725,6 +2767,7 @@ function openGpickSec(step,sec){
 const STAGE_PICK_MIN=821;   // the guide's own one-pane breakpoint is 820
 let STAGE_PICK=null;        // {id, box} while a picker is hosted in the stage
 let GAUTO=null;             // the step whose picker was auto-opened (D163's loop guard)
+let GADV=false;             // a take just landed: a finished section may hand over (D165)
 const stagePickable=()=>GUIDE.on&&!GUIDE.aside&&window.innerWidth>=STAGE_PICK_MIN;
 // true when the caller may skip showing its modal — the stage has taken the box
 function stagePickTake(id){
@@ -2800,17 +2843,39 @@ function stagePickMount(st){
   const work=el("div","gwork");
   work.append(STAGE_PICK.box);
   work.append(stagePrev());
+  if(stagePrevOk())work.append(stagePrevToggle(work));
   st.append(work);
 }
-// the preview pane: a hint until you click a name, and the app's own detail surface after
+// The pane holds the app's own detail surface and NOTHING else: with nothing selected there
+// is no pane to speak of, the picker takes the whole stage, and opening one animates the
+// picker down to make room (the CSS does that half). Its own breakpoint is wider than the
+// picker's — at 360px against a 1008px stage a detail reads, at 340 against 860 it does not.
+const STAGE_PREV_MIN=1100;
+let GPREV_SHUT=false;          // collapsed by hand, for this session
+const stagePrevOk=()=>window.innerWidth>=STAGE_PREV_MIN;
 function stagePrev(){
-  if(!STAGE_PREV){
-    STAGE_PREV=el("div","gprev");
-    STAGE_PREV.append(el("p","gprevempty",
-      "Click a name to read what it gives. The + takes it."));
+  if(!STAGE_PREV)STAGE_PREV=el("div","gprev");
+  if(stagePrevOk()){
+    if(SPMODAL.parentElement!==STAGE_PREV){SPMODAL.classList.add("gprevbox");STAGE_PREV.append(SPMODAL);}
+  } else if(SPMODAL.parentElement===STAGE_PREV){
+    // too narrow for a pane: the detail goes back to being a modal, where it can be read
+    SPMODAL.classList.remove("gprevbox"); SPMODAL.classList.add("hidden");
+    document.body.appendChild(SPMODAL);
   }
-  if(SPMODAL.parentElement!==STAGE_PREV){SPMODAL.classList.add("gprevbox");STAGE_PREV.append(SPMODAL);}
   return STAGE_PREV;
+}
+// collapse / re-open, on the seam between the two columns so it is reachable either way
+function stagePrevToggle(work){
+  const b=el("button","gprevtog");
+  b.type="button";
+  const shut=GPREV_SHUT;
+  b.append(icoEl(shut?"chevleft":"chevright"));
+  b.title=shut?"Show the details":"Hide the details";
+  b.setAttribute("aria-label",b.title);
+  b.setAttribute("aria-expanded",String(!shut));
+  b.onclick=()=>{GPREV_SHUT=!GPREV_SHUT;render();};
+  work.classList.toggle("prevshut",GPREV_SHUT);
+  return b;
 }
 // give the detail surface back to the page, hidden, exactly as it was
 function stagePrevPut(){
@@ -3066,7 +3131,22 @@ function gpickCommit(sec,k){
     state.choices[sec.cid]=a;
     if(sec.choice&&sec.choice.mark&&a.includes(k))markTake(sec.choice,k);
     render(); return;}
-  toggle(sec.row,k,sec.pick==="cantrip");          // the app's own take — it re-renders us
+  const arr=sec.pick==="cantrip"?"cantrips":"spells";
+  if(guidePickDrop(sec.row,arr,k))return;          // a held pick drops, wherever it sits (D165)
+  GADV=true;                                       // a TAKE may complete this section (D165)
+  toggle(sec.row,k,arr==="cantrips");              // the app's own take — it re-renders us
+  // …and say so when it landed beyond what this level asks for: the pick is not refused (a
+  // build may run ahead of its schedule) but nothing else on screen would mention that the
+  // slot it filled belongs to a later level. His note: "it should signal the choices are
+  // over the number".
+  const row=state.classes.find(r=>r.id===sec.row);
+  const cur=((state.chosen[sec.row]||{})[arr])||[];
+  const at=cur.indexOf(k);
+  const lv=row?acqLevelOf(row,arr,at):null;
+  const here=PREVIEW.level==null?topCharLevel():PREVIEW.level;
+  if(lv!=null&&lv>here)appNotice((SPELL_BY[k]||{}).name
+    ? `${(SPELL_BY[k]||{}).name} fills a slot you get at level ${lv}. This level's ${sec.need} are already chosen.`
+    : `That fills a slot you get at level ${lv}.`,"ok",7000);
 }
 // D126(i): the empty-character entry. One card at the head of the character panel — the
 // app's own card language, not a banner — offering the walk to a build that has nothing
@@ -3501,7 +3581,14 @@ function toggle(idx,spellKey,cantrip,which){
     if(i<0&&swapEvents().some(e=>e.lvl>L&&e.row===idx
        &&e.kind===(arr==="cantrips"?"cantrip":"spell")&&e.out===spellKey))return;
     const at=row?sliceInsertAt(row,arr,L):ch[arr].length;
-    if(i>=at){ ch[arr].splice(i,1); ch[arr].splice(at,0,spellKey); save(); render(); return; }
+    // The pull-back above is for a pick the build acquires LATER. Judged by INDEX alone it
+    // also caught picks that arrived at this very level: take a 4th cantrip where 3 are due
+    // and each further click re-inserted it at the same point, shuffling its neighbours and
+    // never dropping it — Francesco: *"I can't deselect these new choices"*. The schedule
+    // knows which level a pick sits at, so ask it.
+    const lv=i>=0?acqLevelOf(row,arr,i):null;
+    const later=i>=at&&!(lv!=null&&lv<=L);
+    if(later){ ch[arr].splice(i,1); ch[arr].splice(at,0,spellKey); save(); render(); return; }
     if(i<0){ ch[arr].splice(at,0,spellKey); save(); render(); return; }
   } else if(i<0){ ch[arr].push(spellKey); save(); render(); return; }
   // i>=0 within the visible slice (or not previewing): a drop, at every level. It leaves

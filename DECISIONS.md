@@ -2544,6 +2544,51 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
   - **Enforced by:** `stagePickMount`/`stagePrev`/`stagePickDrop`/`stagePickSubSync` in
     `src/app.js` and the `.gwork`/`.gprev`/`.box.gpin` rules. **Affects:** D161, D162(c), D126(f).
 
+- **D165 (2026-09-02) DECIDED — eight adjustments to the guided builder, one of them a real
+  bug.** Francesco's list, acted on in order. Amends D164 where noted.
+  - **(a) The undroppable pick (the bug).** Taking a 4th cantrip where 3 are due is allowed —
+    a build may run ahead of its schedule — but clicking it again did nothing visible: the row
+    showed a ✓ and the click merely reshuffled the order. Cause: `toggle` is the CHARACTER
+    view's writer and carries D115(d)'s pull-back — a pick the build acquires LATER is moved
+    to the level you are standing on rather than deleted. Right for a table you browse at a
+    level, wrong for a picker whose row says "picked". **In the guide a held pick drops**
+    (`guidePickDrop`), wherever it sits, still leaving its slot (D146) and still clearing a
+    stale prepared entry. D115(d) is untouched everywhere else.
+  - **(b) And it says so:** a take that lands beyond the section's window reports the level it
+    filled ("Chill Touch fills a slot you get at level 3. This level's 3 are already chosen."),
+    fading. His note: *"it should signal the choices are over the number"*.
+  - **(c) The detail pane earns its width or it does not open.** Its own breakpoint is **1100**,
+    not the picker's 821 — at 360px against a 1008px stage a detail reads, at 340 against 860 it
+    does not, and below the breakpoint the detail is a modal again. With nothing selected there
+    is **no pane at all**: the picker takes the whole stage, and opening one animates the
+    columns (`transition:grid-template-columns`, honoured `prefers-reduced-motion`). The pane is
+    **collapsible** by hand, from a control on the seam between the columns.
+  - **(d) The filter popover is no longer masked.** `overflow:hidden` on the inline box clipped
+    it; the box does not clip at all now and its BODY is the scroller.
+  - **(e) The grouping header inside a picker was 13.5px semibold in the display face — the same
+    weight as the spell names under it — with no air above.** It is a label now (10.5px,
+    uppercase, muted, `margin-top:18px`), which is the app's own idiom for one.
+  - **(f) The walk's buttons grew** (14px, and Next at 15px semibold with more padding).
+  - **(g) The level chip leaves the guide's top bar.** The chain names every level down its
+    length and the step card names the one you are standing on; a third reading was the same
+    fact a third time. *(The progress counter keeps its meaning — decisions you must make. If
+    "make all choices" meant counting optional steps too, that is a one-line change.)*
+  - **(h) A finished section hands the picker over.** *"Sometimes it is unintuitive that there
+    is still something to choose (ex. cantrips and spells)"* — a step with two pick sections
+    answered one and sat there. Completing one now opens the next section still asking, and only
+    after a TAKE, so dropping a pick never yanks the list away. **The chip row also draws at
+    mobile now**, where it is the opener: without that, a two-section step showed chips and no
+    buttons — a dead end, found while verifying this.
+  - **Verified live at 1280, 1000 and 375, both themes:** the 4th cantrip is accepted, reported
+    and droppable, while a drop inside the window still leaves its slot; nothing selected gives
+    the picker all 956px and the pane 0; opening a detail animates to 498/440 and the collapse
+    control closes it back to 956/0; the filter popover opens 518px tall over the list; the group
+    label is 10.5px uppercase against 13px rows; three cantrips hand the picker to Spellbook
+    spells; at 1000 the pane never opens and the detail is a modal; at 375 the chips open the
+    modal and a single-section step keeps its button. Gate clean, engine 35 ok / 0 fail.
+  - **Enforced by:** `guidePickDrop`/`acqLevelOf`/`stagePrevOk`/`stagePrevToggle`; the `.gwork`,
+    `.gprev*`, `.gpsech` and `.gnav` rules. **Affects:** D164, D115(d) (scoped, not changed).
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives
