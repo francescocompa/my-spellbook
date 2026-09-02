@@ -67,7 +67,7 @@ python3 -c "import ast;ast.parse(open('extract.py').read());ast.parse(open('buil
 node -e "const fs=require('fs');['src/app.js','src/extract.js','docs/sw.js'].forEach(f=>new Function(fs.readFileSync(f,'utf8')))"
 python3 -c "import json;json.load(open('data/data.json'));json.load(open('docs/manifest.webmanifest'))"
 node scratchpad/cparity.js        # extractor parity — MUST be 0 fail after any extractor edit
-node scratchpad/sweeps/deadfns.js # unexpected dead functions (K4's two orphans excluded) — MUST exit 0
+node scratchpad/sweeps/deadfns.js # dead functions — MUST exit 0 (K4 spent the allowlist)
 node scratchpad/sweeps/ids.js     # a lookup for an id defined nowhere — MUST exit 0
 npx eslint src/app.js src/extract.js docs/sw.js   # D158(k) rules — MUST exit 0 (npm install once)
 ```

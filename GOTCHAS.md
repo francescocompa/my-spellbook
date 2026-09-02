@@ -169,10 +169,15 @@
   reader learned the hard way. It also skips `_img/` at the WALK (the FSA path) and by
   `webkitRelativePath` (the input path) — a synthetic entry list bypasses both, so a test that
   fabricates entries is not testing the filter.
-- **A remembered directory handle is not a granted one (D92).** The handle survives in IndexedDB;
-  the READ PERMISSION dies with the session and can only be re-requested inside a user gesture.
-  `folderUsable(h,ask)` takes `ask=false` on the silent recall in `openImport` and `true` in the
-  Rescan click. If it fails, forget the handle and offer the picker — never fail silently.
+- **A remembered directory handle is not a granted one (D92).** *(History — K4 stopped
+  remembering handles altogether; kept because it explains why.)* The handle survived in
+  IndexedDB, but the READ PERMISSION died with the session and could only be re-requested inside
+  a user gesture, so every re-read cost the user a prompt. `folderUsable(h,ask)` took `ask=false`
+  on `openImport`'s silent recall and `true` in the Rescan click. That dance is exactly what
+  D154(g) deleted: the verbs that needed the handle are gone (K4), K3's raw stash re-reads a brew
+  with no folder at all, and the `handles` store was dropped at `IDB_V` 3. `FOLDER` now lives for
+  one session, and the picker reopens where you left it because the BROWSER remembers
+  (`showDirectoryPicker({id})`), not because we do.
 - **A big zip fails as a lie (D91).** `file.arrayBuffer()` on an oversized archive throws
   `NotReadableError`, whose stock message blames *"permission problems"* — the cause is size.
   `stageZip` refuses above `MAX_ZIP` (512 MB) by measured size, translates the OOM, and passes the
@@ -458,12 +463,14 @@
   (plus the bookless aux files) and re-parsing, THEN restores the keep-set, because
   `planFromStage` re-defaults it. Anything comparing `PLAN.keep` against `merged.sources` must
   expect codes the merge hasn't seen yet.
-- **`openImport`'s folder recall is fire-and-forget, so a caller that needs `FOLDER` must await
-  its own (D111).** The recall is an async IndexedDB read the modal never waits on; on the first
-  click of a session `FOLDER` is still null immediately after `openImport` returns. `refreshImported`
-  therefore fell straight through to "choose the folder" — a one-click action that only opened the
-  modal. It now awaits `folderRecall()` itself, still inside the click, which is what keeps the
-  permission prompt (`folderUsable(h,true)`) inside a user gesture.
+- **`openImport`'s folder recall was fire-and-forget, so a caller that needed `FOLDER` had to
+  await its own (D111).** *(History — both the recall and its only caller are gone as of K4.)*
+  The recall was an async IndexedDB read the modal never waited on, so on the first click of a
+  session `FOLDER` was still null immediately after `openImport` returned and `refreshImported`
+  fell straight through to "choose the folder" — a one-click action that only opened the modal.
+  The shape generalises and is worth keeping: **a fire-and-forget async read is not state a
+  later click can rely on**, and awaiting it inside the click is also what kept the permission
+  prompt within the user gesture.
 - **A dropped folder's handles must be collected synchronously in the drop handler.**
   `DataTransferItem.getAsFileSystemHandle()` calls are made for every item BEFORE the first
   `await` — the DataTransfer goes stale at the first microtask, and a late call returns null.
@@ -654,10 +661,16 @@
   rebuilt `out.sources` and silently dropped the per-source `parser`/`parsedAt`, so every
   book NOT re-parsed fell back to the digest-wide stamp `applyPlan` had just set to current.
   Anything that reconstructs a digest's `sources` map must carry the stamps through;
-  `applyPlan` alone may overwrite them, and only for books it actually parsed. The remedy
-  path (v1.4.4): a refresh ending with books the folder couldn't provide names them, offers
-  Open Library, and Manage marks them (`refreshMissed()` = `spellForge.refreshMiss.v1` ∩
-  `staleBooks()`), so re-adding + Apply clears everything by construction.
+  `applyPlan` alone may overwrite them, and only for books it actually parsed.
+  **This hole re-opened a THIRD time in K3** (v1.5.16): `parserHash`, the new fingerprint
+  D159(b) judges staleness by, was added to `applyPlan`'s stamp and not to `filterDigest`'s
+  carry-forward list, so a book not re-parsed in an Apply lost its fingerprint and fell back to
+  comparing versions — which are equal inside one release, so it read as CURRENT. Treat that
+  carry-forward list as the thing every new per-book field has to be added to, in the same
+  commit. *(The refresh itself is gone as of K4 — `autoReparse()` re-reads from the stash and
+  names what it cannot heal, and `refreshMissed()`/`spellForge.refreshMiss.v1` went with it —
+  but the per-book stamp and this trap are unchanged, and `staleBooks()` is still the honest
+  question.)*
 - **Homebrew spells do NOT ride along with a build.** `state.customSources` is per build, but
   authored spells live in the GLOBAL `spellForge.custom.v1`, so a build exported on its own
   arrives on another device with a dangling `Name|HB` key for every homebrew spell it uses.

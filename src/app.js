@@ -129,15 +129,17 @@ function loadJSON(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):
 // live object localStorage could never have held anyway).
 // `raw` (IDB_V 2, D159(a)) is the brew stash: the raw file behind every hand-added brew, so
 // a parser change can re-read it with no folder, no permission prompt and no download.
-const IDB_NAME="spellForge", IDB_V=2, KV="kv", HANDLES="handles", RAW="raw", IMPORT_KEY="import";
+// `handles` held the remembered directory handle and is DROPPED at IDB_V 3 (K4) — the verbs
+// that read it are gone, and a handle nothing uses is a permission grant kept for nothing.
+const IDB_NAME="spellForge", IDB_V=3, KV="kv", HANDLES="handles", RAW="raw", IMPORT_KEY="import";
 let IMPORT_CACHE=null;      // the digest in memory; IndexedDB is only where it persists
 let IDB_OK=true;            // false after a real failure — private windows can refuse outright
 function idbOpen(){return new Promise((res,rej)=>{
   let r; try{r=indexedDB.open(IDB_NAME,IDB_V);}catch(e){return rej(e);}
   r.onupgradeneeded=()=>{const db=r.result;
     if(!db.objectStoreNames.contains(KV))db.createObjectStore(KV);
-    if(!db.objectStoreNames.contains(HANDLES))db.createObjectStore(HANDLES);
-    if(!db.objectStoreNames.contains(RAW))db.createObjectStore(RAW);};
+    if(!db.objectStoreNames.contains(RAW))db.createObjectStore(RAW);
+    if(db.objectStoreNames.contains(HANDLES))db.deleteObjectStore(HANDLES);};
   r.onerror=()=>rej(r.error); r.onblocked=()=>rej(new Error("database is busy in another tab"));
   r.onsuccess=()=>res(r.result);});}
 function idbTx(store,mode,fn){return idbOpen().then(db=>new Promise((res,rej)=>{
@@ -5315,7 +5317,7 @@ async function webFetchAll(repo,ver,ref,paths,onFile){
     for(;;){const k=i++; if(k>=q.length||dead)return; take(k,await grab(q[k]));}}));
   return out.filter(Boolean);}
 async function webSync(){
-  if(WEB_BUSY||REFRESH_BUSY||SCAN_BUSY)return;
+  if(WEB_BUSY||SCAN_BUSY)return;
   const rep=$("#importReport"), btn=$("#webSyncBtn");
   WEB_BUSY=true; if(btn){btn.disabled=true;btn.classList.add("busy");}
   try{
@@ -5503,16 +5505,6 @@ function renderImportPlan(){
   box.classList.remove("hidden");
   if(wasHidden)box.scrollIntoView({block:"start"});
   const {fresh,upd}=trayBooks();
-  // the diagnosis→remedy seam (2026-08-31): the books an earlier read could not reach are
-  // named HERE, on the surface that fixes them. Self-clearing: add the file and its fresh
-  // parser stamp takes the book off staleBooks(), which empties refreshMissed().
-  const miss=new Set(refreshMissed());
-  const mn=$("#importMissNote");
-  if(mn){mn.classList.toggle("hidden",!miss.size);
-    if(miss.size)mn.textContent="Couldn’t re-read "
-      +(miss.size===1?"this book earlier; the linked folder doesn’t hold it":"these books earlier; the linked folder doesn’t hold them")
-      +": "+[...miss].map(bookName).join(", ")+". Adding "
-      +(miss.size===1?"its file":"their files")+" here fixes that.";}
   // a re-read is not a decision, so it is one sentence, not 44 rows of untickable ticks
   const un=$("#trayUpd");
   if(un){un.classList.toggle("hidden",!upd.length);
@@ -5528,7 +5520,7 @@ function renderImportPlan(){
     :"Nothing in these files the planner can use."));
   else if(!shown.length)list.append(el("div","empty","No book matches that."));
   else shown.forEach(code=>{
-    const lab=el("label","trayrow"+(libAvail(code)?" avail":"")+(miss.has(code)?" miss":""));
+    const lab=el("label","trayrow"+(libAvail(code)?" avail":""));
     const cb=el("input");cb.type="checkbox";cb.checked=PLAN.keep.has(code);
     cb.onchange=()=>{cb.checked?PLAN.keep.add(code):PLAN.keep.delete(code);renderImportPlanFoot();};
     lab.append(cb);
@@ -5578,20 +5570,11 @@ function renderImportPlanFoot(){
 let SCAN=null;                 // {books:{code:{…}}, entries, files, bytes, skipped, ms}
 let FOLDER=null, SCAN_BUSY=false;
 
-// A directory handle is a live object — localStorage can't hold one, IndexedDB can. It shares
-// the one database with the imported content (D93); `handles` is its own store.
-async function folderRemember(h){try{await idbPut(HANDLES,"dir",h);}catch(_){}}
-async function folderRecall(){try{return (await idbGet(HANDLES,"dir"))||null;}catch(_){return null;}}
-// eslint-disable-next-line no-unused-vars -- orphaned by K1/K2, deleted by K4 (PLAN)
-async function folderForget(){try{await idbDel(HANDLES,"dir");}catch(_){} FOLDER=null;}
-// Permission does NOT survive a reload: a remembered handle must be re-granted, and the grant
-// has to be asked for inside a user gesture. `ask` is false on the silent boot check.
-async function folderUsable(h,ask){
-  if(!h||typeof h.queryPermission!=="function")return false;
-  try{ if(await h.queryPermission({mode:"read"})==="granted")return true;
-       if(!ask)return false;
-       return await h.requestPermission({mode:"read"})==="granted"; }catch(_){return false;}
-}
+// K4: the directory handle is no longer REMEMBERED. It was kept in IndexedDB so a refresh
+// could re-read the folder between sessions (D93), and keeping it alive cost a permission
+// prompt every time — the dance D154(g) deleted. Nothing re-reads a folder unasked now, and
+// the picker reopens where you left it on its own (`showDirectoryPicker({id})`), so FOLDER
+// lives for one session and the `handles` store goes with the verbs that used it.
 const FSA=()=>typeof window.showDirectoryPicker==="function";
 
 // Both walkers yield the SAME shape — {path, getFile} — so the scan has one code path, and
@@ -5689,7 +5672,7 @@ async function stageScanBooks(codes){
   Object.values(SCAN.books).forEach(b=>b.files.forEach(p=>claimed.add(p)));
   const wanted=window.SB_extract.zipWanted;
   const entries=(SCAN.entries||[]).filter(e=>want.has(e.path)||(wanted(e.path)&&!claimed.has(e.path)));
-  if(!entries.length){prog.textContent="Those files are no longer reachable. Rescan the folder.";return 0;}
+  if(!entries.length){prog.textContent="Those files are no longer reachable. Choose the folder again.";return 0;}
   // same contract as the unzip path: feature files first, so the form refs a feature adds
   // to a familiar spell are registered before slimJson decides which monsters survive
   entries.sort((a,b)=>window.SB_extract.readOrder(a.path)-window.SB_extract.readOrder(b.path));
@@ -5736,7 +5719,7 @@ function buildImport(only,auto){
 // D112: one Apply reconciles everything — a ticked "available" book is read from the scanned
 // folder first, then the whole keep-set is stored in one write.
 async function applyImport(){
-  const rep=$("#importReport"); if(!PLAN||REFRESH_BUSY)return;
+  const rep=$("#importReport"); if(!PLAN)return;
   cancelBuild();
   // D154(h,i): the tray ADDS. Every book already stored is folded back in before the write,
   // so no path through this surface can drop one — removal is the list's selection bar and
@@ -5818,150 +5801,12 @@ async function applyPlan(rep,refreshed){
     +`${nFt} feat${nFt===1?"":"s"} · ${nRc} species.`+(refreshed?"":" It is in the list below.");
   return null;
 }
-// ── Refresh imported data (D111 · D129) ────────────────────────────────────────
-// One click, then report: re-read the remembered folder with the CURRENT parser and re-import
-// exactly the books already stored — no book-picking step, nothing new added. This is how a
-// stored digest picks up a parser fix (D127's `_copy` healing is the latest), so "did it
-// actually run" is the only question it has to answer.
-//
-// D129 splits the surfaces. From the ⋯ menu it runs with NO modal and reports into the notice
-// bar; the modal opens only where a human is genuinely needed — nothing imported, no remembered
-// folder, permission refused, or the folder holds none of your books. Those four are exactly
-// the cases whose fix lives in the modal (folder chooser, drop zone). From the Library's Manage
-// footer the same states render in place: the button goes busy, `#importReport` carries them.
-//
-// The gesture chain is load-bearing: folderRecall() then folderUsable(h,true) with NOTHING
-// awaited in between, or the permission prompt loses this click's user activation
-// (D111 + "a remembered directory handle is not a granted one").
-let REFRESH_BUSY=false;   // the WHOLE refresh; SCAN_BUSY only covers a scan or a stage inside it
-let RSTAGE="", RTICK=null, RMODAL=false, RSEEN="", RBAR=null, RQUIET=false;
-// replace a button's label without touching the icon boot's fillIcons() put inside it
-function btnText(b,txt){ if(!b)return;
-  [...b.childNodes].forEach(n=>{if(n.nodeType===3)n.remove();});
-  b.append(document.createTextNode(txt)); }
-// both refresh buttons reflect the one busy flag: whichever started it, neither can start a second
-function refreshButtons(){
-  [$("#refreshBtn")].forEach(b=>{ if(!b)return;
-    b.disabled=REFRESH_BUSY;
-    b.classList.toggle("busy",REFRESH_BUSY);
-    btnText(b,REFRESH_BUSY?"Refreshing…":"Refresh imported data"); });
-}
-// The stage line is ours; the live counters ("Scanning 240/1300…", "Reading 15/48 files…")
-// belong to the pipeline, which writes them into #folderProgress. Read that rather than
-// threading a callback through the scan and the stage — it costs nothing, and a line left over
-// from an earlier scan can't leak in because RSEEN holds what was there when this one started.
-function refreshPaint(){
-  if(RMODAL||RQUIET)return;               // the modal shows the same thing in place
-  // dismissing the progress bar means it stays dismissed; the outcome still gets to speak
-  if(RBAR&&!document.getElementById("appNotice")){RQUIET=true;return;}
-  const p=$("#folderProgress"); let d=p?(p.textContent||"").trim():"";
-  if(d===RSEEN)d="";
-  RBAR=appNotice(RSTAGE+(d?" · "+d:""),"busy");
-}
-function refreshStage(msg){ RSTAGE=msg;
-  const rep=$("#importReport"); if(rep)rep.textContent=msg;
-  refreshPaint(); }
-function refreshStop(){ REFRESH_BUSY=false; RSTAGE="";
-  if(RTICK){clearInterval(RTICK);RTICK=null;} refreshButtons(); }
-// three terminal states. `done` fades — it is good news and shouldn't outstay it; `fail` and
-// `ask` wait to be dismissed, because they name something still undone.
-function refreshDone(msg){ refreshStop(); if(!RMODAL)appNotice(msg,"ok",9000); }
-function refreshFail(msg){ refreshStop();
-  const rep=$("#importReport"); if(rep)rep.textContent=msg;
-  if(!RMODAL)appNotice(msg,""); }
-// the modal is the surface that can actually fix this one — say why it opened, in both places
-function refreshAsk(report,notice){ refreshStop();
-  if(RMODAL)renderImportPlan();   // re-render: the miss marks may have changed
-  else openImport(false,"man");                      // openImport closes the ⋯ menu (and renders the plan)
-  const rep=$("#importReport"); if(rep)rep.innerHTML=report;
-  if(!RMODAL)appNotice(notice,"ask"); }
+// K4 (D154(g)): "Refresh imported data" is GONE, and with it the busy flag, the progress
+// painter, the four terminal states and the permission dance that kept a directory handle
+// alive between sessions. K3's `autoReparse()` does the work from the stash instead of asking
+// a human to find the folder again. The folder survives only as one of the four ways IN
+// (D154(f)); nothing re-reads it behind your back any more.
 const nBooks=n=>n+" book"+(n===1?"":"s");
-
-async function refreshImported(fromModal){
-  if(REFRESH_BUSY||SCAN_BUSY)return;
-  RMODAL=!!fromModal; REFRESH_BUSY=true; RBAR=null; RQUIET=false;
-  RSEEN=(($("#folderProgress")||{}).textContent||"").trim();
-  refreshButtons();
-  if(!RMODAL)closeMenu();
-  const rep=$("#importReport");
-  const stored=Object.keys((IMPORTED&&IMPORTED.sources)||{});
-  refreshStage("Refreshing imported data…");
-  if(!RMODAL)RTICK=setInterval(refreshPaint,180);
-  try{
-    if(!stored.length)return refreshAsk(
-      "Nothing imported yet. Refresh re-reads books you already imported. Drop your 5etools files here first.",
-      "Nothing imported yet. Import your files in the Library.");
-    // openImport's handle recall is fire-and-forget, so on the first click of a session FOLDER
-    // is still null and this would fall through to "choose the folder" — a button that only
-    // opens the modal. Wait for the recall here; the permission prompt is still inside this
-    // click's gesture, which is the whole reason folderUsable takes ask=true. Nothing may be
-    // awaited between these two lines.
-    if(!FOLDER&&FSA()){try{const h=await folderRecall(); if(h)FOLDER=h; folderButtons();}catch(_){}}
-    const granted=FOLDER?await folderUsable(FOLDER,true):false;
-    if(granted){
-      refreshStage("Reading the folder…");
-      try{await scanEntries(await folderEntries(FOLDER),FOLDER.name||"folder");}
-      catch(e){return refreshFail("Couldn’t read the remembered folder: "+(e.message||e));}
-    }
-    // a scan from earlier in this session still counts — the webkitdirectory path has no handle
-    if(!SCAN)return refreshAsk(
-      FOLDER?"That folder wasn’t opened; permission is asked once per session. <b>Choose it again</b> above, or drop the .zip and Apply."
-            :"Refresh needs your 5etools files. <b>Choose the folder</b> above (it will be remembered), or drop the .zip and Apply.",
-      FOLDER?"Refresh needs the folder and permission wasn’t granted. Choose it in the Library."
-            :"Refresh needs the folder. Choose it in the Library.");
-    const kept=stored.filter(c=>SCAN.books[c]);
-    if(!kept.length){
-      refreshMissRemember(stored);   // every stored book: the folder can heal none of them
-      return refreshAsk(
-        "The scanned folder holds none of your imported books. <b>Choose the folder</b> that has them, or drop the files.",
-        "Refresh found none of your books in that folder. Choose another in the Library.");}
-    IMPORT_STAGE=[]; cancelBuild();
-    refreshStage("Reading "+nBooks(kept.length)+"…");
-    SCAN_BUSY=true;
-    let staged=0;
-    try{staged=await stageScanBooks(kept);}finally{SCAN_BUSY=false;}
-    // Nothing staged = nothing re-parsed, and going on would re-store the digest you already
-    // had under a NEW parser stamp — a refresh that reports success and changed nothing. That
-    // false report is the whole bug this batch is about; stop here instead.
-    if(!staged){const why=((($("#folderProgress")||{}).textContent)||"").trim();
-      return refreshFail((why||"Couldn’t read those books from the folder.")+" Your imported data is unchanged.");}
-    refreshStage("Re-reading with the current parser…");
-    buildImport(null,true);
-    // buildImport bails on unusable files without touching PLAN — same false-success trap
-    if(!PLAN||!Object.keys((PLAN.incoming&&PLAN.incoming.sources)||{}).length)
-      return refreshFail("Nothing usable came back from those files. Your imported data is unchanged.");
-    PLAN.keep=new Set(stored.filter(c=>(PLAN.merged.sources||{})[c]));
-    refreshStage("Storing…");
-    const err=await applyPlan(rep,true);
-    if(err)return refreshFail(err);
-    const n=Object.keys((IMPORTED&&IMPORTED.sources)||{}).length;
-    // "Re-imported 12 books" must not cover books the folder didn't have: those kept their
-    // stored data and were not re-parsed by anything — and Refresh can NEVER heal them
-    // (D129 documents the partial read), so the outcome must NAME them and carry the user
-    // to the remedy (Manage's drop zone / folder chooser), not end at the diagnosis.
-    const missCodes=stored.filter(c=>!SCAN.books[c]);
-    refreshMissRemember(missCodes);
-    renderLibStatus();   // applyPlan painted the strip before the miss memory changed
-    const head="Re-imported "+nBooks(n)+" with parser v"+(window.__VERSION__||"dev")+".";
-    if(!missCodes.length)return refreshDone(head);
-    const names=missCodes.slice(0,3).map(bookName).join(", ")
-      +(missCodes.length>3?`, +${missCodes.length-3} more`:"");
-    const one=missCodes.length===1;
-    const caveat=` ${nBooks(missCodes.length)} (${names}) ${one?"wasn’t":"weren’t"} in that folder and kept ${one?"its":"their"} stored data.`;
-    if(rep)rep.innerHTML+="<br>"+esc(caveat.trim())
-      +` Re-add ${one?"it":"them"} below: drop the file${one?"":"s"}, or choose the folder that has ${one?"it":"them"}.`;
-    refreshStop();
-    if(RMODAL)renderImportPlan();   // the note above the book list marks what to drop in
-    else{
-      // not refreshDone: a fading "ok" is for good news, and this names something still
-      // undone (D129's own rule) — it waits, and its action opens the surface that fixes it
-      const bar=appNotice(head+caveat+` Re-add ${one?"it":"them"} in the Library to bring ${one?"it":"them"} current.`,"ask");
-      const act=el("button","anact","Open Library");
-      act.onclick=()=>{bar.remove();openImport(false,"man");};
-      bar.insertBefore(act,bar.querySelector(".anx"));
-    }
-  }finally{ if(REFRESH_BUSY)refreshStop(); }
-}
 // ── the imported digest is older than the parser (D137) ────────────────────
 // `assembleData` hands the IMPORTED digest to the app WHOLE — `IMPORTED||BAKED` — so every
 // extractor fix is invisible until the books are re-read, even for records the bundle
@@ -5995,21 +5840,10 @@ function staleBooks(){
     const p=s.parser||fallback;
     return !p||verLt(p,app);});
 }
-// What the last refresh LEARNED it cannot heal (the 2026-08-31 episode): a refresh only
-// re-reads the books the folder holds (D129/D138) — a book the folder cannot provide is
-// NEVER healed by Refresh, and the remedy lives in Manage (drop the files / re-link the
-// folder). Remembered across reloads so the boot notice can route to the remedy instead of
-// offering the refresh that already failed those books. Self-clearing on read: a book that
-// has since been re-read (current stamp) or removed needs no remedy any more.
-const LS_REFRESH_MISS="spellForge.refreshMiss.v1";
-function refreshMissRemember(codes){
-  try{localStorage.setItem(LS_REFRESH_MISS,JSON.stringify(codes||[]));}catch(_){}}
-function refreshMissed(){
-  let codes=null; try{codes=JSON.parse(localStorage.getItem(LS_REFRESH_MISS)||"null");}catch(_){}
-  if(!Array.isArray(codes)||!codes.length)return [];
-  const behind=new Set(staleBooks());
-  return codes.filter(c=>behind.has(c));
-}
+// K4: the miss memory went with the refresh. It recorded which books a folder re-read could
+// NOT heal, so the boot notice could route to the remedy instead of offering the refresh that
+// had already failed them (the 2026-08-31 episode). Nothing re-reads a folder unasked now, so
+// there is nothing left to miss; `autoReparse()` names what it cannot heal directly.
 // ── the parser moved on: re-read what we can, name what we can't (D154(g) · D159) ──
 // `assembleData` hands the IMPORTED digest to the app WHOLE, so every extractor fix stays
 // invisible until the books are re-read. D137 answered that with a boot NAG and a Refresh
@@ -6028,7 +5862,7 @@ async function autoReparse(){
   const stash=await rawAll();
   const covered=new Set(); stash.forEach(r=>(r.brew||[]).forEach(c=>covered.add(c)));
   let healed=[];
-  if(behind.some(c=>covered.has(c))&&!REFRESH_BUSY&&!SCAN_BUSY&&!WEB_BUSY)
+  if(behind.some(c=>covered.has(c))&&!SCAN_BUSY&&!WEB_BUSY)
     healed=await reparseFromStash(stash,behind);
   const left=staleBooks();
   if(!left.length){
@@ -6093,13 +5927,9 @@ function openImport(welcome,tab){closeMenu();const r=$("#importReport");
   planFromStage(null,null); renderImportPlan();
   renderImportStage(); renderLibStatus(); renderLibList();
   $("#importModal").classList.remove("hidden");
-  // A remembered folder is recalled SILENTLY — `false` means never prompt for permission
-  // here, because a permission request outside a user gesture is refused anyway. The folder
-  // is an INPUT now (D154(g) retired Rescan/Forget), so nothing is said about it either way.
-  folderButtons();
-  if(FSA()&&!FOLDER)folderRecall().then(async h=>{
-    if(h){FOLDER=h;folderButtons();}
-  }).catch(()=>{});}
+  // The folder is an INPUT (D154(f)) and is remembered no longer (K4), so the label just
+  // reflects whether one was chosen in THIS session.
+  folderButtons();}
 // D154(b): the status strip — one line at the top of the page. It absorbed the Manage
 // footer's storage total (D112), the last-import stamp (D111), D138's per-book parser count
 // and D153's fetch state, which were four separate surfaces saying four fragments of the
@@ -6131,8 +5961,6 @@ function renderLibStatus(){
       const mb=e.usage/1048576;
       st.textContent=`≈ ${mb<1?"<1":Math.round(mb)} MB in this browser`;}).catch(()=>{});
 }
-// eslint-disable-next-line no-unused-vars -- orphaned by K1/K2, deleted by K4 (PLAN)
-async function clearImport(){await importDrop();assembleData();pruneState();refreshAll();render();}
 // no-content build (public deploy): pop the import modal in welcome mode, once
 let onboardShown=false;
 function maybeOnboard(){
@@ -9606,7 +9434,7 @@ function renderLibSelBar(){
 // imported book and this drops the digest outright. D42 still holds — a build's picks are
 // FLAGGED when their book goes, never deleted.
 async function removeBooks(codes){
-  if(REFRESH_BUSY||SCAN_BUSY)return;
+  if(SCAN_BUSY)return;
   const rep=$("#importReport");
   const stored=Object.keys((IMPORTED&&IMPORTED.sources)||{});
   const gone=stored.filter(c=>codes.has(c));
@@ -9746,7 +9574,6 @@ $("#customDone").onclick=compileCustom;
 $("#libBtn").onclick=()=>openImport(false);
 // the ⋯ menu runs it inline and reports into the notice bar; the Library's own button reports
 // in place (D129) — one pipeline, two surfaces, told apart by this flag alone
-$("#refreshBtn").onclick=()=>refreshImported(false);
 // D154(a): the Library's search and its Actions menu — enable/disable act on every book the
 // search is showing you, select likewise, so "Select shown" is not a second search.
 $("#libSrcSearch").oninput=e=>{SRC_Q=e.target.value;renderLibList();};
@@ -9812,25 +9639,24 @@ $("#webSrcRepo").onchange=e=>{const v=e.target.value.trim();
 // ── folder scan wiring (D92) ───────────────────────────────────────────────────
 // Two ways in. showDirectoryPicker gives a handle we can REMEMBER between sessions; where it
 // doesn't exist (Safari, Firefox) a webkitdirectory input does the same scan for one session.
-// D154(g): Rescan and Forget are gone — the folder is an INPUT, not a link to maintain.
-// The handle is still remembered because `refreshImported` and `stageScanBooks` read it;
-// what left is the permission dance the user had to perform to keep it alive.
+// D154(g): Rescan and Forget are gone — the folder is an INPUT, not a link to maintain — and
+// K4 took the remembered handle with them, so nothing asks for permission outside the moment
+// you pick a folder. `stageScanBooks` reads THIS session's scan, which is all Apply needs.
 function folderButtons(){
   const p=$("#folderPick");
   if(p)p.textContent=FOLDER?"Choose another folder":"Choose a folder";
 }
-async function scanHandle(h,remember){
-  if(remember)await folderRemember(h);
+async function scanHandle(h){
   FOLDER=h; folderButtons();
   $("#folderProgress").textContent="Reading the folder…";
   await scanEntries(await folderEntries(h),h.name||"folder");
 }
 $("#folderPick").onclick=async(e)=>{
   e.stopPropagation();closeMenu();
-  if(SCAN_BUSY||REFRESH_BUSY)return;   // a refresh owns the scan between its own busy windows
+  if(SCAN_BUSY)return;
   if(!FSA()){$("#folderInput").click();return;}
   try{const h=await window.showDirectoryPicker({id:"spellbookLibrary",mode:"read"});
-    await scanHandle(h,true);}
+    await scanHandle(h);}
   catch(e){ if(e&&e.name==="AbortError")return;      // the user simply closed the picker
     $("#folderProgress").textContent="Couldn’t open that folder: "+(e.message||e);}
 };
@@ -10375,10 +10201,11 @@ function pruneState(){
   try{ await importLoad(); }catch(_){}
   dropLegacyFolderDb();
   // a stored digest that assembleData chokes on must not brick every boot from here on —
-  // set it aside, start on baked, and say so. Refresh imported data re-parses and heals it.
+  // set it aside, start on baked, and say so. Adding the books again is what heals it (K4
+  // retired the refresh; a digest this broken has nothing for the stash to re-read).
   try{ assembleData(); }               // now with whatever IndexedDB held
   catch(e){ IMPORT_CACHE=null; assembleData();
-    appNotice("Imported data was unreadable, so the app started on its bundled data. Your builds are untouched. Use ⋯ → Refresh imported data (or re-import) to restore the library. ("+((e&&e.message)||e)+")"); }
+    appNotice("Imported data was unreadable, so the app started on its bundled data. Your builds are untouched. Add your books again in the Library to restore it. ("+((e&&e.message)||e)+")"); }
   loadSources();
   loadBuilds();                        // "loaded" | "migrated" | "fresh" — return value unused
   applyState(activeBuild().state);

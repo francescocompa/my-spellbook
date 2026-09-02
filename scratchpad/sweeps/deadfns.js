@@ -145,23 +145,13 @@ for (const r of stringWired) {
   console.log(`${r.file}:${r.line}  ${r.name}  (${r.kind})  strRefs=${r.strRefs}`);
 }
 
-const knownOrphans = ["folderForget", "clearImport"];
-console.log("\n--- known-orphan cross-check (PLAN.md K4) ---");
-for (const name of knownOrphans) {
-  const hit = trulyDead.find((r) => r.name === name);
-  console.log(`${name}: ${hit ? "FOUND in dead list (" + hit.file + ":" + hit.line + ")" : "MISSING - detector likely wrong"}`);
-}
-
 console.log(`\nTOTAL dead (zero refs): ${trulyDead.length}`);
 console.log(`TOTAL string-only wired: ${stringWired.length}`);
 
-// D158(k): gate on this sweep. `folderForget`/`clearImport` are the two orphans PLAN.md's
-// K4 task names on purpose — K1/K2 already dropped their only callers and K4 is the one
-// that removes the functions themselves (see PLAN.md's K4 bullet) — so they are expected
-// dead until that lands, not a regression this gate should block on. Anything else in the
-// dead list is unexpected and fails the gate.
-const unexpectedDead = trulyDead.filter((r) => !knownOrphans.includes(r.name));
-if (unexpectedDead.length) {
-  console.log(`\nFAIL: ${unexpectedDead.length} unexpected dead function(s) — ${unexpectedDead.map((r) => r.name).join(", ")}`);
+// D158(k): gate on this sweep. It carried an allowlist for `folderForget`/`clearImport`,
+// the two orphans K1/K2 left behind and K4 was queued to delete; K4 deleted them, so the
+// allowlist is spent and the bar is simply ZERO. Any dead function is a regression.
+if (trulyDead.length) {
+  console.log(`\nFAIL: ${trulyDead.length} dead function(s) — ${trulyDead.map((r) => r.name).join(", ")}`);
 }
-process.exit(unexpectedDead.length ? 1 : 0);
+process.exit(trulyDead.length ? 1 : 0);

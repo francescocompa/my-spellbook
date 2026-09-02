@@ -36,7 +36,7 @@ eighteen items, models D142–D145) — `ARCHIVE.md#phase-j`; "Closed in v1.4.7"
 (a drop re-dating every pick below it, D146) — `ARCHIVE.md#closed-v1-4-14`; "Closed in
 v1.5.3" (the class ⊕ subclass merge, D150) — `ARCHIVE.md#closed-v1-5-3`.
 
-## Phase K — the Library redesigned (D154, decided 2026-09-01) — K1–K3 DONE; **K4 is next**
+## Phase K — the Library redesigned (D154, decided 2026-09-01) — ✅ K1–K4 DONE (v1.5.7 → v1.5.17)
 
 The design is LOCKED — one page, one list, selection bar, no refresh verbs; the approved
 mockup is `scratchpad/mockups/library4.html` (`python3 scratchpad/mklib4.py` regenerates)
@@ -105,7 +105,7 @@ obsoletes.
   **Found and fixed while verifying:** `filterDigest` carried `parser`/`parsedAt`/`origin`
   forward but not the new `parserHash`, so a book not re-parsed in an Apply lost its
   fingerprint and then read as current — the D138(a) false success, one field along.
-- [ ] **K4 · Retire the old machinery.** K1/K2 already orphaned two functions — `folderForget`
+- [x] **K4 · Retire the old machinery** — shipped **v1.5.17**. K1/K2 already orphaned two functions — `folderForget`
   (app.js:5489) and `clearImport` (app.js:5970) are defined and never called, their only
   callers having been the Forget-folder and Remove-imported-data buttons. `entryWalk` and the
   drop-zone handlers went with the zone in K1. Still LIVE and still needed until K3 lands:
@@ -120,6 +120,28 @@ obsoletes.
   `refreshImported`/folder recall get updated, not deleted — they explain history.
   *Done when:* the six old verbs are gone, `rg` finds no dead handlers, and the D42
   nothing-prunes contract still holds on a book removal (picks flagged, never deleted).
+  **Removed:** `#refreshBtn` and `refreshImported` with its whole cast (`REFRESH_BUSY`, the
+  R-state, `btnText`, `refreshButtons`, `refreshPaint`/`Stage`/`Stop`/`Done`/`Fail`/`Ask`); the
+  miss memory (`refreshMissed`, `refreshMissRemember`, `spellForge.refreshMiss.v1`, the tray's
+  `#importMissNote` and its `.trayrow.miss` rule); the two K1/K2 orphans `folderForget` and
+  `clearImport`; and — beyond the written scope, because K4 left it with no job but a button
+  label — the REMEMBERED handle (`folderRemember`/`folderRecall`/`folderUsable`, the silent
+  recall in `openImport`, and the `handles` store itself, dropped at `IDB_V` 3). The folder
+  picker survives as an input, and the browser reopens it where you left it on its own.
+  **Kept:** the whole scan chain (`scanHandle`/`scanEntries`/`stageScanBooks`), `staleBooks()`,
+  and D42's `pruneState` contract.
+  **Two stale sentences went with the verbs:** the unreadable-digest boot notice said *"Use ⋯ →
+  Refresh imported data"* and `stageScanBooks` said *"Rescan the folder"* — both named controls
+  that no longer exist.
+  **Verified** in the pane: the ⋯ menu is nine items with no Refresh; `#refreshBtn` and
+  `#importMissNote` are gone from the DOM; the database upgraded to **v3 with `handles`
+  dropped** (`kv`, `raw` remain) and the app booted, imported and removed across the upgrade
+  without a hiccup; paste → Apply → remove still works with the busy guards gone; **D42 proved
+  on a real row** — a Wizard L3 build holding `Stash Bolt|K3BREW` and `Magic Missile|XPHB` kept
+  BOTH picks after its book was removed (the spell left `DATA`, the pick did not); 0 console
+  errors; gate clean, cparity 58 ok / 0 fail, **deadfns now 0 with the allowlist retired** (the
+  sweep's `knownOrphans` cross-check is gone — the bar is zero, and `CLAUDE.md`'s gate line says
+  so).
 
 ## Phase L — the three-pillar audit (D157, decided 2026-09-01) — ✅ L0–L4 DONE (v1.5.9 → v1.5.15) · ⏳ L5 build list OPEN
 
