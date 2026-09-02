@@ -189,6 +189,22 @@
   dialog, so the title bar, the × and the lost styling were never in any picture Francesco
   approved — he found them in the build. Build a mockup from the app's own markup, or say
   plainly which parts are stand-ins.
+- **`:has()` is not reliable for state that CHANGES at runtime (D166(h)).** A rule keyed on
+  `.gwork:has(> .gprev > .spmodal:not(.hidden))` matched every time it was queried with
+  `matches()` and never applied: the engine did not re-run style on the ancestor when the
+  descendant's `hidden` class changed. Set a class where the state changes instead.
+- **`grid-template-columns` does not animate here, and a width on the ITEM cannot grow an
+  `auto` track (D166(h)).** Two more dead ends from the same afternoon: a transition between
+  `minmax(0,1fr) 0fr` and `minmax(0,1fr) minmax(360px,440px)` — and between `0px` and a plain
+  length — froze at its start value (`transition:none` resolved it instantly, which is how it
+  was found); and setting `width:420px` on the grid item left the track at its 2px minimum,
+  because the sibling `1fr` had already claimed the free space. Drive the TRACK from JS and
+  animate something else (opacity) if it needs to move.
+- **A picker relocated into the guide keeps its own `max-height`, and that nests a scroller
+  (D164 · D166(a)).** `#entList` (54vh) and `#gpList` (48vh) each scroll inside the modal; in
+  the stage they scroll inside the body's scroller, so the tail of the list sits in an inner
+  scroll nothing reaches — the last row is missing and only search finds it. Both are
+  neutralised inline. **Any list moved into the stage needs the same treatment.**
 - **A remembered directory handle is not a granted one (D92).** *(History — K4 stopped
   remembering handles altogether; kept because it explains why.)* The handle survived in
   IndexedDB, but the READ PERMISSION died with the session and could only be re-requested inside

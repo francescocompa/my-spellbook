@@ -3,8 +3,10 @@
 > What is queued, and what is blocked on a decision. `STATE.md` says where things stand;
 > this says what comes next. Closed items → `ARCHIVE.md#closed-backlog`.
 >
-> **Phase L (the audit, D157) is TRIAGED — D158 holds every disposition.** Wave 3 (L4) is the
-> fix + copy batch; the build list (L5) starts with K3/K4. Phases E–J are done. Below that is the standing backlog: open ⚑ flags
+> **Phase L (the audit, D157) is TRIAGED — D158 holds every disposition.** Wave 3 (L4) shipped;
+> the build list (L5) is under way — **L5.1 through L5.4 are done** and the guided builder's
+> rework (L5.4) drew three rounds of his review, D161 → D166. Two of his notes are still open
+> and sit as ⚑ below. Phases E–J are done. Below that is the standing backlog: open ⚑ flags
 > (calls only Francesco can make) and the Queue, whose one 🔶 (magic items / rewards) is
 > researched and awaits his call.
 
@@ -143,7 +145,7 @@ obsoletes.
   sweep's `knownOrphans` cross-check is gone — the bar is zero, and `CLAUDE.md`'s gate line says
   so).
 
-## Phase L — the three-pillar audit (D157, decided 2026-09-01) — ✅ L0–L4 DONE (v1.5.9 → v1.5.15) · ⏳ L5 build list OPEN
+## Phase L — the three-pillar audit (D157, decided 2026-09-01) — ✅ L0–L4 DONE (v1.5.9 → v1.5.15) · ⏳ L5: **L5.1–L5.4 shipped** (v1.5.16 → v1.5.24), L5.5 on
 
 D157 owns the charter, the agents, the rejected shapes — cite it. Reports land in `audits/`
 (one per pillar + `synthesis.md`), a point-in-time artifact `/clean` archives once consumed.
