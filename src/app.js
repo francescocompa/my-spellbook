@@ -7721,7 +7721,10 @@ new MutationObserver(muts=>{
     if(seen.has(m)||!(m instanceof Element)||!m.classList.contains("modal"))return;
     seen.add(m);
     const hidden=m.classList.contains("hidden");
-    if(hidden===!!m._mHidden)return;   // no real open/close edge — ignore repeated class churn
+    // every modal starts hidden, so an unseen one counts as hidden: without this the FIRST
+    // open of each modal read as "no edge" and got no role, no aria-modal and no focus
+    const was=m._mHidden===undefined?true:m._mHidden;
+    if(hidden===was)return;   // no real open/close edge, ignore repeated class churn
     m._mHidden=hidden;
     if(!hidden){
       if(!m.hasAttribute("role"))m.setAttribute("role","dialog");
