@@ -12,24 +12,27 @@
 > | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 > | `ARCHIVE.md` | Bodies of consumed phases, decisions and old rationale |
 
-## TL;DR (2026-09-02 · **v1.5.29** live, pushed and tagged · `4ed930a` · **Phase L's two open calls closed** · **Phase M opened and gated** · six releases this session)
+## TL;DR (2026-09-02 · **v1.5.30** live, pushed and tagged · `8e9eb4f` · **Phase L's two open calls closed** · **Phase M opened, gated, and UNGATED** · seven releases this session)
 
 - **Where it stands.** Both of the calls Phase L was waiting on are shipped, and three of his
   four closing notes with them: the **next-choice mark** and its Next state (D167), the
   **class picker** with a level-rewriting change (D168), the **one-answer vs several take
   mark** and the first class picker opening with its step (D169), the **rail collapsing from
   its own header** into a 54px column and the **class picker's own filters** (D170, D171), and
-  a collapsed tile jumping to its level rather than expanding the rail (D172(a)).
-  **Six releases, v1.5.24 → v1.5.29, all pushed and tagged.**
-- **Phase M is open and it is the next thing.** His fourth note — audit every filter against
-  5etools and rework them — was interviewed (D172). The SET is settled per picker; the SURFACE
-  is his call between three mockups, and the phase is blocked on it. Nothing in it needs the
-  extractors: every value is already in `data.json`.
-- **Next action: his pick of `filters{1,2,3}.html`**, then M1 → M2 → M3 → M4 in order. After
-  Phase M, L5.5 (copy the build as a level plan) still needs his format.
-- **Manual for Francesco:** ① **pick the filter surface** — `scratchpad/mockups/filters1.html`,
-  `filters2.html`, `filters3.html` (each also `-light`), the whole of Phase M waits on it;
-  ② the **copy-veto pass** over `audits/copy-table.md` (227 rows), which M4 will add to;
+  a collapsed tile jumping to its level rather than expanding the rail (D172(a)), and the
+  filter control standard his mockup pick exposed (D173).
+  **Seven releases, v1.5.24 → v1.5.30, all pushed and tagged.**
+- **Phase M is open and UNGATED.** His fourth note — audit every filter against 5etools and
+  rework them — was interviewed (D172) and the surface chosen: **variant 1, the sectioned
+  popover** (D173). Its control standard shipped as **v1.5.30**, which fixed three real
+  defects he spotted in the mockup and that were live in the app: a toggle chip stripped of
+  its box inside a popover, ability toggles with no signature colour, and an off switch at
+  half the contrast of its own on-state. Nothing left in the phase needs the extractors.
+- **Next action: M1b → M2 → M3 → M4** in order — the popover container with a sane max-height,
+  then the spell filters on BOTH spell pickers (the guide's has none today), then the feat
+  filters, then the wording pass. After Phase M, L5.5 (copy the build as a level plan) still
+  needs his format.
+- **Manual for Francesco:** ① the **copy-veto pass** over `audits/copy-table.md` (227 rows), which M4 will add to;
   ③ **PWA install check** on your phone (L5.6); ④ **third-casters are still pooled then
   floored** — Fighter 5 (EK) + Rogue 5 (AT) reads 3 where the table gives 2, the same shape as
   the half-caster bug but a separate rules call; ⑤ the Library status strip names a parser
@@ -66,4 +69,6 @@ consumed it. DECISIONS.md is now 2,700+ lines; **D158(q) approved the index-plus
 for the next `/clean`**, together with the audits folder — it is overdue.
 
 ⟳ Rename previous session → "Guided builder, class picker and filters" · session: resolve by cwd + latest
+
+The queue after Phase M is L5.5 onward — see `PLAN.md`.
 
