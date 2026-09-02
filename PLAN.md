@@ -254,12 +254,13 @@ D157 owns the charter, the agents, the rejected shapes — cite it. Reports land
 
 - [ ] **Copy veto pass** — `audits/copy-table.md`, 227 rows; revert by name. Also decide the ten
   progress ellipses ("Fetching…", kept as "still running"). ⚑ (owner: Francesco, 2026-09-02)
-- [ ] **The class step needs the full-size picker the others have** (his note, 2026-09-02): a
-  class cannot be CHANGED once chosen — the step draws its value and stops, and the two big
-  buttons beside it take the NEXT level rather than edit this one. Wants the same surface
-  species and feats now have. Size M: the entity picker gains a `class` kind, and changing a
-  chosen class has to rewrite a row rather than add one, which is the part to think about.
-  ⚑ (owner: session, 2026-09-02)
+- [x] **The class step needs the full-size picker the others have** (his note, 2026-09-02) —
+  shipped **v1.5.26**, **D168**. The entity picker has a `class` kind (with the D148 class body
+  in the preview pane), a change REWRITES the level's row in `state.levelOrder`, and a change
+  that would empty a class arms first and says so once, in the bar. Two of his calls settled it:
+  arm the destructive case, and never open a class picker with its step — the growth step's two
+  big buttons (D126(d)) stay and the picker is the way out when neither is the answer. The
+  `<select>` D126(d) put there is gone.
 - [x] **Highlight the next choice in a section, and a new Next state** (his note) — shipped
   **v1.5.25**, **D167**. He took **A, the accent ring** (`guide11.html`), with hover REPLACING
   the mark rather than layering on it — the one thing the mockup had wrong. B (leading dot) and

@@ -847,3 +847,12 @@
 
 - **History purge:** old data-bearing commits are unreachable on origin but GitHub may still serve
   them by exact SHA until it gc's. `backup/pre-purge-20260826` (local) has the original.
+- **A snapshot held in a page global does NOT survive a reload, and `setItem(key, undefined)`
+  writes the string `"undefined"`.** Verifying the class picker cost the pane's test build
+  exactly that way: `window.__SNAP=localStorage.getItem(…)` before the test, three reloads while
+  fixing copy, then `localStorage.setItem(key, window.__SNAP)` to restore — by then `__SNAP` was
+  `undefined`, and the store was overwritten with the four-letter string, which parses as
+  nothing. The build store was gone with no copy anywhere. **Keep the snapshot on the AGENT
+  side** — write it to a scratchpad file, or paste it back from the tool result — never in a
+  page variable that a reload clears. And read a restore back before trusting it: comparing the
+  restored value to the snapshot would have caught this at the moment it happened.

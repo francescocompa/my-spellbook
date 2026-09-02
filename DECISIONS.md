@@ -2673,6 +2673,67 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     `guideStage`; the `.gtchip.nextup` rules. **Affects:** PLAN.md (the open ⚑ this closes),
     D162 (the chip row it marks), D165(h)/D166 (the walk's buttons).
 
+- **D168 (2026-09-02) DECIDED — the class step gets the full-size picker, and a class can be
+  CHANGED.** Francesco, raw: *"a class cannot be changed once chosen — the step draws its value
+  and stops, and the two big buttons beside it take the NEXT level rather than edit this one"*,
+  wanting *"the same surface species and feats now have"*. Two calls in it were his; the rest
+  follow from the plan model.
+  - **(a) The entity picker gains a `class` kind.** Same box, same filters, same rows, and the
+    same detail surface — so a class arrives in the preview pane with the D148 class body it
+    already had (core traits, progression, features), which is more than the old `<select>`
+    could ever say. Its row line is the one the list owes: casting progression and ability,
+    hit die, and the level its subclass lands at. `caster:"artificer"` is a PROGRESSION, not a
+    class — half casting that rounds up, what the 2024 Paladin and Ranger print (D158(b)) — so
+    it reads "Half caster" like `1/2`, which is how `compute()` and `planSlots()` already treat
+    it. A class with no casting of its own says NOTHING about casting: a Fighter's spellcasting
+    arrives with Eldritch Knight, and the subclass line is where that is answered.
+  - **(b) Changing a level REWRITES the plan, it never adds.** `state.levelOrder` is the
+    acquisition order of class-level rows, so changing the class at character level N hands
+    that one place to another row: the new class gains a level, the old one loses the level it
+    held there, and everything below keeps the class it was taken in. Still one idiom —
+    `classLevelPlan()` plus a single assignment to `state.levelOrder`.
+  - **(c) A class left with no levels leaves the build, and that take ARMS (D53).** His call,
+    over "just do it" (what the character view's own Remove class ✕ does today, unarmed) and
+    over refusing the change and sending him to that other surface. Two clicks, and only where
+    the change would empty a class — every other take is one, as everywhere else.
+  - **(d) The cost is stated ONCE, in the bar, not per row.** Built as he approved it — a line
+    under each candidate — it turned out to be the same sentence on all thirteen rows, and
+    clipped. It is a fact about the LEVEL, not about each class on offer, so it sits beside the
+    count in the picker's own bar, which the stage lifts out of the scroller: *"Cleric holds
+    only this level: changing it takes Cleric and its 1 pick out of the build"*.
+  - **(e) A class picker NEVER opens with its step** — the one place this surface departs from
+    species and feats (D164). His instruction for the growth step is explicit: *"the picker
+    only opens when you choose not to pick either of the preselected classes"*, so the two big
+    buttons of **D126(d)** stay and the picker is what you reach for when neither is the answer.
+    On a level already taken the same rule holds for a different reason — that picker rewrites
+    the plan, and a rewrite surface standing open on every class step of the walk is one stray
+    click from a change he did not ask for. Enforced by `guideSecAuto`, a narrower predicate
+    than `guideSecOpen`.
+  - **(f) The `<select>` goes; the two big buttons stay.** It answered the same question the
+    picker now answers better — an `<option>` holds a name and a book code and nothing else.
+    Amends **D126(d)**, which chose a select over a popover because the stage would clip one;
+    a hosted picker is not a popover, so that reason no longer bites. Below the breakpoint it
+    is a button opening the modal, the shape species and feats use.
+  - **(g) Taking answers, changing edits.** A take on the growth step CLOSES the picker: the
+    step is answered and the card says so, and leaving the whole class list standing over an
+    answered step is how a second click means "replace" when it was meant as "add". A rewrite
+    picker stays open on the level it is editing.
+  - **Verified live**, dark and light, at 1280 and 375: from an empty build the growth step
+    drew "Choose a class" alone and opened nothing until clicked; taking Wizard wrote one level
+    and closed the picker; the step then drew "Continue Wizard → 2" plus "Another class…" and
+    no select. Changing L1 of a Wizard 3 to Cleric took the plan to `[Cleric, Wizard, Wizard]`
+    with Wizard at 2 and Cleric at 1 — total level unchanged, L2/L3 still Wizard. Changing a
+    level whose class held only it armed, showed "Confirm?" in the widened `.tk.ico-only.armed`,
+    and on the second click removed the row, its `state.chosen` entry and its trades. The
+    current level's row is ticked and its button disabled ("This level is already Cleric").
+    Walking to another step while a rewrite picker is open closes it and writes nothing.
+    Take buttons centred to 0.00px on both axes across six rows; no horizontal overflow at 375;
+    0 console errors; gate clean, cparity 58 ok / 0 fail, engine 35 ok / 0 fail.
+  - **Enforced by:** `guideChangeClass`, `rowAtLevel`, `classChangeCost`, `classPreview`,
+    `CASTER_NAME`, `guideSecAuto`, the `class` branches of `entItems`/`openEntityPicker`/
+    `renderEntityList`/`renderEntBudget`/`stagePickIsFor`, and the `#entSub .subwarn` rule.
+    **Affects:** PLAN.md (the open ⚑ this closes), D126(d), D147, D164 (scoped by (e)).
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

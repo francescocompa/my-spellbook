@@ -89,6 +89,8 @@
   table.spelltable .pickcell svg{width:12px;height:12px;margin:0 auto}
   table.spelltable td.concmark svg{width:12px;height:12px;margin:0 auto}
   #entSub .ico{vertical-align:-2px} #entSub .ico svg{width:10px;height:10px}
+  /* D168: the one clause in a muted sub that is NOT reference — what a change here costs */
+  #entSub .subwarn{color:var(--bad);font-weight:600}
   /* scrollbars follow the chosen theme, not the OS — `color-scheme` above fixes the
      native widget, these keep the WebKit ones on the house palette */
   *{scrollbar-width:thin;scrollbar-color:var(--line-strong) transparent}

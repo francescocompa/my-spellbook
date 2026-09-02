@@ -64,4 +64,3 @@ still bind their surfaces; cite them. `audits/` is a point-in-time artifact: `/c
 once L5 has consumed it. DECISIONS.md is 2,300+ lines; **D158(q) approved the index-plus-archive
 diet for the next `/clean`**, together with the audits folder.
 
-⟳ Rename previous session → "Guided builder rework"  · session: resolve by cwd + latest

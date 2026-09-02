@@ -2206,7 +2206,7 @@ function renderGuideStage(steps,cur,rowOf){
     if(here&&here.done&&next){const f=guideSecOpen(cur,next); if(f)setTimeout(f,0);}
   }
   if(stagePickable()&&!STAGE_PICK&&GAUTO!==cur.key){
-    const opens=x=>guideSecOpen(cur,x);
+    const opens=x=>guideSecAuto(cur,x);
     const sec=cur.sections.find(x=>opens(x)&&!x.done)||cur.sections.find(opens);
     // OUT of this render pass, always. Opening a picker re-renders, and a render inside a
     // render leaves the stage half-built — seen live as two cards in one state and an empty
@@ -2390,6 +2390,67 @@ function guidePending(s){
   const say=c=>'"'+(c.type==="ability"?(ABIL[c.value]||String(c.value)):String(c.value))+'"';
   return {what:secs.map(x=>say(x.choice)).join(" and "),
           run:()=>{secs.forEach(x=>{state.choices[x.choice.id]=x.choice.value;});render();}};
+}
+// D168: the row a CHARACTER level was taken in — the plan's own answer for that level.
+function rowAtLevel(lv){
+  const plan=classLevelPlan(), id=lv!=null?plan[lv-1]:null;
+  return id!=null?(state.classes.find(r=>r.id===id)||null):null;
+}
+// What changing this level to `ck` would COST: the class that loses its LAST level, and
+// the picks that go with it. null wherever nothing is lost — every take on the growth
+// step, and every change where the old class keeps a level of its own.
+function classChangeCost(lv,ck){
+  if(lv==null)return null;
+  const old=rowAtLevel(lv);
+  if(!old||old.clsKey===ck||(old.level||0)>1)return null;
+  const c=CLS_BY[old.clsKey], ch=state.chosen[old.id]||{};
+  return {name:(c&&c.name)||String(old.clsKey).split("|")[0],
+          picks:nFilled(ch.cantrips)+nFilled(ch.spells)};
+}
+// The one line a class row owes the list: how it casts, what it is made of, when its
+// subclass arrives. The full contract is one click away in the detail pane (D148's class
+// body). A class with no casting of its own says NOTHING about casting rather than "none"
+// — a Fighter's spellcasting arrives with Eldritch Knight, and the subclass line is where
+// that is answered.
+// `artificer` is not a class here, it is a PROGRESSION: half casting that rounds UP at
+// level 1, which is what D158(b) corrected and what the 2024 Paladin and Ranger print.
+// `compute()` and `planSlots()` both treat it and `1/2` identically (Math.ceil), so the
+// list says the one thing that is true of both.
+const CASTER_NAME={full:"Full caster","1/2":"Half caster",artificer:"Half caster",
+  pact:"Pact magic"};
+function classPreview(c){
+  const p=[], cast=CASTER_NAME[c.caster];
+  if(cast)p.push(cast+(c.ability?" · "+(ABIL_SHORT[c.ability]||String(c.ability)):""));
+  if(c.traits&&c.traits.hd)p.push(c.traits.hd+" hit die");
+  if(c.subclassLevel)p.push("subclass at "+c.subclassLevel);
+  return p.join(" · ");
+}
+// D168: CHANGING the class a character level was taken in — a REWRITE of the plan, never
+// an addition. That level's place in `state.levelOrder` is handed to another row: the new
+// class gains a level, the old one loses the one it held here, and a class left with none
+// leaves the build taking its picks and its trades with it — the same three writes the
+// character view's Remove class makes, because it is the same event. Everything still goes
+// through classLevelPlan() and ONE assignment to state.levelOrder (the only plan-write
+// idiom there is), so the levels below this one keep the classes they were taken in.
+function guideChangeClass(lv,ck){
+  const plan=classLevelPlan(), i=lv-1;
+  if(i<0||i>=plan.length)return;
+  const oldId=plan[i], old=state.classes.find(r=>r.id===oldId);
+  let nr=state.classes.find(r=>r.clsKey===ck);
+  if(nr&&nr.id===oldId)return;                 // already this level's class
+  if(nr&&(nr.level||0)>=20)return;
+  if(!nr){nr={clsKey:ck,subKey:null,level:0,id:state.nextRowId++};state.classes.push(nr);}
+  nr.level=(nr.level||0)+1;
+  const order=plan.slice(); order[i]=nr.id;
+  if(old){
+    old.level=(old.level||0)-1;
+    if(old.level<=0){
+      delete state.chosen[oldId]; dropRowSwaps(oldId);
+      const j=state.classes.findIndex(r=>r.id===oldId); if(j>=0)state.classes.splice(j,1);
+    }
+  }
+  state.levelOrder=order.filter(id=>state.classes.some(r=>r.id===id));
+  save();refreshAll();render();
 }
 // every class level is one write: bump the row's level, then put that row at the END of
 // the acquisition order. A class already in the build LEVELS UP its own row (one class,
@@ -2594,6 +2655,15 @@ function guideSecBlock(step,sec,rowOf,inline){
       // value line always draws — which is the whole card: a level already taken is an
       // answer, and where to CHANGE one is reference (the header's `?`, D131(c))
       if(!multi)b.append(val(sec.value));
+      // D168: a class CAN be changed now. Francesco, raw: *"a class cannot be changed once
+      // chosen — the step draws its value and stops"*. The picker rewrites this level's
+      // place in the plan; beside one already open it would be the redundancy D162 removed
+      // from every other opener, so it draws only when the picker is not in the stage.
+      if(!inline){
+        const chg=el("button","btn","Change the class");
+        chg.onclick=()=>openEntityPicker("class",null,{lv:step.lv});
+        b.append(chg);
+      }
       return guideSecWrap(step,sec,b);
     }
     // D126(d): continue where you are, go back to the other class you were levelling, or
@@ -2623,16 +2693,17 @@ function guideSecBlock(step,sec,rowOf,inline){
       .filter(c=>state.classes.some(r=>r.clsKey===key(c.name,c.source))
         ||!taken.has(c.name.toLowerCase()))
       .sort((a,b)=>a.name.localeCompare(b.name)||a.source.localeCompare(b.source));
-    if(rest.length){
-      const sel=el("select","gmenu");
-      // explicit empty value on the prompt (see `guideSubSelect`): without it the prompt's
-      // value is its own TEXT, and re-selecting it would open a class row named after it
-      const p=el("option",null,shown.size?"Another class":"Choose a class");
-      p.value=""; sel.append(p);
-      rest.forEach(c=>{const o=el("option",null,c.name+srcTag(c.source));   // D147, amended
-        o.value=key(c.name,c.source);sel.append(o);});
-      sel.onchange=()=>{const ck=sel.value; sel.value=""; if(ck)guideTakeClass(ck);};
-      b.append(sel);
+    // D168: the rest of the classes open in the PICKER the other steps use, not in a
+    // <select>. It replaces the compact menu D126(d) put here for a reason that has since
+    // been answered: an <option> can hold a name and a book code, and nothing else — not
+    // the casting progression, not the hit die, not when the subclass lands, and no way to
+    // read the class before taking it. The two big buttons above are untouched: they are
+    // the common answer, and this is the way out when neither of them is.
+    if(rest.length&&!inline){
+      const more=el("button","btn"+(shown.size?"":" on gbig"),
+        shown.size?"Another class…":"Choose a class");
+      more.onclick=()=>openEntityPicker("class",null,null);
+      b.append(more);
     }
     return guideSecWrap(step,sec,b);
   }
@@ -2967,13 +3038,30 @@ function guideSecOpen(step,sec){
   if(sec.kind==="species")return ()=>openEntityPicker("species");
   if(sec.kind==="feat")return ()=>openEntityPicker("feat",
     sec.slot==="epic"?"epic":sec.slot==="origin"?"origin":"general");
+  // D168: a class level answers with the same full-size picker species and feats have.
+  // A step that already HOLDS a level opens it on that level (picking rewrites it); the
+  // growth step opens it with no level, where picking takes the next one.
+  if(sec.kind==="class")return ()=>openEntityPicker("class",null,
+    sec.done?{lv:step.lv}:null);
   return null;
+}
+// D168: which pickers open WITH their step — not the same list. A CLASS picker never does.
+// On the growth step his instruction is explicit: the card already offers the two classes
+// you are most likely to take (D126(d)), and the picker is what you reach for when neither
+// of them is the answer. On a level already taken the same rule is the safe one for a
+// different reason — that picker REWRITES the plan, and a rewrite surface standing open on
+// every class step of the walk is an accident waiting for a stray click. Every other
+// section still opens with its step (D164).
+function guideSecAuto(step,sec){
+  if(sec&&sec.kind==="class")return null;
+  return guideSecOpen(step,sec);
 }
 function stagePickIsFor(sec){
   if(!STAGE_PICK||!sec)return false;
   if(STAGE_PICK.id==="gpickModal")return !!(GPICK&&GPICK.secId===sec.id);
   if(!ENT)return false;
-  return (sec.kind==="species"&&ENT.kind==="species")||(sec.kind==="feat"&&ENT.kind==="feat");
+  return (sec.kind==="species"&&ENT.kind==="species")||(sec.kind==="feat"&&ENT.kind==="feat")
+    ||(sec.kind==="class"&&ENT.kind==="class");
 }
 function openGpick(spec){
   // every opener starts unfolded: this modal serves a different question each time, and a
@@ -4030,9 +4118,18 @@ function entItems(srcSet){
   if(ENT.kind==="opt"){const want=new Set(ENT.slot.types);
     return DATA.optfeats.filter(o=>vis(o)&&o.types.some(t=>want.has(t)));}
   if(ENT.kind==="species")return DATA.races.filter(vis);
+  // D168: ONE CLASS, ONE ROW — the rule the growth step's menu already enforced. A class
+  // whose row is in the build stays on offer (it levels up, or it is the answer this level
+  // already holds); one that would only DUPLICATE that row under another printing does not.
+  if(ENT.kind==="class"){const taken=takenClasses();
+    return DATA.classes.filter(o=>vis(o)
+      &&(state.classes.some(r=>r.clsKey===key(o.name,o.source))||!taken.has(clsIdOf(key(o.name,o.source)))));}
   return DATA.feats.filter(f=>vis(f)&&!isFeatFS(f)&&ENT.cats.has(featCatId(f)));
 }
-function openEntityPicker(kind,category){
+// D168: `at` is the class picker's context — {lv} is the CHARACTER level whose class is
+// being rewritten, and no `at` at all means the growth step, where a pick takes the next
+// level instead of replacing one. Every other kind ignores it.
+function openEntityPicker(kind,category,at){
   // the optional-feature slot is passed in place of a feat category
   const slot=kind==="opt"?category:null;
   // `books` is a LOCAL override seeded from the global selection (D27) — editing it here
@@ -4044,10 +4141,12 @@ function openEntityPicker(kind,category){
   const slots=SLOTS_FOR[kind==="feat"?(category||"general"):""]||[];
   const catList=kind==="feat"?featCatsFor(slots):[];
   const preset=new Set(catList.map(c=>c[0]));
-  ENT={kind,category,slot,q:"",books:new Set(SRC),grantsOnly:false,hideNo:false,
+  const lv=(kind==="class"&&at&&at.lv!=null)?at.lv:null;
+  ENT={kind,category,slot,lv,q:"",books:new Set(SRC),grantsOnly:false,hideNo:false,
        cats:new Set(preset),presetCats:preset,catList};
   $("#entTitle").textContent = kind==="opt"?`Choose ${slot.name.replace(/s$/,"").toLowerCase()}`
     : kind==="species"?"Choose a species / lineage"
+    : kind==="class"?(lv!=null?"Change the class at level "+lv:"Choose a class")
     : category==="origin"?"Choose an origin feat" : category==="epic"?"Choose an epic boon" : "Choose a general feat";
   $("#entSearch").value=""; $("#entGrants").checked=false; $("#entHideNo").checked=false;
   $("#entMenuPop").classList.add("hidden");
@@ -4094,16 +4193,33 @@ function renderEntityList(){
   items.sort((a,b)=>rank(a)-rank(b)||a.name.localeCompare(b.name)||a.source.localeCompare(b.source));
   const blocked=items.filter(i=>rank(i)===1);
   if(ENT.hideNo)items=items.filter(i=>rank(i)===0);
-  const noun=ENT.kind==="opt"?"options":ENT.kind==="species"?"species":"feats";
-  $("#entSub").innerHTML=`${items.length} ${noun} · <span class="ico">${ICONS.spark}</span> grants spells`
+  const noun=ENT.kind==="opt"?"options":ENT.kind==="species"?"species"
+    :ENT.kind==="class"?"classes":"feats";
+  // D168: the cost of changing THIS level is a fact about the level, not about each class
+  // on offer — drawn per row it was the same sentence thirteen times over, and clipped.
+  // It belongs where the count is: in the bar, which the stage lifts out of the scroller,
+  // so it cannot scroll away from the rows it is about.
+  const dropAll=ENT.kind==="class"&&ENT.lv!=null
+    ?classChangeCost(ENT.lv,"\u0000"):null;   // a key no class has: what ANY change costs
+  $("#entSub").innerHTML=`${items.length} ${noun}`
+    +(ENT.kind==="class"?"":` · <span class="ico">${ICONS.spark}</span> grants spells`)
     +(blocked.length&&!ENT.hideNo?` · ${blocked.length} need something you don’t have`:"")
+    +(dropAll?` · <span class="subwarn">${esc(dropAll.name)} holds only this level: changing it takes `
+      +`${esc(dropAll.name)}${dropAll.picks?` and its ${dropAll.picks} pick${dropAll.picks===1?"":"s"}`:""}`
+      +` out of the build</span>`:"")
     +(ENT.note?` · ${esc(ENT.note)}`:"");
   // the ⋯ button says THAT the list is narrowed, not by how much — a count on an icon
   // button pushes the icon off centre and names a number nothing acts on
   const nf=[ENT.grantsOnly,ENT.hideNo,!sameSet(ENT.books,SRC)].filter(Boolean).length
     +(ENT.kind==="feat"&&!sameSet(ENT.cats,ENT.presetCats)?1:0);
   $("#entMenuBtn").classList.toggle("on",!!nf);
-  const curSel = ENT.kind==="species"?state.speciesKey:null;
+  // D168: what "selected" means for a class. Rewriting a level, it is the class that level
+  // was taken in — the answer this step already holds. On the growth step nothing is
+  // selected: every class is takeable, and the ones already in the build say so with their
+  // level instead of a tick, because a ✓ everywhere else means "click to remove" and here
+  // nothing is ever removed by taking.
+  const curSel = ENT.kind==="species"?state.speciesKey
+    :(ENT.kind==="class"&&ENT.lv!=null)?(rowAtLevel(ENT.lv)||{}).clsKey||null:null;
   if(!items.length){list.append(el("div","empty","Nothing matches those filters."));return;}
   let sepDone=false;
   const shown=items.slice(0,400);
@@ -4121,7 +4237,10 @@ function renderEntityList(){
     const held=ENT.kind==="opt"?state.optFeats:ENT.kind==="feat"?state.feats:null;
     const n=held?copyCount(held,k):0;
     const rep=!!(it.repeatable&&held);
-    const on = ENT.kind==="species"?curSel===k:n>0;
+    // D168: taking THIS class at this level would empty another one — the row says which,
+    // and what goes with it, and its take button arms (D53).
+    const drop=ENT.kind==="class"?classChangeCost(ENT.lv,k):null;
+    const on = ENT.kind==="species"?curSel===k:ENT.kind==="class"?curSel===k:n>0;
     const row=el("div","entrow"+(on?" on":"")+(pr.state==="no"?" blocked":""));
     const main=el("div","entmain");
     const nm=el("div","entname");
@@ -4129,6 +4248,8 @@ function renderEntityList(){
     // its own job (its take button) because attachEntity stops the click there.
     nm.append(attachEntity(Object.assign(el("span","entnm"),{textContent:label||it.name}),it,ENT.kind));
     if(n>1)nm.append(el("span","entcount","×"+n));
+    if(ENT.kind==="class"){const r0=state.classes.find(x=>x.clsKey===k);
+      if(r0&&!on)nm.append(el("span","entcount","level "+(r0.level||0)));}
     nm.append(bookChip(it.source,it.page));   // D147: every book, core included
     if(ENT.kind==="feat"&&(ENT.catList||[]).length>1)
       nm.append(Object.assign(el("span","entcat"),{textContent:featCatLabel(it)}));
@@ -4152,9 +4273,41 @@ function renderEntityList(){
           chip.onclick=e=>{e.stopPropagation();openPrqPop(chip,pt.pick);};}
         rq.append(chip);});
       main.append(rq);}
-    const prev=grantPreview(it.grants);
+    const prev=[ENT.kind==="class"?classPreview(it):"",grantPreview(it.grants)]
+      .filter(Boolean).join(" · ");
     if(prev)main.append(Object.assign(el("div","entprev"),{textContent:prev,title:prev}));
     row.append(main);
+    // D168: a class is never REMOVED by its own take button — it is taken, or it replaces
+    // the class a level was taken in. So the row already holding the answer offers nothing
+    // to click, and the button says what a click would do rather than "Select".
+    if(ENT.kind==="class"){
+      const r0=state.classes.find(x=>x.clsKey===k);
+      const cbtn=el("button","tk ico-only"+(on?" on":""));
+      cbtn.append(icoEl(on?"check":"plus"));
+      const lbl=on?"This level is already "+it.name
+        :ENT.lv!=null?"Take level "+ENT.lv+" in "+it.name+" instead"
+        :r0?"Continue "+it.name+" → "+Math.min(20,(r0.level||0)+1)
+        :"Start "+it.name+" at level 1";
+      cbtn.setAttribute("aria-label",lbl);
+      cbtn.title=lbl+(drop?" · "+drop.name+" leaves the build":"");
+      if(on)cbtn.disabled=true;
+      else{
+        const go=()=>{
+          // a local override can reveal a book the global selection has off (D27) — the
+          // same rule every other take here follows
+          if(!srcOn(it.source)){SRC.add(it.source);saveSources();ENT.note=`Enabled ${bookName(it.source)} in your sources`;}
+          // rewriting a level is an EDIT surface — it stays open on the level it is
+          // editing. Taking the next level ANSWERS the growth step, so the picker that
+          // answered it goes; leaving the whole class list standing over an answered step
+          // is how a second click means "replace" when it was meant as "add".
+          if(ENT.lv!=null){guideChangeClass(ENT.lv,k);renderEntityList();}
+          else{guideTakeClass(k);closeEntityPicker();}};
+        // the icon is appended BEFORE this call — `armConfirm` snapshots innerHTML as its
+        // restore state (D66's gotcha), and `.tk.ico-only.armed` is the widened shape
+        if(drop)armConfirm(cbtn,null,go); else cbtn.onclick=go;
+      }
+      row.append(cbtn);
+      return row;}
     const btn=el("button","tk ico-only"+(on?" on":""));
     btn.append(icoEl(on?"check":"plus"));
     const blbl=on?"Selected. Click to remove":"Select";
@@ -5159,7 +5312,7 @@ const sameSet=(a,b)=>!!a&&!!b&&a.size===b.size&&[...a].every(x=>b.has(x));
 // what the picker owes you at this level: the feat budget, or the slot's own count
 function renderEntBudget(){
   const box=$("#entBudget");if(!box)return;
-  if(ENT.kind==="species"){box.classList.add("hidden");return;}
+  if(ENT.kind==="species"||ENT.kind==="class"){box.classList.add("hidden");return;}
   box.classList.remove("hidden");box.innerHTML="";
   if(ENT.kind==="opt"){
     const have=state.optFeats.filter(k=>{const o=OPT_BY[baseKey(k)];return o&&o.types.some(t=>ENT.slot.types.includes(t));}).length;
