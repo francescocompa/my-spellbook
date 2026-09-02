@@ -136,3 +136,12 @@ console.log(`--- dynamic (interpolated) ids seen, not part of the exact cross-ch
 console.log(`defined with interpolation: ${defAppDynamic.length}, referenced with interpolation: ${refAppDynamic.length}`);
 for (const d of defAppDynamic.slice(0, 20)) console.log(`  def app.js:${d.line}  id="${d.id}"`);
 for (const r of refAppDynamic.slice(0, 20)) console.log(`  ref app.js:${r.line}  ${r.via}  "${r.id}"`);
+
+// D158(k): gate on (A) only — a lookup for an id that is defined NOWHERE is a genuine
+// dangling reference ($() would hand back null/undefined and the next `.something` on it
+// throws). (B1)/(B2) orphans are informational by this script's own header comment ("not
+// necessarily a bug") — a container found by a child selector, or an id that exists purely
+// for CSS/anchor purposes, both read as an orphan here without being wrong — so they never
+// fail the gate.
+if (misses.length) console.log(`\nFAIL: ${misses.length} id(s) referenced but defined nowhere`);
+process.exit(misses.length ? 1 : 0);

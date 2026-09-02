@@ -138,6 +138,26 @@ function dynamicPrefixHit(token) {
   return null;
 }
 
+// D158(k): nine tokens the automatic dynamic-prefix heuristic above cannot see, verified
+// LIVE by V-C (audits/V-C-code.md §2) — proved in the browser, not just by reading:
+//   - `.runc0`-`.runc3` (styles.css:1302-1305): app.js:6936 builds " runc"+runColor.get(id),
+//     a PREFIX-PLUS-EXPRESSION the heuristic's quote/template patterns don't match (no
+//     trailing hyphen before the `+`, and the prefix itself is what's concatenated).
+//   - `.c1`/`.c3` (styles.css:1325/1327): app.js:6945 builds "rdot c"+runColor.get(id) —
+//     same shape, one character prefix.
+//   - `.libo-web`/`.libo-file`/`.libo-baked` (styles.css:2466-2468): app.js:9312 builds
+//     "libchip libo-"+o where o is "web"|"file"|"baked" (bookOrigin()) — the dynamic part
+//     sits INSIDE a longer class-attribute literal ("libchip libo-"), not at a bare quote
+//     boundary, which the heuristic's `['"]prefix-?['"]\s*\+` pattern also misses.
+// These are the newest per-book origin chips (D154(d)/D155, shipped in v1.5.7) and the
+// guide/timeline run-colour dots (D130(a)/D132) — removing their selectors would strip
+// live UI. Allowlisted here rather than widening the general heuristic (V-C: that would
+// need brace matching and arrow-function definitions to do properly) so the 21 tokens that
+// really are dead stay the ones this sweep reports.
+const DYNAMIC_ALLOWLIST = new Set([
+  "runc0", "runc1", "runc2", "runc3", "c1", "c3", "libo-web", "libo-file", "libo-baked",
+]);
+
 const allTokens = [...tokenDefs.values()];
 const dead = [];
 const possiblyDynamic = [];
@@ -146,6 +166,7 @@ for (const t of allTokens) {
   if (uses === 0) {
     const dyn = dynamicPrefixHit(t.name);
     if (dyn) possiblyDynamic.push({ ...t, dynPrefix: dyn });
+    else if (DYNAMIC_ALLOWLIST.has(t.name)) possiblyDynamic.push({ ...t, dynPrefix: "(allowlisted, D158k)" });
     else dead.push(t);
   }
 }

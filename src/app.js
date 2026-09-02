@@ -366,12 +366,6 @@ function renderActiveFilters(){
   chips.forEach(t=>host.append(Object.assign(el("span","afchip"),{textContent:t})));
   maskOverflow(host);
 }
-function activeFilterCount(){const f=state.filters;let n=0;
-  n+=f.levels.size?1:0;["school","cls","save","dmg"].forEach(k=>{if(f[k])n++;});
-  n+=f.time.size?1:0;n+=f.comp.size?1:0;n+=f.tags.size?1:0;if(f.reprint!=="dedupe")n++;
-  // the book override counts only when it differs from the global source selection
-  if(f.books&&(f.books.size!==SRC.size||[...SRC].some(c=>!f.books.has(c))))n++;
-  return n;}
 // ── builds: many characters, many versions each (v7 · D33–D35) ───────────
 // ONE flat list keyed by id. `meta.character` is a grouping LABEL, not a container (D35):
 // versions of one character simply share it, and the manager groups on render. `meta.sources`
@@ -544,7 +538,20 @@ function loadBuilds(){
         if(JSON.stringify(n)!==JSON.stringify(st.swaps)){st.swaps=n;migrated=true;}}
       // D131(g): the dismissed form offers. LAST, because serializeState puts it last and
       // the identical-write skip compares stringified forms — key order and all.
-      if(st.sbFavSkip===undefined){st.sbFavSkip=[];migrated=true;}});
+      if(st.sbFavSkip===undefined){st.sbFavSkip=[];migrated=true;}
+      // D158(m): fold any pre-migration `name|source` sbFav/sbFavSkip key onto the
+      // edition-tolerant shape (`sbFavKeyMigrate`, `favKey`) — idempotent, and a
+      // collision (two old printings both marked) UNIONS rather than drops a mark.
+      if(st.sbFav&&typeof st.sbFav==="object"){
+        const merged={};
+        Object.entries(st.sbFav).forEach(([k,v])=>{
+          const nk=sbFavKeyMigrate(k), arr=Array.isArray(v)?v:[];
+          merged[nk]=[...new Set([...(merged[nk]||[]),...arr])];});
+        if(JSON.stringify(merged)!==JSON.stringify(st.sbFav)){st.sbFav=merged;migrated=true;}}
+      if(Array.isArray(st.sbFavSkip)&&st.sbFavSkip.length){
+        const ms=[...new Set(st.sbFavSkip.map(sbFavKeyMigrate))];
+        if(JSON.stringify(ms)!==JSON.stringify(st.sbFavSkip)){st.sbFavSkip=ms;migrated=true;}}
+    });
     if(migrated)persistBuilds();
     return "loaded";
   }
@@ -1602,14 +1609,14 @@ function guideChoiceValue(c){
 // stateless gesture (the position IS the answer), so leftovers drift to the top slice
 // and take E4 flags exactly as D118(g) requires. `place` remembers which slot of a
 // section the next placement fills; it is module state and resets with the walk.
-let GUIDE={on:false,aside:false,desc:false,reverse:false,cur:null,pane:"stage",place:{}};
+let GUIDE={on:false,aside:false,desc:false,reverse:false,cur:null,curSec:null,pane:"stage",place:{}};
 const guideKey=s=>(s&&s.key)||"";
 const guideSecKey=sec=>sec.step+"#"+sec.id;
 function openGuide(desc,reverse){ GUIDE.on=true; GUIDE.aside=false; GUIDE.pane="stage";
   GUIDE.desc=!!desc; GUIDE.reverse=!!reverse;
-  GUIDE.cur=null; GUIDE.place={}; GC.open=null; closeGpick(); render(); }
+  GUIDE.cur=null; GUIDE.curSec=null; GUIDE.place={}; GC.open=null; closeGpick(); render(); }
 function closeGuide(){ if(!GUIDE.on)return; GUIDE.on=false; GUIDE.aside=false;
-  GUIDE.reverse=false; GUIDE.cur=null; GUIDE.place={}; GC.open=null; closeGpick(); render(); }
+  GUIDE.reverse=false; GUIDE.cur=null; GUIDE.curSec=null; GUIDE.place={}; GC.open=null; closeGpick(); render(); }
 // the shared entry for an EXISTING build (F3 · D118(i)): EVERY entry goes straight into
 // the walk, at the step D118(j)'s stateless resume computes — the "which walk?" screen a
 // ready build used to hit is gone (an entry is not a decision). The DOWN walk is still
@@ -1680,8 +1687,14 @@ function guidePlace(sec,k,at){
 // The rule now: the shared `toggle` behaves the same inside a walk as outside it.
 // jump the walk to a step: point the view at its level (slice editing, D115(d)), remember
 // it as current, and let the chain fall back to opening the CURRENT level (D130(a)).
-function guideGo(s){
-  GUIDE.cur=guideKey(s); GC.open=null;
+// `sec` is the SECTION the click actually landed on, when the caller knows it (the rail
+// button is one per section, D125's clamp reasoning is per-section) — carried through so
+// `guideSync` can tell "the reader asked for THIS section" from "resolve me a step" and
+// skip the forward-clamp for a trade, which is positional and needs no clamp (D158(m)),
+// exactly as reverse placement already didn't. A caller with no section (Next/Back/Skip,
+// a plain step jump) clears it, so the clamp still guards every ordinary forward pick.
+function guideGo(s,sec){
+  GUIDE.cur=guideKey(s); GUIDE.curSec=(sec&&sec.kind)||null; GC.open=null;
   const top=topCharLevel();
   setPreview(s.lv>=top?null:s.lv);      // renders; the chain re-draws with cur set
 }
@@ -1713,8 +1726,12 @@ function guideSync(){
   // (D115(b,h)), so a section whose range starts past what the row holds cannot be
   // answered where it shows (the take would fall short and the cap would lie, D125). The
   // walk clamps to the STEP that owns the landing slot, so the rail highlights the step
-  // the note describes; reverse placement is positional and needs no clamp.
-  if(!GUIDE.reverse&&GUIDE.cur){
+  // the note describes; reverse placement is positional and needs no clamp — and neither
+  // does a trade (D158(m)): the reader clicked the swap section directly (carried through
+  // by `guideGo`'s second argument), a trade replaces a SPECIFIC existing pick rather than
+  // landing in the row's first open slot, and clamping away from the step they clicked
+  // stranded them on an unrelated pick section mid-trade.
+  if(!GUIDE.reverse&&GUIDE.curSec!=="swap"&&GUIDE.cur){
     const c=steps.find(x=>x.key===GUIDE.cur); let best=null;
     (c?c.sections:[]).forEach(sec=>{
       if(sec.kind!=="pick"||sec.done)return;
@@ -1995,7 +2012,7 @@ function renderGuideChain(steps,cur){
         b.append(stx);
         // a nested action stops its click: the jump re-renders this very column, and a
         // bubbling event would land on the freshly-attached card handler
-        b.onclick=e=>{e.stopPropagation(); GUIDE.pane="stage"; guideGo(st);};
+        b.onclick=e=>{e.stopPropagation(); GUIDE.pane="stage"; guideGo(st,sec);};
         list.append(b);
         if(isCur&&!curEl)curEl=b;
       }));
@@ -2818,7 +2835,6 @@ const CSRC_UNITS=[["lr","per long rest","/LR"],["sr","per short rest","/SR"],
                   // cast it"); every other unit here recharges, so there was no way to say it.
                   ["total","in total","total"],
                   ["will","at will","at will"]];
-const csrcUnitShort=u=>((CSRC_UNITS.find(x=>x[0]===u)||[])[2])||u;
 const CSRC_MODES=[["innate","cast without preparing"],["always","always prepared"],
                   ["list","added to my spell list"]];
 function csrcCadence(e){ if(e.unit==="will")return "at will";
@@ -3302,7 +3318,16 @@ function renderChoices(){
   const card=$("#choicesCard"), body=$("#choicesBody"); body.innerHTML="";
   const ch=R.choices;
   card.classList.toggle("hidden",!ch.length);
-  const pending=ch.filter(c=>c.type==="pick"&&!c.optional&&(state.choices[c.id]||[]).length<c.count).length;
+  // D158(e): "pending" is everything unanswered, not just an unfilled pick — an option/ability
+  // choice left on its default (`!(c.id in state.choices)`, the same test `resolveGrants`
+  // itself uses to fall back — app.js ~698/755) is unanswered too, and so is a due subclass
+  // slot (`buildHealth`'s own "subclass" finding, the SAME predicate the level chip and the
+  // timeline already read). Without these the chip could read "all set" while the level chip
+  // carried a warning and the timeline printed "Subclass — not chosen" (B1-07).
+  const pendingPicks=ch.filter(c=>c.type==="pick"&&!c.optional&&(state.choices[c.id]||[]).length<c.count).length;
+  const pendingDefaults=ch.filter(c=>(c.type==="option"||c.type==="ability")&&!(c.id in state.choices)).length;
+  const pendingSubclass=((R.health&&R.health.findings)||[]).filter(h=>h.kind==="subclass").length;
+  const pending=pendingPicks+pendingDefaults+pendingSubclass;
   $("#choicesChip").textContent = ch.length? (pending?`${pending} pending`:"all set"):"";
   // group by the entity that granted them, in first-seen order (D30)
   const groups=[]; const byId=new Map();
@@ -4374,13 +4399,6 @@ function csrcSyncSummary(){const b=$("#csrcSummary"); if(!b)return;
   // an empty source has nothing to reflect back, so the accent frame would be pointing at a
   // placeholder — it earns its colour only once there is something to describe
   b.classList.toggle("empty",!(CSRC.spells||[]).length);}
-// a one-of chip row (the cbrow pattern, but single-select)
-function buildToggleRowSingle(box,pairs,cur,cb){
-  box.innerHTML="";
-  pairs.forEach(([v,t])=>{const b=el("button","cbtn"+(v===cur?" on":""),t);
-    b.onclick=()=>{[...box.children].forEach(x=>x.classList.remove("on"));b.classList.add("on");cb(v);};
-    box.append(b);});
-}
 // D94: a row carries ONE control inline — the one this mode actually spends — and folds the
 // rare per-spell bit (cast at a fixed level) behind its own caret. The old row showed the
 // level dropdown on every spell, always, though almost nothing uses it.
@@ -5144,15 +5162,32 @@ async function stageZip(file){const rep=$("#importReport");
     entries.forEach(e=>IMPORT_STAGE.push(e));rep.textContent="";renderImportStage();scheduleBuild();}
   catch(e){rep.innerHTML="Couldn’t read <b>"+esc(file.name)+"</b>: "+esc(e.message||String(e))
       +(file.size>64*1024*1024?ZIP_TOOBIG:"");}}
-function stageFiles(fileList){[...fileList].forEach(file=>{
+function stageFiles(fileList){
+  const jsonFiles=[];
+  [...fileList].forEach(file=>{
     if(/\.zip$/i.test(file.name)){stageZip(file);return;}
+    jsonFiles.push(file);});
+  if(!jsonFiles.length)return;
+  const SX=window.SB_extract;
+  const readOne=file=>new Promise(resolve=>{
     const rd=new FileReader();
-    rd.onload=()=>{try{const j=JSON.parse(rd.result);
+    rd.onload=()=>{try{resolve({name:file.name,json:JSON.parse(rd.result)});}
+      catch(e){resolve({name:file.name,error:true});}};
+    rd.onerror=()=>resolve({name:file.name,error:true});
+    rd.readAsText(file);});
+  // same contract as unzipJsonFiles/webFetchAll/stageScanBooks: reset FORM_REFS and sort by
+  // readOrder BEFORE slimJson runs, so a feature file's "forms" prose registers a familiar's
+  // carried monster before a bestiary file is slimmed — reading files in parallel and slimming
+  // each independently (the old shape) raced on I/O completion order and silently dropped
+  // dependent monster records when a bestiary's onload won (C3-01/C2-04).
+  Promise.all(jsonFiles.map(readOne)).then(results=>{
+    results.sort((a,b)=>SX.readOrder(a.name)-SX.readOrder(b.name));
+    if(SX&&SX.resetFormRefs)SX.resetFormRefs();
+    results.forEach(r=>{
+      if(r.error){IMPORT_STAGE.push({name:r.name,error:true});return;}
       // a bestiary file is mostly monsters this app never uses — slim it before staging
-      IMPORT_STAGE.push({name:file.name,json:(window.SB_extract&&window.SB_extract.slimJson)?window.SB_extract.slimJson(j):j});
-    }catch(e){IMPORT_STAGE.push({name:file.name,error:true});}renderImportStage();scheduleBuild();};
-    rd.onerror=()=>{IMPORT_STAGE.push({name:file.name,error:true});renderImportStage();scheduleBuild();};
-    rd.readAsText(file);});}
+      IMPORT_STAGE.push({name:r.name,json:(SX&&SX.slimJson)?SX.slimJson(r.json):r.json});});
+    renderImportStage();scheduleBuild();});}
 function importSummary(r){return `${r.spells} spell${r.spells===1?"":"s"} · ${r.classes} class${r.classes===1?"":"es"} · ${r.subclasses} subclass${r.subclasses===1?"":"es"} · ${r.feats} feat${r.feats===1?"":"s"} · ${r.species} species`
   // Warn on the real symptom — spells no class can reach — not on a missing file. A brew
   // carries its own class access inline, so it needs no lookup and must not be told it does.
@@ -5706,9 +5741,13 @@ async function applyPlan(rep,refreshed){
   const nb=Object.keys(out.sources).length;
   const head=refreshed?`Re-imported ${nb} book${nb===1?"":"s"} with parser v${window.__VERSION__||"dev"}.`
     :`<b style="color:var(--good)">Added.</b> ${nb} book${nb===1?"":"s"} ·`;
+  // pluralise the same way importSummary does — "1 spells"/"1 classes" read as a typo,
+  // not a count, and this sentence and that one describe the same kind of report
+  const nSp=out.spells.length,nCl=out.classes.length,nSc=out.subclasses.length,
+    nFt=out.feats.length,nRc=out.races.length;
   rep.innerHTML=(refreshed?`<b style="color:var(--good)">${head}</b> `:head+" ")
-    +`${out.spells.length} spells · ${out.classes.length} classes · ${out.subclasses.length} subclasses · `
-    +`${out.feats.length} feats · ${out.races.length} species.`+(refreshed?"":" It is in the list below.");
+    +`${nSp} spell${nSp===1?"":"s"} · ${nCl} class${nCl===1?"":"es"} · ${nSc} subclass${nSc===1?"":"es"} · `
+    +`${nFt} feat${nFt===1?"":"s"} · ${nRc} species.`+(refreshed?"":" It is in the list below.");
   return null;
 }
 // ── Refresh imported data (D111 · D129) ────────────────────────────────────────
@@ -6197,7 +6236,7 @@ function renderTable(){
   const span=cols.length;
 
   let lastOuter=null,lastLevel=null,groupN=0;
-  rows.forEach(row=>{const {sp,type,recharge,sel}=row; const src=row.src;
+  rows.forEach(row=>{const {sp,sel}=row;
     if(outer){const ok=outerKey(row); if(ok!==lastOuter){lastOuter=ok;lastLevel=null;
       const gr=el("tr","grouphdr outer");const td=el("td");td.colSpan=span;
       if(g==="ability"){td.innerHTML=`<span class="abname ${row.ability||""}">${esc(outerLabel(row))}</span>`;}
@@ -7886,7 +7925,16 @@ function buildCreatures(sp){
 // prints 65 stat blocks; marking the two you take turns the appendix into a usable sheet.
 // It lives in the BUILD — a chosen familiar belongs to a character and travels with an
 // export, exactly like a custom source (D55).
-const favKey=sp=>key(sp.name,sp.source);
+// D158(m): edition-tolerant — a mark made against one printing ("Find Familiar|XPHB") has
+// to be SEEN when the other printing is what `grantRec()` hands back ("Find Familiar|PHB"),
+// same reason `sameSpellLine`/`spellDedupeId` already collapse editions everywhere else
+// (D19). Keyed on the name alone; `sbFavKeyMigrate` below folds any pre-D158 `name|source`
+// key forward onto this shape the first time a stored build is loaded.
+const favKey=sp=>spellDedupeId(sp);
+// old shape: "Find Familiar|XPHB" (favKey before D158(m)). New shape: "find familiar"
+// (spellDedupeId — no "|", already lowercase). Idempotent either way: an already-migrated
+// key has no "|" and passes through unchanged.
+const sbFavKeyMigrate=k=>{const p=String(k).split("|");return (p.length>1?p[0]:k).trim().toLowerCase();};
 const favsFor=sp=>((state.sbFav||{})[favKey(sp)])||[];
 function toggleFav(sp,ck){
   if(!state.sbFav)state.sbFav={};
@@ -8366,8 +8414,6 @@ function entTipHTML(it,kind){
 // stays shared — box, title, book tag, subtitle — and the BODY is per kind, because the
 // five answer different questions: a class is a contract (traits, progression, features),
 // a feat is a benefit list behind a requirement, a species and an invocation are prose.
-const ABIL_FULL={str:"Strength",dex:"Dexterity",con:"Constitution",
-  int:"Intelligence",wis:"Wisdom",cha:"Charisma"};
 // D148: an ability is always a coloured chip — the `--ab-*` tokens D142(b) already solved
 // to 5.3:1 in both themes — never a bare word, wherever it is a FACT rather than prose.
 const abChips=(list)=>(list||[]).map(a=>abChip(a)).join(" ");
@@ -8852,7 +8898,6 @@ const isFeatFS=f=>(f.category||"").startsWith("FS");
 const isEpicBoon=f=>f.category==="EB";   // gated: only via the level-19 Epic Boon feature
 const featSlot=f=>isEpicBoon(f)?"epic":isFeatFS(f)?"fs"
   :GENERAL_CATS.has(f.category||"")?"general":"origin";
-const isOriginFeat=f=>featSlot(f)==="origin";
 const featCatId=f=>String((f&&f.category)||"G");
 // `catName` comes from the digest (a brew's `_meta.featCategories`); an import made before
 // D84 has none, so the known table and then the raw code stand in

@@ -43,10 +43,19 @@ def main():
     else:
         patch += 1
     new = f"{major}.{minor}.{patch}"
+    # C3-02: prove the tree builds clean BEFORE VERSION (or data/data.js) ever changes.
+    # build.py's own asserts (the inline-marker match, the </script/</style escaping
+    # guards) test the checked-in SOURCE, not the version number, so a dry run against the
+    # still-current VERSION fails on exactly the same things a run against the new one
+    # would. Writing VERSION first and finding out only afterward left it bumped with
+    # dist/docs (and sometimes data/data.js — build.py writes that before its later
+    # asserts) never regenerated to match: the "a version nothing was built with lies in
+    # the footer" case, one layer earlier than "nothing was bumped" implied.
+    subprocess.run([sys.executable, os.path.join(ROOT, "build.py")], check=True)
     with open(PATH, "w", encoding="utf-8") as f:
         f.write(new + "\n")
     print(f"{cur} -> {new}")
-    # a version nothing was built with is a version that lies in the footer
+    # the real build, now stamped with the new version
     subprocess.run([sys.executable, os.path.join(ROOT, "build.py")], check=True)
 
 if __name__ == "__main__":

@@ -232,5 +232,49 @@ const gkey={classes:e=>e.name+"|"+e.source,
       casters(py)+"/"+fielded(py));
   cmp("caster subclasses (pinned count)",casters(digest),6);
 }
+// ── digest.sources: the book registry (D33/D92/D113), folded in from cparity-sources.js
+// (D158(k)) — never diffed above. extract.js's digest carries NO parser/parsedAt/origin
+// stamps (those are app.js-side, added at Apply — D138/D155(e)), so this compares only the
+// fields BOTH extractors actually derive: name, group, counts.
+{
+  const canon=v=>{ if(Array.isArray(v))return "["+v.map(x=>x===undefined?"null":canon(x)).join(",")+"]";
+    if(v&&typeof v==="object")return "{"+Object.keys(v).filter(k=>v[k]!==undefined).sort()
+      .map(k=>JSON.stringify(k)+":"+canon(v[k])).join(",")+"}";
+    return JSON.stringify(v); };
+  cmp("sources: book count",Object.keys(digest.sources||{}).length,Object.keys(py.sources||{}).length);
+  const strip=s=>({name:s.name,group:s.group,counts:s.counts});
+  const jm={},pm={};
+  Object.entries(digest.sources||{}).forEach(([k,v])=>{jm[k]=canon(strip(v));});
+  Object.entries(py.sources||{}).forEach(([k,v])=>{pm[k]=canon(strip(v));});
+  const shared=Object.keys(jm).filter(k=>k in pm);
+  const diff=shared.filter(k=>jm[k]!==pm[k]);
+  cmp(`sources: whole-record diff (of ${shared.length} shared)`,diff.length,0);
+  if(diff.length)diff.slice(0,5).forEach(k=>console.log("     e.g.",k,"\n       js:",jm[k],"\n       py:",pm[k]));
+  const jOnly=Object.keys(jm).filter(k=>!(k in pm)), pOnly=Object.keys(pm).filter(k=>!(k in jm));
+  cmp("sources: records only one side has",jOnly.length+pOnly.length,0);
+  if(jOnly.length)console.log("     js-only:",jOnly.join(", "));
+  if(pOnly.length)console.log("     py-only:",pOnly.join(", "));
+}
+// ── FULL_MC / PACT: a THIRD copy lives in app.js (D93 comment: "Slot tables are rules, not
+// content, so they live here"). extract.js's digest never carries them at all; app.js falls
+// back to its own hardcoded constants whenever the active digest layer doesn't supply them
+// (assembleData: `base.fullMc||FULL_MC`). If extract.py's copy and app.js's copy ever drift,
+// nothing catches it — cparity.js never looks at app.js, and app.js's own constants never
+// touch data.json. This pulls app.js's two consts out by source text and diffs them against
+// extract.py's data.json output, which is the only other place these numbers are typed in.
+{
+  const appjs=fs.readFileSync("src/app.js","utf8");
+  const grab=name=>{
+    const m=appjs.match(new RegExp("const "+name+"=(\\[[\\s\\S]*?\\]);"));
+    if(!m)return null;
+    // eslint-disable-next-line no-eval
+    return eval(m[1]);
+  };
+  const appFullMc=grab("FULL_MC"), appPact=grab("PACT");
+  cmp("app.js FULL_MC found",!!appFullMc,true);
+  cmp("app.js PACT found",!!appPact,true);
+  if(appFullMc)cmp("FULL_MC: app.js vs extract.py data.json",JSON.stringify(appFullMc),JSON.stringify(py.fullMc));
+  if(appPact)cmp("PACT: app.js vs extract.py data.json",JSON.stringify(appPact),JSON.stringify(py.pact));
+}
 console.log("report:",JSON.stringify(report).slice(0,160));
 process.exit(fail?1:0);

@@ -1183,8 +1183,6 @@ for f in glob.glob(os.path.join(MIRROR, "class", "class-*.json")):
         cp = c.get("casterProgression")
         prepared = c.get("preparedSpellsProgression")
         known = c.get("spellsKnownProgression")
-        count_type = ("fixed" if prepared else "known" if known else
-                      ("formula" if cp else None))
         change = c.get("preparedSpellsChange")   # "level" (static) | "restLong" (daily)
         static = (change == "level") or (bool(known) and not prepared)
         classes.append({
@@ -1196,7 +1194,6 @@ for f in glob.glob(os.path.join(MIRROR, "class", "class-*.json")):
             "srd": bool(c.get("srd52")),
             "ability": c.get("spellcastingAbility"),
             "static": bool(static and cp),      # only meaningful for casters
-            "countType": count_type,
             "subclassLevel": subclass_level(c),
             "cantrips": c.get("cantripProgression"),
             "prepared": prepared or known,      # the per-level count array
@@ -1612,7 +1609,6 @@ for ft in _featdata.get("feat", []):
                   "category": cat, "fsClass": fs_class,   # fighting-style feats attach to a class
                   "catName": feat_cat_name(cat, _featcats),  # what the picker calls this category
                   "srd": bool(ft.get("srd52")),
-                  "hasSpells": has_spells,               # non-spell feats are build-choice-only
                   "optFeatures": opt_progression(ft),    # Eldritch Adept, Metamagic Adept… (D28)
                   "repeatable": _repeatable(ft),         # Magic Initiate, Elemental Adept… (D135)
                   "featSlots": feat_progression(ft),     # a feature that hands you a feat slot (D135)
@@ -1646,7 +1642,6 @@ for o in (load(_optpath).get("optionalfeature", []) if os.path.exists(_optpath) 
                      "featSlots": feat_progression(o),   # Lessons of the First Ones → an Origin feat
                      "prereq": _prereq_text(o), "prereqs": _prereq_blocks(o),
                      "desc": entry_blocks(o.get("entries")),   # D147
-                     "hasSpells": has_spells,
                      "grants": parse_grants(o.get("additionalSpells")) if has_spells else empty_grants()})
     optfeats[-1]["grants"]["marks"] = parse_marks(o)
     _apply_own_note(optfeats[-1]["grants"], _own_note_blocks(o))

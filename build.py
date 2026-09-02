@@ -130,6 +130,11 @@ appjs = read("src", "app.js")
 extractjs = read("src", "extract.js")
 for nm, txt in (("app.js", appjs), ("extract.js", extractjs), ("styles.css", css)):
     assert "</script" not in txt.lower(), f"{nm} contains </script"
+# C3-03: styles.css is the one blob wrapped in <style>, not <script> — the </script guard
+# above is irrelevant to how IT is inlined, and nothing checked the tag that actually closes
+# it. A literal "</style" in a comment or a content: string would truncate the inlined sheet
+# and leak the rest of it as raw page text in dist/index.html and docs/index.html.
+assert "</style" not in css.lower(), "styles.css contains </style"
 html = sub_once(html, '<link rel="stylesheet" href="styles.css">',
                 "<style>\n" + css + "\n</style>")
 html = sub_once(html, '<script src="extract.js"></script>',

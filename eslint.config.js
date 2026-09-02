@@ -1,15 +1,23 @@
-// Flat config for the C1 audit (D157(e)). Correctness-only, on purpose: the brief is
-// no-undef, no-unused-vars, no-redeclare, eqeqeq — nothing stylistic (no indent/quotes/
-// semicolons/etc rules), because this is a hand-formatted, ultra-dense single file and a
-// style pass would drown three real rules in thousands of cosmetic diffs.
+// Flat config for the C1 audit (D157(e)), promoted to a gate at D158(k). Correctness-only,
+// on purpose: the brief is no-undef, no-unused-vars, no-redeclare, eqeqeq — nothing
+// stylistic (no indent/quotes/semicolons/etc rules), because this is a hand-formatted,
+// ultra-dense single file and a style pass would drown three real rules in thousands of
+// cosmetic diffs.
 //
-// eqeqeq runs in "smart" mode, not "always": measured on this codebase, "always" produces
-// 121 warnings in app.js and 18 in extract.js, and reading a sample shows the overwhelming
-// majority (116/121 in app.js) are `==null`/`!=null` — the standard idiom for "null or
-// undefined, either is fine here", not a bug. Switching to "smart" (which also allows
-// comparing two literals or a `typeof` result) drops app.js to ZERO eqeqeq findings and
-// extract.js to zero as well — the codebase's loose-equality usage is already careful and
-// idiomatic throughout; "always" would have been 100% noise on this file.
+// eqeqeq runs `["error","always",{null:"ignore"}]` (D158(k), amending C1's "smart"). V-C's
+// wave-2 verification read all 121 of "always"'s app.js findings (and 18 of extract.js's) by
+// hand: every one is `x==null`/`x!=null`, the standard idiom for "null or undefined, either
+// is fine here" — never a loose comparison of two other values. `{null:"ignore"}` expresses
+// that measured idiom exactly; "smart" would have additionally permitted two forms (literal-
+// to-literal, a `typeof` result) this codebase never actually uses, so it is looser than the
+// evidence calls for. Either setting scores zero findings today — the codebase's own usage
+// is already careful — but this is the tighter one to gate on.
+//
+// no-unused-vars carries `caughtErrorsIgnorePattern:"^[_e]$"` (D158(k)): ESLint 9 defaults
+// `caughtErrors:"all"`, so an unread `catch(e)`/`catch(_)` parameter — ordinary, deliberate
+// JS idiom, not a real dead local — accounted for 42 of app.js's 57 raw findings (V-C).
+// Ignoring exactly `_`/`e` cuts the noise without hiding a differently-named unused catch
+// param, which would still be worth a look.
 //
 // `src/app.js`, `src/extract.js` and `docs/sw.js` are plain (non-module) <script>s that
 // share ONE global scope at runtime (index.html loads data.js → extract.js → app.js in
@@ -50,9 +58,9 @@ module.exports = [
     },
     rules: {
       "no-undef": "error",
-      "no-unused-vars": "warn",
+      "no-unused-vars": ["error", { caughtErrorsIgnorePattern: "^[_e]$" }],
       "no-redeclare": "error",
-      eqeqeq: ["warn", "smart"],
+      eqeqeq: ["error", "always", { null: "ignore" }],
     },
   },
   {
@@ -64,9 +72,9 @@ module.exports = [
     },
     rules: {
       "no-undef": "error",
-      "no-unused-vars": "warn",
+      "no-unused-vars": ["error", { caughtErrorsIgnorePattern: "^[_e]$" }],
       "no-redeclare": "error",
-      eqeqeq: ["warn", "smart"],
+      eqeqeq: ["error", "always", { null: "ignore" }],
     },
   },
   {
@@ -78,9 +86,9 @@ module.exports = [
     },
     rules: {
       "no-undef": "error",
-      "no-unused-vars": "warn",
+      "no-unused-vars": ["error", { caughtErrorsIgnorePattern: "^[_e]$" }],
       "no-redeclare": "error",
-      eqeqeq: ["warn", "smart"],
+      eqeqeq: ["error", "always", { null: "ignore" }],
     },
   },
 ];

@@ -898,7 +898,6 @@ function buildDigest(files){
           // explicit nulls, never absent keys — extract.py writes None for these and the
           // whole-record parity diff reads absent ≠ null as drift
           caster:cp??null,ability:c.spellcastingAbility??null,static:!!(isStatic&&cp),
-          countType:prepared?"fixed":known?"known":(cp?"formula":null),
           subclassLevel:subclassLevel(c)??null,cantrips:c.cantripProgression??null,prepared:(prepared||known)??null,
           spellbook:c.spellsKnownProgressionFixed??null,slots:slotTable(c.classTableGroups)??null,
           grants:parseGrants(c.additionalSpells,clsfeatIdx[c.name+"|"+(c.source||"")]),grantsFightingStyle:null,bonusChoices:[],
@@ -934,7 +933,7 @@ function buildDigest(files){
       (j.feat||[]).forEach(ft=>{if(!validName(ft)){report.errors.push(f.name+": unnamed feat skipped");return;}
         const cat=ft.category||"G";const hasSpells="additionalSpells"in ft;
         feats.push({name:ft.name,source:ft.source||"",group:bgroup(ft.source||""),book:bname(ft.source||""),reprinted:reprinted(ft),supersededBy:supersededBy(ft),page:ft.page??null,
-          category:cat,fsClass:({"FS:R":"Ranger","FS:P":"Paladin","FS":"Fighter"})[cat]||null,hasSpells,
+          category:cat,fsClass:({"FS:R":"Ranger","FS:P":"Paladin","FS":"Fighter"})[cat]||null,
           catName:featCatName(cat,featCats),      // what the picker calls this category
           optFeatures:optProgression(ft),prereq:prereqText(ft,cat,featCats),prereqs:prereqBlocks(ft,cat,featCats),
           desc:entryBlocks(ft.entries),            // D147: what the feat DOES
@@ -950,7 +949,6 @@ function buildDigest(files){
         optfeats.push({name:o.name,source:o.source||"",group:bgroup(o.source||""),book:bname(o.source||""),
           reprinted:reprinted(o),supersededBy:supersededBy(o),page:o.page??null,types:o.featureType||[],prereq:prereqText(o),prereqs:prereqBlocks(o),
           desc:entryBlocks(o.entries),             // D147
-          hasSpells,
           repeatable:repeatableFlag(o),            // "You can gain this invocation more than once"
           featSlots:featProgression(o),            // Lessons of the First Ones → an Origin feat
           grants:hasSpells?parseGrants(o.additionalSpells):{fixed:[],picks:[],expansions:[],optionGroups:[],ability:null},
@@ -1188,7 +1186,6 @@ async function unzipJsonFiles(buf,onFile){
   // feature adds to a familiar spell are named (Pact of the Chain's Imp is a CR 1 fiend
   // and survives no other test). Ordering the queue costs nothing; a second pass over the
   // archive would cost another full inflate.
-  const featureFirst=n=>/^(optionalfeatures|feats)/i.test(String(n).split("/").pop())?0:1;
   resetFormRefs();
   const wanted=entries.filter(e=>zipWanted(e.name))
     .sort((a,b)=>readOrder(a.name)-readOrder(b.name)),out=[];

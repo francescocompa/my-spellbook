@@ -154,3 +154,14 @@ for (const name of knownOrphans) {
 
 console.log(`\nTOTAL dead (zero refs): ${trulyDead.length}`);
 console.log(`TOTAL string-only wired: ${stringWired.length}`);
+
+// D158(k): gate on this sweep. `folderForget`/`clearImport` are the two orphans PLAN.md's
+// K4 task names on purpose — K1/K2 already dropped their only callers and K4 is the one
+// that removes the functions themselves (see PLAN.md's K4 bullet) — so they are expected
+// dead until that lands, not a regression this gate should block on. Anything else in the
+// dead list is unexpected and fails the gate.
+const unexpectedDead = trulyDead.filter((r) => !knownOrphans.includes(r.name));
+if (unexpectedDead.length) {
+  console.log(`\nFAIL: ${unexpectedDead.length} unexpected dead function(s) — ${unexpectedDead.map((r) => r.name).join(", ")}`);
+}
+process.exit(unexpectedDead.length ? 1 : 0);
