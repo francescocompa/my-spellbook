@@ -2146,6 +2146,10 @@ function renderGuideStage(steps,cur,rowOf){
     ex.onclick=closeGuide; nav.append(ex);
     st.append(nav); stagePickMount(st); return;
   }
+  // D162: a picker hosted for a step you have since walked away from is stale — the list
+  // below would answer a question the card above is no longer asking. Close it.
+  if(STAGE_PICK&&STAGE_PICK.step!==GUIDE.cur){ if(GPICK)closeGpick(); else closeEntityPicker(); }
+  const inline=!!STAGE_PICK;   // the picker is IN the stage, so the card drops its openers
   const rw=cur.row!=null?rowOf.get(cur.row):null, rc=rw&&CLS_BY[rw.clsKey];
   // answered AND sound is what earns the green: a step holding a pick that can't sit
   // where it does is settled, not right, and the chain is already saying so in red
@@ -2163,10 +2167,28 @@ function renderGuideStage(steps,cur,rowOf){
   // "— passing on it is an answer", was the explanation, and went with D131(c).
   card.append(el("p","ghsub",["L"+cur.lv, rc?rc.name:null, cur.sub||null,
       cur.optional?"optional":null].filter(Boolean).join(" · ")));
+  // D162: several sections, one inline list — the sections become a chip row (the guide's
+  // own `.gtchip`), the open one marked, so exactly one picker is on screen (D131(a)) and
+  // nothing repeats it. With one section there is nothing to switch between, so no row.
+  if(inline){
+    const secs=cur.sections.filter(x=>guideSecOpen(cur,x));
+    if(secs.length>1){
+      const row=el("div","gtchips gsecs");
+      secs.forEach(sec=>{
+        const on=stagePickIsFor(sec);
+        const c=el("button","gtchip"+(on?" on":""),sec.label);
+        if(sec.need)c.append(el("span","lv",(sec.have||0)+" / "+sec.need));
+        c.onclick=()=>{const f=guideSecOpen(cur,sec); if(f)f();};
+        row.append(c);});
+      card.append(row);
+    }
+  }
   let any=false;
-  cur.sections.forEach(sec=>{const bl=guideSecBlock(cur,sec,rowOf);
+  cur.sections.forEach(sec=>{const bl=guideSecBlock(cur,sec,rowOf,inline);
     if(bl){card.append(bl);any=true;}});
-  if(!any)card.append(el("div","grhint","Nothing to answer here. Skip or Next moves the walk along."));
+  // D162: with the list inline, every section can legitimately draw nothing — its chip and
+  // the list below carry it. Saying "nothing to answer here" over an open picker is a lie.
+  if(!any&&!inline)card.append(el("div","grhint","Nothing to answer here. Skip or Next moves the walk along."));
   st.append(card);
   // Back · Skip · Next walk the chain; Next seeks the next open decision. Back is
   // HIDDEN where there is nowhere to go back to (D126(i)) — a dead control is worse
@@ -2217,12 +2239,10 @@ function renderGuideStage(steps,cur,rowOf){
         guideAdvance();
       };
   nav.append(next);
-  st.append(nav);
   // What Next is about to WRITE is not prose — it warns about the action in front of you
   // (D88 keeps exactly that), and it names the specific value, which no other surface
   // does. Trimmed to that: the "Skip moves on without it" half was the rule, and the rule
   // is in the header's `?` now (D131(c)).
-  if(pend)st.append(el("p","gend","Next locks "+pend.what+"."));
   if(term){
     // the step you are STANDING on is not "behind you" — counting it there would read as
     // one more thing to go back for than there is
@@ -2230,13 +2250,20 @@ function renderGuideStage(steps,cur,rowOf){
     const openN=rest.filter(x=>x.status==="open").length;
     const skipN=rest.filter(x=>x.status==="skipped").length;
     const left=[openN?openN+" still open":null,skipN?skipN+" skipped":null].filter(Boolean).join(" and ");
-    st.append(el("p","gend",left
+    // Francesco, 2026-09-02: *"done and next session overlap"* — the end-of-walk sentence
+    // sat BELOW the nav while the card above still showed a step ("Next level"), so two
+    // surfaces claimed the same moment with the buttons between them. It is one card now:
+    // the sentence belongs to the step it is about.
+    card.append(el("p","gend",left
       ? "That is the end of the walk, and nothing is open ahead of it. "+left
         +" behind you: the button takes you to the first, or click any step in the chain."
       : doneN>=need.length
       ? "That is the end of the walk, and every decision this build carries is answered."
-      : "That is the end of the walk. This step is the last one still open, and its answer is on the card above."));
+      : "That is the end of the walk. This step is the last one still open, and its answer is above."));
   }
+  st.append(nav);
+  // What Next is about to WRITE stays with the button it describes, under it
+  if(pend)st.append(el("p","gend","Next locks "+pend.what+"."));
   stagePickMount(st);
 }
 // What Next would LOCK before it advances — Francesco, raw: *"If I click 'next' after a
@@ -2336,8 +2363,12 @@ const guideNoun=sec=>secIsCantrip(sec)?(sec.need>1?"cantrips":"a cantrip")
   :sec.need>1?"spells":"a spell";
 // one SECTION of the current step's card: what it asks, what it holds, and the control
 // that answers it. Returns null when the section has nothing to draw.
-function guideSecBlock(step,sec,rowOf){
+function guideSecBlock(step,sec,rowOf,inline){
   const multi=step.sections.length>1;
+  // D162: `inline` means the picker is open IN the stage, so the button that opens it is
+  // redundant — the list below IS the control. Everything else about the section still
+  // draws: its chips, its value, its errors. Below the guide's breakpoint `inline` is
+  // never true, and the buttons stay, because there the picker is a modal that needs one.
   const b=el("div","gsecb");
   const val=t=>el("div","gval",t);
   const hint=t=>el("div","grhint",t);
@@ -2378,13 +2409,15 @@ function guideSecBlock(step,sec,rowOf){
     // is not appended at all: `.gsecb` is a gapped column, so an empty flex child would
     // leave a hole where the chips used to be.
     if(chips.children.length)b.append(chips);
-    const noun=guideNoun(sec);
-    const btn=el("button","btn"+(sec.done?"":" on gbig"),
-      GUIDE.reverse&&sec.kind==="pick"?"Place picks here"
-      :sec.done?"Change":"Choose "+noun);
-    // each section opens its OWN picker, scoped to its own pool (D131(a))
-    btn.onclick=()=>openGpickSec(step,sec);
-    b.append(btn);
+    if(!inline){
+      const noun=guideNoun(sec);
+      const btn=el("button","btn"+(sec.done?"":" on gbig"),
+        GUIDE.reverse&&sec.kind==="pick"?"Place picks here"
+        :sec.done?"Change":"Choose "+noun);
+      // each section opens its OWN picker, scoped to its own pool (D131(a))
+      btn.onclick=()=>openGpickSec(step,sec);
+      b.append(btn);
+    }
     // the ILLEGAL-slot line stays: it is an error about the pick in front of you, and it
     // is the only place that says which way out there is (D131(c) keeps error states).
     // What went with D131(c) are the two notes that described the PICKER rather than the
@@ -2392,26 +2425,35 @@ function guideSecBlock(step,sec,rowOf){
     // the feature that granted them" — reference prose, now behind the header's `?`.
     if(sec.ill)b.append(hint("A spell here is above what the class could cast when this slot "
       +"arrived, and the chain marks it. Placing the pick that really was learned here is what clears it."));
-    return guideSecWrap(step,sec,b);
+    // with the list inline and the section on a chip, a block holding nothing at all is a
+    // gap in a gapped column, not a section — drop it
+    if(inline&&!b.children.length)return null;
+    return guideSecWrap(step,sec,b,inline);
   }
   if(sec.kind==="choice"){ b.append(choiceRow(sec.choice)); return guideSecWrap(step,sec,b); }
   if(sec.kind==="species"){
     if(sec.done&&!multi)b.append(val(sec.value));
-    const btn=el("button","btn"+(sec.done?"":" on gbig"),
-      sec.done?"Change the species":"Choose a species");
-    btn.onclick=()=>openEntityPicker("species"); b.append(btn);
-    return guideSecWrap(step,sec,b);
+    if(!inline){
+      const btn=el("button","btn"+(sec.done?"":" on gbig"),
+        sec.done?"Change the species":"Choose a species");
+      btn.onclick=()=>openEntityPicker("species"); b.append(btn);
+    }
+    if(inline&&!b.children.length)return null;
+    return guideSecWrap(step,sec,b,inline);
   }
   if(sec.kind==="feat"){
     if(sec.done&&!multi)b.append(val(sec.value));
-    const btn=el("button","btn"+(sec.done?"":" on gbig"),
-      sec.done?"Change the feat":"Choose a feat");
-    btn.onclick=()=>openEntityPicker("feat",
-      sec.slot==="epic"?"epic":sec.slot==="origin"?"origin":"general");
-    b.append(btn);
+    if(!inline){
+      const btn=el("button","btn"+(sec.done?"":" on gbig"),
+        sec.done?"Change the feat":"Choose a feat");
+      btn.onclick=()=>openEntityPicker("feat",
+        sec.slot==="epic"?"epic":sec.slot==="origin"?"origin":"general");
+      b.append(btn);
+    }
     // the ASI note is reference — how to express a choice this app deliberately does not
     // model — so it moved behind the header's `?` (D131(c) · D88)
-    return guideSecWrap(step,sec,b);
+    if(inline&&!b.children.length)return null;
+    return guideSecWrap(step,sec,b,inline);
   }
   if(sec.kind==="subclass"){
     if(sec.done&&!multi)b.append(val(sec.value));
@@ -2535,8 +2577,11 @@ function guideSecBlock(step,sec,rowOf){
 }
 // a section's frame: its own label and counter, but only where there is more than one
 // section to tell apart — a single-section step is already named by the card's header
-function guideSecWrap(step,sec,body){
+function guideSecWrap(step,sec,body,chipped){
   if(step.sections.length<2)return body;
+  // D162: a section shown as a CHIP already carries its label and its count, so drawing the
+  // section header underneath repeats it — the same redundancy the opener buttons had.
+  if(chipped)return body;
   const box=el("div","gsec");
   const h=el("div","gsech");
   h.append(el("span","gsecl",sec.label));
@@ -2668,7 +2713,7 @@ function stagePickTake(id){
   const use=box&&box.classList.contains("box")?box:($("#"+id)||{querySelector:()=>null}).querySelector(".box");
   if(!use)return false;
   if(STAGE_PICK&&STAGE_PICK.id!==id)stagePickPut();   // one picker at a time
-  STAGE_PICK={id,box:use};
+  STAGE_PICK={id,box:use,step:GUIDE.cur};
   use.classList.add("gpin");
   return true;
 }
@@ -2691,6 +2736,26 @@ function stagePickMount(st){
   // the stage element itself survives the rebuild, so this class has to be cleared too
   st.classList.toggle("haspick",!!STAGE_PICK);
   if(STAGE_PICK)st.append(STAGE_PICK.box);
+}
+// D162: with the picker inline, the card's opener BUTTON is redundant — the list is the
+// control. These two say which sections have a picker at all, and which one is currently
+// showing, so the card can drop the button that repeats it and a multi-section step can
+// offer its sections as chips instead of a stack of buttons.
+// `optfeat` is deliberately absent: its chooser is the app's own optional-feature picker
+// (D126(g)), a different modal that is not hosted, so its button stays a button.
+function guideSecOpen(step,sec){
+  if(!sec)return null;
+  if(sec.kind==="pick"||sec.kind==="cpick")return ()=>openGpickSec(step,sec);
+  if(sec.kind==="species")return ()=>openEntityPicker("species");
+  if(sec.kind==="feat")return ()=>openEntityPicker("feat",
+    sec.slot==="epic"?"epic":sec.slot==="origin"?"origin":"general");
+  return null;
+}
+function stagePickIsFor(sec){
+  if(!STAGE_PICK||!sec)return false;
+  if(STAGE_PICK.id==="gpickModal")return !!(GPICK&&GPICK.secId===sec.id);
+  if(!ENT)return false;
+  return (sec.kind==="species"&&ENT.kind==="species")||(sec.kind==="feat"&&ENT.kind==="feat");
 }
 function openGpick(spec){
   // every opener starts unfolded: this modal serves a different question each time, and a

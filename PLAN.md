@@ -212,8 +212,13 @@ D157 owns the charter, the agents, the rejected shapes — cite it. Reports land
     became the step's own WORK: the picker's box moves into the stage above the guide's
     breakpoint and stays a modal below it. Fill **12% → 68%**. `column-width` was tried and
     measured wrong (a 486px lineage group pushed the list off the right edge, `scrollWidth`
-    6880 in a 964 box); it ships as a grid with groups spanning. Mobile mockup `guide6.html`
-    kept for L5.6.
+    6880 in a 964 box). Mobile mockup `guide6.html` kept for L5.6.
+    **Reviewed and re-shipped as v1.5.21 (D162)** on his notes: the list REPLACES the opener
+    button (it was redundant beside an open picker), a multi-section step shows its sections as
+    chips and loses the duplicated section headers, **one column always** (D161(c) reversed),
+    capped at 720 and centred, and the end-of-walk sentence moved INSIDE the card — his "done
+    and next session overlap", two surfaces claiming the same moment with the nav between them.
+    Mockups `guide7`/`guide8` approved before implementation, as he asked.
   - [ ] **L5.5 · Copy the build as a level plan** to the clipboard, in the Character Ideas shape
     (A-03; `levelGains`/`levelCasting`/`timelinePicks` already derive it). Size S, format his. 🔶
   - [ ] **L5.6 · PWA install check + a mobile pass on the Pages build** (D158(r); A-08). His

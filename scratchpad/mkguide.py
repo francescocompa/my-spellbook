@@ -303,6 +303,72 @@ V6_STAGE = f"""<div class="gstage">
 
 VARIANTS += [("guide6", "6 \u00b7 mobile, picker in the stage", V6_CSS, V6_STAGE)]
 
+# ── 7 and 8 · the reviewed version (Francesco, 2026-09-02) ─────────────────
+# Three notes on what shipped as v1.5.20:
+#   · "the picker should essentially replace the choose buttons, right now they are redundant"
+#   · "never set the picker on more than one column"
+#   · the guided builder has visual bugs
+# So: the card keeps the step's HEADER and its answers so far, and the button that used to open
+# the picker is gone — the list IS the control. One column, capped and centred so the space
+# around it reads as composition rather than a missing panel (variant 1's lesson, applied to a
+# stage that now carries something). Multi-section steps get a chip row (`.gtchips`, the guide's
+# own control) instead of one button per section — 8 shows that case.
+PICKED_CHIP = ('<span class="gchip">{name}<button class="gx" aria-label="Remove">'
+               '<span class="ico"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" '
+               'stroke-width="1.5" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"></path>'
+               '</svg></span></button></span>')
+
+V7_CSS = """
+.gstage{display:flex;flex-direction:column;align-items:center;padding:18px 26px 18px;overflow:hidden}
+.gstep-head{width:min(720px,100%)}
+.gstep-head h2{font-size:19px;margin:0}
+.gstep-head .ghsub{margin:2px 0 0}
+.gpickin{width:min(720px,100%);flex:1;min-height:0;display:flex;flex-direction:column;margin-top:12px;
+  border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);overflow:hidden}
+.gpickin .pickbar{padding:10px 12px;border-bottom:1px solid var(--line);margin:0}
+.gpickin .entlist{flex:1;min-height:0;overflow-y:auto;padding:4px 6px}
+.gnav{width:min(720px,100%);margin-top:14px;max-width:none}
+"""
+V7_STAGE = f"""<div class="gstage">
+  <div class="gstep-head"><h2>Species</h2><p class="ghsub">L1 · 95 species, 12 grant spells</p></div>
+  <div class="gpickin">{PICKBAR}<div class="entlist">{ROWS}</div></div>
+  {NAV}
+</div>"""
+
+# 8 · the same, for a step that carries TWO sections. One button per section was the old
+# answer; here the sections are a chip row and the list below is whichever chip is on, so
+# there is still exactly one picker on screen (D131(a)) and no button that repeats it.
+SPELLS = [("Alarm","1st · Abjuration · 1 minute · 30 feet"),("Burning Hands","1st · Evocation · Action · Self (15 ft cone)"),
+          ("Charm Person","1st · Enchantment · Action · 30 feet"),("Chromatic Orb","1st · Evocation · Action · 90 feet"),
+          ("Color Spray","1st · Illusion · Action · Self (15 ft cone)"),("Comprehend Languages","1st · Divination · Action · Self"),
+          ("Detect Magic","1st · Divination · Action · Self (30 ft sphere)"),("Disguise Self","1st · Illusion · Action · Self"),
+          ("Expeditious Retreat","1st · Transmutation · Bonus action · Self"),("False Life","1st · Necromancy · Action · Self"),
+          ("Feather Fall","1st · Transmutation · Reaction · 60 feet"),("Find Familiar","1st · Conjuration · 1 hour · 10 feet")]
+SPROWS = "".join(f'<div class="sp"><div class="entmain"><div class="entname">'
+                 f'<span class="entnm nmlink">{n}</span></div><div class="entprev">{m}</div></div>'
+                 f'<button class="tk ico-only" aria-label="Take it">{PLUS}</button></div>' for n, m in SPELLS)
+V8_CSS = V7_CSS + """
+.gsecs{width:min(720px,100%);margin-top:10px}
+.gpicked{width:min(720px,100%);display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.sp{display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid var(--hairline)}
+.sp .entmain{flex:1;min-width:0}
+"""
+V8_STAGE = f"""<div class="gstage">
+  <div class="gstep-head"><h2>Spellcasting</h2><p class="ghsub">L1 · Wizard</p></div>
+  <div class="gsecs gtchips">
+    <button class="gtchip on">Cantrips <span class="lv">0 / 3</span></button>
+    <button class="gtchip">Spellbook spells <span class="lv">2 / 6</span></button>
+  </div>
+  <div class="gpicked">{PICKED_CHIP.format(name="Fire Bolt")}{PICKED_CHIP.format(name="Mage Hand")}</div>
+  <div class="gpickin">{PICKBAR.replace("95 species","37 spells")}<div class="entlist">{SPROWS}</div></div>
+  {NAV}
+</div>"""
+
+VARIANTS += [
+    ("guide7", "7 \u00b7 reviewed: the list replaces the button, one column", V7_CSS, V7_STAGE),
+    ("guide8", "8 \u00b7 reviewed: a two-section step", V8_CSS, V8_STAGE),
+]
+
 os.makedirs(OUT, exist_ok=True)
 for name, title, css, stage in VARIANTS:
     for theme, suffix in (("dark", ""), ("light", "-light")):

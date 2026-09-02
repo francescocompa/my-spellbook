@@ -2455,6 +2455,45 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
   - **Enforced by:** `stagePickTake`/`stagePickMount`/`stagePickDemote` in `src/app.js`, the
     `.gstage.haspick` / `.box.gpin` rules in `styles.css`. **Affects:** PLAN.md (L5.4), D126(f).
 
+- **D162 (2026-09-02) DECIDED — the reviewed in-stage picker: the list REPLACES the button, in
+  one column, and the end of a walk is one card.** Francesco's notes on v1.5.20, verbatim:
+  *"the current implementation of the picker inside the guided builder doesn't make sense. The
+  picker should essentially replace the choose buttons, right now the choose buttons are
+  redundant"* · *"done and next session overlap"* · *"the UI of the guided builder has some
+  visual bugs"* · *"never set the picker on more than one column"* · *"make a mockup with a
+  reviewed version before implementing it"*. Mockups `guide7`/`guide8`, approved before a line
+  was changed. Amends **D161(c)**.
+  - **(a) The list is the control.** While the picker is inline, the card drops the button that
+    opens it — a control that repeats what is already open. Below the breakpoint the buttons
+    stay, because there the picker is a modal that needs one.
+  - **(b) A multi-section step shows its sections as CHIPS** (`.gtchips`, the guide's own
+    control), the open one marked, and the section HEADERS go with the buttons: a chip already
+    carries the label and the count, so `guideSecWrap` drawing them again underneath was the
+    same redundancy one level down. Exactly one picker stays on screen (D131(a)).
+    *Rejected:* one button per section (the redundancy he named); stacking every section's list.
+  - **(c) One column, always.** D161(c)'s multi-column list is reversed: *"never set the picker
+    on more than one column"*. A picker is a list you read down; three columns of it is a table
+    of contents. The column is capped at 720 and centred, so the space around it is composition
+    rather than a missing panel — variant 1's lesson, applied to a stage that now carries the
+    work. The grid rules, the group-spanning rule and the `#gpList` grid all came out.
+  - **(d) The end of a walk is ONE card.** The end-of-walk sentence sat BELOW the nav while the
+    card above still showed a step ("Next level"), so two surfaces claimed the same moment with
+    the buttons between them — his *"done and next session overlap"*, confirmed by him against
+    the alternative reading (the chain's focus ring). The sentence moved inside the card. "Next
+    locks X" stays under the nav, because it describes the button it sits beneath.
+  - **(e) Also fixed, found while building (b):** with every section drawing nothing, the card
+    fell back to *"Nothing to answer here"* over an open picker. That hint is now suppressed
+    while the list is inline.
+  - **Verified live, 1280 and 375, both themes:** opening the picker leaves **zero** opener
+    buttons and closing it brings them back; one column at 720 with symmetric 144px gaps and no
+    horizontal overflow; a two-section step shows two chips with counts, the open one marked,
+    zero section headers, one list; taking a cantrip from the inline list landed it as a chip
+    and moved the chip's count to 1/3 with the list still open; the end-of-walk stage is
+    `[gcard, gnav]` with the sentence inside the card; at 375 the button is there and opens the
+    modal. Gate clean, engine 35 ok / 0 fail.
+  - **Enforced by:** `guideSecOpen`/`stagePickIsFor` and the `inline` flag through
+    `guideSecBlock`/`guideSecWrap`. **Affects:** PLAN.md (L5.4), D161(c), D126(f).
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

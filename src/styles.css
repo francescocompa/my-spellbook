@@ -2095,40 +2095,29 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
 .gcstep:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 /* the decision stage */
 .gstage{flex:1;min-width:0;overflow-y:auto;padding:20px 26px 34px}
-/* D161 · the guide's picker, hosted IN the stage instead of over it (B1-05). The box keeps
-   the panel it already is; what changes is that it fills the stage, its list finally has the
-   width for columns, and its filter bar sticks to the top of its own scroller. Below the
-   guide's one-pane breakpoint none of this applies — the picker is a modal there, as before. */
-.gstage.haspick{display:flex;flex-direction:column;overflow:hidden}
-.gstage.haspick>.gnav{order:3;margin-top:14px;max-width:none}
-.gstage.haspick>.gcard{max-width:none}
-.box.gpin{order:2;flex:1;min-height:0;display:flex;flex-direction:column;
-  margin:12px 0 0;width:auto;max-width:none;max-height:none;box-shadow:none}
+/* D161 · the guide's picker, hosted IN the stage instead of over it (B1-05), revised by
+   D162. The box keeps the panel it already is; what changes is that it lives in the page and
+   its filter bar sticks to the top of its own scroller. Below the guide's one-pane breakpoint
+   none of this applies — the picker is a modal there, as before, and the card keeps the
+   buttons that open it.
+   ONE COLUMN, always (Francesco: "never set the picker on more than one column"). The first
+   cut spread the list across the width it had gained; a picker is a list you read down, and
+   three columns of it is a table of contents rather than a choice. So: one capped column,
+   centred, with the space around it as composition instead of a missing panel. */
+.gstage.haspick{display:flex;flex-direction:column;align-items:center;overflow:hidden}
+.gstage.haspick>.gcard,.gstage.haspick>.gnav{width:min(720px,100%);max-width:none}
+.gstage.haspick>.gnav{order:3;margin-top:14px}
+.box.gpin{order:2;flex:1;min-height:0;width:min(720px,100%);display:flex;flex-direction:column;
+  margin:12px 0 0;max-width:none;max-height:none;box-shadow:none}
 .box.gpin>.mb{flex:1;min-height:0;overflow-y:auto}
 .box.gpin .mh{position:sticky;top:0;z-index:3;background:var(--panel)}
 .box.gpin .pickbar{position:sticky;top:0;z-index:2;background:var(--panel);padding-top:2px}
-/* The entity list (species, feats, invocations) is what gains most from the width: ~30 rows
-   on screen instead of 8. COLUMNS, not a grid — the list is not flat (an Elf row expands into
-   seven lineages), and a grid aligns every row of cells to the tallest cell in it, which left
-   a hole the height of the Elf group beside every short row. Columns flow instead, and the
-   reading order they produce (down, then across) is the right one for an alphabetical list.
-   The spell picker's list is grouped by level and folds, so it is left alone. */
 /* one scroller, not two: as a modal the list carries its own `max-height:54vh`, which inside
    the stage would nest a second scrollbar within `.mb`'s. The box's body is the scroller here. */
-.box.gpin #entList{max-height:none;overflow:visible;
-  display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
-  gap:0 18px;align-content:start;align-items:start}
-/* a lineage GROUP (Elf, Dragonborn, …) spans the full width instead of taking one cell: the
-   tallest is 486px against a ~30px row, so as a cell it either left a hole beside it (grid) or
-   pushed the flow into columns off the right edge (measured: scrollWidth 6880 on a 964 box,
-   with most species unreachable — the reason this is a grid and not `column-width`). */
-.box.gpin #entList>.entgroup{grid-column:1/-1;margin:6px 0}
-/* the spell picker gets the same treatment, with the rule inverted: its ROWS (.sp) are the
-   uniform thing and everything else — section headings, hints, a level's fold block — spans,
-   so grouping still reads as grouping however the list is built. */
-.box.gpin #gpList{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));
-  gap:0 18px;align-content:start;align-items:start}
-.box.gpin #gpList>:not(.sp){grid-column:1/-1}
+.box.gpin #entList{max-height:none;overflow:visible}
+/* D162: the sections of a multi-section step as chips — what replaced one opener button per
+   section once the list moved into the stage and made those buttons repeat it. */
+.gcard .gsecs{margin:8px 0 2px}
 .gcard{max-width:640px;padding:15px 17px;border:1px solid var(--line);border-radius:var(--radius);
   background:var(--panel);display:flex;flex-direction:column;gap:10px}
 /* an ANSWERED step keeps its card and goes green (G2 · D126(e)); the walk stays put and
