@@ -2734,6 +2734,36 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     `renderEntityList`/`renderEntBudget`/`stagePickIsFor`, and the `#entSub .subwarn` rule.
     **Affects:** PLAN.md (the open ⚑ this closes), D126(d), D147, D164 (scoped by (e)).
 
+- **D169 (2026-09-02) DECIDED — a take button says whether the question takes one answer or
+  several, and the FIRST class opens its picker.** Two notes on v1.5.26.
+  - **(a) `+` means "one more"; a ring means "this one instead".** Francesco, raw: *"we need to
+    distinguish picker buttons where you get to select more choices (feats, spells etc.) and
+    pickers with only one selection (ex. class, subclass etc.). The + button works for the first
+    but not the second group"*. A new `ring` icon carries the radio idiom, and every take button
+    in the app now goes through one helper, `takeIco(on,one)`, so the two marks cannot drift.
+    Both still become a ✓ once taken — that half is unchanged, and it is still click-to-take-back.
+  - **(b) Which questions take ONE answer.** The species (there is only ever one), the class at a
+    character level (every mode of that picker answers "which class at this level", so it is a
+    ring whether it is rewriting a level or taking the next one), a spell TRADE and a PLACE (one
+    replacement, one slot), and any pick section asking for a single pick — `sec.need===1`, which
+    is the same number the chip prints ("Cantrip 0 / 1"). Everything else keeps `+`: feats and
+    optional features are slots you hold several of, a class's spell list is filled to a count,
+    prepared spells and marked creature forms are lists. The repeatable "take another copy"
+    button keeps its plus for the obvious reason.
+  - **(c) The FIRST class opens its picker with the step.** His note: *"the initial choose a
+    class should have the picker open"*. It is the one class step with nothing to choose the
+    picker OVER — no class to continue, no other class to go back to, and "Choose a class" alone
+    on the card. Narrows **D168(e)**, whose blanket "a class picker never opens with its step"
+    was right for every other case and wrong for this one. The predicate is one clause in
+    `guideSecAuto`: not done, and no `continueOf`.
+  - **Verified live** on a build taken from empty to Wizard 4: the first class step came up with
+    the picker already open and no button on the card; class rows and species rows draw the ring,
+    feat rows and a 3-cantrip section draw the plus, and the L4 "Cantrip 0 / 1" section draws the
+    ring with a ✓ on the three cantrips already held. 0 console errors; gate clean, cparity 58 ok
+    / 0 fail, engine 35 ok / 0 fail.
+  - **Enforced by:** `takeIco` and the `ring` icon; the `one` argument at `gpickRow`, `pickRow`,
+    `entRow` and the class row; `guideSecAuto`. **Affects:** D168(e) (narrowed), D31, D135.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

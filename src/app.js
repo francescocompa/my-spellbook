@@ -43,6 +43,7 @@ const ICONS={
   reset:_I('<path d="M3.2 8a4.8 4.8 0 1 0 1.4-3.4"/><path d="M4.6 1.9v2.7H1.9"/>'),
   moon:_I('<path d="M9.4 2.4a5.9 5.9 0 1 0 4.2 8.9A6.6 6.6 0 0 1 9.4 2.4z"/>'),
   plus:_I('<path d="M8 3v10M3 8h10"/>'),
+  ring:_I('<circle cx="8" cy="8" r="4.8"/>'),
   x:_I('<path d="M4 4l8 8M12 4l-8 8"/>'),
   check:_I('<path d="M3 8.6 6.4 12 13 4.6"/>'),
   help:_I('<circle cx="8" cy="8" r="6.4"/><path d="M6.1 6.2a1.95 1.95 0 1 1 2.6 1.85c-.45.17-.7.55-.7 1.02v.4"/><circle cx="8" cy="11.6" r=".55" fill="currentColor" stroke="none"/>'),
@@ -88,6 +89,14 @@ function xBtn(cls,onClick){const b=el("button",(cls||"")+" ico xsm");b.innerHTML
   // level preview immediately re-armed it)
   if(onClick)b.onclick=e=>{e.stopPropagation();onClick(e);};
   return b;}
+// D169: the take mark says what KIND of question the row belongs to. Francesco: *"we need
+// to distinguish picker buttons where you get to select more choices (feats, spells etc.)
+// and pickers with only one selection (ex. class, subclass etc.). The + button works for
+// the first but not the second group"*. A question that takes SEVERAL answers offers `+` —
+// one more of them. A question that takes exactly ONE offers a ring: the radio idiom, this
+// one INSTEAD of those. Both become a ✓ once answered, which is the half they share.
+// Every take button in the app goes through here, so the two can never drift.
+const takeIco=(on,one)=>icoEl(on?"check":one?"ring":"plus");
 // a span.ico holding one icon — the unit every dynamic call site appends
 function icoEl(name,cls){const sp=el("span","ico"+(cls?" "+cls:""));sp.innerHTML=ICONS[name]||"";return sp;}
 // "locked until level N", as an icon + level rather than prose that gets truncated (D60).
@@ -3045,16 +3054,19 @@ function guideSecOpen(step,sec){
     sec.done?{lv:step.lv}:null);
   return null;
 }
-// D168: which pickers open WITH their step — not the same list. A CLASS picker never does.
-// On the growth step his instruction is explicit: the card already offers the two classes
-// you are most likely to take (D126(d)), and the picker is what you reach for when neither
-// of them is the answer. On a level already taken the same rule is the safe one for a
-// different reason — that picker REWRITES the plan, and a rewrite surface standing open on
-// every class step of the walk is an accident waiting for a stray click. Every other
-// section still opens with its step (D164).
+// D168, amended by D169: which pickers open WITH their step — not the same list. A class
+// picker opens in exactly ONE case: the FIRST class of an empty build, where the card has
+// no class to continue and "Choose a class" is the only thing on it, so there is nothing
+// to choose it over (his note: *"the initial choose a class should have the picker open"*).
+// Every other class step keeps it shut. On a later growth step his instruction is explicit
+// — the card already offers the two classes you are most likely to take (D126(d)) and the
+// picker is what you reach for when neither of them is the answer. On a level already
+// taken the same rule is the safe one for a different reason: that picker REWRITES the
+// plan, and a rewrite surface standing open on every class step of the walk is an accident
+// waiting for a stray click. Every other section still opens with its step (D164).
 function guideSecAuto(step,sec){
-  if(sec&&sec.kind==="class")return null;
-  return guideSecOpen(step,sec);
+  if(!sec||sec.kind!=="class")return guideSecOpen(step,sec);
+  return (!sec.done&&sec.continueOf==null)?guideSecOpen(step,sec):null;
 }
 function stagePickIsFor(sec){
   if(!STAGE_PICK||!sec)return false;
@@ -3262,7 +3274,9 @@ function gpickRow(sp,held,sec,mode){
   [ROMAN[sp.level],sp.school,cap1(sp.time),sp.range].filter(Boolean).forEach(x=>meta.append(el("span",null,x)));
   d.append(meta);
   const take=el("div","take"), b=el("button","tk ico-only"+(on?" on":""));
-  b.append(icoEl(on?"check":"plus"));
+  // D169: a trade takes ONE replacement, a placement fills ONE slot, and a section that
+  // asks for a single pick is the same question — a ring, not a plus.
+  b.append(takeIco(on,mode==="trade"||mode==="place"||!!(sec&&sec.need===1)));
   // a granted group has a hard count — a click past it does nothing, and a control that
   // silently does nothing has to say why
   const full=!on&&sec&&sec.kind==="cpick"&&sec.have>=sec.need;
@@ -4060,7 +4074,8 @@ function renderPickList(){
     // both spell lists behave the same and neither carries it on the row
     const meta=el("div","meta");[ROMAN[sp.level],sp.school,cap1(sp.time),sp.range].filter(Boolean).forEach(x=>meta.append(el("span",null,x)));d.append(meta);
     const take=el("div","take");const b=el("button","tk ico-only"+(on?" on":""));
-    b.append(icoEl(on?"check":"plus"));
+    // D169: a class's own list is always several; a choice group that asks for one is not
+    b.append(takeIco(on,!isClass&&PICK.count===1));
     const tlbl=on?(isClass?pv.on:"Picked. Click to remove")
                  :(isClass?pv.off:"Pick it");
     b.title=tlbl; b.setAttribute("aria-label",tlbl);
@@ -4283,7 +4298,9 @@ function renderEntityList(){
     if(ENT.kind==="class"){
       const r0=state.classes.find(x=>x.clsKey===k);
       const cbtn=el("button","tk ico-only"+(on?" on":""));
-      cbtn.append(icoEl(on?"check":"plus"));
+      // D169: every mode of this picker answers "which class at this level", and that is
+      // ONE answer — a ring throughout, whether it is rewriting a level or taking the next
+      cbtn.append(takeIco(on,true));
       const lbl=on?"This level is already "+it.name
         :ENT.lv!=null?"Take level "+ENT.lv+" in "+it.name+" instead"
         :r0?"Continue "+it.name+" → "+Math.min(20,(r0.level||0)+1)
@@ -4309,7 +4326,8 @@ function renderEntityList(){
       row.append(cbtn);
       return row;}
     const btn=el("button","tk ico-only"+(on?" on":""));
-    btn.append(icoEl(on?"check":"plus"));
+    // D169: one species, and only one — every other kind here is a slot you have several of
+    btn.append(takeIco(on,ENT.kind==="species"));
     const blbl=on?"Selected. Click to remove":"Select";
     btn.setAttribute("aria-label",blbl);
     btn.title=blbl+(pr.state==="no"?" · you don’t meet its prerequisites, you can still take it":"");
