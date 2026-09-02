@@ -39,7 +39,7 @@
     </div>
     <span class="spacer"></span>
     <button class="btn iconbtn ico" id="guideTopBtn" data-ico="compass" title="Guided builder: walk the build level by level" aria-label="Guided builder"></button>
-    <div class="tabs"><button id="tabBuild" class="on"><span class="tl" data-t="Build">Build</span></button><button id="tabTable"><span class="tl full" data-t="Spell table">Spell table</span><span class="tl short" data-t="Table">Table</span></button></div>
+    <div class="tabs" role="tablist"><button id="tabBuild" class="on" role="tab" aria-selected="true"><span class="tl" data-t="Build">Build</span></button><button id="tabTable" role="tab" aria-selected="false"><span class="tl full" data-t="Spell table">Spell table</span><span class="tl short" data-t="Table">Table</span></button></div>
     <div class="menu">
       <button class="btn iconbtn ico" id="menuBtn" data-ico="dots" title="Settings" aria-label="Settings"></button>
       <!-- J10 · D144: grouped by what each item ACTS ON. The first group is this
@@ -65,6 +65,9 @@
     </div>
   </header>
 
+  <!-- B2-02: the app body had no <main> landmark; this wraps the actual content region
+       (both views plus their print-only siblings), leaving .wrap's own layout untouched. -->
+  <main>
   <!-- print only: paper has no header bar, so the sheet has to say whose it is -->
   <div class="printhead" id="printHead" aria-hidden="true"></div>
   <!-- everything expendable, as boxes to tick with a pencil at the table -->
@@ -220,6 +223,7 @@
   <div class="printonly" id="printLegend" aria-hidden="true"></div>
   <div class="printonly" id="printCards" aria-hidden="true"></div>
   <div class="printonly" id="printNotes" aria-hidden="true"></div>
+  </main>
 
   <!-- mobile only: one tap per section instead of a five-card scroll (D48) -->
   <nav class="jumpbar hidden" id="jumpBar" aria-label="Jump to section"></nav>
@@ -281,7 +285,7 @@
 <div class="modal hidden" id="customModal"><div class="box">
   <div class="mh mh-stack">
     <div class="mh-row"><h2 id="customTitle">New custom spell</h2><button class="x ico" id="customClose" data-ico="x" aria-label="Close"></button></div>
-    <div class="prepsteps" id="customSteps"></div>
+    <div class="prepsteps" id="customSteps" role="tablist"></div>
   </div>
   <div class="mb" id="customBody"></div>
   <div class="prepnav">
@@ -681,7 +685,7 @@
 <div class="modal hidden" id="prepModal"><div class="box">
   <div class="mh mh-stack">
     <div class="mh-row"><h2 id="prepTitle">Spell preparation</h2><button class="x ico" id="prepClose" data-ico="x" aria-label="Close"></button></div>
-    <div class="prepsteps" id="prepSteps"></div>
+    <div class="prepsteps" id="prepSteps" role="tablist"></div>
     <div class="sub" id="prepSub"></div>
   </div>
   <div class="mb">

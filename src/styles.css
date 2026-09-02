@@ -10,29 +10,39 @@
      them, which is the trade that made the first attempt worse. */
   :root{
     --bg:#eee8da; --panel:#fffdf8; --panel-2:#f2ecdf; --ink:#241f1a; --muted:#635b53;
-    --line:#b2aca1; --line-strong:#8c8478; --accent:#8d4a2a; --accent-soft:#8d4a2a1c;
+    --line:#b2aca1; --line-strong:#8c8478; --hairline:#8c8478; --accent:#8d4a2a; --accent-soft:#8d4a2a1c;
     --gold:#725921; --gold-soft:#7259211c; --good:#3b6546; --good-soft:#3b65461c;
     --free:#57549c; --free-soft:#57549c1c; --bad:#ad2335; --bad-soft:#ad23351c;
+    --accent-ink:#fff; /* B1-30: text on a solid --accent fill; measured ≥4.5:1 per theme */
     --radius:12px;
     --shadow:0 1px 2px #00000012,0 2px 6px #0000000d,0 10px 28px #00000012;
     --font:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
     --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     color-scheme:light;
   }
+  /* B1-28: dark --line-strong measured 1.53-1.84:1 over bg/panel/panel-2 — WCAG 1.4.11
+     wants 3:1 where it bounds a CONTROL (input, button, switch, chip), which is what most
+     of its 76 uses are. Retuned to #827052 here (3.18-3.84:1, measured). --hairline is a
+     NEW token holding the old #4c4130 for the couple of uses that are pure decorative
+     dividers, not controls (.entsep, .tlrundiv::after) — their weight is unchanged. Light
+     --line-strong already passed at 3.02-3.63:1 (D145) and is untouched; print restates its
+     own palette and is untouched by construction (D152). */
   @media (prefers-color-scheme:dark){ :root:not([data-theme=light]){
     color-scheme:dark;
     --bg:#17140f; --panel:#211d16; --panel-2:#2a251c; --ink:#ece4d6; --muted:#a99e8d;
-    --line:#3a3225; --line-strong:#4c4130; --accent:#d9915f; --accent-soft:#d9915f1f;
+    --line:#3a3225; --line-strong:#827052; --hairline:#4c4130; --accent:#d9915f; --accent-soft:#d9915f1f;
     --gold:#d4ad5a; --gold-soft:#d4ad5a1c; --good:#7fbb8c; --good-soft:#7fbb8c18;
     --free:#a6a1e6; --free-soft:#a6a1e618; --bad:#f0616e; --bad-soft:#f0616e1c;
+    --accent-ink:#17140f;
     --shadow:0 1px 2px #0000002f,0 8px 24px #00000024;
   }}
   :root[data-theme=dark]{
     color-scheme:dark;
     --bg:#17140f; --panel:#211d16; --panel-2:#2a251c; --ink:#ece4d6; --muted:#a99e8d;
-    --line:#3a3225; --line-strong:#4c4130; --accent:#d9915f; --accent-soft:#d9915f1f;
+    --line:#3a3225; --line-strong:#827052; --hairline:#4c4130; --accent:#d9915f; --accent-soft:#d9915f1f;
     --gold:#d4ad5a; --gold-soft:#d4ad5a1c; --good:#7fbb8c; --good-soft:#7fbb8c18;
     --free:#a6a1e6; --free-soft:#a6a1e618; --bad:#f0616e; --bad-soft:#f0616e1c;
+    --accent-ink:#17140f;
     --shadow:0 1px 2px #0000002f,0 8px 24px #00000024;
   }
   *{box-sizing:border-box}
@@ -48,7 +58,6 @@
   .menupop .mi.ico svg{width:14px;height:14px}
   .bswitch .mi.ico svg{width:12px;height:12px}
   .bswpop .mi svg{width:13px;height:13px}
-  .icobig svg{width:26px;height:26px}
   .picoi svg{width:14px;height:14px}
   /* icon+label pairs share one gap */
   .lbl-ico{display:inline-flex;align-items:center;gap:6px}
@@ -96,7 +105,7 @@
   footer.credit b{color:var(--muted);font-weight:600}
   /* the live version, first thing in the footer — a monospaced tag, not prose */
   footer.credit .appver{display:inline-block;margin-right:9px;padding:1px 7px;border-radius:6px;
-    background:var(--panel-2);border:1px solid var(--line);font-family:var(--mono,ui-monospace,monospace);
+    background:var(--panel-2);border:1px solid var(--line);font-family:ui-monospace,monospace;
     font-size:10.5px;font-weight:600;color:var(--muted);letter-spacing:.02em}
   footer.credit .appver:empty{display:none}
   footer.credit a{color:var(--accent);text-decoration:none}footer.credit a:hover{text-decoration:underline}
@@ -109,10 +118,23 @@
   header.top h1{font-size:23px}
   header.top .sub{color:var(--muted);font-size:12.5px}
   header.top .spacer{flex:1}
-  .toolbtns{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
   .btn{font:inherit;font-size:12.5px;padding:6px 12px;border-radius:8px;cursor:pointer;border:1px solid var(--line-strong);background:var(--panel);color:var(--ink)}
   .btn:hover{border-color:var(--accent);color:var(--accent)}
   .btn.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+  /* V-B 5.1/B1-03/B2-12: one base :focus-visible ring, solid --accent (measured >=5.47:1
+     against bg/panel/panel-2 in both themes — the old select/input/checkbox ring used
+     --accent-soft at 12% alpha, which measured 1.2:1). Per-instance rules for controls
+     that AREN'T .btn (`.bswmain`, `.abtile`, `.gcstep`, `.gtchip`, `.gpslot`, `.swk`…)
+     already use solid --accent and are untouched — none of them also carry class .btn,
+     so nothing here double-styles them. */
+  .btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .btn:disabled{cursor:default;opacity:.55;color:var(--muted);border-color:var(--line)}
+  .btn:disabled:hover{border-color:var(--line);color:var(--muted)}
+  /* B2-04: only .menupop button.danger and .bswmi.danger:hover existed, so #libSelRemove/
+     #csrcDelete rendered as neutral buttons pre-arm. D53's arm-then-confirm gate is
+     untouched — this only gives the base .btn.danger a pre-arm look. */
+  .btn.danger{color:var(--bad);border-color:var(--bad)}
+  .btn.danger:hover{background:var(--bad-soft);color:var(--bad)}
   .layout{display:grid;grid-template-columns:minmax(340px,400px) 1fr;gap:22px;align-items:start}
   /* stacked, every card boundary is the card's own 18px margin — the grid row gap
      would ADD to it and put Slots/Budget twice as far apart as the rest */
@@ -133,7 +155,8 @@
   select{appearance:none;-webkit-appearance:none;padding-right:28px;
     background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);
     background-position:calc(100% - 15px) center,calc(100% - 10px) center;background-size:5px 5px,5px 5px;background-repeat:no-repeat}
-  select:focus,input:focus{outline:2px solid var(--accent-soft);border-color:var(--accent)}
+  select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+  select:focus,input:focus{border-color:var(--accent)}
   .classrow{display:grid;grid-template-columns:1fr 1fr 80px auto;gap:7px;align-items:end;padding:9px 9px 0;border:1px solid var(--line);border-radius:10px;background:var(--panel-2);margin-bottom:8px}
   .classrow>*{margin-bottom:9px}
   .classrow .subalert{grid-column:2/-1;margin:-5px 0 9px 2px}
@@ -156,7 +179,6 @@
   .classrow .cn{padding:6px 2px;font-weight:600}
   .classrow .cn small{color:var(--muted);font-weight:400;display:block;font-size:10.5px}
   .fieldset{margin-bottom:14px}.fieldset:last-child{margin-bottom:0}
-  .twocol{display:grid;grid-template-columns:1fr 1fr;gap:9px}
   .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
   /* a taken feat is a fact, not a warning — the base chip is neutral so red is left
      to mean exactly one thing here: .chip.unmet, a prerequisite that isn't met (D45) */
@@ -220,20 +242,16 @@
   .filters{display:flex;flex-wrap:wrap;gap:7px;align-items:center}
   .filters input[type=search]{flex:1;min-width:130px;width:auto}
   .filters select{width:auto;min-width:96px}
-  .fmore{margin-top:9px;padding-top:10px;border-top:1px dashed var(--line);display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:9px}
   .cbrow{display:flex;flex-wrap:wrap;gap:5px}
   .cbtn{font-size:11.5px;padding:3px 9px;border-radius:16px;border:1px solid var(--line-strong);background:var(--panel);cursor:pointer;color:var(--muted)}
   .cbtn.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
   .filterpanel{margin-top:10px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--panel-2);display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:11px}
   .filterpanel .full{grid-column:1/-1}
-  #filterBtn .badge{background:var(--accent);color:#fff;border-radius:10px;padding:0 6px;font-size:10px;margin-left:3px}
+  #filterBtn .badge{background:var(--accent);color:var(--accent-ink);border-radius:10px;padding:0 6px;font-size:10px;margin-left:3px}
   .srcgroup h4{display:flex;align-items:center;gap:8px}
   .srcgroup h4 .all{margin-left:auto;display:flex;align-items:center;gap:5px;font-size:10.5px;color:var(--muted);cursor:pointer;text-transform:none;letter-spacing:0}
   .srcgroup h4 .all input{accent-color:var(--accent)}
   /* spell list */
-  .lvlnav{display:flex;flex-wrap:wrap;gap:5px;margin:12px 0 2px}
-  .lvlnav a{font-size:11px;padding:3px 8px;border-radius:16px;border:1px solid var(--line);color:var(--muted);cursor:pointer}
-  .lvlnav a.has{color:var(--ink);border-color:var(--line-strong)}
   .lvlgroup{margin-top:15px}
   .lvlgroup h3{font-size:12.5px;color:var(--accent);text-transform:uppercase;letter-spacing:.05em;padding-bottom:4px;border-bottom:2px solid var(--accent-soft);margin-bottom:2px;display:flex;gap:7px;align-items:center}
   .lvlgroup h3 .n{color:var(--muted);font-family:var(--sans);font-size:12px;font-weight:600;text-transform:none;letter-spacing:0;font-variant-numeric:tabular-nums}
@@ -274,6 +292,7 @@
   /* the take-chip is shared: pick chips in the build panel AND picker-row select buttons */
   .tk{font:inherit;font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:14px;border:1px solid var(--line-strong);background:var(--panel);cursor:pointer;color:var(--muted);white-space:nowrap}
   .tk:hover{border-color:var(--accent);color:var(--accent)}
+  .tk:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
   /* picked reads on the BORDER and the ICON — never as a filled pill, which read as a
      badge rather than a button. `.over` (the class is past its forecast) owns the text
      colour, but it must NOT eat the selection: a selected chip on an over-budget class
@@ -346,7 +365,6 @@
   /* an abbreviated value: hovering restores the full one */
   table.spelltable td.abbr{cursor:help}
   table.spelltable tr:hover td{background:var(--accent-soft)}
-  table.spelltable .lvcell{font-family:var(--font);font-weight:600;text-align:center;width:34px}
   table.spelltable .nm{font-weight:600}
   .srcbadge{font-size:10px;font-weight:600;padding:1px 7px;border-radius:12px;background:var(--panel-2);color:var(--muted);white-space:nowrap}
   .srcbadge.free{background:var(--good-soft);color:var(--good)} .srcbadge.cast{background:var(--gold-soft);color:var(--gold)}
@@ -511,7 +529,7 @@
 .btn.busy{opacity:.75;cursor:default}
 @keyframes sbspin{to{transform:rotate(360deg)}}
 /* a spinner that can't spin still has to read as busy — keep the accent arc, drop the motion */
-@media (prefers-reduced-motion:reduce){.anspin,.btn.busy::before{animation:none}}
+@media (prefers-reduced-motion:reduce){.anspin,.btn.busy::before,.locard.refuse{animation:none}}
 .menupop button:disabled{opacity:.55;cursor:default}
 .menupop button:disabled:hover{background:none}
 .sptip{position:fixed;z-index:90;max-width:340px;background:var(--panel);border:1px solid var(--line-strong);border-radius:10px;box-shadow:0 14px 40px #0006;padding:11px 13px;font-size:12.5px;pointer-events:none;opacity:0;transition:opacity .1s}
@@ -689,9 +707,6 @@
 }
 /* table extras */
 .concmark{color:var(--good);font-weight:700}
-.tableopts{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;font-size:12.5px;color:var(--muted)}
-.tableopts select{width:auto;min-width:120px}
-.tableopts label{display:inline-flex;gap:6px;align-items:center;cursor:pointer}
 table.spelltable tr.unsel td{opacity:.42}
 /* in your spellbook but not prepared today — real, but not live (D62) */
 table.spelltable tr.unprep td{opacity:.58}
@@ -725,7 +740,7 @@ input[type=checkbox]:checked{background:var(--accent);border-color:var(--accent)
    reasoning) and sit off centre at this size */
 input[type=checkbox]:checked::before{content:"";width:3.5px;height:7.5px;
   border:solid var(--bg);border-width:0 2px 2px 0;transform:translateY(-1px) rotate(45deg)}
-input[type=checkbox]:focus-visible{outline:2px solid var(--accent-soft);outline-offset:1px}
+input[type=checkbox]:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 input[type=checkbox]:disabled{opacity:.45;cursor:default}
 /* custom number steppers (hide native spinners) */
 input[type=number]{-moz-appearance:textfield;appearance:textfield}
@@ -864,7 +879,6 @@ table.spelltable td.cmp .l.iffy{color:var(--good);cursor:help;
 .pickbar{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:11px}
 .pickbar input[type=search]{flex:1;min-width:150px;width:auto}
 .pickbar select{width:auto;max-width:160px}
-.pickbar .entgrants{flex:0 0 auto;white-space:nowrap}
 #pickList{max-height:52vh;overflow:auto;padding-right:10px}
 /* species / feat trigger buttons — look like the selects they replace */
 /* a field and the count of what it holds, on one line. The tile is the field's own
@@ -1004,7 +1018,7 @@ table.spelltable td.cmp .l.iffy{color:var(--good);cursor:help;
 .bpill.none{border-style:dashed;border-color:var(--line);color:var(--muted);opacity:.6}
 .bpill.none .bv{color:var(--muted)}
 /* prerequisites you don't meet: dimmed, below a bare divider, never hidden by default */
-.entsep{margin:14px 0 4px;border-top:1px solid var(--line-strong)}
+.entsep{margin:14px 0 4px;border-top:1px solid var(--hairline)} /* B1-28/D145: decorative divider, not a control boundary — kept at the old (softer) weight */
 .entrow.blocked{opacity:.5}
 .entrow.blocked:hover{opacity:.85}
 .entname .entwarn{color:var(--bad);font-size:11px}
@@ -1064,9 +1078,6 @@ label.fld.alert{color:var(--bad)}
 .grouphdr.outer td{background:var(--panel-2)!important;color:var(--ink);font-size:14px;letter-spacing:.02em}
 .grouphdr.lvl td{padding-top:9px;padding-bottom:5px;font-family:var(--sans);font-size:10.5px;
   text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:var(--muted)}
-.lvltally{margin-left:10px;font-family:var(--sans);font-size:10.5px;font-weight:600;text-transform:none;letter-spacing:0;color:var(--muted)}
-.lvltally.over{color:var(--bad)}
-.lvltally.muted{font-weight:400;font-style:italic;opacity:.85}
 table.spelltable sup.ast{color:var(--accent);font-weight:700;cursor:help;margin-left:1px}
 table.spelltable td.hasast{cursor:pointer}
 /* left column scroll: keep content off the scrollbar */
@@ -1080,7 +1091,10 @@ table.spelltable td.hasast{cursor:pointer}
      stat-block text on a light panel and never re-checked; wis and cha measured 3.58:1 and
      3.59:1 once D142(b) made them a control's only label. */
   --ab-str:#922b21;--ab-dex:#205579;--ab-con:#794213;--ab-int:#623f8d;--ab-wis:#295b39;--ab-cha:#7e385e;
-  --cc-dice:#2b7bb0;--cc-dc:#a9791f;--cc-dmg:#c0392b;--cc-cond:#7b4fb0;--cc-range:#2a8f86;
+  /* B1-06/V-B 3.2: 9 of 15 light cc-* cells failed 4.5:1 against bg/panel/panel-2; each
+     retuned along its own hue to clear all three (min measured, not eyeballed). --cc-cond
+     already passed and did not move. Dark set is untouched. */
+  --cc-dice:#276e9e;--cc-dc:#886219;--cc-dmg:#be392b;--cc-cond:#7b4fb0;--cc-range:#22746d;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]){
   --ab-str:#e98a8a;--ab-dex:#5fb4e6;--ab-con:#e98f41;--ab-int:#b995e1;--ab-wis:#72b284;--ab-cha:#ea82ba;
@@ -1112,7 +1126,7 @@ table.spelltable td.hasast{cursor:pointer}
 .pickfiltermenu{position:relative;flex:none}
 .pickfiltermenu .menupop{right:0;left:auto;min-width:180px;padding:10px}
 .pickfiltermenu .menupop .cbrow{margin-top:7px}
-#pickLevelBtn .badge{background:var(--accent);color:#fff;border-radius:10px;padding:0 6px;font-size:10px;margin-left:3px}
+#pickLevelBtn .badge{background:var(--accent);color:var(--accent-ink);border-radius:10px;padding:0 6px;font-size:10px;margin-left:3px}
 /* hover states across the app */
 .dcell:hover{border-color:var(--accent);color:var(--accent)}
 .dcell:hover small{color:var(--accent)}
@@ -1122,9 +1136,6 @@ table.spelltable .pickcell.on:hover,table.spelltable .pickcell:hover{filter:brig
 .stepper button,.tk,.cbtn,.btn,.pickbtn,.rm,.menupop button{transition:background .12s,color .12s,border-color .12s}
 .slot{transition:border-color .12s}
 /* feats: budget note + origin/spell chips */
-.budgetnote{font-size:10px;font-weight:600;color:var(--muted);text-transform:none;letter-spacing:0;margin-left:6px;background:var(--panel-2);padding:1px 7px;border-radius:10px}
-.budgetnote.alert{color:var(--bad);background:var(--bad-soft)}
-#addOrigin{margin-bottom:6px}
 .chip.origin{background:var(--gold-soft);border-color:transparent;color:var(--gold)}
 /* ✦ = grants spells. It keeps the accent inside a now-neutral chip, so it still reads. */
 .chip .fmark{font-size:9px;color:var(--accent);margin-right:1px}
@@ -1146,8 +1157,6 @@ table.spelltable .pickcell.on:hover,table.spelltable .pickcell:hover{filter:brig
 .budget .bh .kind{cursor:help}
 
 /* ── v8: epic boons, save chips, prepare-daily modal ── */
-#addFeat{margin-bottom:6px}
-#addEpic{margin-bottom:0}
 .chip.epic{background:var(--free-soft);border-color:transparent;color:var(--free)}
 /* required-defence chips in the spell table (ability palette) */
 .savechip{display:inline-block;font-size:10px;font-weight:700;padding:1px 6px;border-radius:9px;line-height:1.5;background:var(--panel-2)}
@@ -1178,7 +1187,7 @@ table.spelltable .pickcell{cursor:help}
 .prepfiltermenu{position:relative;flex:none}
 .prepfiltermenu .menupop{right:0;left:auto;min-width:180px;padding:10px}
 .prepfiltermenu .menupop .cbrow{margin-top:7px}
-#prepLevelBtn .badge{background:var(--accent);color:#fff;border-radius:10px;padding:0 6px;font-size:10px;margin-left:3px}
+#prepLevelBtn .badge{background:var(--accent);color:var(--accent-ink);border-radius:10px;padding:0 6px;font-size:10px;margin-left:3px}
 #prepList{max-height:50vh;overflow:auto;padding-right:10px}
 .prepnav{display:flex;align-items:center;gap:10px;padding:12px 18px;border-top:1px solid var(--line)}
 .prepnav-sp{flex:1}
@@ -1250,10 +1259,6 @@ table.spelltable .pickcell{cursor:help}
 .stagechip.bad{border-color:var(--bad);color:var(--bad)}
 .stagechip .k{color:var(--good);font-variant-numeric:tabular-nums}
 .stagechip button{border:none;background:none;cursor:pointer;color:var(--muted);font-size:12px;padding:0;line-height:1}
-.onboard{max-width:520px;margin:40px auto;text-align:center;padding:28px 24px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}
-.onboard h2{font-size:19px;margin-bottom:6px}
-.onboard p{color:var(--muted);font-size:13px;margin:0 auto 16px;max-width:400px}
-.onboard .btn.on{font-size:13.5px;padding:8px 16px}
 
 /* ── level preview (D54): the level chip becomes the scrubber ─────────────── */
 .card h2 .count.prevable{cursor:pointer}
@@ -1319,7 +1324,7 @@ table.spelltable .pickcell{cursor:help}
 .tlrundiv{display:flex;align-items:center;gap:7px;margin:10px 2px 2px;font-size:9.5px;
   text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
 .tlrundiv:first-child{margin-top:0}
-.tlrundiv::after{content:"";flex:1;height:1px;background:var(--line-strong)}
+.tlrundiv::after{content:"";flex:1;height:1px;background:var(--hairline)} /* decorative rule, not a control boundary */
 .tlrundiv .rdot{width:8px;height:8px;border-radius:3px;flex:0 0 auto}
 .tlrundiv .rdot.c0{background:color-mix(in srgb,var(--accent) 70%,transparent)}
 .tlrundiv .rdot.c1{background:color-mix(in srgb,var(--free) 70%,transparent)}
@@ -1456,8 +1461,15 @@ table.spelltable .pickcell{cursor:help}
 /* the picks tile states — the number keeps its size and the tile never becomes a control.
    A trade adds a slot here, so the tile wears the trade colour as a TINT; a level off its
    schedule wears the alert one as a PLATE (D152, below), and outranks it. */
-.lt-count.tlswapc{border-radius:7px;background:var(--free-soft)}
-.lt-count.tlswapc b,.lt-count.tlswapc small{color:color-mix(in srgb,var(--free) 55%,var(--muted))}
+/* D158(m)/D152: aligned to the alert tile's OPAQUE plate — a tint over --bad-soft on a
+   dark card composited to a mid red that couldn't clear 4.5:1 no matter how the ink was
+   mixed; the same soft-tint math applies to --free-soft here, so the trade tile gets the
+   same fix pre-emptively rather than waiting to fail the same way. Measured: 4.84:1/4.88:1
+   light, 6.74:1/6.42:1 dark (b/small), both card variants (the opaque fill no longer lets
+   the card underneath through, so there is only one background to reason about). */
+.lt-count.tlswapc{border-radius:7px;background:color-mix(in srgb,var(--free) 9%,var(--bg))}
+.lt-count.tlswapc b{color:var(--free)}
+.lt-count.tlswapc small{color:color-mix(in srgb,var(--free) 60%,var(--muted))}
 /* D152 — the ALERT state is a PLATE, not a wash, and its number takes --bad at FULL strength.
    A translucent `--bad-soft` over a dark card composites to a MID background (#4c3128 on a
    `.here` card), and no mid red on it can clear AA in the dark theme: the entire `--bad`→
@@ -1688,6 +1700,10 @@ label.fld .fldt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-wi
     --gold:#7d5f1c; --gold-soft:transparent; --good:#2f5a3a; --good-soft:transparent;
     --free:#4a469a; --free-soft:transparent; --bad:#9c1f30; --bad-soft:transparent;
     --shadow:none;
+    /* B2-08: --ab-*/--cc-* were never restated here though printCardHTML and the stat-block
+       table both consume them; copied from the screen light palette (styles.css:1076-1092). */
+    --ab-str:#922b21;--ab-dex:#205579;--ab-con:#794213;--ab-int:#623f8d;--ab-wis:#295b39;--ab-cha:#7e385e;
+    --cc-dice:#276e9e;--cc-dc:#886219;--cc-dmg:#be392b;--cc-cond:#7b4fb0;--cc-range:#22746d;
   }
   /* The DARK sheet — for a PDF that is read on a screen. The palette is restated rather
      than inherited so it prints dark from a light screen too, and `print-color-adjust`
@@ -1699,6 +1715,9 @@ label.fld .fldt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-wi
     --free:#a6a1e6; --free-soft:#a6a1e618; --bad:#f0616e; --bad-soft:#f0616e1c;
     --shadow:none;
     -webkit-print-color-adjust:exact; print-color-adjust:exact;
+    /* B2-08: copied from the screen dark palette (styles.css:1076-1092), unchanged. */
+    --ab-str:#e98a8a;--ab-dex:#5fb4e6;--ab-con:#e98f41;--ab-int:#b995e1;--ab-wis:#72b284;--ab-cha:#ea82ba;
+    --cc-dice:#6bb6e6;--cc-dc:#e7c070;--cc-dmg:#e06a6a;--cc-cond:#b48ce6;--cc-range:#4db6ac;
   }
   /* @page size is set by #prPageRule — a rule element, because `@page` cannot be
      selector-scoped and so cannot read a setting off the document */
@@ -1724,7 +1743,6 @@ label.fld .fldt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-wi
     display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
   .printhead .phver{font-family:var(--sans);font-size:12px;font-weight:400;color:var(--muted)}
   .printhead .phsub{font-size:12px;color:var(--muted);margin-top:3px}
-  .printhead .phnote{font-size:11px;color:var(--accent);margin-top:5px}
 
   /* ── the tracker: what you spend, as boxes to tick ───────────────────────── */
   #printTracker{margin:0 0 12px;break-inside:avoid}
@@ -1793,7 +1811,7 @@ label.fld .fldt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-wi
   table.spelltable .srcbadge+.srcbadge{margin-left:0}
   table.spelltable .srcbadge+.srcbadge::before{content:" · ";color:var(--muted)}
   table.spelltable td.cmp{font-size:9px;letter-spacing:0}
-  table.spelltable .savechip,table.spelltable .achip{padding:0 2px}
+  table.spelltable .savechip{padding:0 2px} /* B2-10: the .achip half matched nothing — .achip only ever renders inside .spmodal, never in table.spelltable */
   table.spelltable .grouphdr td{border-bottom:.2mm solid var(--line-strong);padding-top:7px}
   table.spelltable tr{break-inside:avoid}
   table.spelltable .grouphdr{break-after:avoid}
@@ -2070,15 +2088,13 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
 .gcstep.skipped .gcs{color:var(--gold)}
 .gcstep.gcill .gcs{color:var(--bad)}      /* a filled slot whose spell can't sit there */
 .gcstep.open .gcv{color:var(--muted);font-style:italic}
-.gcstep.optional .gcl::after{content:" · optional";text-transform:none;letter-spacing:0}
+.gcstep.optional .gcl::after{content:" · Optional";text-transform:none;letter-spacing:0}
 .gcstep:hover{background:var(--panel-2)}
 .gcstep.cur{border-color:var(--accent);background:var(--accent-soft)}
 .gcstep.cur:hover{background:var(--accent-soft)}
 .gcstep:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 /* the decision stage */
 .gstage{flex:1;min-width:0;overflow-y:auto;padding:20px 26px 34px}
-.gstage .gsh{font-family:var(--font);font-size:21px;font-weight:600;margin:0 0 2px}
-.gstage .gsub{margin:0 0 14px;font-size:12.5px;color:var(--muted)}
 .gcard{max-width:640px;padding:15px 17px;border:1px solid var(--line);border-radius:var(--radius);
   background:var(--panel);display:flex;flex-direction:column;gap:10px}
 /* an ANSWERED step keeps its card and goes green (G2 · D126(e)); the walk stays put and
@@ -2117,21 +2133,13 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
    the level, never `.gapped`, which means a book you turned off */
 .gchips .cartchip.gbad{border-color:var(--bad)}
 .gchips .cartchip.gbad .lv{color:var(--bad)}
-.gokline{display:flex;align-items:baseline;gap:8px;color:var(--good);min-width:0}
-.gokline .ico{flex:0 0 auto;align-self:center;line-height:0}
-.gokline .ico svg{width:14px;height:14px}
-.gokline .gval{color:var(--ink);min-width:0;overflow-wrap:anywhere}
-.gcard .grinline{margin:0;border:none;padding:0}
-/* the quiet way back into an answered decision — present, not competing with the ✓ */
-.gcard .grinline.gchange{margin-top:2px;padding-top:9px;border-top:1px solid var(--line)}
-.gcard .grinline.gchange .btn{font-size:11.5px;color:var(--muted)}
-.gcard .grinline.gchange .btn:hover{color:var(--accent);border-color:var(--accent)}
 /* the prominent answer buttons a card leads with (the class step's two, "choose a feat…") */
 .gbigrow{display:flex;flex-wrap:wrap;gap:8px}
-.grinline .btn.gbig,.gbigrow .btn.gbig{font-size:14px;padding:10px 16px;border-radius:10px}
-/* "another class…" and the subclass list: a compact command menu, never a bound field */
-.grinline select.gmenu{width:auto;max-width:100%;min-width:150px;align-self:flex-start;
-  padding:8px 10px;font-size:12.5px}
+.gbigrow .btn.gbig{font-size:14px;padding:10px 16px;border-radius:10px}
+/* B2 L0/dead-CSS: ".gmenu" (app.js:2198,2382, the guide's class/subclass command selects)
+   was only ever styled through a ".grinline select.gmenu" ancestor rule, and ".grinline"
+   itself never appears in markup — so .gmenu selects already render unstyled today. Found
+   while removing the dead ".grinline" family; not this item's fix, flagged for its own pass. */
 /* a choice step hosts the Choices card's OWN row (D126(g)) — no second picker, so no
    second set of styles either: it just gets room to breathe inside the card */
 .gcard .choicerow{padding:0;border-bottom:none;gap:12px}
@@ -2144,13 +2152,6 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
 .gnav{display:flex;gap:8px;margin-top:16px;max-width:640px}
 .gnav .btn{font-size:13px}
 .gcard>.btn{align-self:flex-start}
-/* inline structural answers (class · subclass · swap) — the block F2 authored, now
-   living inside the stage's card rather than a rail row */
-.grinline{margin:2px 0 6px;padding:7px 8px;border:1px dashed var(--line-strong);
-  border-radius:9px;display:flex;flex-direction:column;gap:6px}
-.grinline .btn{font-size:12px;align-self:flex-start}
-.grinline select{width:100%;max-width:320px;font-size:12px;padding:5px 6px;border-radius:7px;
-  border:1px solid var(--line-strong);background:var(--panel);color:var(--ink)}
 .grhint{font-size:11.5px;color:var(--muted);line-height:1.45}
 /* ── G3 · D126(f,h,i) ──────────────────────────────────────────────────────
    The end of a walk, said out loud: Next has gone dead above this line, so the
@@ -2225,7 +2226,6 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
   .gh-prog{order:5;flex-basis:100%;flex-grow:0}
   .gh-bar{flex:1 1 auto}
   .gh-swap .ghs-t{display:none}          /* the icon carries it; aria-label names it */
-  .gstage .gsh{font-size:19px}
 }
 
 /* ── the summon-forms chooser (D131(g)) ─────────────────────────────────────

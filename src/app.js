@@ -70,6 +70,10 @@ const ICONS={
   // Never a typed ↑/↓: a glyph sits wherever its font puts it (the drawn-caret rule).
   walkup:_I('<path d="M8 13.6V3.2"/><path d="M4.5 6.7 8 3.1l3.5 3.6"/>'),
   walkdn:_I('<path d="M8 2.4v10.4"/><path d="M4.5 9.3 8 12.9l3.5-3.6"/>'),
+  // the creature-carousel prev/next (D57 sweep, L0): a plain chevron, same stroke as the
+  // walk arrows above — never a typed ‹/›, which sits wherever its font puts it.
+  chevleft:_I('<path d="M10 3.6 5.6 8l4.4 4.4"/>'),
+  chevright:_I('<path d="M6 3.6 10.4 8 6 12.4"/>'),
 };
 // the small × remove button used inside chips and rows
 function xBtn(cls,onClick){const b=el("button",(cls||"")+" ico xsm");b.innerHTML=ICONS.x;
@@ -4772,6 +4776,7 @@ function renderPrepStep(){
   const steps=$("#prepSteps"); steps.innerHTML="";
   PREP.steps.forEach((x,i)=>{
     const b=el("button","prepstep"+(i===PREP.step?" on":""),x.label);
+    b.setAttribute("role","tab");b.setAttribute("aria-selected",i===PREP.step?"true":"false");
     b.onclick=()=>{PREP.step=i;PREP.search="";renderPrepStep();};steps.append(b);});
   $("#prepPrev").style.visibility=PREP.step>0?"":"hidden";
   const last=PREP.step>=PREP.steps.length-1;
@@ -4987,7 +4992,7 @@ function cerr(msg){$("#customErr").textContent=msg||"";}
 function renderCustomStep(){
   cerr(""); const F=CFORM;
   const steps=$("#customSteps");steps.innerHTML="";
-  CSTEP_NAMES.forEach((n,i)=>{const b=el("button","prepstep"+(i===CSTEP?" on":""),n);b.onclick=()=>{CSTEP=i;renderCustomStep();};steps.append(b);});
+  CSTEP_NAMES.forEach((n,i)=>{const b=el("button","prepstep"+(i===CSTEP?" on":""),n);b.setAttribute("role","tab");b.setAttribute("aria-selected",i===CSTEP?"true":"false");b.onclick=()=>{CSTEP=i;renderCustomStep();};steps.append(b);});
   $("#customPrev").style.visibility=CSTEP>0?"":"hidden";
   const last=CSTEP>=CSTEP_NAMES.length-1;
   $("#customNext").style.display=last?"none":""; $("#customDone").style.display=last?"":"none";
@@ -5122,7 +5127,7 @@ function renderImportStage(){const box=$("#importStaged");if(!box)return;box.inn
       chip.append(el("span","k",f.error?"invalid":countFile(f.json)));
       const x=xBtn(null,()=>{IMPORT_STAGE.splice(i,1);renderImportStage();scheduleBuild();});chip.append(x);
       chips.append(chip);});
-    const tog=el("button","acc-toggle st-toggle");tog.type="button";tog.textContent="⌄";
+    const tog=el("button","acc-toggle st-toggle");tog.type="button"; /* D57: the caret is drawn by ::before, this is not a glyph */
     tog.title=STAGE_EXP?"Show as one row":"Show every staged file";
     tog.setAttribute("aria-label",tog.title);
     tog.onclick=()=>{STAGE_EXP=!STAGE_EXP;renderImportStage();};
@@ -5443,7 +5448,13 @@ function renderImportPlan(){
   if(!PLAN)planFromStage(null,null);
   const staged=IMPORT_STAGE.length||(SCAN&&Object.keys(SCAN.books||{}).length);
   if(!staged){box.classList.add("hidden");renderImportPlanFoot();return;}
+  // B1-02: the tray renders at the TOP of the Library's scroller, so a staged import
+  // (paste, drop, or the file picker) that had scrolled down to reach the paste box was
+  // showing nothing had changed. Scroll it into view only on the hidden->visible edge, so
+  // a re-render of an already-open tray doesn't yank the reader's scroll position around.
+  const wasHidden=box.classList.contains("hidden");
   box.classList.remove("hidden");
+  if(wasHidden)box.scrollIntoView({block:"start"});
   const {fresh,upd}=trayBooks();
   // the diagnosis→remedy seam (2026-08-31): the books an earlier read could not reach are
   // named HERE, on the surface that fixes them. Self-clearing: add the file and its fresh
@@ -6566,6 +6577,8 @@ function compCell(sp,row){
   td.append(m);return td;
 }
 function switchTab(t){curTab=t;$("#tabBuild").classList.toggle("on",t==="build");$("#tabTable").classList.toggle("on",t==="table");
+  $("#tabBuild").setAttribute("aria-selected",t==="build"?"true":"false");
+  $("#tabTable").setAttribute("aria-selected",t==="table"?"true":"false");
   $("#buildView").classList.toggle("hidden",t!=="build");$("#tableView").classList.toggle("hidden",t!=="table");
   if(t==="table")renderTable();
   renderJumpBar();}
@@ -7686,6 +7699,54 @@ const SPMODAL=el("div","spmodal hidden");document.body.appendChild(SPMODAL);
 function closeSpModal(){SPMODAL.classList.add("hidden");ENTM=null;
   const pm=$("#pickModal"); if(pm)pm.classList.remove("over");}
 SPMODAL.onclick=e=>{if(e.target===SPMODAL||e.target.classList.contains("x"))closeSpModal();};
+// ── B1-04/B2-01/C2-01: shared dialog semantics for every `.modal` ───────────────────────
+// 14 elements carry class="modal", scattered open/close call sites (dozens, none of them
+// funnelled through one function). Rewriting every call site was the higher-risk move —
+// a MutationObserver instead watches every `.modal`'s own `class` attribute, so an
+// existing `classList.add/remove/toggle("hidden")` anywhere needs no change and gets
+// role="dialog", aria-modal, aria-labelledby (pointed at the modal's own h2/h3 — skipped
+// where a static aria-label already exists, so tlModal/gpickModal are untouched), focus
+// moved to the first focusable control on open, and focus restored to whatever had it on
+// close. Tab-trap and the Escape fallback below query the live DOM instead of a tracked
+// stack, since MutationObserver callbacks are async microtasks and a stack read inside the
+// SAME keydown handler that just triggered a close would be stale.
+function _modalFocusable(m){
+  return [...m.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')]
+    .filter(x=>x.offsetParent!==null);
+}
+new MutationObserver(muts=>{
+  const seen=new Set();
+  muts.forEach(mu=>{
+    const m=mu.target;
+    if(seen.has(m)||!(m instanceof Element)||!m.classList.contains("modal"))return;
+    seen.add(m);
+    const hidden=m.classList.contains("hidden");
+    if(hidden===!!m._mHidden)return;   // no real open/close edge — ignore repeated class churn
+    m._mHidden=hidden;
+    if(!hidden){
+      if(!m.hasAttribute("role"))m.setAttribute("role","dialog");
+      m.setAttribute("aria-modal","true");
+      if(!m.hasAttribute("aria-label")){
+        const h=m.querySelector("h2,h3");
+        if(h){if(!h.id)h.id=(m.id||"modal")+"Heading";m.setAttribute("aria-labelledby",h.id);}
+      }
+      m._prevFocus=document.activeElement;
+      const f=_modalFocusable(m);(f[0]||m).focus();
+    }else{
+      if(m._prevFocus&&document.body.contains(m._prevFocus))m._prevFocus.focus();
+      m._prevFocus=null;
+    }
+  });
+}).observe(document.body,{attributes:true,attributeFilter:["class"],subtree:true});
+document.addEventListener("keydown",e=>{
+  if(e.key!=="Tab")return;
+  const open=[...document.querySelectorAll(".modal:not(.hidden)")];
+  const top=open[open.length-1]; if(!top)return;
+  const f=_modalFocusable(top); if(!f.length)return;
+  const first=f[0],last=f[f.length-1];
+  if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+  else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+});
 document.addEventListener("keydown",e=>{if(e.key!=="Escape")return;
   // the guide's pick modal is the topmost layer while it is open, so Escape belongs to
   // it alone — closing what sits UNDER a modal is the trap D120 logged against the
@@ -7699,7 +7760,14 @@ document.addEventListener("keydown",e=>{if(e.key!=="Escape")return;
   const pm=$("#pickModal");
   if(pm&&pm.classList.contains("over")&&!pm.classList.contains("hidden")){
     pm.classList.add("hidden");pm.classList.remove("over");return;}
-  closeSpModal();hideTip();closeBswMenus();closeTimeline();});
+  closeSpModal();hideTip();closeBswMenus();closeTimeline();
+  // C2-01: the remaining plain `.modal`s (buildModal, importModal, entityModal, printModal,
+  // csrcModal, customModal, hbModal, newBuildModal, srcAskModal, prepModal, and pickModal's
+  // own base — not-"over" — state) had no keyboard path at all. Whatever is still open
+  // after the specific closes above just gets its "hidden" class back.
+  const openModals=[...document.querySelectorAll(".modal:not(.hidden)")];
+  if(openModals.length)openModals[openModals.length-1].classList.add("hidden");
+});
 document.addEventListener("click",()=>hideTip(),true);   // a tap elsewhere dismisses a tapped tip
 function esc(s){return (s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));}
 // ── spell text highlighting (monster-forge cc-* convention, read-only) ──────
@@ -7842,7 +7910,7 @@ function accessHTML(sp){
   return `<div class="access" data-exp="0">`
     +`<div class="acc-row"><span class="secttl">Access</span>`
     +`<div class="achips acc-merged">${merged}</div>`
-    +`<button class="acc-toggle" type="button" title="Show by category" aria-label="Show by category">⌄</button></div>`
+    +`<button class="acc-toggle" type="button" title="Show by category" aria-label="Show by category"></button></div>`
     +`<div class="acc-cats">${rows}</div></div>`;}
 const abMod=v=>{const m=Math.floor((v-10)/2);return (m>=0?"+":"−")+Math.abs(m);};
 const AB_ORDER=["str","dex","con","int","wis","cha"];
@@ -8126,7 +8194,7 @@ function sbBodyHTML(b){
      +half.map(pair=>"<tr>"+pair.map(k=>{const v=b.abilities[k];
         if(v==null)return `<td class="sbal"></td><td class="sbn"></td><td class="sbn"></td>`;
         const s=sv(k);
-        return `<td class="sbal"><span class="abchip ${k}">${ABIL_SHORT[k]}</span>`
+        return `<td class="sbal">${abChip(k)}`
           +`<span class="sbav">${v}</span></td>`
           +`<td class="sbn">${abMod(v)}</td>`
           +`<td class="sbn${s.prof?" prof":""}">${esc(s.t)}</td>`;}).join("")+"</tr>").join("")
@@ -8162,9 +8230,9 @@ function statblockHTML(sp){
     `<div class="sb-bookpanel srcpanel hidden"><div class="sb-booknote"></div><div class="sb-booklist"></div></div>`;
   // controls sit BELOW the block: you read the creature, then step to the next one
   const nav=all.length<2?"":`<div class="sb-nav">`
-    +`<button class="sb-prev" type="button" aria-label="Previous creature">‹</button>`
+    +`<button class="sb-prev ico" type="button" aria-label="Previous creature">${ICONS.chevleft}</button>`
     +`<span class="sb-pos">1 / ${all.length}</span>`
-    +`<button class="sb-next" type="button" aria-label="Next creature">›</button></div>`;
+    +`<button class="sb-next ico" type="button" aria-label="Next creature">${ICONS.chevright}</button></div>`;
   // The head is a ROW, not a button: a <button> cannot contain another <button> — the
   // parser closes the outer one at the inner, which hoisted the book icon and the chevron
   // out of the header and dropped them onto their own line. Same trap as `.bswrow`.
@@ -8200,7 +8268,7 @@ function modalHTML(sp){
               ["Duration",(sp.conc?"Concentration, up to ":"")+esc(sp.durTxt)]];
   // D147: the book is named on EVERY element, core included — an unlabelled row used to
   // mean "XPHB", which is a fact you had to know the convention to read
-  const bk=` <span class="bchip" data-book="${esc(sp.source)}"${sp.page?` data-page="${esc(String(sp.page))}"`:""}>${esc(sp.source)}</span>`;
+  const bk=bkTag(sp);
   return `<div class="box"><button class="x ico" type="button" title="Close" aria-label="Close">${ICONS.x}</button>`
     +`<div class="mh"><h3>${esc(sp.name)}${bk}</h3>`
     +`<div class="sub">${metaLine(sp)}</div></div><div class="mb">`
@@ -8333,8 +8401,7 @@ function creatureTipHTML(c){
     +line("AC",c.ac)+line("HP",c.hp)+line("Speed",c.speed)+line("Senses",c.senses)
     +`<p style="color:var(--muted);font-size:11px">click for the full stat block</p>`;}
 function creatureModalHTML(c){
-  const bk=c.source?` <span class="bchip" data-book="${esc(c.source)}"`
-    +(c.page?` data-page="${esc(String(c.page))}"`:"")+`>${esc(c.source)}</span>`:"";
+  const bk=bkTag(c);
   // the giver, not the type: `sbBodyHTML` opens with `.sb-kind`, so repeating the type here
   // would print it twice, two lines apart
   const sub=c._from?`Added to this spell by ${esc(c._from)}`:"Stat block";
@@ -8720,9 +8787,7 @@ function fldDetail(lbl,it,kind,sub,nameAs){
 // the one-feature modal the timeline's gains line opens: same box, the feature's own text
 function openFeatureModal(f,giver,kind){
   hideTip();
-  const src=giver&&giver.source;
-  const bk=src?` <span class="bchip" data-book="${esc(src)}"`
-    +((giver&&giver.page)?` data-page="${esc(String(giver.page))}"`:"")+`>${esc(src)}</span>`:"";
+  const bk=bkTag(giver);
   SPMODAL.innerHTML=`<div class="box entmodal"><button class="x ico" type="button" title="Close" aria-label="Close">${ICONS.x}</button>`
     +`<div class="mh"><h3>${esc(f.name)}${bk}</h3>`
     +`<div class="sub">${esc(giver?entName(giver,kind):"Feature")} · level ${f.level}</div></div>`
@@ -8868,7 +8933,8 @@ function renderClassRows(){
 }
 function refreshAddClass(){const s=$("#addClass");s.innerHTML="";
   const opts=classOptions();
-  s.append(new Option(opts.length?"+ add a class…":"every class is already in this build",""));
+  const noneLabel=(DATA.classes||[]).length?"every class is already in this build":"No classes loaded";
+  s.append(new Option(opts.length?"+ add a class…":noneLabel,""));
   opts.forEach(o=>s.append(new Option(o.t,o.v)));s.value="";
   s.disabled=!opts.length;}
 function refreshSpecies(){const r=state.speciesKey?RACE_BY[state.speciesKey]:null;
