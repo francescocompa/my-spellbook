@@ -933,6 +933,9 @@ table.spelltable td.cmp .l.iffy{color:var(--good);cursor:help;
   text-transform:none;letter-spacing:0;vertical-align:middle}
 .entname .fmark{color:var(--accent);font-size:11px}
 .entprev{font-size:11px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* D171: a class row leads with its MAIN SCORES as chips, then the rest of the line. The
+   chips are inline so the line still truncates as one thing when the column is narrow. */
+.entabs{display:inline-flex;gap:3px;vertical-align:-1px;margin-right:6px}
 /* a build holding picks from books you have turned off: flagged, never pruned (T2) */
 /* sticky, and opaque enough to sit over scrolled content — the column is its own
    scroller on desktop, and a banner that can rest off-screen isn't a visible contract */
@@ -2008,11 +2011,44 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
 .gh-toggle.hidden,.gh-swap.hidden{display:none}
 .gbody{flex:1;min-height:0;display:flex}
 /* the chain column: a lean timeline (rails, runs, dividers) that also reorders */
-/* D166(d): the chain rail collapses from the header, giving the stage its width back. Only
-   above the one-pane breakpoint, where there are two panes to choose between in the first place. */
-.gview.railshut .gchain{display:none}
+/* D170: the rail COLLAPSES rather than disappearing — a narrow column of levels and how
+   each one stands, with its own way back open in its header. D166(d) hid it outright from a
+   control in the page header, which is why Francesco reported no way to collapse it at all:
+   the state had no visible home. Only above the one-pane breakpoint, where there are two
+   panes to choose between in the first place. */
 .gchain{flex:0 0 272px;min-width:0;overflow-y:auto;scrollbar-width:thin;
   padding:8px 10px 24px;background:var(--panel);border-right:1px solid var(--line)}
+/* NO transition on this width. D166(h) is the standing lesson: a transitioned track that
+   the layout depends on freezes at its start value wherever frames are not running, and
+   the pane is then a rail that says it is collapsed and is not. The collapse is instant. */
+/* EVERY collapsed rule is gated on the two-pane width. Below the breakpoint the rail IS
+   the pane you switched to, so there is nothing to collapse it beside — and a `railshut`
+   left over from a wide session would otherwise squash the whole chain to 54px there. */
+@media (min-width:821px){
+  .gview.railshut .gchain{flex-basis:54px;padding-left:6px;padding-right:6px}
+  /* collapsed, a card is the level and its state: everything that needs the width goes,
+     and what is left is centred in the column rather than against an edge that moved */
+  .gview.railshut .gchain .locls,
+  .gview.railshut .gchain .lvlcar,
+  .gview.railshut .gchain .logrip,
+  .gview.railshut .gchain .gcsteps,
+  .gview.railshut .gchain .tlrundiv{display:none}
+  /* the card keeps its 3px class rail on the left and its 1px border on the right, so
+     equal padding centres the level chip in the CONTENT box and 2px off in the box you can
+     see. The padding carries the difference: 4 + 3 on the left, 6 + 1 on the right. */
+  .gview.railshut .gchain .locard{padding:6px 6px 6px 4px}
+  /* the growth ghost carries no class rail — 1px dashed all round — so it takes the
+     padding back to even, or the same compensation would push it 2px the other way */
+  .gview.railshut .gchain .locard.gcnext{padding:6px 5px}
+  .gview.railshut .gchain .lotop{flex-direction:column;align-items:center;gap:3px}
+  .gview.railshut .gchain .lotop .lolv{min-width:0}
+  .gview.railshut .gchain .gcsev{margin-left:0}
+  .gview.railshut .gwalk{margin-left:-6px;margin-right:-6px;padding-left:6px;
+    padding-right:6px;justify-content:center}
+}
+/* below the breakpoint the rail is the whole pane: nothing to collapse it against.
+   Two classes deep on purpose — `.gwalkbtn`'s own `display` is declared after this. */
+@media (max-width:820px){ .gwalk .railtog{display:none} }
 .gchain .locard{margin-top:6px}
 /* the column's TOP ROW carries no top margin. `:first-child` alone stopped naming it the
    day the walk strip shipped — the strip is prepended above every row, so it is the first
@@ -2043,6 +2079,10 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
    bottom and "from L12" the row at the top, so the arrow and the note agree on screen */
 .gwalkat{font-size:10.5px;color:var(--muted);white-space:nowrap;
   font-variant-numeric:tabular-nums}
+/* D170: the rail's own collapse — the same ghost affordance as the walk arrow, ranged
+   right so it reads as the header's command rather than part of the direction control */
+.railtog{margin-left:auto}
+.gwalk.shut .railtog{margin-left:0}
 .gclv{align-items:flex-start;cursor:pointer}
 .gclv:active{cursor:pointer}
 .gclv[draggable="true"]{cursor:grab}

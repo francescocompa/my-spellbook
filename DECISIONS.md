@@ -2764,6 +2764,64 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
   - **Enforced by:** `takeIco` and the `ring` icon; the `one` argument at `gpickRow`, `pickRow`,
     `entRow` and the class row; `guideSecAuto`. **Affects:** D168(e) (narrowed), D31, D135.
 
+- **D170 (2026-09-02) DECIDED — the chain rail collapses from its OWN header, into a narrow
+  column.** Francesco: *"still no way to collapse the side rail, put a command in the rail header
+  (right aligned). When collapsed, the rail is a narrow column with only the level indicators and
+  their state"*.
+  - **(a) The command belongs to the rail.** **D166(d)** put it in the page header as
+    "Hide chain", sharing one control with the phone's pane switch — and he never found it,
+    which is the report. A control for a state you cannot see is not discoverable; the rail is
+    the one surface that can show it is collapsed and offer its own way back. `railToggle` sits
+    right-aligned in the rail's header (`.railtog{margin-left:auto}`), a chevron in the same
+    ghost affordance as the walk arrow beside it.
+  - **(b) The header draws unconditionally now.** It used to render only where a downward walk
+    was possible; it carries the collapse, which is not optional. Collapsed, the walk control
+    goes — there is no room and nothing to point along — and only the chevron is left, centred.
+  - **(c) Collapsed is a COLUMN, not a hidden pane.** 54px: the level chip and the level's one
+    state icon, stacked and centred, class rails and all. The name, the caret, the grip, the
+    steps and the run dividers go. Clicking a card opens the rail ON that level — collapsed
+    there is nothing else a card could usefully toggle.
+  - **(d) No transition on the width.** **D166(h)** is the standing lesson and it bit again in
+    the same session: `flex-basis` animated from 272 to 54 reads as 272 wherever frames are not
+    running, so the rail says it is collapsed and is not. Instant.
+  - **(e) Every collapsed rule is gated on `min-width:821px`**, and the toggle is hidden below
+    it. Under the breakpoint the rail IS the pane you switched to, and a `railShut` left over
+    from a wide session would otherwise squash the whole chain to 54px. The page header's
+    control goes back to being the phone's pane switch and nothing else.
+  - **Verified live:** the rail collapses 272 → 54 and back from its own header; the level chip
+    and the state icon measure 8.05/8.05 symmetric on every card including the growth ghost
+    (whose 1px dashed border needs the compensation the 3px class rail gets removed from); the
+    page header's toggle is hidden above the breakpoint and switches panes below it, where the
+    chain still fills 375 and the rail toggle does not draw.
+  - **Enforced by:** `railToggle`/`railHead`, the collapsed-card branch of the chain card's
+    `onclick`, and the `@media (min-width:821px)` `.railshut` block. **Affects:** D166(d)
+    (superseded in its control half), D131(e) (the walk strip is now part of a header).
+
+- **D171 (2026-09-02) DECIDED — the class picker gets the filters a class actually has.**
+  Francesco: *"the filters for the class picker aren't adapted to it (hide ones I can take
+  doesn't make sense)"* and *"remove granted spells from class picker, mention main scores
+  instead (they should also be a filter)"*.
+  - **(a) A filter that cannot mean anything does not draw.** "Hide ones I can't take" answers
+    prerequisites, and a class has none; "only ones that grant spells" would tick every row,
+    because a class's spells are its whole list rather than a grant. Both go for `class`, with
+    their separator, and the ⋯ button's narrowed-count stops counting them.
+  - **(b) MAIN SCORE is the class filter** — the 2024 class table's primary ability, the six
+    scores as a toggle row, preset to all so an untouched preset filters nothing. That guard is
+    load-bearing: the one record with no primary stated (the UA Mystic) would otherwise vanish
+    the moment any narrowing was applied.
+  - **(c) The row leads with its main scores as chips** (D148: an ability stated as a FACT is
+    always a coloured chip) and the granted-spell tail and its ✦ mark are gone. The CASTING
+    ability went with them — every caster's primary ability contains it, and printing both made
+    a Paladin's row say Cha twice. What is left is the line a class owes: scores, progression,
+    hit die, and when the subclass lands.
+  - **Verified live:** the class menu draws Main score and Books and nothing else; narrowing to
+    Int leaves Artificer and Wizard and lights the filter button; the feat picker still draws
+    its category row and both toggles, 47 feats, unchanged. Gate clean, cparity 58 ok / 0 fail,
+    engine 35 ok / 0 fail.
+  - **Enforced by:** the `class` branches of `entItems`, `openEntityPicker` (`abils`/
+    `presetAbils`) and `renderEntityList`; `classPreview`/`classScores`; `#entAbs`. **Affects:**
+    D168(a), D147, D31.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

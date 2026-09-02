@@ -1914,15 +1914,14 @@ function renderGuideHead(steps){
   const l=el("span","lbl-ico");
   const wide=window.innerWidth>820;
   l.append(icoEl(chainOn&&!wide?"compass":"order"),
-    document.createTextNode(wide?(GUIDE.railShut?"Show chain":"Hide chain"):(chainOn?"Decision":"Chain")));
+    document.createTextNode(chainOn?"Decision":"Chain"));
   tg.append(l);
-  // D166(d): below the guide's one-pane breakpoint this switches WHICH pane you see; above
-  // it both are on screen, so it collapses the chain rail instead and gives the stage its
-  // width. One control, the meaning the width allows.
-  tg.onclick=()=>{
-    if(window.innerWidth<=820)GUIDE.pane=chainOn?"stage":"chain";
-    else GUIDE.railShut=!GUIDE.railShut;
-    renderGuide();};
+  // D166(d) put the rail's collapse here as well as the pane switch — one control with two
+  // meanings, and Francesco never found the collapse half of it (*"still no way to collapse
+  // the side rail"*). D170 gives the collapse to the rail's own header, where the state it
+  // controls is visible, and leaves this as the phone's pane switch and nothing else.
+  tg.classList.toggle("hidden",wide);
+  tg.onclick=()=>{GUIDE.pane=chainOn?"stage":"chain"; renderGuide();};
   // the switch is not an exit and not a hide: the page SLIDES aside (D130(e)) and the
   // pinned bar over the character view says which step it is holding
   $("#ghSwap").onclick=()=>{GUIDE.aside=true;render();};
@@ -2007,6 +2006,34 @@ function guideWalkStrip(total,steps){
   wrap.append(b);
   wrap.append(el("span","gwalkat","from L"+at));
   return wrap;
+}
+// D170: the rail's own collapse, right-aligned in its header. Francesco: *"still no way to
+// collapse the side rail, put a command in the rail header (right aligned). When collapsed,
+// the rail is a narrow column with only the level indicators and their state"*. It used to
+// live in the page header as "Hide chain" (D166(d)) and it HID the rail outright; the rail
+// is the one surface that can say it is collapsed and offer its own way back, so the
+// control belongs to it and the collapsed state keeps the column.
+function railToggle(){
+  const shut=!!GUIDE.railShut;
+  const b=el("button","gwalkbtn railtog");
+  b.append(icoEl(shut?"chevright":"chevleft"));
+  const lbl=shut?"Open the chain rail":"Collapse the chain rail";
+  b.setAttribute("aria-label",lbl);
+  b.setAttribute("aria-expanded",String(!shut));
+  b.onclick=e=>{e.stopPropagation(); GUIDE.railShut=!GUIDE.railShut; renderGuide();};
+  attachTip(b,tipBlock(shut?"Open the rail":"Collapse the rail",
+    shut?"Brings the levels and their steps back, and the stage gives up the width."
+        :"Leaves a narrow column of levels and how each one stands. The stage takes the width."));
+  return b;
+}
+// the header the rail always has: the walk direction where there is one to choose, and
+// the collapse on the right. Collapsed, only the collapse is left — the walk control has
+// no room and nothing to point along.
+function railHead(total,steps){
+  if(GUIDE.railShut){const w=el("div","gwalk shut"); w.append(railToggle()); return w;}
+  const w=guideCanWalkDown(steps)?guideWalkStrip(total,steps):el("div","gwalk");
+  w.append(railToggle());
+  return w;
 }
 // ── the chain column (D126(b) · D130(a)) ───────────────────────────────────
 // "A lean variant of the timeline modal, with also the ability to change order." One card
@@ -2139,7 +2166,11 @@ function renderGuideChain(steps,cur){
     // the level header opens THIS level and closes whichever was open (D130(a)); the
     // walk itself moves only from a row, so expanding is never an answer
     card.onclick=e=>{ if(e.target.closest(".gcstep"))return;
-      e.stopPropagation(); GC.open=open?-1:lv; renderGuide(); };
+      e.stopPropagation();
+      // D170: collapsed, a card shows a level and its state and nothing to act on — so
+      // clicking one opens the rail ON that level rather than toggling something invisible
+      if(GUIDE.railShut){GUIDE.railShut=false; GC.open=lv; renderGuide(); return;}
+      GC.open=open?-1:lv; renderGuide(); };
     // the drag is wired with the level's PLAN INDEX, never its position in the column —
     // which is precisely why inverting the display leaves `wireRowDrag` untouched and the
     // two surfaces still produce the identical plan from the identical drop (G1)
@@ -2147,8 +2178,9 @@ function renderGuideChain(steps,cur){
     col.emit(lv,id,card);
   });
   // the direction sits at the visual head in either order, above every level including
-  // the growth affordance, because it governs the whole column
-  if(guideCanWalkDown(steps))col.head(guideWalkStrip(total,steps));
+  // the growth affordance, because it governs the whole column. D170: the header draws
+  // unconditionally now — it also carries the rail's collapse, which is not optional.
+  col.head(railHead(total,steps));
   box.scrollTop=keep;
   // keep the current step in view without touching the page's own scroll
   if(curEl){const r=curEl.getBoundingClientRect(), br=box.getBoundingClientRect();
@@ -2429,10 +2461,24 @@ const CASTER_NAME={full:"Full caster","1/2":"Half caster",artificer:"Half caster
   pact:"Pact magic"};
 function classPreview(c){
   const p=[], cast=CASTER_NAME[c.caster];
-  if(cast)p.push(cast+(c.ability?" · "+(ABIL_SHORT[c.ability]||String(c.ability)):""));
+  // D171: the CASTING ability is gone from this line — the main scores always contain it
+  // (every caster's primary ability is the one it casts with) and repeating it made the
+  // row say Cha twice for a Paladin. The full contract is in the detail pane.
+  if(cast)p.push(cast);
   if(c.traits&&c.traits.hd)p.push(c.traits.hd+" hit die");
   if(c.subclassLevel)p.push("subclass at "+c.subclassLevel);
   return p.join(" · ");
+}
+// D171: the class's MAIN SCORES, as the coloured chips D148 makes every stated ability —
+// leading the row, because they are what the filter beside them acts on. Francesco: the
+// granted spells came off this row to make room for them; a class's spells are its whole
+// list, and naming three of them said nothing a class list does not already say.
+function classScores(c){
+  const ab=(c.traits&&c.traits.primary)||[];
+  if(!ab.length)return null;
+  const w=el("span","entabs");
+  w.innerHTML=ab.map(a=>abChip(a)).join("");
+  return w;
 }
 // D168: CHANGING the class a character level was taken in — a REWRITE of the plan, never
 // an addition. That level's place in `state.levelOrder` is handed to another row: the new
@@ -4137,8 +4183,13 @@ function entItems(srcSet){
   // whose row is in the build stays on offer (it levels up, or it is the answer this level
   // already holds); one that would only DUPLICATE that row under another printing does not.
   if(ENT.kind==="class"){const taken=takenClasses();
+    // D171: the class filter is its MAIN SCORE — the 2024 class table's primary ability.
+    // Only when it has been narrowed: a preset that matches everything must filter nothing,
+    // or a class the books do not state a primary for (the UA Mystic) would vanish silently.
+    const narrowed=!sameSet(ENT.abils,ENT.presetAbils);
     return DATA.classes.filter(o=>vis(o)
-      &&(state.classes.some(r=>r.clsKey===key(o.name,o.source))||!taken.has(clsIdOf(key(o.name,o.source)))));}
+      &&(state.classes.some(r=>r.clsKey===key(o.name,o.source))||!taken.has(clsIdOf(key(o.name,o.source))))
+      &&(!narrowed||((o.traits&&o.traits.primary)||[]).some(a=>ENT.abils.has(a))));}
   return DATA.feats.filter(f=>vis(f)&&!isFeatFS(f)&&ENT.cats.has(featCatId(f)));
 }
 // D168: `at` is the class picker's context — {lv} is the CHARACTER level whose class is
@@ -4157,8 +4208,12 @@ function openEntityPicker(kind,category,at){
   const catList=kind==="feat"?featCatsFor(slots):[];
   const preset=new Set(catList.map(c=>c[0]));
   const lv=(kind==="class"&&at&&at.lv!=null)?at.lv:null;
+  // D171: the six main scores, preset to all — narrowing is the player's, exactly as the
+  // feat categories work, and an untouched preset filters nothing
+  const presetAbils=new Set(Object.keys(ABIL));
   ENT={kind,category,slot,lv,q:"",books:new Set(SRC),grantsOnly:false,hideNo:false,
-       cats:new Set(preset),presetCats:preset,catList};
+       cats:new Set(preset),presetCats:preset,catList,
+       abils:new Set(presetAbils),presetAbils};
   $("#entTitle").textContent = kind==="opt"?`Choose ${slot.name.replace(/s$/,"").toLowerCase()}`
     : kind==="species"?"Choose a species / lineage"
     : kind==="class"?(lv!=null?"Change the class at level "+lv:"Choose a class")
@@ -4198,6 +4253,17 @@ function renderEntityList(){
   $("#entCatHead").classList.toggle("hidden",ENT.kind!=="feat");
   $("#entCats").classList.toggle("hidden",ENT.kind!=="feat");
   if(ENT.kind==="feat")buildToggleRow($("#entCats"),ENT.catList||[],ENT.cats,false,()=>renderEntityList());
+  // D171: a filter that cannot mean anything here does not draw. A class has no
+  // prerequisites, so "hide ones I can't take" answers a question nobody asked; and its
+  // spells are its whole list, not a grant, so "grants spells" would tick every row.
+  const isCls=ENT.kind==="class";
+  $("#entAbHead").classList.toggle("hidden",!isCls);
+  $("#entAbs").classList.toggle("hidden",!isCls);
+  $("#entGrantsRow").classList.toggle("hidden",isCls);
+  $("#entHideNoRow").classList.toggle("hidden",isCls);
+  $("#entTogSep").classList.toggle("hidden",isCls);
+  if(isCls)buildToggleRow($("#entAbs"),
+    Object.keys(ABIL).map(a=>[a,ABIL_SHORT[a]]),ENT.abils,false,()=>renderEntityList());
   renderEntBooks();
   renderEntBudget();
   const q=ENT.q.toLowerCase();
@@ -4225,8 +4291,10 @@ function renderEntityList(){
     +(ENT.note?` · ${esc(ENT.note)}`:"");
   // the ⋯ button says THAT the list is narrowed, not by how much — a count on an icon
   // button pushes the icon off centre and names a number nothing acts on
-  const nf=[ENT.grantsOnly,ENT.hideNo,!sameSet(ENT.books,SRC)].filter(Boolean).length
-    +(ENT.kind==="feat"&&!sameSet(ENT.cats,ENT.presetCats)?1:0);
+  const nf=[ENT.kind!=="class"&&ENT.grantsOnly,ENT.kind!=="class"&&ENT.hideNo,
+      !sameSet(ENT.books,SRC)].filter(Boolean).length
+    +(ENT.kind==="feat"&&!sameSet(ENT.cats,ENT.presetCats)?1:0)
+    +(ENT.kind==="class"&&!sameSet(ENT.abils,ENT.presetAbils)?1:0);
   $("#entMenuBtn").classList.toggle("on",!!nf);
   // D168: what "selected" means for a class. Rewriting a level, it is the class that level
   // was taken in — the answer this step already holds. On the growth step nothing is
@@ -4268,7 +4336,7 @@ function renderEntityList(){
     nm.append(bookChip(it.source,it.page));   // D147: every book, core included
     if(ENT.kind==="feat"&&(ENT.catList||[]).length>1)
       nm.append(Object.assign(el("span","entcat"),{textContent:featCatLabel(it)}));
-    if(grantsAny(it.grants))nm.append(icoEl("spark","fmark"));
+    if(grantsAny(it.grants)&&ENT.kind!=="class")nm.append(icoEl("spark","fmark"));
     if(pr.state==="no")nm.append(icoEl("warn","entwarn"));
     main.append(nm);
     // prerequisites are a different kind of fact from what an entry grants, so they get
@@ -4288,9 +4356,15 @@ function renderEntityList(){
           chip.onclick=e=>{e.stopPropagation();openPrqPop(chip,pt.pick);};}
         rq.append(chip);});
       main.append(rq);}
-    const prev=[ENT.kind==="class"?classPreview(it):"",grantPreview(it.grants)]
-      .filter(Boolean).join(" · ");
-    if(prev)main.append(Object.assign(el("div","entprev"),{textContent:prev,title:prev}));
+    const prev=ENT.kind==="class"?classPreview(it):grantPreview(it.grants);
+    if(ENT.kind==="class"){
+      const line=el("div","entprev");
+      const sc=classScores(it); if(sc)line.append(sc);
+      if(prev)line.append(el("span",null,prev));
+      line.title=prev;
+      if(line.childNodes.length)main.append(line);
+    }
+    else if(prev)main.append(Object.assign(el("div","entprev"),{textContent:prev,title:prev}));
     row.append(main);
     // D168: a class is never REMOVED by its own take button — it is taken, or it replaces
     // the class a level was taken in. So the row already holding the answer offers nothing
