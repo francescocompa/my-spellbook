@@ -2952,6 +2952,39 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     `spFiltGroups`/`durCat`; `entFilterGroups`/`entBooksGroup`; `gpickMenu`; the `.fmenu`
     block and `.menupop .cbtn`. **Affects:** PLAN.md (M1b, M2 done), D171(b), D173(a), D31.
 
+- **D175 (2026-09-04) DECIDED — a rich tag's display text is per-tag, not "segment 0".**
+  Francesco: *"the scaling in conjure elementals is wrong, check if other spells have the same
+  issue"*. It printed *"the damage increases by 8d8;4d8"* where the book says **1d8**.
+  - **(a) The cause.** `rich_strip`/`richStrip` kept the FIRST pipe segment of every
+    `{@tag …}`. For `{@scaledamage 8d8;4d8|5-9|1d8}` segment 0 is the BASE damage, segment 2
+    the per-slot increase — so the sentence that promises an increase printed the whole base.
+    Not one spell: **137 spells** carried a wrong number in their higher-level line, in both
+    editions and across `@scaledamage` and `@scaledice` (Fireball read 8d6, Cone of Cold 8d8,
+    Color Spray 6d10). The screen was self-consistent, which is why it survived this long.
+  - **(b) The rule.** Segment 0 stays the DEFAULT — it is right for most tags. Two tables name
+    the exceptions, taken from 5etools' own unpackers rather than guessed: `TAG_DISPLAY`
+    (`scaledice`/`scaledamage` → 4 then 2, `quickref` → 4, `deity` → 3, `card` → 3,
+    `subclass` → 4, `classFeature` → 5, `subclassFeature` → 7) and `LINK_TAGS`, the 30 tags
+    whose display text is segment 2. Of the 605 strings that moved, **135 are higher-level
+    lines** and the other 470 are link tags: *"Proficiency"* → *"Proficiency Bonus"*,
+    *"you have Cover"* → *"Three-Quarters Cover"*, *"Ghoul"* → *"Ghouls"*.
+    *Rejected:* defaulting every tag to segment 2 — the FORMATTING tags (`@dice`, `@filter`,
+    `@book`, `@chance`, `@color`) take pipes too and carry their display elsewhere, so a
+    blanket rule prints a book code where a spell name belongs.
+  - **(c) The gate grows a prose line.** `cparity.js` compared desc paragraph COUNTS, so a
+    table that drifts between the two extractors would print a different number in the two
+    builds and pass. It now compares every spell's `desc` + `higher` **byte-identical** across
+    js and py, and asserts no higher-level line still carries a `Nd N;` base list. Both
+    assertions were watched go red (one index flipped in `extract.js`: 7 spells, prose false)
+    before being put back.
+  - **Verified:** 605 strings changed in `data/data.json`, 0 keys added or lost; every sampled
+    diff strictly better; Conjure Elemental XPHB reads *"The damage increases by 1d8 for each
+    spell slot level above 5"* in the live app. Gate clean — cparity 60 ok / 0 fail, engine,
+    deadfns, ids, eslint all 0.
+  - **Enforced by:** `TAG_DISPLAY` + `LINK_TAGS` in `extract.py` AND `src/extract.js`;
+    `cparity.js`'s "spell prose (byte-identical)". **Affects:** GOTCHAS.md, CLAUDE.md's
+    both-extractors rule, D50 (stat-block prose rides the same stripper).
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

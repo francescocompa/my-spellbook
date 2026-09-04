@@ -12,15 +12,43 @@ MIRROR = sys.argv[1] if len(sys.argv) > 1 else \
     "/Users/francescocompagnoni/Documents/D&D/5etool_mirror/5etools-v2.33.3/data"
 
 # ---- helpers ---------------------------------------------------------------
+# Which pipe segment of a {@tag …} carries the text 5etools RENDERS. Segment 0 is the
+# right answer for most tags and stays the default; these are the ones where it is not:
+#
+#   {@scaledamage 8d8;4d8|5-9|1d8}  the base damage, the slot range, THE INCREASE
+#
+# Conjure Elemental read "the damage increases by 8d8;4d8" — segment 0, the base — where
+# the book says 1d8. 137 spells carried the same wrong number. A link tag's segment 2 is
+# its display text, which is how "{@creature Ghoul|XMM|Ghouls}" keeps its plural.
+# Indices are 5etools' own (`Renderer.parseScaleDice`, `DataUtil.*.unpackUid*`); a tuple
+# is tried in order, so a scale tag falls back to the increase when it has no display text.
+TAG_DISPLAY = {"scaledice": (4, 2), "scaledamage": (4, 2), "quickref": (4,),
+               "deity": (3,), "card": (3,), "subclass": (4,),
+               "classFeature": (5,), "subclassFeature": (7,)}
+# the link tags, whose display text is segment 2 ({@tag name|source|display}). Listed
+# rather than defaulted: the FORMATTING tags ({@dice}, {@filter}, {@book}, {@chance},
+# {@color}) also take pipes and their display sits elsewhere, so a blanket rule would
+# print a book code where a spell name belongs.
+LINK_TAGS = {"action", "background", "boon", "charoption", "class", "condition", "creature",
+             "cult", "deck", "disease", "feat", "hazard", "item", "itemMastery", "language",
+             "legroup", "object", "optfeature", "psionic", "race", "recipe", "reward",
+             "sense", "skill", "spell", "status", "table", "trap", "variantrule", "vehicle"}
+
 def rich_strip(s):
     if not isinstance(s, str):
         return s
     def repl(m):
         body = m.group(0)[2:-1]
         parts = body.split(" ", 1)
+        tag = parts[0]
         rest = parts[1] if len(parts) > 1 else ""
         segs = rest.split("|")
-        txt = segs[0].strip() if segs and segs[0].strip() else rest
+        txt = ""
+        for i in TAG_DISPLAY.get(tag) or ((2,) if tag in LINK_TAGS else ()):
+            if len(segs) > i and segs[i].strip():
+                txt = segs[i].strip(); break
+        if not txt:
+            txt = segs[0].strip() if segs and segs[0].strip() else rest
         # a display name may end in a [disambiguator] 5etools' own renderer drops
         bare = re.sub(r"\s*\[[^\]]*\]$", "", txt).strip()
         return bare if bare else txt

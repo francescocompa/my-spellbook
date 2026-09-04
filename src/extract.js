@@ -9,10 +9,36 @@ const SCHOOL={A:"Abjuration",C:"Conjuration",D:"Divination",E:"Enchantment",
 const SLOT_LEVEL_KEY={s6:11,s7:13,s8:15,s9:17};
 const RECHARGE={will:"at will",daily:"per long rest",rest:"per short rest",resource:"per resource"};
 
+// Which pipe segment of a {@tag …} carries the text 5etools RENDERS. Segment 0 is the
+// right answer for most tags and stays the default; these are the ones where it is not:
+//
+//   {@scaledamage 8d8;4d8|5-9|1d8}  the base damage, the slot range, THE INCREASE
+//
+// Conjure Elemental read "the damage increases by 8d8;4d8" — segment 0, the base — where
+// the book says 1d8. 137 spells carried the same wrong number. A link tag's segment 2 is
+// its display text, which is how "{@creature Ghoul|XMM|Ghouls}" keeps its plural.
+// Indices are 5etools' own (`Renderer.parseScaleDice`, `DataUtil.*.unpackUid*`); a tuple
+// is tried in order, so a scale tag falls back to the increase when it has no display text.
+// Keep identical to extract.py's TAG_DISPLAY / LINK_TAGS.
+const TAG_DISPLAY={scaledice:[4,2],scaledamage:[4,2],quickref:[4],
+  deity:[3],card:[3],subclass:[4],classFeature:[5],subclassFeature:[7]};
+// the link tags, whose display text is segment 2 ({@tag name|source|display}). Listed
+// rather than defaulted: the FORMATTING tags ({@dice}, {@filter}, {@book}, {@chance},
+// {@color}) also take pipes and their display sits elsewhere, so a blanket rule would
+// print a book code where a spell name belongs.
+const LINK_TAGS=new Set(["action","background","boon","charoption","class","condition",
+  "creature","cult","deck","disease","feat","hazard","item","itemMastery","language",
+  "legroup","object","optfeature","psionic","race","recipe","reward","sense","skill",
+  "spell","status","table","trap","variantrule","vehicle"]);
+
 function richStrip(s){ if(typeof s!=="string")return s;
   const repl=m=>{const body=m.slice(2,-1);const sp=body.indexOf(" ");
+    const tag=sp>=0?body.slice(0,sp):body;
     const rest=sp>=0?body.slice(sp+1):"";const segs=rest.split("|");
-    const txt=(segs[0]&&segs[0].trim())?segs[0].trim():rest;
+    let txt="";
+    for(const i of TAG_DISPLAY[tag]||(LINK_TAGS.has(tag)?[2]:[])){
+      if(segs.length>i&&segs[i].trim()){txt=segs[i].trim();break;} }
+    if(!txt)txt=(segs[0]&&segs[0].trim())?segs[0].trim():rest;
     // a display name may end in a [disambiguator] 5etools' own renderer drops
     const bare=txt.replace(/\s*\[[^\]]*\]$/,"").trim();
     return bare||txt;};

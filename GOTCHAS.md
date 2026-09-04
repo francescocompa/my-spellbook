@@ -7,6 +7,19 @@
 > Read this before touching the extractors, the importer, the grants resolution or any
 > DOM handler. Moved out of `STATE.md` on 2026-08-27 (v1.1); nothing was dropped.
 
+- **A `{@tag …}`'s display text is NOT always segment 0, and the wrong one is a wrong NUMBER**
+  (D175, v1.5.32). `rich_strip` kept the first pipe segment of every tag. In
+  `{@scaledamage 8d8;4d8|5-9|1d8}` segment 0 is the BASE damage and segment 2 the per-slot
+  increase, so 137 spells said *"the damage increases by 8d6"* where the book says 1d6 —
+  Fireball, Cone of Cold, Conjure Elemental, Color Spray. Nothing looked broken: the sentence
+  was grammatical and the number was a real die expression from the same spell. Segment 0 is
+  still the default; `TAG_DISPLAY` and `LINK_TAGS`, in BOTH extractors, name every exception,
+  with the indices taken from 5etools' own `Renderer.parseScaleDice` / `DataUtil.*.unpackUid*`
+  rather than inferred from the data. **Do not "simplify" either table into a blanket rule:**
+  the formatting tags (`@dice`, `@filter`, `@book`, `@chance`, `@color`) take pipes too and
+  their display sits at a different index, so segment 2 would print a book code mid-sentence.
+  `cparity.js` now compares every spell's `desc` + `higher` byte-identical between js and py —
+  the old paragraph-COUNT compare passed a table that had drifted.
 - **The browser pane's storage does not persist across sessions, and a port is its own origin.**
   Every agent and the coordinating session in the 2026-09-01 audit got an EMPTY profile (one
   auto-created build, deterministic in size, which is why the byte lengths matched across ports

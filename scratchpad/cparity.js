@@ -34,6 +34,15 @@ const pf=py.spells.find(s=>s.name==="Find Familiar"&&s.source==="XPHB");
 cmp("FindFamiliar|XPHB level",ff&&ff.level,pf&&pf.level);
 cmp("FindFamiliar|XPHB creatures",ff&&(ff.creatures||[]).length,pf&&(pf.creatures||[]).length);
 cmp("FindFamiliar|XPHB desc paras",ff&&(ff.desc||[]).length,pf&&(pf.desc||[]).length);
+// The stripped PROSE, byte-identical. A tag whose display text sits in a later pipe
+// segment ({@scaledamage 8d8;4d8|5-9|1d8} → "1d8") is decided by a per-tag table that
+// lives in BOTH extractors, and a table that drifts prints a different number in the
+// two builds — a count compare would never see it.
+const proseText=d=>(d.spells||[]).map(s=>s.name+"|"+s.source+"|"
+  +(s.desc||[]).join(" ")+"|"+(s.higher||[]).join(" ")).sort().join("\n");
+cmp("spell prose (byte-identical)",proseText(digest)===proseText(py),true);
+const scaled=d=>(d.spells||[]).filter(s=>/\d+d\d+;/.test((s.higher||[]).join(" "))).length;
+cmp("higher-level lines still carrying a base-damage list",scaled(digest)+scaled(py),0);
 // no hollow spells anywhere
 const hollow=digest.spells.filter(s=>s.level===0&&!s.school&&!(s.desc||[]).length);
 cmp("hollow spell records",hollow.length,0);
