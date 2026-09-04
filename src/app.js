@@ -8356,8 +8356,13 @@ function mkEmpty(){const e=el("div","empty");
 // ── spell detail: hover tooltip + click modal ──────────────────────────────
 const SPTIP=el("div","sptip");document.body.appendChild(SPTIP);
 const SPMODAL=el("div","spmodal hidden");document.body.appendChild(SPMODAL);
+// D175(c): the one cross-modal jump in the app. A spell named in "Spells it gives you"
+// opens its own detail IN THE SAME BOX, so what it replaced is remembered here and offered
+// back BY NAME — every other detail surface is a dead end you leave by closing, and a jump
+// with no way back would make this one a trap. Francesco's call, over a one-way link.
+let SPBACK=null;
 // one closer for the modal, so `ENTM` can never outlive what it points at
-function closeSpModal(){SPMODAL.classList.add("hidden");ENTM=null;
+function closeSpModal(){SPMODAL.classList.add("hidden");ENTM=null;SPBACK=null;
   const pm=$("#pickModal"); if(pm)pm.classList.remove("over");}
 SPMODAL.onclick=e=>{if(e.target===SPMODAL||e.target.classList.contains("x"))closeSpModal();};
 // ── B1-04/B2-01/C2-01: shared dialog semantics for every `.modal` ───────────────────────
@@ -8956,7 +8961,17 @@ function metamagicHTML(sp){
   const chips=hits.map(x=>`<span class="mmchip" data-mmn="${esc(x.o.name)}" data-mmw="${esc(x.d.why)}">${esc(x.d.tag)}</span>`).join("");
   return `<div class="acc-row mmrow"><span class="secttl">Metamagic</span><div class="achips">${chips}</div></div>`;
 }
-function openSpellModal(sp){hideTip();SPMODAL.innerHTML=modalHTML(sp);
+function openSpellModal(sp,back){hideTip();
+  // the entity modal this replaces is GONE from the DOM — `ENTM` must not outlive it, or
+  // the next render writes a choices block into a node that is no longer there
+  ENTM=null; SPBACK=back||null;
+  SPMODAL.innerHTML=modalHTML(sp);
+  if(SPBACK){const mh=SPMODAL.querySelector(".mh"), nm=entName(SPBACK.it,SPBACK.kind);
+    const b=el("button","spback");b.type="button";
+    b.append(icoEl("chevleft"),el("span",null,nm));
+    b.setAttribute("aria-label","Back to "+nm);
+    b.onclick=()=>{const t=SPBACK;SPBACK=null;openEntityModal(t.it,t.kind,t.sub);};
+    if(mh)mh.prepend(b);}
   SPMODAL.querySelectorAll(".mmchip").forEach(c=>attachTip(c,
     tipBlock(c.dataset.mmn,"This spell "+c.dataset.mmw+". Advisory: the option's full text has the final word.")));
   const at=SPMODAL.querySelector(".acc-toggle");
@@ -9290,11 +9305,13 @@ function entGrantsHTML(it,sub){
   const byLv=new Map(), opts=[];
   // a run of spells is stored as {text, fromSub} so the subclass's entries can be MARKED
   // in place — the same rule the spine and the table follow, never a separate section
-  const put=(lv,txt,fromSub)=>{if(!txt)return;const k=lv==null?0:lv;const a=byLv.get(k)||[];
-    if(!a.some(x=>x.t===txt))a.push({t:txt,s:!!fromSub});byLv.set(k,a);};
+  // `nm` is the resolved spell's own name when the row IS a spell — that is what makes it
+  // a link (D175(c)). A pick's question and an expansion describe a choice, not a spell.
+  const put=(lv,txt,fromSub,nm)=>{if(!txt)return;const k=lv==null?0:lv;const a=byLv.get(k)||[];
+    if(!a.some(x=>x.t===txt))a.push({t:txt,s:!!fromSub,n:nm||null});byLv.set(k,a);};
   recs.forEach(r=>{const g=r.grants, fromSub=(r===sub);
     (g.fixed||[]).forEach(x=>{const raw=x.spell&&x.spell.name;if(!raw||!x.spell.source)return;
-      const rec=grantRec(raw); put(x.atLevel,(rec&&rec.name)||raw,fromSub);});
+      const rec=grantRec(raw); put(x.atLevel,(rec&&rec.name)||raw,fromSub,rec&&rec.name);});
     (g.picks||[]).forEach(pk=>put(pk.atLevel,cap1(guidePickAsk(pk)
       ||((pk.count>1?pk.count+"× ":"")+(fmtDesc(pk.desc)||"a spell"))),fromSub));
     (g.expansions||[]).forEach(x=>put(x.atLevel,"Expanded spell list",fromSub));
@@ -9304,7 +9321,10 @@ function entGrantsHTML(it,sub){
       if(t)opts.push({t,s:fromSub});});});
   const lvls=[...byLv.keys()].sort((a,b)=>a-b);
   if(!lvls.length&&!opts.length)return "";
-  const mark=x=>x.s?`<span class="ctsub">${esc(x.t)}</span>`:esc(x.t);
+  const mark=x=>{const t=x.n
+    ? `<button type="button" class="gsplink nmlink" data-gsp="${esc(x.n)}">${esc(x.t)}</button>`
+    : esc(x.t);
+    return x.s?`<span class="ctsub">${t}</span>`:t;};
   const rows=lvls.map(L=>`<div class="egrow"><span class="eglv">${L?"Level "+L:"Always"}</span>`
     +`<span class="egsp">${byLv.get(L).map(mark).join(" · ")}</span></div>`).join("")
     +opts.map(o=>`<div class="egrow"><span class="eglv">Choose</span><span class="egsp">${mark(o)}</span></div>`).join("");
@@ -9415,8 +9435,19 @@ function openEntityModal(it,kind,sub){
   hideTip(); ENTM={it,kind,sub:sub||null};
   SPMODAL.innerHTML=entModalHTML(it,kind,sub||null);
   SPMODAL.querySelectorAll(".bchip[data-book]").forEach(x=>attachTip(x,bookTip(x.dataset.book,x.dataset.page)));
-  wireEntFolds(SPMODAL); wireCondTips(SPMODAL); renderEntChoices();
+  wireEntFolds(SPMODAL); wireCondTips(SPMODAL); wireGrantLinks(); renderEntChoices();
   SPMODAL.classList.remove("hidden"); stagePrevSync();}
+// the spell-name contract inside a detail modal: the NAME is the link, and the jump carries
+// where it came from so the spell modal can offer it back (D175(c)).
+function wireGrantLinks(){
+  if(!ENTM)return;
+  const back={it:ENTM.it,kind:ENTM.kind,sub:ENTM.sub};
+  SPMODAL.querySelectorAll(".gsplink[data-gsp]").forEach(b=>{
+    const sp=grantRec(b.dataset.gsp); if(!sp){b.classList.remove("nmlink");return;}
+    b.addEventListener("mouseenter",e=>showTip(sp,e));
+    b.addEventListener("mousemove",posTip);
+    b.addEventListener("mouseleave",hideTip);
+    b.addEventListener("click",e=>{e.stopPropagation();openSpellModal(sp,back);});});}
 // the spell-name contract again: the NAME is the link, the row/chip around it keeps its
 // own job (taking the pick, dropping it). `stopPropagation` is what enforces that split.
 function attachEntity(elm,it,kind){

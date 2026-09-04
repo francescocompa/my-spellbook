@@ -2981,9 +2981,38 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     diff strictly better; Conjure Elemental XPHB reads *"The damage increases by 1d8 for each
     spell slot level above 5"* in the live app. Gate clean — cparity 60 ok / 0 fail, engine,
     deadfns, ids, eslint all 0.
+  - **(c) A granted spell's NAME is a link, and the jump remembers where it came from.**
+    Francesco's second note: *"in the section spells it gives you, you should be able to click
+    and see the spell details"*. Both surfaces live in the SAME box (`SPMODAL`), so the spell
+    replaces the feat/species/subclass you were reading — and every other detail surface in
+    this app is a dead end you leave by closing, so a one-way jump would have made this one a
+    trap. `SPBACK` holds what was replaced and the spell modal's header offers it back BY NAME
+    ("← Fey-Touched"), which a bare arrow does not say. `ENTM` is nulled on the way in: the
+    entity modal is gone from the DOM and a live pointer would have `renderEntChoices` write
+    into a node that no longer exists.
+    **Only a named spell is a link** (his call): a pick's question ("2× a spell of level 1 or
+    lower"), an expansion and an option group describe a CHOICE, not a spell, so there is
+    nothing to open — and an option group's names are the group's alternatives, not its grant.
+    *Rejected:* a one-way link (cheapest, consistent with `attachSpell`, but you lose your
+    place); expanding the spell in place under its row (keeps the feat on screen, but the
+    block becomes a scroller and a spell's access chips and stat block do not fit it).
+    The link is a `<button>` for keyboard and screen readers, with everything a button brings
+    of its own — font, colour, padding, background — handed back to the prose, or the row
+    breaks into boxes the way `.menupop button` broke the toggle chips in D173. `.ctsub`
+    reaches through it by `color:inherit`, so a subclass's entry keeps its mark.
+  - **Verified live:** Fey-Touched → Misty Step → back, twice, with the title and the grants
+    block correct each time and `ENTM` null while the spell shows and restored on return; a
+    spell opened any other way has no back control; Alchemist's 13 grants render as links with
+    12 of them keeping the `.ctsub` accent through the button. The chevron's left edge is
+    **0.00px** off the title's at both 1280 and 375, the icon vertically centred to 0.00px, the
+    control clear of the ✕ and in viewport at both widths with no horizontal overflow; back
+    control 6.36:1 dark, 6.55:1 light; the link sits on its row's own line box (Δtop 0.00px).
+    0 console errors; gate clean.
   - **Enforced by:** `TAG_DISPLAY` + `LINK_TAGS` in `extract.py` AND `src/extract.js`;
-    `cparity.js`'s "spell prose (byte-identical)". **Affects:** GOTCHAS.md, CLAUDE.md's
-    both-extractors rule, D50 (stat-block prose rides the same stripper).
+    `cparity.js`'s "spell prose (byte-identical)"; `SPBACK`, `wireGrantLinks`,
+    `openSpellModal(sp,back)`, `.gsplink` and `.spback`. **Affects:** GOTCHAS.md, CLAUDE.md's
+    both-extractors rule, D50 (stat-block prose rides the same stripper), D147 (the Access
+    chips stay unlinked), D149 (the choices block), D164.
 
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for

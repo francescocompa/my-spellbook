@@ -2591,6 +2591,23 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
   border-radius:7px;padding:1px 6px;white-space:nowrap;align-self:start;line-height:1.5;
   text-align:center}
 .spmodal .egsp{line-height:1.55}
+/* D175(c): a granted spell's NAME is a link. It is a <button> so it is reachable by keyboard
+   and announced as a control, and everything a button brings of its own — font, colour,
+   padding, background — is handed back to the prose it sits in, or the row would break into
+   boxes the way `.menupop button` broke the toggle chips in D173. `.ctsub` marks a subclass's
+   entry by colour and has to reach THROUGH the button, hence `color:inherit`. */
+.spmodal .gsplink{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;
+  text-align:left;line-height:inherit}
+.spmodal .gsplink:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+/* the way back out of that jump: above the title, left where a back control is read, and
+   named — "← Fey Touched" says what you return to, which a bare arrow does not. */
+.spmodal .mh .spback{display:inline-flex;align-items:center;gap:4px;margin:0 0 6px -4px;
+  padding:2px 6px 2px 4px;border:0;border-radius:7px;background:none;cursor:pointer;
+  font-family:var(--sans);font-size:11px;font-weight:600;letter-spacing:.02em;color:var(--muted)}
+.spmodal .mh .spback:hover{background:var(--panel-2);color:var(--accent)}
+.spmodal .mh .spback:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.spmodal .mh .spback .ico{width:12px;height:12px;display:inline-flex}
+.spmodal .mh .spback .ico svg{width:12px;height:12px}
 /* D149: the choices an element carries, answered from its own modal. The rows are the
    app's own `.choicerow`s, so they need the Choices card's own widths in a narrower box. */
 .spmodal .entchbody .choicerow{padding:6px 0}
