@@ -7,37 +7,35 @@
 > |---|---|
 > | `CLAUDE.md` | What this project is, its conventions, build/run, the verify gate, versioning |
 > | `PLAN.md` | The queue — what is next, what is flagged for Francesco |
-> | `DECISIONS.md` | Every decision D7–D181 and what was rejected |
+> | `DECISIONS.md` | Every decision D7–D183 and what was rejected |
 > | `GOTCHAS.md` | Traps that have already cost a session |
 > | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 > | `ARCHIVE.md` | Bodies of consumed phases, decisions and old rationale |
 
-## TL;DR (2026-09-05 · **v1.5.39** live, pushed and tagged · `523793d` · **Phase N opened (D176) and N1 shipped, reviewed three times** · six releases this session, v1.5.34 → v1.5.39)
+## TL;DR (2026-09-05 · **v1.5.41** live, pushed and tagged · `1190ed8` · **Phase M DONE (D182) · a lookup gap closed (D183)** · two releases this session, v1.5.40 → v1.5.41)
 
-- **Where it stands.** The character-creator question was studied
-  (`audits/character-creator-feasibility.md`) and answered by **D176**: every destination is
-  valid (this app, character-forge/Notion, paper) and the boundary moves ONE rung at a time,
-  scores + proficiency bonus first. **N1 shipped as v1.5.34** and drew three review rounds the
-  same day: the ability tile is the control with a per-tile popover, the ⋯ fill menu (array ·
-  point buy · type · roll with a formula · Optimize switch · armed clear), main tints, save
-  borders (**D177 → D179**); the picked chips are grouped by level with the level tiles folded
-  into the rows and a one-row scroller past twelve chips (**D180, D181**). The wizard's
-  per-level tile was wrong and is fixed: copies never eat the lower levels' allowance
-  (D178(f)). **A 2026-09-04 session shipped v1.5.31 → v1.5.33 (D174, D175) with no handoff.**
-- **Next action: Phase M's M3 (feat filters) then M4 (wording)**, both small; after them N2
-  (backgrounds) needs its own decision entry before anything is built (D176(c)). L5.5 onward
-  still queued.
-- **Manual for Francesco:** ① the **copy-veto pass** over `audits/copy-table.md` (227 rows;
-  M4 will add to it); ② **PWA install check** on your phone (L5.6); ③ **third-casters are
-  still pooled then floored** — Fighter 5 (EK) + Rogue 5 (AT) reads 3 where the table gives 2,
-  a separate rules call; ④ the Library status strip names a parser version that is behind
-  without saying that is now fine; ⑤ *"make all choices"* was read as "remove the level chip"
-  only; ⑥ print from Chrome or Safari (D108); ⑦ XMM on for Find Familiar's 2024 forms (D81);
-  ⑧ L5.5's format (copy the build as a level plan).
+- **Where it stands.** **Phase M closed** with M3 and M4 (v1.5.40, **D182**): the feat picker's
+  "Eligible only" is a three-way Prerequisites row (Eligible / Not yet / Can't verify) plus an
+  Ability bonus row, and every filter surface speaks the D174 menu's vocabulary (Books, Cast
+  time, Save, Damage, Access, Properties; Reprints and Marked are switches). His bug report
+  closed a real extractor gap (v1.5.41, **D183**): the lookup's `classVariant` key — a list a
+  book adds a spell to — was never read, so Battle Familiar (AU) had no warlock and Fizban's
+  dragon spells no sorcerer or wizard; 180 spells in the mirror, 213 in a live library. The
+  parser fingerprint moved, so a stored library re-reads itself on the next visit. **Phase N**
+  (D176) has N1 shipped (D177–D181); N2 onward each need a decision entry first.
+- **Next action: N2 (backgrounds) needs its own decision entry before anything is built**
+  (D176(c)) — /interview him on the rung, then build. L5.5 onward still queued.
+- **Manual for Francesco:** ① the **copy-veto pass** over `audits/copy-table.md` (now 245
+  rows; M4's eighteen are at the end, and two of the names are the session's own call:
+  **Access** for the old "Class / list" and **Properties** for "Tags"); ② confirm on the live
+  page that Battle Familiar now shows for a Warlock once the library has re-read (the Library
+  strip says so); ③ **PWA install check** on your phone (L5.6); ④ **third-casters are still
+  pooled then floored** — Fighter 5 (EK) + Rogue 5 (AT) reads 3 where the table gives 2, a
+  separate rules call; ⑤ print from Chrome or Safari (D108); ⑥ XMM on for Find Familiar's 2024
+  forms (D81); ⑦ L5.5's format (copy the build as a level plan).
 - **Read before touching the score block:** D176–D181 in that order; the CSS is inside
-  `.menupop`, where `.menupop button` restyles every button — the D173 trap bit three times
-  today (chips, the switch, the pills). **DECISIONS.md is past 3,100 lines and the doc set
-  carries three consumed mockup rounds — a full `/clean` is overdue (D158(q)).**
+  `.menupop`, where `.menupop button` restyles every button (GOTCHAS). **Before touching the
+  extractors:** GOTCHAS' lookup entries (D91, D183) — the lookup has two class keys.
 
 ## What this is
 
@@ -52,15 +50,19 @@ https://claude.ai/code/artifact/47dbe945-a18a-4444-af21-c0143faa2eb0
 Non-goals, as narrowed by D115: no **authored** level-by-level timeline (per-level truth is
 derived from the acquisition order; versions are alternatives, never levels), no server sync
 or accounts, no sharing a build as a page or URL (D36), no full bestiary (D78 carries a
-bounded set). Ability scores and proficiency are not modelled.
+bounded set). Of a character's numbers, ability scores and the proficiency bonus are modelled
+and nothing else (D176).
 
 ## Now
 
-The queue is `PLAN.md`: **Phase M** (D172) has **M3 and M4 left**; **Phase N** (D176, the
-creator ladder) has **N1 done** and every further rung gated on its own decision entry.
-Phases E–N models (D115, D118, D126, D130, D131, D132, D154–D156, D161–D181) still bind their
-surfaces; cite them. `audits/` is a point-in-time artifact: `/clean` archives it once L5 has
-consumed it, together with the three mockup rounds in `scratchpad/mockups/`
-(`scores.html`, `picks.html`, `fold.html`, each with its `mk*.py`).
+The queue is `PLAN.md`: **Phase M is done** (D172–D174, D182); **Phase N** (D176, the creator
+ladder) has **N1 done** and every further rung gated on its own decision entry — N2
+(backgrounds) is next and needs the entry first. Phases E–N models (D115, D118, D126, D130,
+D131, D132, D154–D156, D161–D183) still bind their surfaces; cite them. `audits/` is a
+point-in-time artifact: `/clean` archives it once L5 has consumed it, together with the three
+mockup rounds in `scratchpad/mockups/` (`scores.html`, `picks.html`, `fold.html`, each with
+its `mk*.py`).
 
-The queue after Phase M is N2 (decision entry first) and L5.5 onward — see `PLAN.md`.
+⟳ Rename previous session → "Feat filters, the filter wording pass, and the classVariant gap" · session: local_f68f3c8c-2e5f-4455-91d2-3df0f69abdae
+
+The queue after N2 is L5.5 onward — see `PLAN.md`.
