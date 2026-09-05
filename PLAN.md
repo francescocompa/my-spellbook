@@ -4,7 +4,9 @@
 > this says what comes next. Closed items → `ARCHIVE.md#closed-backlog`.
 >
 > **Phase M (the filter system, D172) is the live phase.** The surface is chosen (D173) and
-> **M1a, M1b and M2 have shipped** (v1.5.30, v1.5.31) — **M3 and M4 remain.**
+> **M1a, M1b and M2 have shipped** (v1.5.30, v1.5.31) — **M3 and M4 remain.** **Phase N (the
+> creator ladder, D176) opened 2026-09-05: N1 shipped (v1.5.34 → v1.5.39, D177–D181); N2
+> onward each need a decision entry first.**
 >
 > **Phase L (the audit, D157) is TRIAGED — D158 holds every disposition.** Wave 3 (L4) shipped;
 > the build list (L5) is under way — **L5.1 through L5.4 are done** and the guided builder's

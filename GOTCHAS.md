@@ -882,3 +882,18 @@
   pane's static-snapshot renderer runs script in a context OUT OF SYNC with what it paints, so
   nothing measured there — colour, contrast, computed style — can be trusted. Measure against
   the live app on the dev server.
+
+- **An index-based replacement in `styles.css` cut 70 rules it never meant to touch
+  (2026-09-05, v1.5.39).** A python edit took "from the D180 picks comment to the D181
+  comment" — but the picks block had been spliced INTO the middle of the score block on an
+  earlier edit, so everything between (the whole ability-score CSS, the D179 name-border
+  rules) went with it. The tiles collapsed into inline chips in the next screenshot, and only
+  the screenshot caught it — the gate has no CSS check. Rule: **replace by exact block text,
+  never by two comment markers**, and after any stylesheet surgery re-count the selectors the
+  session added (`grep -c -F` per selector) before trusting the page. Recovery was `git show
+  HEAD:src/styles.css` plus the session's two edits re-applied.
+- **`.menupop button` restyles EVERY button inside a popover** — it bit three times in one day
+  (D173's chips, D177's pills, D181's Optimize switch stripped to its knob: transparent track,
+  7px radius, 8px padding). Any control that lives inside a `.menupop` needs its own scoped
+  rule restating border, background, padding and radius. Measure the computed style, not the
+  class list.
