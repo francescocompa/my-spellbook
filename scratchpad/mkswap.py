@@ -156,6 +156,49 @@ def card_chips():
     return gcard(body)
 
 
+def pair(label, tag, body):
+    """One half of a trade, in the app's own section header + chip row."""
+    return (f'<div class="gsec"><div class="gsech"><span class="gsecl">{label}</span>'
+            f'<span class="gcnt">{tag}</span></div>'
+            f'<div class="gsecb"><div class="gchips">{body}</div></div></div>')
+
+
+def card_pair(state, lv=8, sub_="L8 · Warlock"):
+    """swap3 — his shape. The spell you give up is a CHIP (click it for the details) and the
+    replacement is an ordinary spell choice. Two rows, neither binding the other."""
+    out_chip = {
+        "idle": slot_chip("Trade a spell away", "Pick one you already know"),
+        "out": chip("2", "Suggestion"),
+        "in": slot_chip("Trade a spell away", "Pick one you already know"),
+        "both": chip("2", "Suggestion"),
+    }[state]
+    in_chip = {
+        "idle": slot_chip("Learn one instead", "Choose its replacement, level 1–4"),
+        "out": slot_chip("Learn one instead", "Choose its replacement, level 1–4"),
+        "in": chip("4", "Blight"),
+        "both": chip("4", "Blight"),
+    }[state]
+    if state == "idle":
+        body = ('<div class="gsecb"><div class="grhint">Warlock trades into level 1–4 here.'
+                '</div><div class="gchips">'
+                + slot_chip("Trade a spell", "Give up one spell you know for another")
+                + slot_chip("Trade a cantrip", "Give up one cantrip you know")
+                + '</div></div>')
+        inner = sec("Trade", body, optional=True)
+    else:
+        tag_out = "1 of 1" if state in ("out", "both") else "not yet"
+        tag_in = "1 of 1" if state in ("in", "both") else "not yet"
+        inner = ('<div class="gsec"><div class="gsech"><span class="gsecl">Trade a spell</span>'
+                 '<span class="gcnt">Optional</span></div>'
+                 '<div class="gsecb"><div class="grhint">Warlock trades into level 1–4 here.'
+                 '</div>'
+                 + pair("Giving up", tag_out, out_chip)
+                 + pair("Learning instead", tag_in, in_chip)
+                 + '</div></div>')
+    return gcard('<div class="gsecb">' + chip("4", "Hallucinatory Terrain") + '</div>' + inner,
+                 lv=lv, sub=sub_)
+
+
 def card_done():
     """What a level that HAS traded reads as, in both new shapes: one chip, like a pick."""
     body = ('<div class="gsecb">' + chip("2", "Zone of Amicability") + '</div>'
@@ -197,6 +240,21 @@ PAGES = {
              "the same height whether you trade or not.",
         rail=rail(False, True),
         cards=card_slot() + card_done()),
+    "swap3": dict(
+        title="3 · his shape — two halves, neither binding the other",
+        note="Shape 1's slot, opened out. The spell you give up is a <b>chip</b>, so clicking "
+             "it opens its details like every other spell in the build; the replacement is an "
+             "ordinary spell choice beside it. Neither half waits for the other — set either "
+             "first, change either alone. The four states below are every way the card can "
+             "stand. <b>The one thing to settle</b> is the middle two: while only one half is "
+             "set the build is a spell short or a spell over, and the card has to say which "
+             "without calling it an error.",
+        rail=rail(False, True),
+        cards=(card_pair("idle")
+               + card_pair("out", sub_="L8 · Warlock — only the give-up set")
+               + card_pair("in", sub_="L8 · Warlock — only the replacement set")
+               + card_pair("both", sub_="L8 · Warlock — both set")
+               + card_done())),
     "swap2": dict(
         title="2 · the trade is a chip, like every other spell",
         note="Closest to today, and the literal reading of his note. The tradeable spells stay "
