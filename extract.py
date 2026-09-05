@@ -662,16 +662,23 @@ def ability_gain(o):
     """A feat's ability increase, normalised for display (D148):
        [{"abils": ["cha"], "amount": 1, "choose": false}] — a fixed bump — or
        [{"abils": ["str","dex"], "amount": 1, "choose": true}] — pick one of these.
-       5etools' `hidden` marks the entry the 2024 ASI feat uses to spend two points on
-       one score; it is a duplicate of the pair beside it and would print the option twice.
+       5etools' `hidden` marks the entries the 2024 ASI feat carries (+2 to one score, or
+       +1 to two): the feat's text states them, so they are not printed — but they ARE the
+       feat's increase, and the app's score model (D176) needs them. They are kept with
+       `hidden: true`; a `count` above 1 says how many scores the choice spends on.
        **Keep identical to extract.js's abilityGain.**"""
     out = []
     for blk in (o.get("ability") or []):
-        if not isinstance(blk, dict) or blk.get("hidden"): continue
+        if not isinstance(blk, dict): continue
         ch = blk.get("choose")
         if isinstance(ch, dict):
             frm = [a for a in (ch.get("from") or []) if a in ABIL_ORDER]
-            if frm: out.append({"abils": frm, "amount": ch.get("amount", 1), "choose": True})
+            if frm:
+                e = {"abils": frm, "amount": ch.get("amount", 1), "choose": True}
+                if (ch.get("count") or 1) > 1: e["count"] = ch["count"]
+                if blk.get("hidden"): e["hidden"] = True
+                out.append(e)
+        elif blk.get("hidden"): continue
         else:
             for a in ABIL_ORDER:
                 if blk.get(a): out.append({"abils": [a], "amount": blk[a], "choose": False})

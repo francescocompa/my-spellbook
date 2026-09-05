@@ -256,5 +256,53 @@ const casterLevel = (slots) => {
     [window.SB_extract.brewSources({ _meta: { sources: "nope" } }), window.SB_extract.brewSources(null)], [[], []]);
 }
 
+// ── 11 · ability scores slice like picks, and a blank derives nothing (D176) ─
+// The rules that would break silently: an ASI counted at a level before its slot; a blank
+// base score turned into a number; the ASI's either/or misread (+2/+2 or +1 alone).
+{
+  const FEATS = {
+    "Ability Score Improvement|XPHB": { name: "Ability Score Improvement", source: "XPHB", category: "G",
+      ability: [{ abils: ["str", "dex", "con", "int", "wis", "cha"], amount: 2, choose: true, hidden: true },
+                { abils: ["str", "dex", "con", "int", "wis", "cha"], amount: 1, choose: true, count: 2, hidden: true }] },
+    "Resilient|XPHB": { name: "Resilient", source: "XPHB", category: "G",
+      ability: [{ abils: ["str", "dex", "con", "int", "wis", "cha"], amount: 1, choose: true }] },
+    "Actor|XPHB": { name: "Actor", source: "XPHB", category: "G",
+      ability: [{ abils: ["cha"], amount: 1, choose: false }] },
+  };
+  SB.set.featBy(FEATS);
+  const base = { classes: [{ id: "r0", clsKey: "Wizard|XPHB", level: 8, subKey: null }], levelOrder: ["r0","r0","r0","r0","r0","r0","r0","r0"],
+    feats: [], optFeats: [], speciesKey: "", customSources: [], chosen: {}, featSlots: {}, choices: {}, abilities: {}, originBonus: {} };
+  SB.set.state({ ...base });
+  SB.set.preview({ level: null });
+  eq("11a · a blank base is null, never 10", SB.abilityScores([]), { str: null, dex: null, con: null, int: null, wis: null, cha: null });
+  SB.set.state({ ...base, abilities: { cha: 15, con: 14 }, originBonus: { cha: 2, con: 1 },
+    feats: ["Actor|XPHB"], featSlots: { "Actor|XPHB": "general" } });
+  eq("11b · base + origin + a fixed feat bump", SB.abilityScores(["Actor|XPHB"]).cha, 18);
+  eq("11c · a score no feat touches keeps its base and bonus", SB.abilityScores(["Actor|XPHB"]).con, 15);
+  SB.set.state({ ...base, abilities: { cha: 15, dex: 12 },
+    feats: ["Ability Score Improvement|XPHB"], featSlots: { "Ability Score Improvement|XPHB": "general" },
+    choices: { "fAbility Score Improvement|XPHB:asi": ["cha"] } });
+  eq("11d · the ASI with ONE score picked reads +2", SB.abilityScores(["Ability Score Improvement|XPHB"]).cha, 17);
+  SB.set.state({ ...base, abilities: { cha: 15, dex: 12 },
+    feats: ["Ability Score Improvement|XPHB"], featSlots: { "Ability Score Improvement|XPHB": "general" },
+    choices: { "fAbility Score Improvement|XPHB:asi": ["cha", "dex"] } });
+  const two = SB.abilityScores(["Ability Score Improvement|XPHB"]);
+  eq("11e · the ASI with TWO scores picked reads +1 each", [two.cha, two.dex], [16, 13]);
+  // the slice: a Wizard's first general slot is character level 4, so the ASI is not in
+  // effect at 3 and is at 4 — the same `featsAt()` the grants use
+  SB.set.preview({ level: 3 });
+  eq("11f · at level 3 the level-4 ASI is not yet in effect", SB.abilityScores(SB.featsAt()).cha, 15);
+  SB.set.preview({ level: 4 });
+  eq("11g · at level 4 it is", SB.abilityScores(SB.featsAt()).cha, 16);
+  SB.set.preview({ level: null });
+  eq("11h · Resilient's +1 waits for its answer (unanswered raises nothing)",
+    SB.abilityScores(["Resilient|XPHB"]).cha, 15);
+  const asked = []; SB.featScoreGains("Resilient|XPHB", FEATS["Resilient|XPHB"], asked);
+  eq("11i · …and asks for it as a score choice", [asked.length, asked[0].type, asked[0].count], [1, "score", 1]);
+  eq("11j · proficiency bonus by character level", [1, 4, 5, 8, 9, 12, 13, 16, 17, 20].map(SB.profBonus), [2, 2, 3, 3, 4, 4, 5, 5, 6, 6]);
+  eq("11k · DC and attack from a score and PB (Cha 16, PB +3)", SB.castNums("cha", { cha: 16 }, 3), { dc: 14, atk: 6, mod: 3 });
+  eq("11l · a blank casting score makes no numbers", SB.castNums("int", { int: null }, 3), null);
+}
+
 console.log(`\n${pass} ok · ${fail} fail`);
 process.exit(fail ? 1 : 0);

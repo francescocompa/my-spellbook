@@ -291,7 +291,14 @@ destination is valid (this app, character-forge/Notion, paper), the boundary mov
 at a time, and each rung after N1 needs its own decision entry. Order relative to Phase M is
 his call (⚑ below).
 
-- [ ] **N1 · Ability scores + proficiency bonus** (A-06 as costed, D176(b)). Size L.
+- [x] **N1 · Ability scores + proficiency bonus** (A-06 as costed, D176(b)) — shipped
+  **v1.5.34**, 2026-09-05. **Verified** in the pane on a throwaway Wizard 4 / Paladin 1 (restored
+  byte-identical after): Int 15 + origin +2 + ASI one tile → 19, two tiles → 18/14; at level 3
+  the level-4 ASI is out of effect (17) and PB reads 2; `INT 13+` → ok, `CHA 15+` → no, `STR 13+`
+  (blank) → ?; the tracker printed `+7 / 15` and `+5 / 13`; the table's Ability cell `DC 15 · +7`;
+  the guide's ASI step carries "Ability score increase · +1 Int, +1 Cha"; every tile child centred
+  to 0.00px at 1280 and 375, 0 overflow; cycler on-state 2.04:1 caught and fixed; 0 console errors;
+  gate clean, cparity 61 ok, engine 47 ok. Size L.
   Storage: `abilities` base six + `originBonus`, appended at the end of `serializeState` so
   untouched builds compare equal; one `choices` entry per ASI/+1 feat pick (D135's `##n`
   suffix keeps repeats distinct). Engine: a score at level L = base + origin + ASI choices at
@@ -318,7 +325,7 @@ his call (⚑ below).
 
 ## Open ⚑ — calls for Francesco
 
-- [ ] **N1 before or after M3/M4?** Phase N is decided (D176) and Phase M has two small tasks
+- [x] **N1 before or after M3/M4?** → **N1 now** (his call, 2026-09-05); M3/M4 after. Phase N is decided (D176) and Phase M has two small tasks
   left. Either order is fine; N1 is L and touches the guide, the table and the print. ⚑
   (owner: Francesco, 2026-09-05)
 

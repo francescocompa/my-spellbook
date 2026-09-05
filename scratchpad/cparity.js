@@ -58,6 +58,9 @@ cmp("category-exclusive feats",exList(digest),exList(py));
 const prqText=d=>(d.feats||[]).map(f=>f.name+"|"+f.source+"|"+(f.prereq||"")).sort().join(";");
 // byte-identical, not merely same length — a length compare passes a reworded prereq
 cmp("feat prereq text (byte-identical)",prqText(digest)===prqText(py),true);
+// D176: the ASI it hands you, hidden entries included — a hand-normalised shape in both
+const abText=d=>(d.feats||[]).map(f=>f.name+"|"+f.source+"|"+JSON.stringify(f.ability||[])).sort().join(";");
+cmp("feat ability gains (byte-identical)",abText(digest)===abText(py),true);
 const modList=d=>[].concat(d.classes||[],d.subclasses||[]).filter(e=>e.castMods)
   .map(e=>(e.shortName||e.name)+"|"+e.source+"|"+e.castMods.map(m=>m.feature+"/"+m.drop+"/"+(m.when||"-")).join(","))
   .sort().join(";");

@@ -111,6 +111,7 @@ function fillIcons(root){(root||document).querySelectorAll("[data-ico]").forEach
 
 const ABIL={int:"Intelligence",wis:"Wisdom",cha:"Charisma",str:"Strength",dex:"Dexterity",con:"Constitution"};
 const ABIL_SHORT={int:"Int",wis:"Wis",cha:"Cha",str:"Str",dex:"Dex",con:"Con"};
+const AB_KEYS=["str","dex","con","int","wis","cha"];   // sheet order (D176)
 // D147 removed the last reader of a bare `CORE`: nothing suppresses a book chip any more,
 // so the code is only ever a member of the 2024 core SET below.
 const CORE_2024=["XPHB","XDMG","XMM"];   // the 2024 core books, for the "2024 core only" shortcut
@@ -457,7 +458,7 @@ const activeBuild=()=>BUILDS.builds[BUILDS.activeId];
 
 const blankBuildState=()=>({classes:[],speciesKey:"",feats:[],optFeats:[],featSlots:{},levelOrder:[],
   customSources:[],chosen:{},choices:{},sbFav:{},nextRowId:1,filters:null,
-  currentLevel:null,swaps:{},sbFavSkip:[]});
+  currentLevel:null,swaps:{},sbFavSkip:[],abilities:{},originBonus:{}});
 // the live `state` <-> the plain object stored in a build.
 // The ARRAYS ARE THE ACQUISITION ORDER (E1 · D115(b,h)): `feats`, `optFeats` and each
 // row's `chosen[id].cantrips`/`.spells` list picks in the order they were acquired.
@@ -476,6 +477,8 @@ function serializeState(){ const f=state.filters; return {
   currentLevel:state.currentLevel==null?null:state.currentLevel,  // null = at top (D115(e))
   swaps:state.swaps||{},                  // charLevel -> {spell?,cantrip?} events (D115(g))
   sbFavSkip:state.sbFavSkip||[],          // form offers dismissed in this build (D131(g))
+  abilities:state.abilities||{},          // BASE scores only, code -> number (D176)
+  originBonus:state.originBonus||{},      // the 2024 origin +2/+1, code -> amount (D176)
 };}
 function applyState(s){ s=s||blankBuildState();
   // the live state must never share sub-objects with the stored build (see save()) —
@@ -486,6 +489,8 @@ function applyState(s){ s=s||blankBuildState();
     nextRowId:s.nextRowId||1,levelOrder:s.levelOrder||[],customSources:s.customSources||[],
     sbFav:s.sbFav||{},
     sbFavSkip:Array.isArray(s.sbFavSkip)?s.sbFavSkip:[],
+    abilities:(s.abilities&&typeof s.abilities==="object")?s.abilities:{},
+    originBonus:(s.originBonus&&typeof s.originBonus==="object")?s.originBonus:{},
     currentLevel:typeof s.currentLevel==="number"?s.currentLevel:null,
     // swapsNorm heals as well as reads: a stored map from before swaps split by kind
     // arrives as one event per level and comes out in the two-slot shape
@@ -1261,6 +1266,52 @@ function featAcqLevels(){
 function featsAt(){ if(PREVIEW.level==null)return hasHole(state.feats)?noHoles(state.feats):state.feats;
   const acq=featAcqLevels();
   return state.feats.filter(fk=>!isHole(fk)&&((acq.get(fk)||{}).lv||1)<=PREVIEW.level); }
+// ── ability scores + proficiency bonus (N1 · D176) ──────────────────────────
+// Six BASE scores (typed: rolled, array or point-buy, the app does not care), the 2024
+// origin bonus, and every score-raising feat in effect at the view level — the same slice
+// `featsAt()` hands the grants (D115(b,h)), so an ASI taken at 8 is not counted at 7. A
+// score is never invented: a base left blank is null and everything derived from it stays
+// blank too (the print's ruled field, the table's dash). Scores and PB are the WHOLE model
+// — no saves, skills, HP or AC (D176(b)); D31 still reads every other check as "?".
+const scoreMod=s=>Math.floor((s-10)/2);
+const fmtMod=m=>(m>=0?"+":"−")+Math.abs(m);
+const profBonus=lv=>Math.ceil(Math.max(1,lv||1)/4)+1;
+// What one feat pick raises, given the answers stored for it. `hidden` entries are the
+// 2024 ASI feat's either/or (+2 to one score, or +1 to two): ONE answer of up to two
+// scores — one score picked reads +2, two read +1 each. Every other entry is its own
+// answer: fixed bumps need none, a `choose` takes `count` scores (one, nearly always).
+// `out`, when given, receives the score CHOICES so the Choices card and the guide can ask.
+function featScoreGains(fk,f,out){
+  const gains={}; const add=(a,n)=>{gains[a]=(gains[a]||0)+n;};
+  const list=(f&&f.ability)||[]; if(!list.length)return gains;
+  if(list.every(g=>g.hidden&&g.choose)){
+    const id="f"+fk+":asi", v=(state.choices[id]||[]).filter(a=>AB_KEYS.includes(a)).slice(0,2);
+    if(out)out.push({id,type:"score",options:list[0].abils,count:2,flex:true,value:v});
+    v.forEach(a=>add(a,v.length===1?2:1)); return gains;}
+  list.forEach((g,i)=>{
+    if(g.hidden)return;
+    if(!g.choose){g.abils.forEach(a=>add(a,g.amount||1));return;}
+    const n=Math.max(1,g.count||1), id="f"+fk+":ab"+i;
+    const v=(state.choices[id]||[]).filter(a=>g.abils.includes(a)).slice(0,n);
+    if(out)out.push({id,type:"score",options:g.abils,count:n,amount:g.amount||1,value:v});
+    v.forEach(a=>add(a,g.amount||1));});
+  return gains;
+}
+// the scores in effect for a feat list — null where the base was never entered
+function abilityScores(feats){
+  const base=state.abilities||{}, ob=state.originBonus||{}, gains={}, out={};
+  (feats||[]).forEach(fk=>{ if(isHole(fk))return; const f=FEAT_BY[baseKey(fk)]; if(!f)return;
+    const g=featScoreGains(fk,f,null); Object.keys(g).forEach(a=>{gains[a]=(gains[a]||0)+g[a];});});
+  AB_KEYS.forEach(a=>{const b=base[a]; out[a]=(typeof b==="number"&&b>0)?b+(ob[a]||0)+(gains[a]||0):null;});
+  return out;
+}
+const scoresKnown=sc=>!!sc&&AB_KEYS.some(a=>sc[a]!=null);
+// a source's own numbers from its casting stat, or null while that stat is blank
+function castNums(ab,scores,pb){
+  const sc=scores||(R&&R.scores); if(!ab||!sc||sc[ab]==null)return null;
+  const m=scoreMod(sc[ab]), p=pb||(R&&R.pb)||profBonus(charLevel());
+  return {dc:8+p+m,atk:p+m,mod:m};
+}
 // optional features ride their progression's own counts (D28): position within the
 // progression → first class level with room, through the plan like every other schedule
 // every optional-feature queue this build opens, in class-row order. Split out of
@@ -1423,6 +1474,12 @@ function gpickSec(pick,row,from,to,arr,castMax,label){
 // a choice the build carries (D126(g)), as a section of its GIVER's step
 function gchoiceSec(c){
   const isPick=c.type==="pick", a=isPick?(state.choices[c.id]||[]):null;
+  // D176: a score choice holds NO default — blank is blank — so it is asked like a pick
+  // (open until answered) and answered the moment one tile is on
+  if(c.type==="score"){const v=c.value||[];
+    return gsec({id:"choice@"+c.id,kind:"choice",choice:c,cid:c.id,label:guideChoiceLabel(c),
+      giver:c.giver,optional:false,need:1,have:v.length?1:0,done:v.length>0,keys:null,
+      value:guideChoiceValue(c)});}
   return gsec({id:"choice@"+c.id,kind:isPick?"cpick":"choice",choice:c,cid:c.id,
     label:guideChoiceLabel(c),giver:c.giver,
     // an option group and the casting-ability question always HOLD a value (the default
@@ -1676,9 +1733,13 @@ function guidePickAsk(c){
 }
 // the ask, short enough for a chain row; the giver is the card's sub-line, never repeated
 const guideChoiceLabel=c=>c.type==="ability"?"Casting ability"
+  :c.type==="score"?(c.flex?"Ability score increase":"Ability score")
   :c.type==="option"?(String(c.giver||"Option").split(" · ").pop()||"Option")
   :cap1(guidePickAsk(c)||fmtDesc(c.desc)||("choose "+(c.count>1?c.count+" spells":"a spell")));
 function guideChoiceValue(c){
+  if(c.type==="score"){const v=c.value||[]; if(!v.length)return null;
+    const n=c.flex?(v.length===1?2:1):(c.amount||1);
+    return v.map(a=>"+"+n+" "+(ABIL_SHORT[a]||a)).join(", ");}
   if(c.type!=="pick"){const v=state.choices[c.id];
     return v==null?null:(c.type==="ability"?(ABIL[v]||String(v)):String(v));}
   const a=state.choices[c.id]||[];
@@ -2428,8 +2489,8 @@ function guideSecName(lab){
   return /[A-Z]/.test(s.slice(1))?s:s.charAt(0).toLowerCase()+s.slice(1);
 }
 function guidePending(s){
-  const secs=((s&&s.sections)||[]).filter(x=>x.kind==="choice"&&x.choice
-    &&x.choice.value!=null&&state.choices[x.choice.id]==null);
+  const secs=((s&&s.sections)||[]).filter(x=>x.kind==="choice"&&x.choice&&x.choice.type!=="score"
+    &&x.choice.value!=null&&state.choices[x.choice.id]==null);   // a score has no default to lock (D176)
   if(!secs.length)return null;
   const say=c=>'"'+(c.type==="ability"?(ABIL[c.value]||String(c.value)):String(c.value))+'"';
   return {what:secs.map(x=>say(x.choice)).join(" and "),
@@ -3597,7 +3658,12 @@ function collectGrants(records,casters,charLevel,feats,optFeats,sharedStat){
   });
   // sliced (E2): a feat or optional feature the build only acquires above the view
   // level doesn't exist yet there — its grants, choices and forms come with it
-  feats.forEach(fk=>{const f=FEAT_BY[baseKey(fk)];if(f)resolveGrants(f.grants,charLevel,"f"+fk,f.name,gout,sharedStat,f.source);});
+  feats.forEach(fk=>{const f=FEAT_BY[baseKey(fk)];if(!f)return;
+    resolveGrants(f.grants,charLevel,"f"+fk,f.name,gout,sharedStat,f.source);
+    // D176: the score a feat raises is a choice like any other it grants — same owner,
+    // same slice, so it lands in the feat's own step of the chain
+    const sc=[]; featScoreGains(fk,f,sc);
+    sc.forEach(c=>{c.giver=f.name;c.giverSrc=f.source;c.owner=ownerOf("f"+fk,f.name,f.source);gout.choices.push(c);});});
   // An optional feature is resolved outside the caster loop (a feat can grant one too), so
   // its owner is found by which class's progression opened the slot it fills — that is what
   // makes a Warlock's invocation spells part of Warlock. Tag by range rather than resolving
@@ -3650,7 +3716,10 @@ function compute(){
   const classAbils=[...new Set(casters.map(r=>r.ability).filter(Boolean))];
   const sharedStat=classAbils.length===1?classAbils[0]:null;
   // resolve every source's grants + choices, at the level the VIEW is standing on
-  const {gout,recExp}=collectGrants(records,casters,charLevel,featsAt(),optFeatsAt(),sharedStat);
+  const featsNow=featsAt();
+  const {gout,recExp}=collectGrants(records,casters,charLevel,featsNow,optFeatsAt(),sharedStat);
+  // D176: the scores at the view level and the proficiency bonus that goes with it
+  const scores=abilityScores(featsNow), pb=profBonus(charLevel);
 
   // eligible pool = each caster's own list + its active expansions
   const pool=new Map(); // spellKey -> {sp,takers:[{idx,name,cantrip}],grants:[],srcs:Set}
@@ -3775,7 +3844,7 @@ function compute(){
   });
 
   return {records,casters,charLevel,mcSlots,mcLevel,pactRec,pool,freeCasts,caps,cart,choices,sharedStat,
-          marks:gout.marks};
+          marks:gout.marks,scores,pb};
 }
 
 // ── toggling picks ───────────────────────────────────────────────────────
@@ -3883,6 +3952,7 @@ function render(){ maybeOnboard(); renderGapBar(); CASTMODS=activeCastMods(); R=
   // disclosure to lose under the user's fingers — which is the whole reason the rest of
   // refreshAll() is kept OUT of the render pass.
   renderOptFeats();
+  renderScoreNums();                     // the totals follow the view level (D176)
   // …and so is the epic-boon row's visibility: `featBudget().epic` is a function of the
   // level plan (D114) plus any granted slot (D135), and the class row's own handlers
   // (swap class, subclass, level stepper, remove), #addClass and a feat chip's ✕ all call
@@ -3926,7 +3996,8 @@ function renderChoices(){
   // timeline already read). Without these the chip could read "all set" while the level chip
   // carried a warning and the timeline printed "Subclass — not chosen" (B1-07).
   const pendingPicks=ch.filter(c=>c.type==="pick"&&!c.optional&&(state.choices[c.id]||[]).length<c.count).length;
-  const pendingDefaults=ch.filter(c=>(c.type==="option"||c.type==="ability")&&!(c.id in state.choices)).length;
+  const pendingDefaults=ch.filter(c=>(c.type==="option"||c.type==="ability")&&!(c.id in state.choices)).length
+    +ch.filter(c=>c.type==="score"&&!(c.value||[]).length).length;   // a score has no default (D176)
   const pendingSubclass=((R.health&&R.health.findings)||[]).filter(h=>h.kind==="subclass").length;
   const pending=pendingPicks+pendingDefaults+pendingSubclass;
   $("#choicesChip").textContent = ch.length? (pending?`${pending} pending`:"all set"):"";
@@ -3978,6 +4049,24 @@ function maskOverflow(f){ if(!f)return;
 // The giver is the group's job (cghead) and the feature is cgsub's — never repeated here.
 function choiceRow(c){
   const row=el("div","choicerow");
+  // D176: which score a feat raises — the D142(b) tile row again, holding up to `count`
+  // tiles. The ASI's either/or needs no switch: one tile on reads +2, two read +1 each.
+  if(c.type==="score"){
+    const n=c.count||1, v=c.value||[];
+    const what=c.flex?"+2 to one score, or +1 to two"
+      :("+"+(c.amount||1)+(n>1?" to "+n+" scores":" to one score"));
+    const cg=el("div","cg"); cg.append(el("span","cwhat",what)); row.append(cg);
+    const box=el("div","abtiles");
+    c.options.forEach(o=>{
+      const on=v.includes(o), full=ABIL[o]||o;
+      const t=el("button","abtile "+o+(on?" on":"")); t.type="button";
+      t.append(Object.assign(el("span","abchip "+o),{textContent:(ABIL_SHORT[o]||o).toUpperCase()}));
+      t.title=full; t.setAttribute("aria-label",full); t.setAttribute("aria-pressed",String(on));
+      t.onclick=()=>{let nv=v.filter(x=>x!==o); if(!on){nv.push(o); if(nv.length>n)nv=nv.slice(-n);}
+        state.choices[c.id]=nv; render();};
+      box.append(t);});
+    row.append(box); return row;
+  }
   if(c.type==="option"||c.type==="ability"){
     const isAb=c.type==="ability";
     const cg=el("div","cg");
@@ -7070,7 +7159,12 @@ function cellFor(k,row){
         "This is cast by "+(row.src||"a source")+" using its own "+what+", not your spellcasting."));
       return td;}
     // a spell that rolls neither states the casting ability like any other row
-    td.innerHTML=row.ability?abChip(row.ability):"—";return td;}
+    if(!row.ability){td.textContent="—";return td;}
+    td.innerHTML=abChip(row.ability);
+    // D176: and, once that score is entered, the numbers it makes
+    const nm=castNums(row.ability);
+    if(nm)td.append(el("span","abnum","DC "+nm.dc+" · "+fmtMod(nm.atk)));
+    return td;}
   if(k==="casts"){
     // innate recharge, with * when the spell is also castable via your own slots.
     // A merged row (D136) whose givers disagree names every cadence — one of them standing
@@ -9165,11 +9259,14 @@ function entTipHTML(it,kind){
 // D148: an ability is always a coloured chip — the `--ab-*` tokens D142(b) already solved
 // to 5.3:1 in both themes — never a bare word, wherever it is a FACT rather than prose.
 const abChips=(list)=>(list||[]).map(a=>abChip(a)).join(" ");
+const COUNT_WORD=["","one","two","three","four"];
 function abilityGainHTML(gain){
-  return (gain||[]).map(g=>{
-    const amt=(g.amount>0?"+":"")+g.amount;
+  // `hidden` entries are the ASI's, stated by its own text (D176: the model reads them,
+  // the fact line does not repeat them)
+  return (gain||[]).filter(g=>!g.hidden).map(g=>{
+    const amt=(g.amount>0?"+":"")+g.amount, n=g.count||1;
     return g.choose
-      ? `<span class="abgain">${esc(amt)} to one of ${abChips(g.abils)}</span>`
+      ? `<span class="abgain">${esc(amt)} to ${COUNT_WORD[n]||n} of ${abChips(g.abils)}</span>`
       : `<span class="abgain">${esc(amt)} ${abChips(g.abils)}</span>`;
   }).join(" · ");}
 const cap1w=s=>String(s||"").replace(/^[a-z]/,c=>c.toUpperCase());
@@ -9966,7 +10063,11 @@ function prereqParts(b,ent){
       .map(fk=>FEAT_BY[baseKey(fk)].name);
     out.push({t:"no other "+label+" feat",s:clash.length?"no":"ok",
       why:clash.length?("you already have "+clash.join(", ")):""});});
-  (b.checks||[]).forEach(t=>out.push({t,s:"?"}));
+  (b.checks||[]).forEach(t=>{
+    // D176: a score check resolves once that score is entered; a blank score, and every
+    // other kind of check (proficiency, background, campaign), still reads "?" — never "no"
+    const m=/^(STR|DEX|CON|INT|WIS|CHA) (\d+)\+$/.exec(t), sc=R&&R.scores, code=m&&m[1].toLowerCase();
+    out.push({t,s:(m&&sc&&sc[code]!=null)?(sc[code]>=+m[2]?"ok":"no"):"?"});});
   // a `soft` block whose unmodelled part produced no display text (e.g. featCategory)
   if(!(b.checks||[]).length&&!(b.exclusiveCat||[]).length&&b.soft)out.push({t:"other requirements",s:"?"});
   return out;
@@ -10373,7 +10474,49 @@ function afterSourceChange(){
   saveSources(); save();               // sources are global; the build records what it saw
   refreshAll();renderLibList();render();
 }
-function refreshAll(){CASTMODS=activeCastMods();refreshSpecies();refreshAddFeat();renderClassRows();renderFeatChips();renderOptFeats();renderFormPins();renderCustomSources();}
+function refreshAll(){CASTMODS=activeCastMods();refreshSpecies();refreshAddFeat();renderClassRows();renderScores();renderFeatChips();renderOptFeats();renderFormPins();renderCustomSources();}
+
+// ── ability scores on the Character card (N1 · D176) ────────────────────────
+// Six tiles. The BASE score is the input; the origin bonus is a cycler under it (2024
+// puts +2/+1 or +1/+1/+1 on the background — N2 moves it there); the total at the view
+// level and its modifier are read back under both. Built by refreshAll() because it holds
+// inputs; only the read-back (`renderScoreNums`) follows every render.
+function renderScores(){
+  const row=$("#scoreRow"); if(!row)return; row.innerHTML="";
+  const base=state.abilities||{}, ob=state.originBonus||{};
+  AB_KEYS.forEach(a=>{
+    const t=el("div","abscore "+a);
+    t.append(Object.assign(el("span","abchip "+a),{textContent:(ABIL_SHORT[a]||a).toUpperCase()}));
+    const inp=el("input"); inp.type="number"; inp.min="1"; inp.max="30"; inp.inputMode="numeric";
+    inp.value=typeof base[a]==="number"?String(base[a]):""; inp.placeholder="–";
+    inp.setAttribute("aria-label",ABIL[a]+", base score");
+    inp.onchange=()=>{const v=parseInt(inp.value,10); state.abilities=state.abilities||{};
+      if(v>0)state.abilities[a]=Math.min(30,v); else delete state.abilities[a];
+      inp.value=state.abilities[a]?String(state.abilities[a]):""; render();};
+    t.append(inp);
+    const b=ob[a]||0;
+    const bon=el("button","abbon"+(b?" on":""),"+"+b); bon.type="button";
+    bon.title="Origin bonus"; bon.setAttribute("aria-label",ABIL[a]+", origin bonus +"+b);
+    bon.onclick=()=>{state.originBonus=state.originBonus||{}; const n=(b+1)%3;
+      if(n)state.originBonus[a]=n; else delete state.originBonus[a]; renderScores(); render();};
+    t.append(bon);
+    t.append(el("span","abtot"));
+    row.append(t);});
+  renderScoreNums();
+}
+function renderScoreNums(){
+  const row=$("#scoreRow"), box=$("#scoreNums"); if(!row||!box)return;
+  const sc=(R&&R.scores)||abilityScores(featsAt()), pb=(R&&R.pb)||profBonus(charLevel());
+  [...row.querySelectorAll(".abscore")].forEach(t=>{
+    const a=AB_KEYS.find(k=>t.classList.contains(k)), v=a?sc[a]:null;
+    t.querySelector(".abtot").textContent=v==null?"":v+" ("+fmtMod(scoreMod(v))+")";});
+  box.innerHTML="";
+  if(!scoresKnown(sc)){box.append(el("span","abhint","A blank score derives nothing.")); return;}
+  box.append(el("span","abnum","Proficiency "+fmtMod(pb)));
+  const abs=[...new Set(((R&&R.casters)||[]).map(r=>r.ability).filter(Boolean))];
+  abs.forEach(a=>{const nm=castNums(a,sc,pb); if(!nm)return;
+    const s=el("span","abnum"); s.innerHTML=abChip(a)+" DC "+nm.dc+" · attack "+fmtMod(nm.atk); box.append(s);});
+}
 
 // ── events ───────────────────────────────────────────────────────────────
 $("#addClass").onchange=e=>{const clsKey=e.target.value;
@@ -10818,10 +10961,12 @@ function renderPrintTracker(){
       tr.append(el("td","trcls",classLabel(r)+" "+effLevel(r.row)));
       tr.append(el("td",null,c?String(c.total):"—"));
       tr.append(el("td",null,r.cantrips?String(r.cantrips):"—"));
-      // the app models neither ability scores nor proficiency, so these are honestly blank
-      // rather than wrong — a ruled field is the truthful version of "we can't know"
+      // D176: the two numbers come from the casting score once it is entered; while it is
+      // blank they stay honestly blank — a ruled field is the truthful version of "we
+      // can't know", and it is never filled with a guess
       const blank=()=>{const td=el("td","trblank");td.append(el("span","trfill"));return td;};
-      tr.append(blank(),blank());
+      const nm=castNums(r.ability);
+      tr.append(nm?el("td","trnum",fmtMod(nm.atk)):blank(),nm?el("td","trnum",String(nm.dc)):blank());
       tb.append(tr);});
     t.append(tb);box.append(t);
   }
@@ -11148,6 +11293,8 @@ if(typeof module!=="undefined"&&module.exports){
     eclOwn,maxLvlAt,planSlots,topSlot,
     // acquisition-order helpers (D146's empty slot is a rule, not a convention)
     isHole,hole,holeTag,baseKey,sameEnt,trimHoles,noHoles,nextCopy,copyCount,
+    // ability scores + proficiency bonus (D176)
+    abilityScores,featScoreGains,profBonus,castNums,scoreMod,featsAt,
     // storage and digest integrity
     mergeDigests,filterDigest,digestSize,emptyDigest,verLt,
     // let the fixture stand the module up
@@ -11157,6 +11304,7 @@ if(typeof module!=="undefined"&&module.exports){
       data:v=>{DATA=v;},
       clsBy:v=>{CLS_BY=v;},
       subBy:v=>{SUB_BY=v;},
+      featBy:v=>{FEAT_BY=v;},
       imported:v=>{IMPORTED=v;},
       state:v=>{Object.keys(state).forEach(k=>{delete state[k];});Object.assign(state,v);},
       preview:v=>{Object.assign(PREVIEW,v);},

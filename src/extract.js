@@ -117,17 +117,23 @@ function entryBlocks(entries,strip){const out=[];strip=strip||richStrip;
   return out;}
 // ---- the facts a class states before its features (D148) -------------------
 const ABIL_ORDER=["str","dex","con","int","wis","cha"];
-// A feat's ability increase, normalised for display. `hidden` marks the duplicate entry
-// the 2024 ASI feat carries; printing it would state the option twice.
+// A feat's ability increase, normalised. `hidden` marks the entries the 2024 ASI feat
+// carries (+2 to one score, or +1 to two): the feat's text states them, so they are not
+// printed — but they ARE the feat's increase, and the app's score model (D176) needs them.
+// Kept with `hidden:true`; a `count` above 1 says how many scores the choice spends on.
 // **Keep identical to extract.py's ability_gain.**
 function abilityGain(o){const out=[];
   (o.ability||[]).forEach(blk=>{
-    if(!blk||typeof blk!=="object"||blk.hidden)return;
+    if(!blk||typeof blk!=="object")return;
     const ch=blk.choose;
     if(ch&&typeof ch==="object"){
       const frm=(ch.from||[]).filter(a=>ABIL_ORDER.indexOf(a)>=0);
-      if(frm.length)out.push({abils:frm,amount:ch.amount??1,choose:true});
-    }else ABIL_ORDER.forEach(a=>{if(blk[a])out.push({abils:[a],amount:blk[a],choose:false});});});
+      if(frm.length){const e={abils:frm,amount:ch.amount??1,choose:true};
+        if((ch.count||1)>1)e.count=ch.count;
+        if(blk.hidden)e.hidden=true;
+        out.push(e);}
+    }else if(blk.hidden)return;
+    else ABIL_ORDER.forEach(a=>{if(blk[a])out.push({abils:[a],amount:blk[a],choose:false});});});
   return out;}
 function profList(v){const fixed=[],choices=[];
   (v||[]).forEach(x=>{

@@ -136,5 +136,10 @@ maintained by hand — touch either extractor and the fingerprint moves with it.
 Non-goals, still standing: no **authored** level-by-level timeline — per-level truth is a view
 derived from the acquisition order, and versions are alternative builds, never levels (D115
 narrowed this; per-pick stamps stay rejected); no server sync or accounts; no sharing a build as
-a page or URL (D36); no full bestiary (D78 carries a bounded creature set). Ability scores and proficiency are **not modelled** —
-anything needing them is left blank for a human rather than guessed.
+a page or URL (D36); no full bestiary (D78 carries a bounded creature set). Of a character's
+numbers, **ability scores and the proficiency bonus are modelled, and nothing else** (D176):
+the six base scores are typed, the origin bonus and every score-raising feat are added at the
+view level, and DC and attack follow. Saves, skills, tools, HP, AC, gear and a sheet are not
+modelled; anything needing them is left blank for a human rather than guessed, and a score
+never entered derives nothing. Each further rung of the creator ladder needs its own decision
+entry (D176(c), `audits/character-creator-feasibility.md`).

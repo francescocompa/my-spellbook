@@ -3044,8 +3044,11 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     stands: once scores exist the next request is saves and skills. **D118(d)'s "full
     character creator (a different app)" is NOT superseded** by this entry — it is questioned
     rung by rung; N5 is the rung that would supersede it, and that call is his.
-  - **Enforced by:** this entry, PLAN.md's Phase N, `engine.test.js` fixtures for the slice
-    of scores (N1's done-when). **Affects:** CLAUDE.md non-goals (at N1 ship), D31, D115(b,h),
+  - **Enforced by:** this entry, PLAN.md's Phase N; in code (v1.5.34): `abilityScores`,
+    `featScoreGains`, `profBonus`, `castNums` and the `score` choice type in `app.js`,
+    `abilities`/`originBonus` at the END of `serializeState`, `hidden`/`count` kept by both
+    extractors' ability-gain normaliser, `cparity.js`'s "feat ability gains (byte-identical)",
+    and `engine.test.js` fixture 11 (the slice, the ASI's either/or, blank derives nothing). **Affects:** CLAUDE.md non-goals (at N1 ship), D31, D115(b,h),
     D142(b), D148(c), D158(a,c), PLAN L5.8 (closed by this entry).
 
 ### Superseded
