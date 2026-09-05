@@ -3227,6 +3227,25 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     **Affects:** PLAN.md (Phase M closes), D31, D172(d), D174, `audits/copy-table.md` (the
     M4 rows, for the veto pass).
 
+- **D183 (2026-09-05) DECIDED — a `classVariant` list is class membership.** His report:
+  *"I can't see the Battle Familiar spell while building a Warlock (which 5etools marks as a
+  class receiving the spell)."* The generated lookup files a spell's classes under two keys:
+  `class` (the class's own list) and `classVariant` (a list a BOOK adds the spell to —
+  Fizban's dragon spells for the sorcerer and wizard, Arcana Unleashed's Battle Familiar for
+  the druid, warlock and wizard). Both extractors read only `class`, so every such spell was
+  reachable through a subclass or a feat and never through the class. The local mirror
+  already carried 180 of them; the live library, 213. Shipped as v1.5.41.
+  - **(a) Both keys are membership, deduped, in both extractors.** A spell's own source
+    already gates whether it is offered; the class list needs no second gate. `extract.js`
+    had honoured the older inline `fromClassListVariant` all along — this is the lookup-era
+    twin of that rule. *Rejected:* a `variant` marker on the class entry (nothing in the app
+    would read it, and the book's text says "added to the list", not "optionally").
+  - **(b) It reaches the live page through the parser fingerprint** (D159(b)): `__PARSER__`
+    moved with `extract.js`, so a stored library is re-read on the next visit — no re-import.
+  - **Enforced by:** the `("class", "classVariant")` loop in `extract.py`'s lookup pass and
+    its twin in `extract.js`; `cparity.js` compares `cls` byte-identical (0 fail, and the
+    mirror's 180 exercise it). **Affects:** GOTCHAS.md (extractor gaps), D91, D22.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

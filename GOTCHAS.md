@@ -897,3 +897,11 @@
   7px radius, 8px padding). Any control that lives inside a `.menupop` needs its own scoped
   rule restating border, background, padding and radius. Measure the computed style, not the
   class list.
+- **The lookup has TWO class keys, and `classVariant` is the one a book adds to
+  (2026-09-05, v1.5.41, D183).** `gendata-spell-source-lookup.json` files a spell's classes
+  under `class` and, separately, `classVariant` — a list a book adds the spell to (Fizban's
+  dragon spells, Arcana Unleashed's Battle Familiar). Both extractors read `class` only, so
+  180 spells in the mirror and 213 in the live library had no class at all and could be
+  reached only through a subclass or a feat. It stayed hidden because every one of them
+  still had *some* access, so `noAccess` never moved. When a lookup-shaped file grows a key,
+  count the spells whose ONLY access sits under it before deciding it is metadata.

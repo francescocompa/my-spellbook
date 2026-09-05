@@ -1050,7 +1050,11 @@ function buildDigest(files){
     // fold on use — the spell map is keyed lowercase, and a lookup-shaped file is not
     // guaranteed to be (spells/sources.json is not)
     Object.entries(byname).forEach(([nameL,acc])=>{const sp=spells[spellKey(nameL,srcL)];if(!sp||!acc||typeof acc!=="object")return;
-      Object.entries(acc.class||{}).forEach(([csrc,cmap])=>{Object.keys(cmap||{}).forEach(cls=>sp.cls.push([cls,csrc]));});
+      // `classVariant` is a list a BOOK adds a spell to (FTD's dragon spells, AU's Battle
+      // Familiar for the warlock) — membership here too, as in extract.py; the spell's own
+      // source already gates whether it is offered at all
+      ["class","classVariant"].forEach(lkey=>Object.entries(acc[lkey]||{}).forEach(([csrc,cmap])=>{Object.keys(cmap||{}).forEach(cls=>{
+        if(!sp.cls.some(x=>x[0]===cls&&x[1]===csrc))sp.cls.push([cls,csrc]);});}));
       Object.entries(acc.subclass||{}).forEach(([ssrc,clsmap])=>{Object.entries(clsmap||{}).forEach(([cls,bysrc])=>{
         Object.entries(bysrc||{}).forEach(([scsrc,submap])=>{Object.entries(submap||{}).forEach(([sub,meta])=>{
           const nm=(meta&&typeof meta==="object"&&meta.name)?meta.name:sub;sp.sub.push([cls,nm,scsrc]);});});});});

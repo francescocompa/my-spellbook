@@ -333,8 +333,14 @@ for src_l, byname in lookup.items():
     for name_l, acc in byname.items():
         sp = spells.get(f"{name_l}|{src_l}")
         if not sp: continue
-        for csrc, cmap in (acc.get("class") or {}).items():
-            for cls in cmap: sp["cls"].append([cls, csrc])
+        # `classVariant` is a list a BOOK adds a spell to (FTD's dragon spells for the
+        # sorcerer and wizard, AU's Battle Familiar for the warlock) — 5etools files it
+        # apart from `class` and shows it under the same filter. It is membership here too;
+        # the spell's own source already gates whether it is offered at all.
+        for lkey in ("class", "classVariant"):
+            for csrc, cmap in (acc.get(lkey) or {}).items():
+                for cls in cmap:
+                    if [cls, csrc] not in sp["cls"]: sp["cls"].append([cls, csrc])
         for ssrc, clsmap in (acc.get("subclass") or {}).items():
             for cls, bysrc in clsmap.items():
                 for scsrc, submap in bysrc.items():
