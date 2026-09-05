@@ -7,12 +7,12 @@
 > |---|---|
 > | `CLAUDE.md` | What this project is, its conventions, build/run, the verify gate, versioning |
 > | `PLAN.md` | The queue — what is next, what is flagged for Francesco |
-> | `DECISIONS.md` | Every decision D7–D184 and what was rejected |
+> | `DECISIONS.md` | Every decision D7–D185 and what was rejected |
 > | `GOTCHAS.md` | Traps that have already cost a session |
 > | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 > | `ARCHIVE.md` | Bodies of consumed phases, decisions and old rationale |
 
-## TL;DR (2026-09-05 · **v1.5.42** live, pushed and tagged · `2958073` · **Phase M DONE (D182) · two guided-builder bugs closed (D184)** · three releases today, v1.5.40 → v1.5.42)
+## TL;DR (2026-09-05 · **v1.5.43** live, pushed and tagged · `dae249c` · **Phase M DONE (D182) · four guided-builder bugs closed (D184, D185)** · four releases today, v1.5.40 → v1.5.43)
 
 - **Where it stands.** **Phase M closed** with M3 and M4 (v1.5.40, **D182**): the feat picker's
   "Eligible only" is a three-way Prerequisites row (Eligible / Not yet / Can't verify) plus an
@@ -31,6 +31,14 @@
   section's landing is its own first open slot now (`secOpenSlot`, one owner for the cap, the
   previewed level and the write), skipped levels leave empty slots behind, and **Skip is
   final**. Engine fixture 13 guards both rules.
+- **Two more of his guided-builder reports closed (v1.5.43, D185).** Details opened on the
+  character view went nowhere: the guide BORROWS the app's single detail surface for its
+  preview pane and `renderGuide` returned at `aside` before handing it back, so the walk slid
+  off-screen and inert still holding it. And a step that owns one slot overspent instead of
+  changing — a second origin feat read `origin 2/1` with the card still naming the first. The
+  picker carries `owns` from the call site now; at the cap a take replaces what that step
+  holds, within budget nothing changes, and outside the guide D42's add-and-flag is untouched.
+  Engine fixture 14 guards it.
 - **Next action: N2 (backgrounds) needs its own decision entry before anything is built**
   (D176(c)) — /interview him on the rung, then build. L5.5 onward still queued.
 - **Manual for Francesco:** ① the **copy-veto pass** over `audits/copy-table.md` (now 245
@@ -38,12 +46,16 @@
   **Access** for the old "Class / list" and **Properties** for "Tags"); ② confirm on the live
   page that Battle Familiar now shows for a Warlock once the library has re-read (the Library
   strip says so), and that the guided builder's Skip and its spell lists behave on a real
-  build (v1.5.42); ③ **PWA install check** on your phone (L5.6); ④ **third-casters are still
+  build, and that the guided builder's Skip, its spell lists, its feat changes and details on
+  the character view all behave (v1.5.42, v1.5.43); ③ **PWA install check** on your phone (L5.6); ④ **third-casters are still
   pooled then floored** — Fighter 5 (EK) + Rogue 5 (AT) reads 3 where the table gives 2, a
   separate rules call; ⑤ print from Chrome or Safari (D108); ⑥ XMM on for Find Familiar's 2024
   forms (D81); ⑦ L5.5's format (copy the build as a level plan).
 - **Read before touching the guide's pick landing:** D184, then GOTCHAS' `firstOpen` vs
   `secOpenSlot` entry — the cap, the previewed level and the write must move together.
+- **Read before touching the guide's picker hosting or the entity pickers:** D185, then its
+  two GOTCHAS entries — the preview pane MOVES the app's only detail surface (every exit path
+  must give it back), and a step's slot ownership must not re-point on an in-budget add.
 - **Read before touching the score block:** D176–D181 in that order; the CSS is inside
   `.menupop`, where `.menupop button` restyles every button (GOTCHAS). **Before touching the
   extractors:** GOTCHAS' lookup entries (D91, D183) — the lookup has two class keys.
@@ -77,6 +89,6 @@ its `mk*.py`).
 A full `/clean` ran 2026-09-05 (D158(q)/L5.11): D115–D175 bodies, Phase K/L/M task bodies,
 fifteen closed flags and the 1.0–1.4 changelog rows moved to `ARCHIVE.md`; stubs point.
 
-⟳ Rename previous session → "The guided builder's skip and the vanishing spell" · session: (resolve by cwd + most recent lastActivityAt)
+⟳ Rename previous session → "Four guided-builder bugs: skip, the vanishing spell, details and feats" · session: (resolve by cwd + most recent lastActivityAt)
 
 The queue after N2 is L5.5 onward — see `PLAN.md`.
