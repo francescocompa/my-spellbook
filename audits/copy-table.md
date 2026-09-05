@@ -354,6 +354,17 @@ Vetoes revert by row, as above.
 | app.js `entFilterGroups` | `Eligible only` switch | `Prerequisites` row: `Eligible` · `Not yet` · `Can't verify` | new (M3); D172(d)'s own words |
 | app.js `entFilterGroups` | — | `Ability bonus` row: `Str` … `Cha` | new (M3) |
 
+## D184 — the guide picker's landing hint (2026-09-05)
+
+One string, replaced by two. The old line stated a landing that D184 made conditional: with the
+pool no longer narrowed to the earlier slot, only spells that slot's level can cast actually go
+there, and the sentence has to say which. Veto reverts the row.
+
+| location | before | after | why |
+|---|---|---|---|
+| app.js `renderGpick` hint (a slot open behind you) | `A pick taken here fills the still-open L5 slot first. That is where it lands.` | `Every spell slot this step owns is filled. A spell of level 1 or lower taken here fills your still-open L1 slot instead.` | the old line was true of every pick; it is now true only up to that slot's level (D184(b)) |
+| app.js `renderGpick` hint (nothing open behind you) | `Every slot of this kind is filled. Click one you hold to drop it first.` | `Every spell slot this step owns is filled. A pick taken here lands past what your schedule gives you. Click one you hold to drop it first.` | "of this kind" named the array, not the step; and it never said what a take would do |
+
 ## Totals
 
 | measure | count |

@@ -1088,6 +1088,18 @@ function dropSlot(arr,i,tag){
   if(i===arr.length-1)arr.pop(); else arr[i]=hole(tag);
   return trimHoles(arr);
 }
+// which slot a guide pick SECTION answers (D184): its own first position still standing
+// open — an empty slot inside its range, or its first position past what the array holds
+// (the earlier levels were skipped and never wrote theirs). -1 = it owns nothing open.
+// THE CARD YOU ARE STANDING ON OWNS THE SLOT. An empty slot an earlier level left behind
+// is that level's question, not this one's: D125 read the row's first open slot as the
+// landing for every section of the row, so one drop of a 1st-level spell narrowed a level
+// 5 card's pool from 112 spells to 30 and the walk was dragged back to level 1. One
+// owner — `guideLandingSec`, the picker's cap and `toggle`'s write all read this.
+function secOpenSlot(sec,cur){
+  for(let p=sec.from;p<sec.to;p++)if(p>=(cur||[]).length||isHole(cur[p]))return p;
+  return -1;
+}
 // the first slot of an array still standing open: the earliest EMPTY SLOT, or the array's
 // end when there is none. `.length` WAS that answer, for exactly as long as a drop could
 // only ever shorten the array from the top.
@@ -1854,16 +1866,18 @@ function guideChoiceValue(c){
 // stateless gesture (the position IS the answer), so leftovers drift to the top slice
 // and take E4 flags exactly as D118(g) requires. `place` remembers which slot of a
 // section the next placement fills; it is module state and resets with the walk.
-let GUIDE={on:false,aside:false,desc:false,reverse:false,cur:null,curSec:null,pane:"stage",place:{}};
+let GUIDE={on:false,aside:false,desc:false,reverse:false,cur:null,curSec:null,pane:"stage",place:{},
+  passed:new Set()};   // D184: steps this walk moved off while they were still open
 const guideKey=s=>(s&&s.key)||"";
 const guideSecKey=sec=>sec.step+"#"+sec.id;
 function openGuide(desc,reverse){ GUIDE.on=true; GUIDE.aside=false; GUIDE.pane="stage";
   GAUTO=null;   // D163: a fresh walk opens its first step's picker again
   GUIDE.desc=!!desc; GUIDE.reverse=!!reverse;
-  GUIDE.cur=null; GUIDE.curSec=null; GUIDE.place={}; GC.open=null;
+  GUIDE.cur=null; GUIDE.curSec=null; GUIDE.place={}; GUIDE.passed.clear(); GC.open=null;
   closeGpick(); stagePickDrop(); render(); }
 function closeGuide(){ if(!GUIDE.on)return; GUIDE.on=false; GUIDE.aside=false;
-  GUIDE.reverse=false; GUIDE.cur=null; GUIDE.curSec=null; GUIDE.place={}; GC.open=null;
+  GUIDE.reverse=false; GUIDE.cur=null; GUIDE.curSec=null; GUIDE.place={}; GUIDE.passed.clear();
+  GC.open=null;
   // D163: `closeGpick` only releases the SPELL picker (it returns early with no GPICK), so
   // leaving the guide with the entity picker hosted stranded the detail surface inside a
   // detached pane — and every later detail modal in the app opened into it, unstyled and
@@ -1946,7 +1960,14 @@ function guidePlace(sec,k,at){
 // exactly as reverse placement already didn't. A caller with no section (Next/Back/Skip,
 // a plain step jump) clears it, so the clamp still guards every ordinary forward pick.
 function guideGo(s,sec){
-  GUIDE.cur=guideKey(s); GUIDE.curSec=(sec&&sec.kind)||null; GC.open=null;
+  // D184: SKIP IS FINAL. Moving off a step that is still open is a pass, and the walk may
+  // never retarget you onto one — that is the loop Skip fell into (Skip sent the walk to
+  // the next step, `guideSync`'s clamp sent it straight back to the empty one, and the two
+  // alternated forever). Landing on a step clears it: you asked for that one.
+  const from=GUIDE.cur&&((R&&R.gsteps)||[]).find(x=>x.key===GUIDE.cur);
+  if(from&&from.status!=="done")GUIDE.passed.add(from.key);
+  GUIDE.cur=guideKey(s); GUIDE.passed.delete(GUIDE.cur);
+  GUIDE.curSec=(sec&&sec.kind)||null; GC.open=null;
   const top=topCharLevel();
   setPreview(s.lv>=top?null:s.lv);      // renders; the chain re-draws with cur set
 }
@@ -1987,10 +2008,13 @@ function guideSync(){
     const c=steps.find(x=>x.key===GUIDE.cur); let best=null;
     (c?c.sections:[]).forEach(sec=>{
       if(sec.kind!=="pick"||sec.done)return;
-      const filled=firstOpen(((state.chosen[sec.row]||{})[sec.pick==="cantrip"?"cantrips":"spells"])||[]);
-      if(sec.from<=filled)return;
-      const t=steps.find(x=>x.sections.some(y=>y.kind==="pick"&&y.pick===sec.pick
-        &&y.row===sec.row&&y.from<=filled&&filled<y.to));
+      // D184 narrowed the premise: a section that still owns an open slot IS where its
+      // takes land, so there is nothing to clamp to. `guideLandingSec` is the one owner
+      // of that question now — this cannot drift from the pool the picker offers.
+      const land=guideLandingSec(sec);
+      if(!land||land===sec||land.step===GUIDE.cur)return;
+      if(GUIDE.passed.has(land.step))return;      // D184: skip is final
+      const t=steps.find(x=>x.key===land.step);
       if(t&&t!==c&&(!best||t.lv<best.lv))best=t;});
     if(best)GUIDE.cur=best.key;
   }
@@ -2488,7 +2512,8 @@ function renderGuideStage(steps,cur,rowOf){
   if(nxAny&&!term){
     const skip=el("button","btn","Skip");
     // Skip is the honest pass: it moves on WITHOUT committing what the card is showing,
-    // which is exactly what leaves the step open (and flagged) behind you
+    // which is exactly what leaves the step open (and flagged) behind you — and, since
+    // D184, the walk may not clamp you back onto it (`guideGo` records the pass).
     skip.onclick=()=>guideGo(nxAny);
     nav.append(skip);
   }
@@ -3035,8 +3060,14 @@ function guideEligible(sec,mode,cap){
 function guideLandingSec(sec){
   if(GUIDE.reverse||sec.kind!=="pick")return sec;
   const arr=sec.pick==="cantrip"?"cantrips":"spells";
-  const filled=firstOpen(((state.chosen[sec.row]||{})[arr])||[]);   // an empty slot IS the landing slot (D146)
-  if(sec.from<=filled&&filled<sec.to)return sec;
+  const cur=((state.chosen[sec.row]||{})[arr])||[];
+  if(secOpenSlot(sec,cur)>=0)return sec;
+  // every slot this section owns is filled, so a take really does land elsewhere: the
+  // earliest empty slot an earlier level left behind, if there is one. The pool is NOT
+  // narrowed to it (D184) — only spells that slot's level can cast will actually go
+  // there, and the hint says so; the rest run past the schedule and are flagged.
+  const filled=firstOpen(cur);
+  if(filled>=cur.length)return null;
   let out=null;
   ((R&&R.gsteps)||[]).forEach(st=>st.sections.forEach(y=>{
     if(out||y.kind!=="pick"||y.row!==sec.row||y.pick!==sec.pick)return;
@@ -3063,21 +3094,22 @@ function guideSwapMax(row,lv){
 //    acquisition order to reconstruct — it is a set. Reading the mode off `GUIDE.reverse`
 //    alone opened a cpick picker in place mode, where the commit routed into a writer
 //    written for pick arrays and did nothing at all (G4 · F4).
-//  · WHERE THE VIEW STANDS. A forward take lands at `sliceInsertAt(row,arr,PREVIEW.level)`
-//    — the previewed level's slice point — while the modal's cap, pool and hint all
-//    describe `guideLandingSec`, the first slot of this kind still open. On an ANSWERED
-//    section those two are different slots (the walk's own clamp only aligns OPEN ones),
-//    so the modal claimed "fills the still-open L5 slot (cap 3)" while offering the L1
-//    pool and inserting at the L1 slice point (G4-F3 / I5-2, a D118(b) gap). Standing the
-//    view on the landing section's level makes all four agree — the pool is the class's
-//    reach there, the cap is that section's, and `sliceInsertAt` resolves to that very
-//    slot. Per SECTION, not per step: two sections of one step can land at two levels,
-//    and moving the view for one of them would misplace the other's take.
+//  · WHERE THE VIEW STANDS. On the SECTION'S OWN LEVEL, always (D184). A forward take
+//    lands at `sliceInsertAt(row,arr,PREVIEW.level)` when it runs past the section's own
+//    slots, and the pool is `R.pool` at the previewed level — so standing the view
+//    anywhere else re-caps the list. It used to stand on `guideLandingSec`'s level, the
+//    row's first open slot: harmless while that WAS the landing, but D184 made the
+//    section's own slot the landing, and the old line then re-created the very bug from
+//    the other side — a full level 5 section with a level 1 slot still open moved the
+//    view to L1 and the card offered 30 spells instead of 112. On the section's level all
+//    four agree: the pool is the class's reach there, the cap is that section's,
+//    `sliceInsertAt` resolves to its slice point, and `toggle`'s `slots` writes inside its
+//    range. Per SECTION, not per step: two sections of one step can sit at two levels, and
+//    moving the view for one of them would misplace the other's take.
 function openGpickSec(step,sec){
   const place=GUIDE.reverse&&sec.kind==="pick";
   if(!place){
-    const land=guideLandingSec(sec), top=topCharLevel();
-    const at=land?land.lv:null;      // null = every slot of this kind is filled: stay put
+    const top=topCharLevel(), at=sec.lv!=null?sec.lv:null;
     if(at!=null&&at!==(PREVIEW.level==null?top:PREVIEW.level))setPreview(at);
   }
   openGpick({mode:place?"place":"take",stepKey:step.key,secId:sec.id});
@@ -3390,7 +3422,10 @@ function renderGpick(){
   // cap honesty (D125) survives the scoping: the pool and the note still describe the slot
   // a take really lands in, not the one whose section you clicked
   const land=g.mode==="take"?guideLandingSec(sec):sec;
-  const cap=(land||sec).castMax;
+  // D184: the pool is this SECTION's reach — the card you are standing on. It used to be
+  // the landing section's, so one drop of a 1st-level spell re-capped a level 5 card at 1
+  // and hid every 2nd- and 3rd-level spell the character plainly qualifies for.
+  const cap=sec.castMax;
   const h=el("div","gpsech");
   // D166(c): a granted group is PREFILTERED — "a Druid cantrip", "a 1st-level Illusion" — and
   // the list showed no sign of it, so a short list read as a short pool rather than a filtered
@@ -3401,9 +3436,13 @@ function renderGpick(){
   h.append(el("span","gpsecl",sec.label));
   h.append(el("span","gcnt"+(sec.done?" full":""),sec.have+" of "+sec.need));
   list.append(h);
-  if(g.mode==="take"&&land!==sec)list.append(el("div","gphint",land
-    ? "A pick taken here fills the still-open L"+land.lv+" slot first. That is where it lands."
-    : "Every slot of this kind is filled. Click one you hold to drop it first."));
+  if(g.mode==="take"&&land!==sec){
+    const kw=sec.pick==="cantrip"?"cantrip":"spell";
+    list.append(el("div","gphint","Every "+kw+" slot this step owns is filled. "+(land
+      ? "A "+kw+(sec.pick==="cantrip"?"":" of level "+land.castMax+" or lower")
+        +" taken here fills your still-open L"+land.lv+" slot instead."
+      : "A pick taken here lands past what your schedule gives you. Click one you hold to drop it first.")));
+  }
   if(g.mode==="place"&&sec.kind==="pick")list.append(gpickSlots(sec));
   // D134(a): in place mode the cap can hide some of the build's OWN picks — without one
   // quiet line the short list reads as the whole of it. The rule itself stands (D118(g)):
@@ -3519,7 +3558,9 @@ function gpickCommit(sec,k){
   const arr=sec.pick==="cantrip"?"cantrips":"spells";
   if(guidePickDrop(sec.row,arr,k))return;          // a held pick drops, wherever it sits (D165)
   GADV=true;                                       // a TAKE may complete this section (D165)
-  toggle(sec.row,k,arr==="cantrips");              // the app's own take — it re-renders us
+  // D184: the section's own slot range travels WITH the call, so the shared writer lands
+  // the pick on the card you are standing on rather than in an earlier level's empty slot
+  toggle(sec.row,k,arr==="cantrips",null,{from:sec.from,to:sec.to});
   // …and say so when it landed beyond what this level asks for: the pick is not refused (a
   // build may run ahead of its schedule) but nothing else on screen would mention that the
   // slot it filled belongs to a later level. His note: "it should signal the choices are
@@ -3934,7 +3975,7 @@ function compute(){
 // `arr` is "cantrips" | "spells" | "prep". A wizard is the one caster where the last two
 // differ: `spells` IS the spellbook (what it knows) and `prep` is the daily subset drawn
 // from it (D62). For every other caster `prep` is unused — picking IS preparing.
-function toggle(idx,spellKey,cantrip,which){
+function toggle(idx,spellKey,cantrip,which,slots){
   const ch=state.chosen[idx]=state.chosen[idx]||{cantrips:[],spells:[]};
   const arr=which||(cantrip?"cantrips":"spells");
   ch[arr]=ch[arr]||[];
@@ -3961,6 +4002,18 @@ function toggle(idx,spellKey,cantrip,which){
   // open is the answer to that slot, not a new pick beside it. Appending instead would
   // read as over-budget while the build is one pick short of its own schedule.
   if(i<0&&arr!=="prep"&&row){
+    // D184: a take made from a guide pick section answers THAT section — `slots` is its
+    // `{from,to}`, handed over by the call site (D133(a): never read off the walk here).
+    // Its slots may not exist yet, because the levels below it were skipped; those stay
+    // open as empty slots, exactly as a drop leaves one (D146). Falls through only when
+    // every slot the section owns is filled.
+    if(slots){
+      const p=secOpenSlot(slots,ch[arr]);
+      if(p>=0){
+        while(ch[arr].length<p)ch[arr].push(hole());
+        ch[arr][p]=spellKey; save(); render(); return;
+      }
+    }
     const h=holeFor(row,arr,spellKey,L);
     if(h>=0){ ch[arr][h]=spellKey; save(); render(); return; }
   }
@@ -11565,6 +11618,8 @@ if(typeof module!=="undefined"&&module.exports){
     eclOwn,maxLvlAt,planSlots,topSlot,
     // acquisition-order helpers (D146's empty slot is a rule, not a convention)
     isHole,hole,holeTag,baseKey,sameEnt,trimHoles,noHoles,nextCopy,copyCount,
+    // where a pick LANDS: the section owns the slot, not the row's first hole (D184)
+    secOpenSlot,firstOpen,dropSlot,toggle,blankBuildState,FILTER_DEFAULT,
     // ability scores + proficiency bonus (D176)
     abilityScores,featScoreGains,profBonus,castNums,scoreMod,featsAt,scoreParts,mainAbilities,saveProfs,fillOrder,fillScores,pointsSpent,originOptions,parseFormula,rollFormula,formulaRange,optimizeScores,
     // storage and digest integrity

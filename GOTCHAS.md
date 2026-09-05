@@ -182,6 +182,21 @@
   reader learned the hard way. It also skips `_img/` at the WALK (the FSA path) and by
   `webkitRelativePath` (the input path) — a synthetic entry list bypasses both, so a test that
   fabricates entries is not testing the filter.
+- **`firstOpen` is the ROW's next empty slot; a guide section's is `secOpenSlot`, and the
+  two are not interchangeable (D184).** D125 was written when a take always landed in the
+  row's first open slot — true until D146 made a drop leave an empty slot behind. After that,
+  dropping ONE 1st-level pick from a level 5 card re-capped the card at 1: **112 spells
+  became 30**, every 2nd- and 3rd-level one gone, with a single hint line as the only sign.
+  The same reading dragged the walk back to the level that owned the hole, so **Skip
+  alternated between two steps forever** — press it, get clamped back, press it again.
+  Nothing threw; the list was just short and the walk just stubborn. A section's landing is
+  its OWN first open slot now (a hole inside its range, or its first position past the
+  array), and `secOpenSlot` is the single owner: `guideLandingSec`, the picker's `castMax`,
+  `openGpickSec`'s preview and `toggle`'s `slots` write all read it. **Three things must move
+  together or the bug comes back through whichever one you left**: the cap, the PREVIEWED
+  LEVEL (`R.pool` is per level — standing the view on the landing's level re-caps the list
+  before the cap is ever consulted) and the write. Fixture 13 in `engine.test.js` goes red on
+  any of them.
 - **Nothing may re-render from inside a render pass (D164).** `renderGuideStage` clears the
   stage and rebuilds it; anything it calls that itself calls `render()` — opening a picker,
   closing a stale one — runs a SECOND clear-and-rebuild inside the first, and which half

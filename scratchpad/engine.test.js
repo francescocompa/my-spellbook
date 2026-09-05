@@ -56,6 +56,7 @@ globalThis.localStorage = {
   setItem(k, v) { this._m[k] = String(v); },
   removeItem(k) { delete this._m[k]; },
 };
+globalThis.Option = function Option() { return makeNode(); };   // `new Option(text,value)`
 globalThis.matchMedia = () => ({ matches: false, addEventListener() {}, addListener() {} });
 globalThis.addEventListener = () => {};                          // app.js binds window listeners bare
 globalThis.removeEventListener = () => {};
@@ -356,6 +357,54 @@ const casterLevel = (slots) => {
   eq("12k · Optimize re-sorts six typed values onto the class order (Wizard: Int, Con, then Dex Wis Cha Str)",
     SB.abilityScores([]), { str: 8, dex: 13, con: 14, int: 15, wis: 12, cha: 10 });
   SB.set.clsBy(CLS);
+}
+
+// ── 13 · a take answers the card you are standing on (D184) ────────────────
+// The silent failure this exists for: D125 read the ROW's first open slot as the landing for
+// every section of that row. Drop one 1st-level spell and a level 5 card re-capped itself at
+// 1 — 112 spells became 30, every 2nd- and 3rd-level one gone with nothing saying why — and
+// the walk was dragged back to the level that owned the hole, which is what made Skip loop.
+// Nothing threw and nothing looked broken; the list was simply short. `secOpenSlot` is the
+// one owner of the rule now: `guideLandingSec`, the picker's cap and `toggle`'s write all
+// read it, so they cannot drift apart again. Re-point any of them at `firstOpen` and 13d/13e
+// go red.
+{
+  const H = SB.hole;
+  const sec = (from, to) => ({ from, to });
+  const nine = ["a|X", "b|X", "c|X", "d|X", "e|X", "f|X", "g|X", "h|X", "i|X"];
+
+  eq("13a · a section's own open slot is a hole INSIDE its range",
+    SB.secOpenSlot(sec(7, 9), ["a|X", "b|X", "c|X", "d|X", "e|X", "f|X", "g|X", H(""), "i|X"]), 7);
+  eq("13b · a position past what the array holds is open too (the levels below were skipped)",
+    SB.secOpenSlot(sec(4, 6), ["a|X", "b|X", "c|X", "d|X"]), 4);
+  eq("13c · -1 when every slot it owns is filled — an EARLIER hole is not this section's slot",
+    SB.secOpenSlot(sec(7, 9), [H(""), "b|X", "c|X", "d|X", "e|X", "f|X", "g|X", "h|X", "i|X"]), -1);
+  eq("13d · …and that is exactly where `firstOpen` disagrees, which is the whole bug",
+    SB.firstOpen([H(""), "b|X", "c|X", "d|X", "e|X", "f|X", "g|X", "h|X", "i|X"]), 0);
+
+  // the writer: a take carrying a section's range lands IN that range, with an earlier
+  // level's empty slot left standing open as that level's own question
+  // `toggle` re-renders, and a render wants real content under it — stand the whole digest
+  // up for this fixture and put the casting-only world back at the end.
+  SB.set.data(data);
+  const row = { id: "r0", clsKey: "Sorcerer|XPHB", level: 5, subKey: null };
+  const chosen = { r0: { cantrips: [], spells: [H(""), ...nine.slice(1, 7), H(""), "i|X"] } };
+  SB.set.preview({ level: null });
+  const stand = (chosenMap) => SB.set.state({ ...SB.blankBuildState(), filters: SB.FILTER_DEFAULT(),
+    classes: [row], chosen: chosenMap, levelOrder: ["r0"] });
+  stand(chosen);
+  SB.toggle("r0", "NEW|X", false, null, { from: 7, to: 9 });
+  eq("13e · the take fills the SECTION's slot 7, and the level 1 hole stays open",
+    chosen.r0.spells, [H(""), "b|X", "c|X", "d|X", "e|X", "f|X", "g|X", "NEW|X", "i|X"]);
+
+  // levels skipped entirely: their slots do not exist yet, and the take must not fall into
+  // slot 0 — that is the illegal-slot hazard D125 was raised about, solved at the source
+  const skipped = { r0: { cantrips: [], spells: [] } };
+  stand(skipped);
+  SB.toggle("r0", "L2|X", false, null, { from: 4, to: 6 });
+  eq("13f · skipped levels leave EMPTY SLOTS behind and the take lands at the section's first",
+    skipped.r0.spells, [H(""), H(""), H(""), H(""), "L2|X"]);
+  SB.set.data({ fullMc: data.fullMc, pact: data.pact, sources: {} });
 }
 
 console.log(`\n${pass} ok · ${fail} fail`);

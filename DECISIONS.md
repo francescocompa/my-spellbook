@@ -1568,6 +1568,52 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     its twin in `extract.js`; `cparity.js` compares `cls` byte-identical (0 fail, and the
     mirror's 180 exercise it). **Affects:** GOTCHAS.md (extractor gaps), D91, D22.
 
+- **D184 (2026-09-05) DECIDED — the card you are standing on owns the slot, and Skip is
+  final.** His report, two bugs in one message: *"sometimes, after tinkering with spell
+  selection in the guided builder, a spell becomes 'unselectable' even though I fit the
+  requirements"*, and *"the guided builder doesn't really let me skip a step, it always
+  guides me back to the empty step unless I keep skipping."* Both reproduced on a Sorcerer 5.
+  One cause under them: **D125 read the ROW's first open slot as the landing for every
+  section of that row**, which was true when it was written and stopped being true the day
+  D146 made a drop leave an empty slot. Dropping one 1st-level pick from a level 5 card
+  re-capped that card at 1 — **112 spells to 30, every 2nd- and 3rd-level one gone** with only
+  a hint line saying why — and the same reading dragged the walk back to the level that owned
+  the hole, which is what made Skip alternate between two steps forever. Shipped as v1.5.42.
+  - **(a) A section's landing is its OWN first open slot** — an empty slot inside its range,
+    or its first position past what the array holds. `secOpenSlot` is the single owner;
+    `guideLandingSec`, the picker's cap and `toggle`'s write all read it, so they cannot
+    drift apart the way the cap and the insert point had. An empty slot an earlier level
+    left behind is **that level's question**, not this one's. *Rejected:* keeping the model
+    and extending the clamp to cover an answered section, so the walk moves you to the L1
+    card where a 30-spell list explains itself (faithful to D125 and smaller, but it makes
+    dropping a low-level pick yank you back down the walk — the second half of his report);
+    compacting the array on a drop so no hole is ever left (reopens D146, which was decided
+    the other way: a drop would re-date every pick below it).
+  - **(b) The pool is the SECTION's reach, never the landing's.** `castMax` comes from the
+    section you are standing on. Where the section is full and a take will really land in an
+    earlier empty slot, the hint says so per level — "A spell of level 1 or lower taken here
+    fills your still-open L1 slot instead" — instead of the list silently shrinking.
+  - **(c) The view stands on the section's own level.** `openGpickSec` used to preview the
+    LANDING section's level, which re-created (b) from the other side: a fresh open of a full
+    level 5 card with a level 1 slot outstanding moved the view to L1 and `R.pool` narrowed
+    to 30 before the cap was ever consulted. On the section's own level the pool, the cap,
+    `sliceInsertAt` and `toggle`'s write all agree.
+  - **(d) Skipped levels leave EMPTY SLOTS, exactly as a drop does (D146).** A take on the L3
+    card of an empty row lands at slot 4 with slots 0–3 standing open, rather than falling
+    into slot 0 and going red — which is the illegal-slot hazard D125 was raised about,
+    solved at the source instead of by moving the reader.
+  - **(e) SKIP IS FINAL.** `guideGo` records any step the walk moves off while it is still
+    open, and the clamp may never retarget you onto one; landing on a step clears it, because
+    you asked for that one. The step stays open and flagged in the chain either way — Skip
+    still commits nothing (D126(e)). *Rejected:* deleting D125's clamp outright (his call:
+    narrow it, don't retire it — and with (a) in place its premise is unreachable, so it now
+    costs six lines and guarantees the rail can never contradict the picker).
+  - **Enforced by:** src/app.js `secOpenSlot` (the one owner), `guideLandingSec`,
+    `openGpickSec`, `toggle`'s `slots` argument — handed over by the CALL SITE, never read
+    off the walk (D133(a)) — and `GUIDE.passed`. **Fixture 13** in `scratchpad/engine.test.js`
+    covers the landing rule and the padding; both go red if either is re-pointed at
+    `firstOpen`. **Affects:** D125 (premise corrected), D146, D118(b,g), GOTCHAS.md.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives
