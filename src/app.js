@@ -995,8 +995,11 @@ const SWAP_KINDS=["spell","cantrip"];
 function recordSwap(lvl,kind,ev){
   lvl=Math.round(+lvl); kind=kind==="cantrip"?"cantrip":"spell";
   if(!(lvl>=1&&lvl<=20)||!ev||!state.classes.some(r=>r.id===ev.row))return false;
-  if(!ev.out||!ev.in||ev.out===ev.in)return false;
-  (state.swaps[lvl]=state.swaps[lvl]||{})[kind]={row:ev.row,out:String(ev.out),in:String(ev.in)};
+  const o=ev.out?String(ev.out):"", i=ev.in?String(ev.in):"";
+  if((!o&&!i)||(o&&i&&o===i))return false;        // D188: one half is enough
+  const e={row:ev.row}; if(o)e.out=o; if(i)e.in=i;
+  const p=Math.round(+ev.pos); if(o&&isFinite(p)&&p>=0)e.pos=p;
+  (state.swaps[lvl]=state.swaps[lvl]||{})[kind]=e;
   return true;
 }
 // clearing one kind leaves the other standing; a level with neither drops out entirely
@@ -1023,16 +1026,31 @@ function moveSwap(from,to,kind){
 // consumer, so none of them has to know the map is two levels deep
 function swapEvents(m){ const out=[];
   Object.entries(m||state.swaps||{}).forEach(([k,v])=>SWAP_KINDS.forEach(kind=>{
-    const e=v&&v[kind]; if(e)out.push({lvl:+k,kind,row:e.row,out:e.out,in:e.in});}));
+    // `pos` rides along (D188): it is the slot an out-only half vacated, and without it
+    // `unswap` cannot put the spell back where it was — it pushed it onto the end instead,
+    // which reads right only where the caller has already stripped the holes
+    const e=v&&v[kind]; if(e)out.push({lvl:+k,kind,row:e.row,out:e.out,in:e.in,pos:e.pos});}));
   return out; }
 // One level's events in the two-slot shape. A PRE-TWO-KIND blob is a single event
 // (`{row,kind,out,in}`) — it is read into its own kind's slot, so an old build loses
 // nothing wherever stored state enters (applyState, loadBuilds, an imported file).
+// D188: a trade is TWO HALVES and either may stand alone — the spell you give up and the
+// one you learn instead are set independently, in either order. A half-made event is a
+// decision in progress, never an error (his call). `pos` rides an OUT half: it is the slot
+// the given-up spell vacated, which is what lets `unswap` put it back when an earlier level
+// is reconstructed, and what the replacement fills when it arrives. An old two-part event
+// is exactly this shape with both halves present, so nothing stored needs migrating.
 function swapNorm(v){
   if(!v||typeof v!=="object")return null;
-  const one=e=>(e&&typeof e==="object"&&e.row!==undefined&&e.out&&e.in&&e.out!==e.in)
-    ?{row:e.row,out:String(e.out),in:String(e.in)}:null;
-  if(v.out!==undefined&&v.in!==undefined){        // the single-event shape
+  const one=e=>{
+    if(!e||typeof e!=="object"||e.row===undefined)return null;
+    const o=e.out?String(e.out):"", i=e.in?String(e.in):"";
+    if((!o&&!i)||(o&&i&&o===i))return null;
+    const r={row:e.row}; if(o)r.out=o; if(i)r.in=i;
+    const p=Math.round(+e.pos);
+    if(o&&isFinite(p)&&p>=0)r.pos=p;
+    return r;};
+  if(v.out!==undefined||v.in!==undefined){        // the single-event shape
     const e=one(v); return e?{[v.kind==="cantrip"?"cantrip":"spell"]:e}:null;}
   const out={};
   SWAP_KINDS.forEach(k=>{const e=one(v[k]); if(e)out[k]=e;});
@@ -1127,7 +1145,12 @@ function dropSlot(arr,i,tag){
 // 5 card's pool from 112 spells to 30 and the walk was dragged back to level 1. One
 // owner — `guideLandingSec`, the picker's cap and `toggle`'s write all read this.
 function secOpenSlot(sec,cur){
-  for(let p=sec.from;p<sec.to;p++)if(p>=(cur||[]).length||isHole(cur[p]))return p;
+  for(let p=sec.from;p<sec.to;p++){
+    if(p>=(cur||[]).length)return p;
+    // D188: a slot a TRADE vacated is spoken for — its "learning instead" half fills it, and
+    // an ordinary take landing there would answer a question nobody asked
+    if(isHole(cur[p])&&holeTag(cur[p])!=="trade")return p;
+  }
   return -1;
 }
 // the first slot of an array still standing open: the earliest EMPTY SLOT, or the array's
@@ -1161,7 +1184,20 @@ function acqAt(sched,i,lvls){
 function unswap(list,rowId,kind,L){
   swapEvents().filter(e=>e.lvl>L&&e.row===rowId&&e.kind===kind)
     .sort((a,b)=>b.lvl-a.lvl)
-    .forEach(e=>{const i=list.indexOf(e.in);if(i>=0)list[i]=e.out;});
+    .forEach(e=>{
+      // both halves: the replacement sits in the given-up pick's slot (D115(g))
+      if(e.out&&e.in){const i=list.indexOf(e.in);if(i>=0)list[i]=e.out;return;}
+      // D188, only the give-up: below this level the spell was still held, and the slot it
+      // left stands empty. Put it back where it was — or append it where the caller has
+      // already stripped the holes (`sliceChosen`), which is the same list without slots.
+      if(e.out){const p=e.pos;
+        if(p!=null&&p>=0&&p<list.length&&isHole(list[p]))list[p]=e.out;
+        else if(list.indexOf(e.out)<0)list.push(e.out);
+        return;}
+      // only the replacement: it was taken at the trade's own level and APPENDED, so
+      // below this level it was not held yet and undoing it is a pop, never a shift
+      if(e.in){const i=list.lastIndexOf(e.in);if(i>=0)list.splice(i,1);}
+    });
   return list;
 }
 // the view of a row's chosen lists at the preview level; the RAW object when not
@@ -1227,6 +1263,7 @@ function holeFor(row,arr,key,L){
   const sp=SPELL_BY[key], c=CLS_BY[row.clsKey];
   for(let i=0;i<ch[arr].length;i++){
     if(!isHole(ch[arr][i]))continue;
+    if(holeTag(ch[arr][i])==="trade")continue;   // D188: the trade's own half fills this one
     // the schedule is cumulative, so acquisition level is monotone in position: the first
     // slot above the view ends the search rather than skipping it
     if(L!=null&&acqAt(sa,i,lvls)>L)break;
@@ -1693,8 +1730,16 @@ function guideSteps(){
       if(rule.cantrip==="levelup"&&sched.cant&&nFilled(ch.cantrips))ask.push(["cantrip","Swap a cantrip"]);
       // ids must be unique WITHIN the step now that both can share one (`guideSecKey`)
       ask.forEach(([swkind,label])=>{const ev=swapAt(lv,swkind);
-        secs.push(gsec({id:"swap-"+swkind,kind:"swap",label,swkind,row:id,optional:true,done:!!ev,
-          value:ev?("− "+String(ev.out).split("|")[0]+" + "+String(ev.in).split("|")[0]):null}));});}
+        const nm=k2=>String(k2).split("|")[0];
+        // D188: a trade is done only when BOTH halves are set; one half is a decision in
+        // progress and reads as one. `offRail` is his rule — a trade nobody has started is
+        // not a decision the chain should carry, so the rail draws nothing until one exists.
+        secs.push(gsec({id:"swap-"+swkind,kind:"swap",label,swkind,row:id,optional:true,
+          done:!!(ev&&ev.out&&ev.in), offRail:!ev,
+          value:!ev?null
+            :(ev.out&&ev.in)?("− "+nm(ev.out)+" + "+nm(ev.in))
+            :ev.out?("− "+nm(ev.out)+" · nothing learned yet")
+            :("+ "+nm(ev.in)+" · nothing given up yet")}));});}
     // the step exists for a trade alone: a class can be able to trade at a level that
     // grants it nothing new, and that question still has to be asked somewhere
     if(secs.length)add({key:"cast~"+id+"~"+lv,lv,ord:4,kind:"cast",row:id,cl,
@@ -2385,6 +2430,7 @@ function renderGuideChain(steps,cur){
       group.forEach(st=>st.sections.forEach(sec=>{
         // D187(a): a folded choice draws no row of its own — its answer rides the giver's
         if(sec.foldedInto&&!GUNFOLD.has(st.key))return;
+        if(sec.offRail)return;   // D188: no trade started, no row (his rule)
         const isCur=st.key===GUIDE.cur;
         const b=el("button","gcstep "+sec.status+(sec.optional?" optional":"")
           +(isCur?" cur":"")+(sec.ill?" gcill":""));
@@ -2887,6 +2933,17 @@ function guideSecBlock(step,sec,rowOf,inline){
       // It is the section's own question, so it opens the section's own picker — and it
       // carries no ✕, because there is nothing in it to take back out.
       if(isHole(k)){
+        // D188: a slot a trade vacated is not this level's open question — it is the trade's,
+        // and its own "learning instead" half is what fills it. It says so and opens nothing.
+        if(holeTag(k)==="trade"){
+          const gone=el("span","cartchip gtraded");
+          gone.append(el("span","lv",secIsCantrip(sec)?"C":"\u2013"));
+          gone.append(el("span",null,"Traded away"));
+          attachTip(gone,tipBlock("Traded away",
+            "You gave this one up at a later level-up. The slot stays here so nothing below it "
+            +"is re-dated; what you learn instead fills it, on the level-up that took it."));
+          chips.append(gone); return;
+        }
         const slot=el("button","cartchip gslot");
         slot.append(el("span","lv",secIsCantrip(sec)?"C":"\u2013"));
         slot.append(el("span",null,"Empty slot"));
@@ -3036,58 +3093,68 @@ function guideSecBlock(step,sec,rowOf,inline){
     return guideSecWrap(step,sec,b);
   }
   if(sec.kind==="swap"){
+    // D188 — THE TRADE IS TWO HALVES, and neither binds the other (his shape, swap3).
+    // The spell you give up is a CHIP, so clicking it opens its details like every other
+    // spell in the build; the replacement is an ordinary spell choice beside it. Set either
+    // first, change either alone. A half-made trade is a decision in progress and says so
+    // in its own words — it is never marked as an error (his call).
     const kind=sec.swkind==="cantrip"?"cantrip":"spell";
-    if(sec.done){
-      // a recorded trade (D126(h)): the value line reads "− out + in", so all this owes
-      // you is the way back out. Undoing clears the EVENT and nothing else — the
-      // replacement keeps its position, exactly as clearing the timeline's pill does.
-      b.append(val(sec.value||"—"));
-      const und=el("div","gtundo");
-      const x=xBtn("gtx",()=>{clearSwap(sec.lv,sec.swkind);refreshAll();render();});
-      attachTip(x,tipBlock("Undo the trade",
-        "Clears this level's "+kind+" trade. The replacement stays where it is and nothing is "
-        +"deleted. It is the same thing clearing the pill in the timeline does."));
-      und.append(x,el("span","gtul","Undo the trade"));
-      b.append(und);
-      return guideSecWrap(step,sec,b);
-    }
-    // D126(h): a DIRECT trade. Tap the pick you are losing → the pick modal opens on its
-    // legal replacements → the card comes back reading "− out + in". No arming, no second
-    // phase. The write is still the timeline's (see `guideTrade`), so both surfaces record
-    // the same event.
     const row=rowOf.get(sec.row), sched=row&&rowSched(row); if(!sched)return null;
-    const c=row&&CLS_BY[row.clsKey];
+    const c=row&&CLS_BY[row.clsKey], ev=swapAt(sec.lv,sec.swkind)||{};
+    const cm=guideSwapMax(row,sec.lv);
     const ch=state.chosen[sec.row]||{};
-    const name=k2=>{const sp=SPELL_BY[k2];return sp?sp.name:String(k2).split("|")[0];};
     const lvls=charLevelMap().get(sec.row)||[];
     const sa=kind==="cantrip"?sched.cant:sched.spells;
+    const name=k2=>{const sp=SPELL_BY[k2];return sp?sp.name:String(k2).split("|")[0];};
+    // what there is to give up: everything learned BEFORE this level, as it stood then
     const opts=[];
     ((kind==="cantrip"?ch.cantrips:ch.spells)||[]).forEach((k2,i)=>{
-      if(isHole(k2))return;                          // nothing to trade away from an empty slot
+      if(isHole(k2))return;
       if(acqAt(sa,i,lvls)<sec.lv)opts.push(unswap([k2],sec.row,kind,sec.lv-1)[0]);});
-    if(!opts.length){b.append(hint(
-      "No "+kind+" was learned before this level, so there is nothing to trade away yet."));
+    if(!ev.out&&!ev.in&&!opts.length){
+      b.append(hint("No "+kind+" was learned before this level, so there is nothing to "
+        +"trade away yet."));
       return guideSecWrap(step,sec,b);}
-    const cm=guideSwapMax(row,sec.lv);
-    // what is LEFT of the old paragraph is the only half that was state: the cap this
-    // class may trade into at THIS level, which nothing else on the card says. The
-    // instructions ("tap the one you are giving up… passing on it is the other honest
-    // answer") went with D131(c) — the step is already titled "Swap a spell", every chip
-    // carries its own hover tip, and "optional" is on the card's own context line.
     if(kind==="spell")b.append(hint((c?c.name:"This class")+" trades into "
       +(cm===1?"level 1":"level 1–"+cm)+" here."));
-    const chips=el("div","gtchips");
-    opts.forEach(k2=>{const sp=SPELL_BY[k2];
-      const btn=el("button","gtchip");
-      btn.append(el("span","lv",sp?(sp.level===0?"C":String(sp.level)):"?"));
-      btn.append(el("span","gtn",name(k2)));
-      btn.onclick=()=>openGpick({mode:"trade",kind,row:sec.row,lv:sec.lv,
-        castMax:kind==="cantrip"?0:cm,out:k2,outName:name(k2)});
-      attachTip(btn,tipBlock("Trade "+name(k2)+" away",
-        "Opens the replacement list for "+(c?c.name:"this class")+" at L"+sec.lv+". Nothing is written "
-        +"until you pick one, and the trade keeps this pick's place in the acquisition order."));
-      chips.append(btn);});
-    b.append(chips);
+    // each half in the app's own section frame, so the two read as one question with two
+    // parts rather than two unrelated controls
+    const half=(label,tag,body2)=>{
+      const box=el("div","gsec"), h=el("div","gsech");
+      h.append(el("span","gsecl",label)); h.append(el("span","gcnt"+(tag==="1 of 1"?" full":""),tag));
+      box.append(h); const bb=el("div","gsecb"); bb.append(body2); box.append(bb); return box;};
+    const wrap=n=>{const d=el("div","gchips"); d.append(n); return d;};
+    const spChip=(k2,onX,tip)=>{const sp=SPELL_BY[k2], chip=el("span","cartchip");
+      chip.append(el("span","lv",sp?(sp.level===0?"C":String(sp.level)):"?"));
+      const nm=el("span",null,name(k2));
+      if(sp)attachSpell(nm,sp);      // his ask: the chip opens the spell's own details
+      chip.append(nm);
+      const x=xBtn(null,onX); attachTip(x,tip); chip.append(x); return chip;};
+    const slot=(label,glyph,onClick,tip)=>{const btn=el("button","cartchip gslot");
+      btn.append(el("span","lv",glyph)); btn.append(el("span",null,label));
+      btn.onclick=onClick; attachTip(btn,tip); return btn;};
+    b.append(half("Giving up",ev.out?"1 of 1":"not yet",wrap(ev.out
+      ? spChip(ev.out,()=>guideTradeClear(sec.row,sec.swkind,sec.lv,"out"),
+          tipBlock("Keep "+name(ev.out)+" after all",
+            "Puts it back in the slot it came from. Anything you have already chosen to "
+            +"learn instead stays where it is."))
+      : slot("Trade one away","\u2212",()=>openGpickTrade(step,sec,"out"),
+          tipBlock("The "+kind+" you are giving up",
+            "It leaves the slot it sits in standing open, so nothing else is re-dated. You "
+            +"can choose what to learn instead first if you would rather.")))));
+    b.append(half("Learning instead",ev.in?"1 of 1":"not yet",wrap(ev.in
+      ? spChip(ev.in,()=>guideTradeClear(sec.row,sec.swkind,sec.lv,"in"),
+          tipBlock("Drop "+name(ev.in),
+            "Takes it back out. Whatever you gave up stays given up until you undo that half "
+            +"too."))
+      : slot("Learn one instead","+",()=>openGpickTrade(step,sec,"in"),
+          tipBlock("Its replacement",
+            (c?c.name:"This class")+" may learn "+(kind==="cantrip"?"any cantrip it can take"
+              :(cm===1?"a level 1 spell":"a spell of level 1 to "+cm))+" here.")))));
+    if(ev.out&&!ev.in)b.append(hint("You are one "+kind+" short until you learn one instead. "
+      +"The slot it left is standing open, marked as traded away."));
+    if(ev.in&&!ev.out)b.append(hint("You are one "+kind+" over until you say which one you "
+      +"gave up for it."));
     return guideSecWrap(step,sec,b);
   }
   return null;
@@ -3423,7 +3490,7 @@ function closeGpick(){ if(!GPICK)return; GPICK=null;
 // drop is for), and a header still describing the slot it opened on would be exactly the
 // lie D125 was raised about.
 function gpickSync(){
-  const g=GPICK; if(!g||g.mode==="trade")return;
+  const g=GPICK; if(!g||g.mode==="trade"||g.mode==="tradeout")return;
   const st=((R&&R.gsteps)||[]).find(x=>x.key===g.stepKey)||null;
   g.step=st;
   // a pick section's id names its array POSITION RANGE and a choice section's is its grants
@@ -3462,7 +3529,7 @@ function gpickMore(){
 }
 function gpickFoot(){
   const b=$("#gpDone"), g=GPICK; if(!b||!g)return;
-  if(g.mode==="trade"){
+  if(g.mode==="trade"||g.mode==="tradeout"){
     b.textContent="Close"; b.disabled=false; b.classList.remove("on"); return;}
   const sec=g.sec;
   const owed=g.mode==="take"&&sec?Math.max(0,sec.need-sec.have):0;
@@ -3488,17 +3555,42 @@ function renderGpick(){
   const q=(($("#gpSearch")||{}).value||"").toLowerCase();
   let shown=0;
   gpickHelp(g.mode);
+  if(g.mode==="tradeout"){
+    // D188: the give-up half. The pool is the row's OWN picks learned before this level,
+    // shown as they stood then (`unswap`), so a spell traded in later is offered under the
+    // name it had when this level-up came round.
+    const row=state.classes.find(r=>r.id===g.row), c=row&&CLS_BY[row.clsKey];
+    const sched=row&&rowSched(row), lvls=charLevelMap().get(g.row)||[];
+    const sa=g.kind==="cantrip"?(sched&&sched.cant):(sched&&sched.spells);
+    const ch=state.chosen[g.row]||{};
+    const keys=[];
+    ((g.kind==="cantrip"?ch.cantrips:ch.spells)||[]).forEach((k2,i)=>{
+      if(isHole(k2))return;
+      if(acqAt(sa,i,lvls)<g.lv)keys.push(unswap([k2],g.row,g.kind,g.lv-1)[0]);});
+    $("#gpTitle").textContent="Which "+(g.kind==="cantrip"?"cantrip":"spell")+" are you giving up?";
+    $("#gpSub").textContent=["L"+g.lv,c?c.name:null].filter(Boolean).join(" · ");
+    let items=keys.map(k2=>SPELL_BY[k2]).filter(Boolean);
+    gpickMenu(items);
+    items=items.filter(sp=>(!q||sp.name.toLowerCase().includes(q))&&spFiltOk(GPICK.filt,sp));
+    shown=items.length;
+    gpickSection(list,null,items,new Set(),"tradeout",null);
+    $("#gpCount").textContent=shown+(shown===1?" spell":" spells");
+    gpickFoot();
+    return;
+  }
   if(g.mode==="trade"){
     const row=state.classes.find(r=>r.id===g.row), c=row&&CLS_BY[row.clsKey];
     const cname=c?c.name:"this class", kw=g.kind==="cantrip"?"cantrip":"spell";
     const capTxt=(g.kind==="cantrip"||!g.castMax)?"":" · up to level "+g.castMax;
-    $("#gpTitle").textContent="Replace "+g.outName;
+    $("#gpTitle").textContent=g.outName?("Replace "+g.outName):("What are you learning instead?");
     // live status only — what a trade DOES to the order moved behind the `?` (D131(c))
     $("#gpSub").textContent="a "+kw+" for "+cname+" · L"+g.lv+capTxt;
     const mine=new Set((((state.chosen[g.row]||{})[g.kind==="cantrip"?"cantrips":"spells"])||[]));
+    const ev0=swapAt(g.lv,g.kind)||{};
+    const gone=ev0.out||g.out||"";      // D188: the give-up may not be set yet
     let items=[...R.pool.values()].filter(i=>{
       const k=key(i.sp.name,i.sp.source);
-      if(!i.takers.some(t=>t.idx===g.row)||mine.has(k)||k===g.out)return false;
+      if(!i.takers.some(t=>t.idx===g.row)||(mine.has(k)&&k!==ev0.in)||k===gone)return false;
       return g.kind==="cantrip"?i.sp.level===0:(i.sp.level>=1&&i.sp.level<=(g.castMax||9));
     }).map(i=>i.sp);
     gpickMenu(items);
@@ -3651,7 +3743,12 @@ function gpickRow(sp,held,sec,mode){
 // A TRADE is the exception: it is one pick by definition, and its card shows the result.
 function gpickCommit(sec,k){
   const g=GPICK; if(!g)return;
-  if(g.mode==="trade"){ guideTrade(g,k); closeGpick(); return; }
+  if(g.mode==="tradeout"){ guideTradeOut(g.row,g.kind,g.lv,k); closeGpick(); return; }
+  if(g.mode==="trade"){
+    // D188: the half writer, when the picker was opened from a trade SECTION; the old
+    // arm-then-take path (the timeline's bar) still has its own `g.out` and keeps `guideTrade`
+    if(g.half==="in"||!g.out){ guideTradeIn(g.row,g.kind,g.lv,k); closeGpick(); return; }
+    guideTrade(g,k); closeGpick(); return; }
   if(!sec)return;
   if(g.mode==="place"){ guidePlace(sec,k); return; }   // saves + renders; position IS the answer
   if(sec.kind==="cpick"){
@@ -3694,6 +3791,71 @@ function renderGuideCta(){
 // acquisition history is preserved — and calls `recordSwap` for the event. One swap write
 // path in the app, so the guide's card and the timeline's pill can never record different
 // shapes, and neither one deletes anything.
+// ── D188: the two halves, written independently ───────────────────────────
+// Each half is one call, and each completes the other when the other is already standing.
+// The array truth the halves keep between them:
+//   out set    — the spell is gone and the slot it left stands empty (D146), tagged by `pos`
+//   in set     — the spell IS held: in the vacated slot when there is one, else APPENDED,
+//                which is what keeps `unswap`'s undo a pop rather than a shift
+//   both       — the replacement sits at the given-up pick's position, exactly as before
+// D188: one picker per half. `tradeout` lists what you may give up (the row's own picks,
+// as they stood before this level); `trade` lists what you may learn instead. Both commit
+// through the half writers above, so the two surfaces can never record different things.
+function openGpickTrade(step,sec,half){
+  const row=state.classes.find(r=>r.id===sec.row);
+  const kind=sec.swkind==="cantrip"?"cantrip":"spell";
+  openGpick({mode:half==="out"?"tradeout":"trade",kind,row:sec.row,lv:sec.lv,
+    castMax:kind==="cantrip"?0:guideSwapMax(row,sec.lv),
+    stepKey:step.key,secId:sec.id,half});
+}
+function guideTradeOut(row,kind,lv,outKey){
+  const arr=kind==="cantrip"?"cantrips":"spells";
+  const ch=state.chosen[row]||{}; const list=ch[arr]||[];
+  const p=list.indexOf(outKey); if(p<0)return;
+  const ev=swapAt(lv,kind)||{};
+  const inKey=ev.in&&ev.in!==outKey?ev.in:"";
+  dropSlot(list,p,"trade");   // the slot stands (D146), TAGGED: it is the trade's, not a pick's
+  if(inKey){
+    // the replacement was already chosen and is sitting at the end — move it into the slot
+    // this give-up just vacated. A pop and a write: nothing between them is re-dated.
+    const q=list.lastIndexOf(inKey);
+    if(q>=0){ if(q===list.length-1)list.pop(); else list[q]=hole(); }
+    if(p<list.length)list[p]=inKey; else{while(list.length<p)list.push(hole());list.push(inKey);}
+  }
+  if(arr==="spells"&&ch.prep){const j=ch.prep.indexOf(outKey);if(j>=0)ch.prep.splice(j,1);}
+  recordSwap(lv,kind,{row,out:outKey,in:inKey||undefined,pos:p});
+  save(); render();
+}
+function guideTradeIn(row,kind,lv,inKey){
+  const arr=kind==="cantrip"?"cantrips":"spells";
+  const ch=state.chosen[row]=state.chosen[row]||{cantrips:[],spells:[]};
+  const list=ch[arr]=ch[arr]||[];
+  const ev=swapAt(lv,kind)||{};
+  if(list.indexOf(inKey)>=0)return;                  // already held: a trade cannot duplicate
+  const old=ev.in;                                   // replacing one replacement with another
+  if(old){const q=list.lastIndexOf(old); if(q>=0){ if(q===list.length-1)list.pop(); else list[q]=hole(); }}
+  const p=(ev.out&&ev.pos!=null&&ev.pos>=0&&ev.pos<list.length&&isHole(list[ev.pos]))?ev.pos:-1;
+  if(p>=0)list[p]=inKey; else list.push(inKey);      // no vacated slot yet: append (see above)
+  recordSwap(lv,kind,{row,out:ev.out,in:inKey,pos:ev.pos});
+  save(); render();
+}
+// clearing ONE half. The other stands, and the array follows it back: undoing the give-up
+// puts the spell back in its slot, undoing the replacement takes it out and leaves the slot.
+function guideTradeClear(row,kind,lv,half){
+  const ev=swapAt(lv,kind); if(!ev)return;
+  const arr=kind==="cantrip"?"cantrips":"spells";
+  const list=(state.chosen[row]||{})[arr]||[];
+  if(half==="out"&&ev.out){
+    if(ev.in){const q=list.indexOf(ev.in); if(q>=0){ if(q===list.length-1)list.pop(); else list[q]=hole(); list.push(ev.in); }}
+    const p=ev.pos;
+    if(p!=null&&p>=0&&p<list.length&&isHole(list[p]))list[p]=ev.out; else list.push(ev.out);
+    if(ev.in)recordSwap(lv,kind,{row,in:ev.in}); else clearSwap(lv,kind);
+  } else if(half==="in"&&ev.in){
+    const q=list.indexOf(ev.in); if(q>=0){ if(q===list.length-1)list.pop(); else list[q]=hole(); }
+    if(ev.out)recordSwap(lv,kind,{row,out:ev.out,pos:ev.pos}); else clearSwap(lv,kind);
+  }
+  trimHoles(list); save(); render();
+}
 function guideTrade(g,inKey){
   const arr=g.kind==="cantrip"?"cantrips":"spells";
   const cur=((state.chosen[g.row]||{})[arr])||[];
@@ -11818,6 +11980,8 @@ if(typeof module!=="undefined"&&module.exports){
     entOwnsSwap,entSlotSpend,takeOpt,optHoleFor,
     // the licensed-name twin an import supersedes (D187(b))
     dropSrdTwins,
+    // a trade is two halves and either may stand alone (D188)
+    swapNorm,swapsNorm,unswap,
     // ability scores + proficiency bonus (D176)
     abilityScores,featScoreGains,profBonus,castNums,scoreMod,featsAt,scoreParts,mainAbilities,saveProfs,fillOrder,fillScores,pointsSpent,originOptions,parseFormula,rollFormula,formulaRange,optimizeScores,
     // storage and digest integrity

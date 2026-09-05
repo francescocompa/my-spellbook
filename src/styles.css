@@ -2403,6 +2403,9 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
 .gfoldbtn{font:inherit;color:var(--muted);background:none;border:0;padding:0 2px;cursor:pointer;
   border-bottom:1px dotted var(--line-2,var(--line))}
 .gfoldbtn:hover{color:var(--ink)}
+/* D188: a slot a trade vacated. It reads as a fact, not a question — no dashed "fill me"
+   border, no hover, and the muted ink the guide uses for something already accounted for. */
+.cartchip.gtraded{border-style:dashed;color:var(--muted);opacity:.8}
 .gpsech{display:flex;align-items:baseline;gap:10px;margin:18px 0 6px}
 .gpsech:first-child{margin-top:4px}
 .gpsech .gpfilt{color:var(--muted);display:inline-flex;align-items:center}

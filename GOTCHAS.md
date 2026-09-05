@@ -214,6 +214,18 @@
   so no other surface inherits the behaviour. **The subtle half: an IN-BUDGET add must not
   re-point ownership** — that pick went to a SIBLING step's slot (the second metamagic at
   Sorcerer 2), and re-pointing would aim the next change at another step's answer.
+- **An empty slot is not always an open question — a TRADED one is spoken for (D188).**
+  `dropSlot` takes a tag, and a slot a level-up trade vacated carries `trade`. Without the
+  skip, `holeFor` and `secOpenSlot` both read it as the row's next landing, so an ordinary
+  take filled the slot the trade's own "learning instead" half was holding, and the picker
+  offered to fill "your still-open L1 slot" that you had deliberately given up. Any new
+  consumer of a hole has to ask what tagged it before treating it as a question.
+- **A derived event field that `swapEvents` does not copy is invisible to `unswap` (D188).**
+  `pos` — the slot an out-only half vacated — was stored correctly and then dropped on the way
+  out of `swapEvents`, so reconstruction pushed the spell onto the END of the list instead of
+  back into its slot. The browser masked it completely: `sliceChosen` strips holes before
+  calling `unswap`, so the pushed value read correctly at every level. Engine fixture 16 is
+  what caught it. When an event grows a field, grow `swapEvents` in the same commit.
 - **Nothing may re-render from inside a render pass (D164).** `renderGuideStage` clears the
   stage and rebuilds it; anything it calls that itself calls `render()` — opening a picker,
   closing a stale one — runs a SECOND clear-and-rebuild inside the first, and which half

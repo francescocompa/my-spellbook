@@ -1723,6 +1723,46 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     awaiting his pick) and the trade that still offers a spell already swapped away — that one
     needs his build to reproduce.
 
+- **D188 (2026-09-05) DECIDED — THE LEVEL-UP TRADE IS TWO HALVES, AND NEITHER BINDS THE
+  OTHER.** His shape, off the `swap1` mockup: *"can we swap 1, but only mention the spell you
+  trade away as a chip (so that clicking gives you the details) and essentially allow an
+  additional spell choice, without necessarily binding them?"* Mockups `swap0`–`swap3` in
+  `scratchpad/mkswap.py`. Shipped as v1.5.46.
+  - **(a) Two halves, either standing alone.** "Giving up" and "Learning instead" are two rows
+    of the trade section, each set independently and in either order. The give-up is a real
+    spell CHIP — clicking its name opens the detail, like every other spell in the build (his
+    ask) — and the replacement is an ordinary spell choice beside it. `swapNorm`/`recordSwap`
+    accept `{row,out}` or `{row,in}`; an old two-part event is that shape with both halves
+    present, so **nothing stored needs migrating**.
+  - **(b) A half-made trade is a decision in progress, never an error** (his call). The card
+    says which way it is short — "one spell short until you learn one instead", "one spell
+    over until you say which one you gave up" — and nothing goes red. *Rejected:* flagging it
+    with the app's over/under language the moment one half lands (consistent, but it puts an
+    error on screen for a trade you are halfway through); recording no event at all and
+    letting a drop plus a pick stand in for a trade (simplest by far, and the earlier level's
+    empty slot would have nothing explaining it, so the chain would keep asking you to fill a
+    slot you gave up on purpose).
+  - **(c) The array truth each half keeps.** `out` — the spell is gone and the slot it left
+    stands open, **tagged `trade`** and carrying `pos`. `in` — the spell is held: in that
+    vacated slot when there is one, else APPENDED, which is what keeps undoing it a pop rather
+    than a shift. Both — the replacement sits at the given-up pick's position (D115(g)
+    unchanged), so a 4th-level spell traded in at L8 sits in an L1 slot and is still judged
+    legal, exactly as D119(b) already required.
+  - **(d) A traded slot is spoken for.** `holeFor` and `secOpenSlot` skip a `trade`-tagged
+    hole, so an ordinary take can never land in it, and the level card draws it as
+    **"Traded away"** rather than "Empty slot" — a fact, not a question (his Q1 answer).
+  - **(e) The rail carries a trade only once one exists** (`offRail`), and **a half-made one
+    counts** (his call): the rail is how you find your way back to something unfinished. On a
+    Warlock 9 that removes sixteen `to decide` rows. *Rejected:* waiting for both halves (the
+    strictest reading of his note, but a half-made trade would then be findable only by
+    remembering which level you were on).
+  - **Enforced by:** src/app.js `swapNorm`, `recordSwap`, `swapEvents` (which now carries
+    `pos`), `unswap`'s three branches, `guideTradeOut`/`guideTradeIn`/`guideTradeClear`,
+    `openGpickTrade` and the `tradeout` picker mode. **Fixture 16** pins all three `unswap`
+    branches and the normalisation; it caught `swapEvents` dropping `pos`, which the browser
+    had masked because `sliceChosen` strips holes before it. **Affects:** D128, D115(g),
+    D119(b), D126(h), D131(c), D146, D184, GOTCHAS.md.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

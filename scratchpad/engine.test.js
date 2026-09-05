@@ -492,5 +492,52 @@ const casterLevel = (slots) => {
     ["Hideous Laughter", "Arcane Hand", "Fireball"]);
 }
 
+// ── 16 · a trade is two halves, and either may stand alone (D188) ──────────
+// His shape: the spell you give up and the one you learn instead are set independently, in
+// either order. Everything that reconstructs an earlier level reads these events, and every
+// one of those failures is silent — a spell quietly present or absent at a level you are
+// looking back at, with nothing on screen saying so. The array truth each half keeps:
+//   out only — the spell is gone and the slot it left stands empty, tagged by `pos`
+//   in only  — the spell is held and APPENDED, which is what makes undoing it a pop
+//   both     — the replacement sits at the given-up pick's position (D115(g))
+{
+  const norm = (v) => SB.swapNorm(v);
+  eq("16a · an out-only half survives normalisation, with the slot it vacated",
+    norm({ row: "r0", out: "Bane|XPHB", pos: 2 }),
+    { spell: { row: "r0", out: "Bane|XPHB", pos: 2 } });
+  eq("16b · an in-only half survives too, and carries no slot",
+    norm({ row: "r0", in: "Blight|XPHB" }),
+    { spell: { row: "r0", in: "Blight|XPHB" } });
+  eq("16c · an event with neither half, or with the same spell twice, is still dropped",
+    [norm({ row: "r0" }), norm({ row: "r0", out: "Bane|XPHB", in: "Bane|XPHB" })],
+    [null, null]);
+  eq("16d · an old two-part event normalises unchanged — nothing stored needs migrating",
+    norm({ spell: { row: "r0", out: "Bane|XPHB", in: "Blight|XPHB" } }),
+    { spell: { row: "r0", out: "Bane|XPHB", in: "Blight|XPHB" } });
+
+  const stand = (swaps) => SB.set.state({ ...SB.blankBuildState(), filters: SB.FILTER_DEFAULT(),
+    classes: [{ id: "r0", clsKey: "Sorcerer|XPHB", level: 8, subKey: null }], swaps });
+  const held = ["a|X", "b|X", "Bane|XPHB", "d|X"];
+
+  stand({ 8: { spell: { row: "r0", out: "Bane|XPHB", in: "Blight|XPHB" } } });
+  eq("16e · both halves: below the trade the slot reads as what it held then",
+    SB.unswap(["a|X", "b|X", "Blight|XPHB", "d|X"], "r0", "spell", 7), held);
+
+  // the give-up alone: the spell was still held below the trade, and its slot stands empty
+  stand({ 8: { spell: { row: "r0", out: "Bane|XPHB", pos: 2 } } });
+  eq("16f · the give-up alone puts the spell back in the slot it left",
+    SB.unswap(["a|X", "b|X", SB.hole(), "d|X"], "r0", "spell", 7), held);
+
+  // the replacement alone was appended, so undoing it is a pop and nothing shifts
+  stand({ 8: { spell: { row: "r0", in: "Blight|XPHB" } } });
+  eq("16g · the replacement alone is taken back off the end, never spliced from the middle",
+    SB.unswap(["a|X", "b|X", "Bane|XPHB", "d|X", "Blight|XPHB"], "r0", "spell", 7), held);
+
+  // and at or above the trade's own level nothing is un-applied at all
+  eq("16h · a trade at this level or below is already part of what you are looking at",
+    SB.unswap(["a|X", "b|X", "Bane|XPHB", "d|X", "Blight|XPHB"], "r0", "spell", 8),
+    ["a|X", "b|X", "Bane|XPHB", "d|X", "Blight|XPHB"]);
+}
+
 console.log(`\n${pass} ok · ${fail} fail`);
 process.exit(fail ? 1 : 0);
