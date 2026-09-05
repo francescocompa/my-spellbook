@@ -63,6 +63,9 @@ point-in-time artifact: `/clean` archives it once L5 has consumed it, together w
 mockup rounds in `scratchpad/mockups/` (`scores.html`, `picks.html`, `fold.html`, each with
 its `mk*.py`).
 
+A full `/clean` ran 2026-09-05 (D158(q)/L5.11): D115–D175 bodies, Phase K/L/M task bodies,
+fifteen closed flags and the 1.0–1.4 changelog rows moved to `ARCHIVE.md`; stubs point.
+
 ⟳ Rename previous session → "Feat filters, the filter wording pass, and the classVariant gap" · session: local_f68f3c8c-2e5f-4455-91d2-3df0f69abdae
 
 The queue after N2 is L5.5 onward — see `PLAN.md`.
