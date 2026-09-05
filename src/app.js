@@ -458,7 +458,7 @@ const activeBuild=()=>BUILDS.builds[BUILDS.activeId];
 
 const blankBuildState=()=>({classes:[],speciesKey:"",feats:[],optFeats:[],featSlots:{},levelOrder:[],
   customSources:[],chosen:{},choices:{},sbFav:{},nextRowId:1,filters:null,
-  currentLevel:null,swaps:{},sbFavSkip:[],abilities:{},originBonus:{}});
+  currentLevel:null,swaps:{},sbFavSkip:[],abilities:{},originBonus:{},scoreBonus:[],scoreMethod:"type"});
 // the live `state` <-> the plain object stored in a build.
 // The ARRAYS ARE THE ACQUISITION ORDER (E1 · D115(b,h)): `feats`, `optFeats` and each
 // row's `chosen[id].cantrips`/`.spells` list picks in the order they were acquired.
@@ -479,6 +479,8 @@ function serializeState(){ const f=state.filters; return {
   sbFavSkip:state.sbFavSkip||[],          // form offers dismissed in this build (D131(g))
   abilities:state.abilities||{},          // BASE scores only, code -> number (D176)
   originBonus:state.originBonus||{},      // the 2024 origin +2/+1, code -> amount (D176)
+  scoreBonus:state.scoreBonus||[],        // named per-ability bonuses: {name,ab,add}|{name,ab,set} (D177(b))
+  scoreMethod:state.scoreMethod||"type",  // type | array | point | roll (D177(e))
 };}
 function applyState(s){ s=s||blankBuildState();
   // the live state must never share sub-objects with the stored build (see save()) —
@@ -491,6 +493,8 @@ function applyState(s){ s=s||blankBuildState();
     sbFavSkip:Array.isArray(s.sbFavSkip)?s.sbFavSkip:[],
     abilities:(s.abilities&&typeof s.abilities==="object")?s.abilities:{},
     originBonus:(s.originBonus&&typeof s.originBonus==="object")?s.originBonus:{},
+    scoreBonus:Array.isArray(s.scoreBonus)?s.scoreBonus:[],
+    scoreMethod:["type","array","point","roll"].includes(s.scoreMethod)?s.scoreMethod:"type",
     currentLevel:typeof s.currentLevel==="number"?s.currentLevel:null,
     // swapsNorm heals as well as reads: a stored map from before swaps split by kind
     // arrives as one event per level and comes out in the two-slot shape
@@ -1297,15 +1301,58 @@ function featScoreGains(fk,f,out){
     v.forEach(a=>add(a,g.amount||1));});
   return gains;
 }
-// the scores in effect for a feat list — null where the base was never entered
+// the scores in effect for a feat list — null where the base was never entered. A custom
+// bonus (D177(b)) either ADDS (`add`, signed) or SETS (`set`: the score becomes it unless
+// already higher — a Headband of Intellect's 19); sets apply last, and a set stands even
+// on a blank base, because the item does not care what you rolled.
 function abilityScores(feats){
-  const base=state.abilities||{}, ob=state.originBonus||{}, gains={}, out={};
+  const base=state.abilities||{}, ob=state.originBonus||{}, gains={}, adds={}, sets={}, out={};
   (feats||[]).forEach(fk=>{ if(isHole(fk))return; const f=FEAT_BY[baseKey(fk)]; if(!f)return;
     const g=featScoreGains(fk,f,null); Object.keys(g).forEach(a=>{gains[a]=(gains[a]||0)+g[a];});});
-  AB_KEYS.forEach(a=>{const b=base[a]; out[a]=(typeof b==="number"&&b>0)?b+(ob[a]||0)+(gains[a]||0):null;});
+  (state.scoreBonus||[]).forEach(b=>{ if(!b||!AB_KEYS.includes(b.ab))return;
+    if(typeof b.set==="number"&&b.set>0)sets[b.ab]=Math.max(sets[b.ab]||0,b.set);
+    else if(typeof b.add==="number")adds[b.ab]=(adds[b.ab]||0)+b.add;});
+  AB_KEYS.forEach(a=>{const b=base[a];
+    let v=(typeof b==="number"&&b>0)?b+(ob[a]||0)+(gains[a]||0)+(adds[a]||0):null;
+    if(sets[a]!=null)v=Math.max(v==null?0:v,sets[a]);
+    out[a]=v;});
   return out;
 }
-const scoresKnown=sc=>!!sc&&AB_KEYS.some(a=>sc[a]!=null);
+// what made one score, for its popover: every part that is not the base, in order
+function scoreParts(a,feats){
+  const out=[], ob=state.originBonus||{};
+  if(ob[a])out.push({who:"Origin",amt:ob[a],kind:"origin"});
+  const acq=featAcqLevels();
+  (feats||[]).forEach(fk=>{ if(isHole(fk))return; const f=FEAT_BY[baseKey(fk)]; if(!f)return;
+    const g=featScoreGains(fk,f,null)[a]; if(!g)return;
+    const lv=(acq.get(fk)||{}).lv; out.push({who:f.name+(lv?" · L"+lv:""),amt:g,kind:"feat"});});
+  return out;
+}
+// D177(c): main = the UNION of every class's primary abilities; saves = the FIRST class's
+// (the multiclass rule: only your starting class gives saving-throw proficiencies)
+function mainAbilities(){const s=new Set();
+  state.classes.forEach(r=>{const c=CLS_BY[r.clsKey]; ((c&&c.traits&&c.traits.primary)||[]).forEach(a=>s.add(a));});
+  return s;}
+function saveProfs(){const id=classLevelPlan()[0], row=state.classes.find(r=>r.id===id)||state.classes[0];
+  const c=row&&CLS_BY[row.clsKey]; return {abils:new Set((c&&c.traits&&c.traits.saves)||[]),cls:c?c.name:null};}
+// the fill methods (D177(e)). A pool method (array, roll) keeps SIX values and the popover
+// lets you move them between abilities; typing is free; point buy is 27 points over 8–15.
+const STD_ARRAY=[15,14,13,12,10,8];
+const POINT_COST={8:0,9:1,10:2,11:3,12:4,13:5,14:7,15:9};
+const POINT_BUDGET=27;
+function pointsSpent(){const b=state.abilities||{}; return AB_KEYS.reduce((n,a)=>n+(POINT_COST[b[a]]??0),0);}
+const rollScore=()=>{const d=[0,0,0,0].map(()=>1+Math.floor(Math.random()*6)).sort((x,y)=>y-x); return d[0]+d[1]+d[2];};
+// the order abilities are filled in: casting stats first (class-row order), then the
+// other primaries, then Con, then whatever is left — best value to the first
+function fillOrder(){
+  const out=[], push=a=>{if(a&&AB_KEYS.includes(a)&&!out.includes(a))out.push(a);};
+  state.classes.forEach(r=>{const c=CLS_BY[r.clsKey]; if(c&&c.ability)push(c.ability);});
+  state.classes.forEach(r=>{const c=CLS_BY[r.clsKey]; ((c&&c.traits&&c.traits.primary)||[]).forEach(push);});
+  push("con"); ["dex","wis","int","cha","str"].forEach(push);
+  return out;
+}
+function fillScores(pool){const vals=pool.slice().sort((x,y)=>y-x); state.abilities={};
+  fillOrder().forEach((a,i)=>{state.abilities[a]=vals[i];});}
 // a source's own numbers from its casting stat, or null while that stat is blank
 function castNums(ab,scores,pb){
   const sc=scores||(R&&R.scores); if(!ab||!sc||sc[ab]==null)return null;
@@ -8185,6 +8232,19 @@ function renderSlots(){
   g.append(mk("Prepared",tPrep||"—",""));
   g.append(mk("Cantrips",tCant||"—",""));
   g.append(mk("Eligible",R.pool.size||"—","spells"));
+  // D177(d): proficiency as a stat, and one line per caster with the numbers its casting
+  // stat makes — blank while that score is blank (D176: nothing is guessed)
+  g.append(mk("Proficiency",fmtMod(R.pb),""));
+  let cn=$("#castNums"); if(!cn){cn=el("div",null); cn.id="castNums"; cn.style.marginTop="12px"; $("#slotRow").parentElement.before(cn);}
+  cn.innerHTML="";
+  if(R.casters.length){cn.append(el("label","fld","Casting"));const box=el("div","castnums");
+    R.casters.forEach(r=>{const row=el("div","cn");
+      row.append(el("span","cncls",classLabel(r)));
+      const ab=el("span","cnab"); ab.innerHTML=r.ability?abChip(r.ability):"—"; row.append(ab);
+      const nm=castNums(r.ability);
+      row.append(el("span","cnnum",nm?("DC "+nm.dc+" · attack "+fmtMod(nm.atk)):"—"));
+      box.append(row);});
+    cn.append(box);}
   const sr=$("#slotRow");sr.innerHTML="";
   if(R.mcSlots)R.mcSlots.forEach((n,i)=>{if(n>0){const d=el("div","slot");d.append(el("div","lv",ROMAN[i+1]));d.append(el("div","n",String(n)));sr.append(d);}});
   if(R.pactRec){const p=R.pactRec.pact;const d=el("div","slot pact");d.append(el("div","lv","Pact "+ROMAN[p.lvl]));d.append(el("div","n",String(p.num)));sr.append(d);
@@ -10476,47 +10536,123 @@ function afterSourceChange(){
 }
 function refreshAll(){CASTMODS=activeCastMods();refreshSpecies();refreshAddFeat();renderClassRows();renderScores();renderFeatChips();renderOptFeats();renderFormPins();renderCustomSources();}
 
-// ── ability scores on the Character card (N1 · D176) ────────────────────────
-// Six tiles. The BASE score is the input; the origin bonus is a cycler under it (2024
-// puts +2/+1 or +1/+1/+1 on the background — N2 moves it there); the total at the view
-// level and its modifier are read back under both. Built by refreshAll() because it holds
-// inputs; only the read-back (`renderScoreNums`) follows every render.
+// ── ability scores on the Character card (N1 · D176 · D177) ─────────────────
+// Six tiles, each the CONTROL for its own popover (D177(a)): chip with the save ring, the
+// total, the modifier; main abilities tinted. The popover holds everything that makes the
+// score — base (focused on open), origin pills, the feats read-only, named bonuses, and a
+// full-row Add as the last element — and it stays open while you edit: `render()` only
+// redraws the tile faces. The row is rebuilt by refreshAll(); `renderScoreNums` follows
+// every render. The ⋯ menu beside the label holds the fill methods (D177(e)).
+let SCORE_ARM=false;                     // the Clear item is armed (D53), one click at a time
 function renderScores(){
   const row=$("#scoreRow"); if(!row)return; row.innerHTML="";
-  const base=state.abilities||{}, ob=state.originBonus||{};
-  AB_KEYS.forEach(a=>{
-    const t=el("div","abscore "+a);
-    t.append(Object.assign(el("span","abchip "+a),{textContent:(ABIL_SHORT[a]||a).toUpperCase()}));
-    const inp=el("input"); inp.type="number"; inp.min="1"; inp.max="30"; inp.inputMode="numeric";
-    inp.value=typeof base[a]==="number"?String(base[a]):""; inp.placeholder="–";
-    inp.setAttribute("aria-label",ABIL[a]+", base score");
-    inp.onchange=()=>{const v=parseInt(inp.value,10); state.abilities=state.abilities||{};
-      if(v>0)state.abilities[a]=Math.min(30,v); else delete state.abilities[a];
-      inp.value=state.abilities[a]?String(state.abilities[a]):""; render();};
-    t.append(inp);
-    const b=ob[a]||0;
-    const bon=el("button","abbon"+(b?" on":""),"+"+b); bon.type="button";
-    bon.title="Origin bonus"; bon.setAttribute("aria-label",ABIL[a]+", origin bonus +"+b);
-    bon.onclick=()=>{state.originBonus=state.originBonus||{}; const n=(b+1)%3;
-      if(n)state.originBonus[a]=n; else delete state.originBonus[a]; renderScores(); render();};
-    t.append(bon);
-    t.append(el("span","abtot"));
-    row.append(t);});
+  AB_KEYS.forEach((a,i)=>{
+    const wrap=el("span","menu abwrap"+(i>2?" right":""));
+    const t=el("button","abscore "+a); t.type="button";
+    t.setAttribute("aria-haspopup","dialog"); t.setAttribute("aria-expanded","false");
+    const head=el("span","abhead");
+    head.append(Object.assign(el("span","abchip "+a),{textContent:(ABIL_SHORT[a]||a).toUpperCase()}));
+    head.append(el("span","absave hidden")); t.append(head);
+    t.append(el("span","abbig")); t.append(el("span","abtot"));
+    const pop=el("div","menupop abpop hidden"); pop.setAttribute("role","dialog"); pop.setAttribute("aria-label",ABIL[a]);
+    t.onclick=e=>{e.stopPropagation(); const open=!pop.classList.contains("hidden");
+      closeMenu(); if(!open){fillScorePop(a,pop); pop.classList.remove("hidden");
+        const f=pop.querySelector("input,select"); if(f){f.focus(); if(f.select)f.select();}}
+      syncMenuAria();};
+    wrap.append(t,pop); row.append(wrap);});
   renderScoreNums();
 }
-function renderScoreNums(){
-  const row=$("#scoreRow"), box=$("#scoreNums"); if(!row||!box)return;
-  const sc=(R&&R.scores)||abilityScores(featsAt()), pb=(R&&R.pb)||profBonus(charLevel());
-  [...row.querySelectorAll(".abscore")].forEach(t=>{
-    const a=AB_KEYS.find(k=>t.classList.contains(k)), v=a?sc[a]:null;
-    t.querySelector(".abtot").textContent=v==null?"":v+" ("+fmtMod(scoreMod(v))+")";});
-  box.innerHTML="";
-  if(!scoresKnown(sc)){box.append(el("span","abhint","A blank score derives nothing.")); return;}
-  box.append(el("span","abnum","Proficiency "+fmtMod(pb)));
-  const abs=[...new Set(((R&&R.casters)||[]).map(r=>r.ability).filter(Boolean))];
-  abs.forEach(a=>{const nm=castNums(a,sc,pb); if(!nm)return;
-    const s=el("span","abnum"); s.innerHTML=abChip(a)+" DC "+nm.dc+" · attack "+fmtMod(nm.atk); box.append(s);});
+// the popover's rows, rebuilt after every edit so the parts always read what the tile says
+function fillScorePop(a,pop){
+  pop.innerHTML="";
+  const main=mainAbilities(), sv=saveProfs(), base=state.abilities||{}, m=state.scoreMethod||"type";
+  const h=el("div","aph"); h.innerHTML=abChip(a)+" "+esc(ABIL[a]);
+  const tags=[main.has(a)?"main":"",sv.abils.has(a)?"save":""].filter(Boolean).join(" · ");
+  if(tags)h.append(el("span","apr",tags));
+  pop.append(h);
+  const line=(who,ctl,cls)=>{const l=el("div","apl"+(cls?" "+cls:"")); const w=el("span","apw");
+    if(typeof who==="string")w.textContent=who; else w.append(who); l.append(w); if(ctl)l.append(ctl); pop.append(l); return l;};
+  const again=()=>{render(); if(!pop.classList.contains("hidden"))fillScorePop(a,pop);};
+  // base, by method. A POOL method (array, roll) keeps six values: picking one here hands
+  // yours to the ability that held it, so the six stay six.
+  if(m==="array"||m==="roll"){
+    const pool=AB_KEYS.map(k=>base[k]).filter(v=>typeof v==="number").sort((x,y)=>y-x);
+    const sel=el("select","apsel"); sel.setAttribute("aria-label",ABIL[a]+", base score");
+    if(base[a]==null)sel.append(new Option("–",""));
+    pool.forEach(v=>sel.append(new Option(String(v),String(v))));
+    sel.value=base[a]==null?"":String(base[a]);
+    sel.onchange=()=>{const v=+sel.value; if(!v)return; const other=AB_KEYS.find(k=>k!==a&&base[k]===v);
+      state.abilities=state.abilities||{}; if(other&&base[a]!=null)state.abilities[other]=base[a]; else if(other)delete state.abilities[other];
+      state.abilities[a]=v; again();};
+    line("Base",sel);
+  } else {
+    const inp=el("input","apin"); inp.type="number"; inp.inputMode="numeric"; inp.setAttribute("aria-label",ABIL[a]+", base score");
+    inp.min=m==="point"?"8":"1"; inp.max=m==="point"?"15":"30";
+    inp.value=typeof base[a]==="number"?String(base[a]):""; inp.placeholder="–";
+    inp.onchange=()=>{let v=parseInt(inp.value,10); if(m==="point"&&v)v=Math.max(8,Math.min(15,v));
+      state.abilities=state.abilities||{}; if(v>0)state.abilities[a]=Math.min(30,v); else delete state.abilities[a]; again();};
+    line("Base",inp);
+  }
+  const ob=state.originBonus||{}, pills=el("span","appills");
+  [[2,"+2"],[1,"+1"],[0,"none"]].forEach(([n,lab])=>{const on=(ob[a]||0)===n;
+    const b=el("button","abpill"+(on?" on "+a:""),lab); b.type="button"; b.setAttribute("aria-pressed",String(on));
+    b.onclick=()=>{state.originBonus=state.originBonus||{}; if(n)state.originBonus[a]=n; else delete state.originBonus[a]; again();};
+    pills.append(b);});
+  line("Origin",pills);
+  scoreParts(a,featsAt()).filter(x=>x.kind==="feat").forEach(x=>line(x.who,el("span","apn","+"+x.amt),"ro"));
+  (state.scoreBonus||[]).forEach((b,i)=>{ if(b.ab!==a)return;
+    const name=el("input","apname"); name.value=b.name||""; name.placeholder="Bonus name"; name.setAttribute("aria-label","Bonus name");
+    name.onchange=()=>{b.name=name.value.trim(); save();};
+    const val=el("input","apval"); val.placeholder="+1"; val.setAttribute("aria-label","Bonus: +1 or -1 adds, a bare number sets the score");
+    val.value=typeof b.set==="number"?String(b.set):((b.add||0)>=0?"+":"")+(b.add||0);
+    val.onchange=()=>{const t=val.value.trim(), n=parseInt(t,10); if(isNaN(n)){val.value="";return;}
+      if(/^[+-]/.test(t)){b.add=n; delete b.set;} else {b.set=n; delete b.add;} again();};
+    const l=line(name,val,"custom");
+    l.append(xBtn(null,()=>{state.scoreBonus.splice(i,1); again();}));});
+  const add=el("button","abadd","+ Add a bonus"); add.type="button";
+  add.onclick=()=>{state.scoreBonus=state.scoreBonus||[]; state.scoreBonus.push({name:"",ab:a,add:1}); again();
+    const n=[...pop.querySelectorAll(".apname")].pop(); if(n)n.focus();};
+  pop.append(add);
 }
+function renderScoreNums(){
+  const row=$("#scoreRow"); if(!row)return;
+  const sc=(R&&R.scores)||abilityScores(featsAt()), main=mainAbilities(), sv=saveProfs();
+  [...row.querySelectorAll(".abscore")].forEach(t=>{
+    const a=AB_KEYS.find(k=>t.classList.contains(k)), v=a?sc[a]:null, isMain=main.has(a), isSave=sv.abils.has(a);
+    t.classList.toggle("main",isMain);
+    t.querySelector(".abbig").textContent=v==null?"–":String(v);
+    t.querySelector(".abtot").textContent=v==null?"":fmtMod(scoreMod(v));
+    const ring=t.querySelector(".absave"); ring.classList.toggle("hidden",!isSave);
+    ring.title=isSave?"Saving throw proficiency, from "+sv.cls+" (your first class)":"";
+    t.setAttribute("aria-label",ABIL[a]+(v==null?", blank":", "+v+" ("+fmtMod(scoreMod(v))+")")
+      +(isMain?", main ability":"")+(isSave?", saving throw proficiency":""));});
+  const pts=$("#scorePts"); if(pts){const on=(state.scoreMethod||"type")==="point"; pts.classList.toggle("hidden",!on);
+    if(on){const left=POINT_BUDGET-pointsSpent(); pts.textContent=left+" of "+POINT_BUDGET+" points left"; pts.classList.toggle("over",left<0);}}
+}
+// the ⋯ menu (D177(e)): a fill method, the class-aware fill, and an ARMED clear
+function renderScoreMenu(){
+  const pop=$("#scoreMenuPop"); if(!pop)return; pop.innerHTML=""; SCORE_ARM=false;
+  const m=state.scoreMethod||"type";
+  const head=t=>pop.append(el("div","mopt colhead",t));
+  const item=(label,sub,on,fn,cls)=>{const b=el("button",(on?"on ":"")+(cls||"")); b.type="button"; b.setAttribute("role","menuitem");
+    b.append(el("span",null,label)); if(sub)b.append(el("span","msub",sub)); b.onclick=e=>{e.stopPropagation(); fn();}; pop.append(b); return b;};
+  const apply=(method,pool)=>{state.scoreMethod=method; if(pool)fillScores(pool);
+    if(method==="point"){state.abilities=state.abilities||{}; AB_KEYS.forEach(a=>{const v=state.abilities[a]; state.abilities[a]=v?Math.max(8,Math.min(15,v)):8;});}
+    closeMenu(); refreshAll(); render();};
+  head("Fill scores");
+  item("Standard array","15 · 14 · 13 · 12 · 10 · 8",m==="array",()=>apply("array",STD_ARRAY));
+  item("Point buy",POINT_BUDGET+" points, 8 to 15",m==="point",()=>apply("point"));
+  item("Type them","",m==="type",()=>apply("type"));
+  item("Roll","4d6, drop the lowest",m==="roll",()=>apply("roll",[0,0,0,0,0,0].map(rollScore)));
+  head("Scores");
+  item("Fill for my classes","the best values on the main abilities",false,()=>{
+    const pool=AB_KEYS.map(a=>(state.abilities||{})[a]).filter(v=>typeof v==="number");
+    apply(m,pool.length===6?pool:STD_ARRAY);});
+  const clr=item("Clear scores","",false,()=>{
+    if(!SCORE_ARM){SCORE_ARM=true; clr.firstChild.textContent="Clear all six?"; return;}
+    state.abilities={}; state.originBonus={}; state.scoreBonus=[]; closeMenu(); refreshAll(); render();},"danger");
+}
+$("#scoreMenuBtn").onclick=e=>{e.stopPropagation(); renderScoreMenu(); toggleMenu("#scoreMenuPop");};
 
 // ── events ───────────────────────────────────────────────────────────────
 $("#addClass").onchange=e=>{const clsKey=e.target.value;
@@ -11294,7 +11430,7 @@ if(typeof module!=="undefined"&&module.exports){
     // acquisition-order helpers (D146's empty slot is a rule, not a convention)
     isHole,hole,holeTag,baseKey,sameEnt,trimHoles,noHoles,nextCopy,copyCount,
     // ability scores + proficiency bonus (D176)
-    abilityScores,featScoreGains,profBonus,castNums,scoreMod,featsAt,
+    abilityScores,featScoreGains,profBonus,castNums,scoreMod,featsAt,scoreParts,mainAbilities,saveProfs,fillOrder,fillScores,pointsSpent,
     // storage and digest integrity
     mergeDigests,filterDigest,digestSize,emptyDigest,verLt,
     // let the fixture stand the module up

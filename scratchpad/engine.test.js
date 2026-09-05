@@ -302,6 +302,29 @@ const casterLevel = (slots) => {
   eq("11j · proficiency bonus by character level", [1, 4, 5, 8, 9, 12, 13, 16, 17, 20].map(SB.profBonus), [2, 2, 3, 3, 4, 4, 5, 5, 6, 6]);
   eq("11k · DC and attack from a score and PB (Cha 16, PB +3)", SB.castNums("cha", { cha: 16 }, 3), { dc: 14, atk: 6, mod: 3 });
   eq("11l · a blank casting score makes no numbers", SB.castNums("int", { int: null }, 3), null);
+  // D177(b): a named bonus ADDS when signed and SETS when bare, and a set never lowers
+  SB.set.state({ ...base, abilities: { int: 15, con: 20 },
+    scoreBonus: [{ name: "Manual", ab: "int", add: 1 }, { name: "Curse", ab: "int", add: -2 },
+                 { name: "Headband", ab: "con", set: 19 }, { name: "Belt", ab: "str", set: 21 }] });
+  const cb = SB.abilityScores([]);
+  eq("11m · signed bonuses add (15 +1 −2 = 14)", cb.int, 14);
+  eq("11n · a set never lowers a higher score (Con 20 stays 20 under a 19)", cb.con, 20);
+  eq("11o · a set stands on a blank base (a Belt of Giant Strength on nothing = 21)", cb.str, 21);
+  // D177(c): main = union of primaries; saves = the first class only
+  SB.set.clsBy({ ...CLS,
+    "Wizard|XPHB": { name: "Wizard", caster: "full", ability: "int", traits: { primary: ["int"], saves: ["int", "wis"] } },
+    "Paladin|XPHB": { name: "Paladin", caster: "1/2", ability: "cha", traits: { primary: ["str", "cha"], saves: ["wis", "cha"] } } });
+  SB.set.state({ ...base, classes: [{ id: "r0", clsKey: "Wizard|XPHB", level: 4, subKey: null }, { id: "r1", clsKey: "Paladin|XPHB", level: 1, subKey: null }],
+    levelOrder: ["r0", "r0", "r0", "r0", "r1"] });
+  eq("11p · main abilities are the union of every class's primaries", [...SB.mainAbilities()].sort(), ["cha", "int", "str"]);
+  eq("11q · saves come from the FIRST class in the plan", [[...SB.saveProfs().abils], SB.saveProfs().cls], [["int", "wis"], "Wizard"]);
+  eq("11r · the fill order is casting stats, then primaries, then Con, then the rest",
+    SB.fillOrder(), ["int", "cha", "str", "con", "dex", "wis"]);
+  SB.fillScores([15, 14, 13, 12, 10, 8]);
+  eq("11s · the standard array lands best-first on that order", SB.abilityScores([]), { str: 13, dex: 10, con: 12, int: 15, wis: 8, cha: 14 });
+  SB.set.state({ ...base, abilities: { str: 8, dex: 15, con: 14, int: 15, wis: 8, cha: 8 } });
+  eq("11t · point buy costs 27 for 15/15/14 and three 8s", SB.pointsSpent(), 25);
+  SB.set.clsBy(CLS);
 }
 
 console.log(`\n${pass} ok · ${fail} fail`);

@@ -299,6 +299,17 @@ his call (⚑ below).
   the guide's ASI step carries "Ability score increase · +1 Int, +1 Cha"; every tile child centred
   to 0.00px at 1280 and 375, 0 overflow; cycler on-state 2.04:1 caught and fixed; 0 console errors;
   gate clean, cparity 61 ok, engine 47 ok. Size L.
+  **Reviewed the same day — six notes, one mockup round (`scratchpad/mockups/scores.html`),
+  D177 — and reworked as v1.5.35:** the tile is the control and opens its own popover (base
+  focused, origin pills, feats read-only, named add/set bonuses, full-row Add last); main
+  abilities tinted, save ring from the first class; the ⋯ menu (array · point buy with its
+  counter · type · roll 4d6dl1 · fill for my classes · armed clear); the numbers moved to
+  Slots & casts. **Verified:** Int 15 + origin +2 + a +1 Manual + a set-19 → 19 then 20 with
+  the ASI; standard array lands 15 on Int and the pool select swaps two abilities; point buy
+  reads "0 of 27 points left" on the array; Clear arms then clears all three stores; the
+  popover inside the card and the viewport at 1280 (left-hung) and 375 (right-hung, 236px);
+  every tile child centred to 0.00px; pill on 13.9:1, off 6.4:1, modifier on the tint 6.6:1;
+  restored byte-identical; 0 console errors; engine 55 ok.
   Storage: `abilities` base six + `originBonus`, appended at the end of `serializeState` so
   untouched builds compare equal; one `choices` entry per ASI/+1 feat pick (D135's `##n`
   suffix keeps repeats distinct). Engine: a score at level L = base + origin + ASI choices at

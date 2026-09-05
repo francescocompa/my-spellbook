@@ -110,11 +110,12 @@
             <label class="fld" id="speciesFld">Species / lineage</label>
             <button class="picksel" id="speciesBtn"><span id="speciesBtnLbl">None</span><span class="pk-caret">⌄</span></button>
           </div>
-          <!-- D176: base scores (typed) · origin bonus (cycler) · total at the view level -->
+          <!-- D176/D177: six tiles, each the control for its own popover; the ⋯ menu holds the
+               fill methods. Nothing under the row — the numbers live on Slots & casts. -->
           <div class="fieldset" id="scoreBlock">
-            <label class="fld">Ability scores <span class="fldnote">base · origin bonus · total</span></label>
+            <div class="fldline"><label class="fld">Ability scores</label><span class="fldpts hidden" id="scorePts"></span>
+              <span class="menu scoremenu"><button class="btn tiny" id="scoreMenuBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Score options">⋯</button><div class="menupop hidden" id="scoreMenuPop" role="menu"></div></span></div>
             <div class="abscores" id="scoreRow"></div>
-            <div class="abnums" id="scoreNums"></div>
           </div>
           <div class="fieldset">
             <label class="fld">Feats</label>

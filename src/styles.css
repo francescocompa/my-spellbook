@@ -2725,29 +2725,64 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
   .libsrow{gap:7px;padding:6px}
 }
 
-/* ── ability scores on the Character card (N1 · D176) ─────────────────────── */
-/* six tiles in one row; the chip is the tile's label (the D142(b) colour), the input is
-   the BASE score, the cycler under it the origin bonus, the read-back the total */
+/* ── ability scores on the Character card (N1 · D176 · D177) ──────────────── */
+/* six tiles, each the control for its own popover; the chip is the label (D142(b)'s
+   colour), the total is the face, the modifier under it; a main ability wears its own
+   tint (12% — the D142(b) tile treatment), a save proficiency a small ring on the chip */
+.fldline{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.fldline .fld{margin:0;flex:1;min-width:0}
+.fldpts{font-size:11px;color:var(--muted);white-space:nowrap} .fldpts.over{color:var(--bad)}
+.scoremenu{position:relative;display:inline-flex}
+.scoremenu .btn.tiny{padding:0 8px;line-height:1.5;font-size:14px}
+.scoremenu .menupop{min-width:230px}
+.menupop .msub{display:block;font-size:11px;color:var(--muted);font-weight:400}
 .abscores{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}
-.abscore{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 3px 5px;
-  border:1px solid var(--line);border-radius:10px;background:var(--panel-2);min-width:0}
-.abscore input{width:100%;max-width:46px;box-sizing:border-box;text-align:center;font:inherit;font-size:15px;
-  font-weight:600;padding:3px 0;border:1px solid var(--line-strong);border-radius:7px;
-  background:var(--panel);color:var(--ink);-moz-appearance:textfield}
-.abscore input::-webkit-outer-spin-button,.abscore input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
-.abscore input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-.abscore .abbon{font:inherit;font-size:10px;font-weight:600;line-height:1.6;padding:0 7px;border-radius:9px;
-  border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer}
-/* the on-state is the D142(b) tile treatment — an accent border on a 14% tint — with the
-   BODY ink, not the accent: `--ink` on the accent-soft plate measured 2.04:1 dark / 2.45:1
-   light, and the accent itself on the tint 4.13:1 light — the D173 half-contrast trap twice */
-.abscore .abbon.on{color:inherit;border-color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent)}
-.abscore .abbon:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-.abscore .abtot{font-size:11px;color:var(--muted);min-height:1.4em;white-space:nowrap}
-.abnums{margin-top:8px;font-size:12px;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center}
-.abnums .abnum{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
-.abhint{font-size:12px;color:var(--muted)}
+.abwrap{position:relative;display:block;min-width:0}
+.abscore{width:100%;box-sizing:border-box;font:inherit;color:inherit;cursor:pointer;display:flex;flex-direction:column;
+  align-items:center;gap:2px;padding:6px 2px 5px;border:1px solid var(--line);border-radius:10px;background:var(--panel-2);
+  min-width:0;transition:border-color .12s,background .12s}
+.abscore:hover{border-color:var(--line-strong)}
+.abscore:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.abscore[aria-expanded="true"]{border-color:var(--accent)}
+.abscore.main{border-color:var(--ab-x);background:color-mix(in srgb,var(--ab-x) 12%,transparent)}
+.abscore.main.str{--ab-x:var(--ab-str)} .abscore.main.dex{--ab-x:var(--ab-dex)} .abscore.main.con{--ab-x:var(--ab-con)} .abscore.main.int{--ab-x:var(--ab-int)} .abscore.main.wis{--ab-x:var(--ab-wis)} .abscore.main.cha{--ab-x:var(--ab-cha)}
+.abhead{display:inline-flex;align-items:center;gap:3px}
+.absave{width:6px;height:6px;border-radius:50%;border:1.5px solid var(--muted);opacity:.85;flex:0 0 auto}
+.abbig{font-size:17px;font-weight:600;line-height:1.15}
+.abtot{font-size:11px;color:var(--muted);min-height:1.3em}
+/* the popover: the app's own menu surface, anchored to the tile — left-hung for the first
+   three tiles, right-hung for the last three, so it never leaves the card at 375 */
+.abpop{width:250px;box-sizing:border-box;padding:8px 10px;font-size:12px;display:block;left:0;right:auto}
+.abwrap.right .abpop{left:auto;right:0}
+.aph{display:flex;align-items:center;gap:6px;font-weight:600;margin-bottom:4px}
+.aph .apr{margin-left:auto;font-weight:400;font-size:11px;color:var(--muted)}
+.apl{display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px solid var(--line)}
+.apw{flex:1;min-width:0;display:flex;align-items:center}
+.apl.ro .apw{color:var(--muted)}
+.apn{font-weight:600}
+.abpop input.apin,.abpop select.apsel{width:52px;box-sizing:border-box;text-align:center;font:inherit;font-size:13px;font-weight:600;
+  padding:3px 2px;border:1px solid var(--line-strong);border-radius:7px;background:var(--panel-2);color:inherit;-moz-appearance:textfield}
+.abpop input::-webkit-outer-spin-button,.abpop input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.abpop input.apname{flex:1;min-width:0;font:inherit;font-size:12px;padding:3px 6px;border:1px solid var(--line-strong);border-radius:7px;background:var(--panel-2);color:inherit}
+.abpop input.apval{width:46px;box-sizing:border-box;text-align:center;font:inherit;font-size:12px;font-weight:600;padding:3px 2px;
+  border:1px solid var(--line-strong);border-radius:7px;background:var(--panel-2);color:inherit}
+.abpop input:focus-visible,.abpop select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.appills{display:inline-flex;gap:4px}
+/* `.menupop button` restyles every button inside a popover (D173) — these say what they are */
+.menupop .abpill{font:inherit;font-size:11px;font-weight:600;padding:1px 8px;border-radius:9px;border:1px solid var(--line);
+  background:transparent;color:var(--muted);cursor:pointer;line-height:1.6}
+.menupop .abpill:hover{background:transparent;border-color:var(--line-strong);color:inherit}
+.menupop .abpill.on{color:inherit;border-color:var(--ab-x);background:color-mix(in srgb,var(--ab-x) 14%,transparent)}
+.menupop .abpill.on.str{--ab-x:var(--ab-str)} .menupop .abpill.on.dex{--ab-x:var(--ab-dex)} .menupop .abpill.on.con{--ab-x:var(--ab-con)} .menupop .abpill.on.int{--ab-x:var(--ab-int)} .menupop .abpill.on.wis{--ab-x:var(--ab-wis)} .menupop .abpill.on.cha{--ab-x:var(--ab-cha)}
+.menupop .abadd{display:block;width:100%;margin-top:6px;padding:7px 10px;text-align:center;border:1px dashed var(--line-strong);
+  border-radius:8px;background:transparent;color:var(--muted);font:inherit;font-size:12px;cursor:pointer}
+.menupop .abadd:hover{color:inherit;border-color:var(--accent);background:transparent}
+/* the casting numbers on Slots & casts (D177(d)) */
+.castnums{display:flex;flex-direction:column;gap:4px;margin-top:4px}
+.cn{display:flex;align-items:center;gap:8px;font-size:12.5px}
+.cncls{flex:1;min-width:0}
+.cnnum{color:var(--muted);white-space:nowrap}
 /* the table's Ability cell carries the numbers beside the chip once they exist */
 td .abnum{display:block;font-size:10.5px;color:var(--muted);white-space:nowrap;margin-top:1px}
 .trnum{text-align:center;font-weight:600}
-@media (max-width:420px){.abscores{gap:4px}.abscore{padding:5px 2px 4px}.abscore input{font-size:14px}}
+@media (max-width:420px){.abscores{gap:4px}.abscore{padding:5px 2px 4px}.abbig{font-size:15px}.abpop{width:236px}}

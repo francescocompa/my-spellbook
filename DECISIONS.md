@@ -3051,6 +3051,44 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     and `engine.test.js` fixture 11 (the slice, the ASI's either/or, blank derives nothing). **Affects:** CLAUDE.md non-goals (at N1 ship), D31, D115(b,h),
     D142(b), D148(c), D158(a,c), PLAN L5.8 (closed by this entry).
 
+- **D177 (2026-09-05) DECIDED — the ability-score block: the TILE is the control, and each
+  opens its own popover.** His six notes on N1 as shipped, one mockup round
+  (`scratchpad/mockups/scores.html`, `python3 scratchpad/mkscores.py` regenerates — five
+  shapes and the ⋯ menu), one interview.
+  - **(a) Shape: D, the per-tile popover** (his pick, with amendments). Clicking an ability
+    opens ITS popover, anchored to the tile, on the app's own `.menupop` surface: the base
+    field first and FOCUSED on open (you type straight away), the origin bonus as pills,
+    every feat that raised it read-only with its level, the custom bonuses, and a full-row
+    **+ Add a bonus** as the LAST element. No total row — the tile already says it. The base
+    field has a fixed width. *Rejected:* A, tiles read and rows edit (the breakdown always
+    visible, tallest); B, the folded disclosure under the row (what shipped, plus a fold);
+    C, an in-card sheet under the row for the open ability (grows the card); E, a read-only
+    card with one edit modal (calmest card, a round trip per edit).
+  - **(b) A custom bonus is per ability, named, and either ADDS or SETS.** `+1`/`-1` adds (a
+    Manual, a curse); a bare number sets the score to it unless it is already higher (a
+    Headband of Intellect's 19). Both from one field, told apart by the sign. Origin bonus
+    stays a pill row (+2 · +1 · none) inside the popover; the tile-face cycler is gone (his
+    note: at +0 it read as the modifier).
+  - **(c) The tile face.** Chip, total, modifier; **main abilities tinted** with their own
+    `--ab-*` colour, main = the UNION of every class's primary abilities (Wizard + Paladin
+    tints Int, Str and Cha); a small **ring on the chip for saving-throw proficiency**, from
+    the FIRST class only per the multiclass rule, with a hover that says so. No note beside
+    the label, nothing under the block. *Rejected:* main = casting stats only; saves from
+    every class.
+  - **(d) The derived numbers move to the Slots & casts card:** proficiency as a stat tile,
+    and one line per caster — class · casting stat · DC · attack. *Rejected:* inside the
+    popover only (discoverable only by opening it); nowhere on the card.
+  - **(e) The ⋯ menu, right-aligned in the label line, ships whole this round:** Standard
+    array, Point buy (27, with the points left shown beside the label while it is the
+    method), Type them (default), Roll (4d6 drop lowest, fixed), Fill for my classes (the
+    pool's best values onto the main abilities, casting stats first), Clear scores (armed).
+    Whatever the method, the tiles keep their shape. *Rejected, his call:* Swap two scores
+    and Copy as text (removed); the editable roll formula (hidden — the roll is 4d6dl1).
+  - **Enforced by:** `renderScores`/`openScorePop`/`renderScoreMenu` in `app.js`,
+    `scoreBonus` and `scoreMethod` at the END of `serializeState`, `mainAbilities()` and
+    `saveProfs()`, `engine.test.js` fixture 11's added assertions. **Affects:** D176 (the
+    model, unchanged in scope), D142(b), D173, the N1 line in PLAN.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives
