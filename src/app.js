@@ -3531,6 +3531,13 @@ function gpickRow(sp,held,sec,mode){
   const nm=el("div","nm",sp.name); attachSpell(nm,sp); d.append(nm);
   const meta=el("div","meta");
   [ROMAN[sp.level],sp.school,cap1(sp.time),sp.range].filter(Boolean).forEach(x=>meta.append(el("span",null,x)));
+  // D186(b): a spell this very class ALREADY has always prepared is still offered — nothing
+  // here is ever blocked (D31) — but spending a known slot on one is almost always a
+  // mistake, and until now the row gave no sign. The main table has said this all along by
+  // dropping the class's take button and showing the granting source instead (D104); the
+  // guide's picker never did, so the same spell read as a plain, free choice. His note.
+  const already=alreadyAlways(k,sec&&sec.row);
+  if(already)meta.append(alwaysChip(already));
   d.append(meta);
   const take=el("div","take"), b=el("button","tk ico-only"+(on?" on":""));
   // D169: a trade takes ONE replacement, a placement fills ONE slot, and a section that
@@ -4046,7 +4053,23 @@ function toggle(idx,spellKey,cantrip,which,slots){
     // knows which level a pick sits at, so ask it.
     const lv=i>=0?acqLevelOf(row,arr,i):null;
     const later=i>=at&&!(lv!=null&&lv<=L);
-    if(later){ ch[arr].splice(i,1); ch[arr].splice(at,0,spellKey); save(); render(); return; }
+    // D186(a): REFUSED, and it says why. The pick is already yours; it just arrives above
+    // the level you are looking at. This used to "pull it back" to the slice point with a
+    // splice — the very move D146 outlawed for a drop, which survived here only because
+    // this path predates the slot model. One click re-dated FIVE spells (Cloud of Daggers
+    // L4→L5, Antagonize L5→L6, Counterspell L6→L7, Backlash L7→L8) and dropped a
+    // 4th-level spell into a level-4 slot a Warlock cannot cast from. His report: *"there's
+    // still a spell placing bug when picking and removing spells that moves spells to
+    // random earlier slots"*. Nothing moves now.
+    if(later){
+      const nm=(SPELL_BY[spellKey]||{}).name||"That pick";
+      appNotice(lv!=null
+        ? nm+" arrives at level "+lv+", above the level you are viewing. Go to level "+lv
+          +", or clear the level view, to change it."
+        : nm+" arrives above the level you are viewing. Clear the level view to change it.",
+        "ok",7000);
+      return;
+    }
     if(i<0){ ch[arr].splice(at,0,spellKey); save(); render(); return; }
   } else if(i<0){ ch[arr].push(spellKey); save(); render(); return; }
   // i>=0 within the visible slice (or not previewing): a drop, at every level. It leaves
@@ -7291,6 +7314,34 @@ function shortCell(short,full,label){
 // a spell is "also with your spell slots" if it's an eligible pool spell for a caster.
 // Module scope on purpose: cellFor() below is top-level and calls it.
 const slotCastable=sp=>{const e=R.pool.get(key(sp.name,sp.source));return !!(e&&e.takers.length);};
+// who already gives this class the spell as ALWAYS PREPARED, or null. `always` is a set of
+// class-row indexes the pool builds from the fixed grants (D104), and `grants` carries the
+// giver's name beside it — the row wants the NAME, so the two are read together here rather
+// than at each call site.
+function alreadyAlways(k,rowId){
+  const e=R&&R.pool&&R.pool.get(k);
+  if(!e||!(e.grants||[]).length)return null;
+  // `always` holds CLASS-row indexes only (D104) — a subclass or class feature. A feat, a
+  // species or a custom source grants the same spell without ever landing there, and to the
+  // reader "I already have this" is the same sentence either way. So the chip draws for any
+  // grant the build carries and only CLAIMS always-prepared where it really is one: a
+  // limited free cast is worth taking as a known spell, an always-prepared spell is not.
+  const always=rowId!=null&&e.always&&e.always.has(rowId);
+  const g=(e.grants||[]).find(x=>always?x.srcIdx===rowId:true);
+  return {always:!!always,src:(g&&g.src)||"something in your build"};
+}
+function alwaysChip(a){
+  const c=el("span","alwchip"+(a.always?"":" soft"));
+  c.append(icoEl("spark"));
+  c.append(el("span",null,a.always?"always prepared":"already granted"));
+  attachTip(c,tipBlock(a.always?"You already have this one":"Your build already grants this",
+    a.always
+      ? a.src+" gives it to you always prepared, so it costs you nothing. Taking it here "
+        +"spends a pick on a spell you already have."
+      : a.src+" already grants it, though not as an always-prepared spell. Taking it here is "
+        +"still worth it if you want to cast it with your own slots."));
+  return c;
+}
 // ── metamagic applicability tags (D123) ────────────────────────────────────
 // Which SELECTED metamagic options can touch a given spell, judged from digest fields
 // alone — advisory (D31): a tag says the option's core condition holds, never that

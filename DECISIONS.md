@@ -1652,6 +1652,36 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     in `scratchpad/engine.test.js` pins the cap rule and the untouched sibling; it goes red on
     a revert. **Affects:** D166, D149(e), D130(e), D42, D84, D146, GOTCHAS.md.
 
+- **D186 (2026-09-05) DECIDED — a pick you already hold never moves, and a spell your build
+  already grants says so.** Two of the six items in his 2026-09-05 report. Shipped as v1.5.44.
+  - **(a) The previewed-level pull-back is REFUSED, with a reason.** His note: *"there's still
+    a spell placing bug when picking and removing spells that moves spells to random earlier
+    slots."* Standing at level 3 and clicking one spell the build acquires at level 8 re-dated
+    FIVE picks (Cloud of Daggers L4→L5, Antagonize L5→L6, Counterspell L6→L7, Backlash L7→L8)
+    and dropped a 4th-level spell into a level-4 slot a Warlock cannot cast from. `toggle`'s
+    pull-back (D115(d)) still did `splice(i,1)` then `splice(at,0,…)` — the exact move D146
+    outlawed for a drop, which survived only because this path predates the slot model. The
+    click now changes nothing and says where the pick really lives. His call. *Rejected:*
+    keeping the pull-back but trading places with the pick already in that slot (two spells
+    re-dated instead of five, and it can still manufacture an illegal slot); dropping the pick
+    instead (recommended, declined — a click that deletes from a list where the pick never
+    showed is the surprise D115(d) was written against).
+  - **(b) A spell your build already grants is marked in the guide's picker.** His note. The
+    main table has said this since D104 — it drops the class's take button and shows the
+    granting source — but the guide's picker never did, so a spell a subclass hands you free
+    read as a plain choice. It is still OFFERED (nothing here is ever blocked, D31); it just
+    carries a chip. The chip claims **always prepared** only where `always` really holds this
+    class row, and **already granted** otherwise: `always` carries class-row indexes only
+    (D104), so a feat, a species or a custom source grants the same spell without landing
+    there, and a limited free cast is still worth taking as a known spell where an
+    always-prepared one is not. *Rejected:* excluding them from the pool the way `openPick`
+    does (he asked for them to be MARKED, and a spell that vanishes teaches nothing).
+  - **Enforced by:** src/app.js `toggle`'s `later` branch, `alreadyAlways`/`alwaysChip`, and
+    `.alwchip` in styles.css. **Affects:** D115(d) (its pull-back retired), D146, D104, D31.
+  - **Still open from the same report:** the swap system's rework (a mockup owes him a
+    choice), the SRD product-identity merge, the connected-choice collapse, and the trade that
+    still offers a spell already swapped away — that last one needs his build to reproduce.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

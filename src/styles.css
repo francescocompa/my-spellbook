@@ -2390,6 +2390,14 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
    display face — the same weight as the spell names under it, so the hierarchy read flat —
    and it sat 0px from the rows above. It is a LABEL now, in the app's own label idiom
    (`.gcl`, `.goptlab`), with air above it. */
+/* D186(b): a spell this class already has ALWAYS PREPARED, said on the guide picker's row.
+   It sits in the row's own meta line, so it reads as one more fact about the spell rather
+   than a warning — nothing here is blocked (D31), it just costs you nothing to skip. The
+   colour is `--good`, the same "you already have this, free" language `.tk.gr` speaks in
+   the table (D104). */
+.alwchip{display:inline-flex;align-items:center;gap:4px;color:var(--good);font-weight:600}
+.alwchip svg{width:10px;height:10px}
+.alwchip.soft{color:var(--muted)}
 .gpsech{display:flex;align-items:baseline;gap:10px;margin:18px 0 6px}
 .gpsech:first-child{margin-top:4px}
 .gpsech .gpfilt{color:var(--muted);display:inline-flex;align-items:center}
