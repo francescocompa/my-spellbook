@@ -173,24 +173,25 @@
           </div>
           <div class="filterpanel hidden" id="filterPanel">
             <div class="full"><label class="fld">Level</label><div class="cbrow" id="fLevel"></div></div>
-            <div><label class="fld">School</label><select id="fSchool"><option value="">All schools</option></select></div>
-            <div><label class="fld">Class / list</label><select id="fClass"><option value="">Any source</option></select></div>
-            <div><label class="fld">Source book</label>
-              <button class="btn srctoggle" id="fBooksBtn" aria-expanded="false">Books <span class="badge" id="fBooksN"></span></button></div>
-            <div><label class="fld">Casting time</label><div class="cbrow" id="fTime"></div></div>
+            <div><label class="fld">School</label><select id="fSchool"><option value="">All</option></select></div>
+            <div><label class="fld">Access</label><select id="fClass"><option value="">All</option></select></div>
+            <div><label class="fld">Books</label>
+              <button class="btn srctoggle" id="fBooksBtn" aria-expanded="false">Choose <span class="badge" id="fBooksN"></span></button></div>
+            <div><label class="fld">Cast time</label><div class="cbrow" id="fTime"></div></div>
             <div><label class="fld">Components</label><div class="cbrow" id="fComp"></div></div>
-            <div><label class="fld">Tags</label><div class="cbrow" id="fTags"></div></div>
-            <div><label class="fld">Saving throw</label><select id="fSave"><option value="">Any save</option></select></div>
-            <div><label class="fld">Damage type</label><select id="fDmg"><option value="">Any damage</option></select></div>
-            <div><label class="fld">Editions</label><select id="fReprint">
-              <option value="dedupe">Hide reprinted (newest only)</option>
-              <option value="all">Show all versions</option></select></div>
+            <div><label class="fld">Properties</label><div class="cbrow" id="fTags"></div></div>
+            <div><label class="fld">Save</label><select id="fSave"><option value="">All</option></select></div>
+            <div><label class="fld">Damage</label><select id="fDmg"><option value="">All</option></select></div>
+            <!-- M4 · D172(f): a binary is a labelled switch. On shows every printing; off keeps
+                 the newest one of each spell. -->
+            <div><label class="fld">Reprints</label>
+              <button class="swk swoff" id="fReprint" type="button" role="switch" aria-checked="false" aria-label="Reprints" title="On: every printing. Off: the newest only"></button></div>
             <div class="full srcpanel hidden" id="fBooksPanel">
               <div class="quick">
-                <button class="btn" id="fSrcAll">Enable all</button>
-                <button class="btn" id="fSrcNone">Disable all</button>
-                <button class="btn" id="fSrc2024">2024 core only</button>
-                <button class="btn" id="fSrcReset">Reset to my sources</button>
+                <button class="btn" id="fSrcAll">All</button>
+                <button class="btn" id="fSrcNone">None</button>
+                <button class="btn" id="fSrc2024">2024 core</button>
+                <button class="btn" id="fSrcReset">My sources</button>
               </div>
               <div id="fSrcList"></div>
             </div>
@@ -695,8 +696,8 @@
     <div class="prepbar">
       <input type="search" id="prepSearch" placeholder="Filter by name">
       <div class="menu prepfiltermenu">
-        <button class="btn" id="prepLevelBtn">Levels</button>
-        <div class="menupop hidden" id="prepLevelPop"><label class="fld">Filter by level</label><div class="cbrow" id="prepLevels"></div></div>
+        <button class="btn" id="prepLevelBtn">Level</button>
+        <div class="menupop hidden" id="prepLevelPop"><label class="fld">Level</label><div class="cbrow" id="prepLevels"></div></div>
       </div>
       <button class="btn" id="prepOnly" title="Show only the spells already prepared">Picked</button>
     </div>
@@ -728,10 +729,10 @@
       <div class="menu pickermenu">
         <button class="btn iconbtn ico" id="famMenuBtn" data-ico="filter" title="Filters" aria-label="Filters"></button>
         <div class="menupop hidden" id="famMenuPop">
-          <div class="mopt colhead">Source book</div>
+          <div class="mopt colhead">Books</div>
           <div class="cbrow" id="famBooks"></div>
           <div class="sep"></div>
-          <label class="mopt"><span>Only the ones I've marked</span><input type="checkbox" id="famOnly"></label>
+          <label class="mopt"><span>Marked</span><button class="swk swoff" id="famOnly" type="button" role="switch" aria-checked="false" aria-label="Marked"></button></label>
         </div>
       </div>
     </div>

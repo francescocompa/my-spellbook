@@ -328,6 +328,32 @@ Placeholders per **D158(l)**: ellipses out, verbs kept.
 
 ---
 
+## M4 — the filter wording pass (D182, 2026-09-05)
+
+One name per thing across every filter surface; the standard is the pickers' menu (D174).
+Vetoes revert by row, as above.
+
+| location | before | after | why |
+|---|---|---|---|
+| index.html `#filterPanel` label | `Class / list` | `Access` | short; the spell detail's own noun |
+| index.html `#filterPanel` label | `Source book` | `Books` | one name (the menu's) |
+| index.html `#fBooksBtn` | `Books N/N` | `Choose N/N` | the label above it says Books now |
+| index.html `#filterPanel` label | `Casting time` | `Cast time` | one name (the menu's) |
+| index.html `#filterPanel` label | `Tags` | `Properties` | noun for what the row holds |
+| index.html `#filterPanel` label | `Saving throw` | `Save` | one name (the menu's) |
+| index.html `#filterPanel` label | `Damage type` | `Damage` | one name (the menu's) |
+| index.html `#filterPanel` label + `#fReprint` | `Editions` · `Hide reprinted (newest only)` / `Show all versions` | `Reprints` switch, title `On: every printing. Off: the newest only` | binary → labelled switch |
+| app.js `syncOpt` × 4 (`#fSchool`, `#fClass`, `#fSave`, `#fDmg`) | `All schools` / `Any source` / `Any save` / `Any damage` | `All` | one word for "empty means all" |
+| app.js `#fClass` first option | `Every spell (ignore eligibility)` | `Every spell` | short; the strip already said it |
+| app.js `#fTags` chips | `Concentr.` · `Atk roll` · `Upcasts` · `Consumes mat.` | `Concentration` · `Attack roll` · `Upcast` · `Consumes material` | abbreviations out; same names as the strip (`F_TAGS`) |
+| app.js `activeFilterChips` | `All editions` | `Reprints` | matches its control |
+| index.html `#fBooksPanel .quick` | `Enable all` · `Disable all` · `2024 core only` · `Reset to my sources` | `All` · `None` · `2024 core` · `My sources` | the menu's own labels |
+| index.html `#prepLevelBtn` / `#prepLevelPop` | `Levels` / `Filter by level` | `Level` / `Level` | one name |
+| index.html `#famMenuPop` head | `Source book` | `Books` | one name |
+| index.html `#famOnly` | `Only the ones I've marked` checkbox | `Marked` switch | binary → labelled switch (D172(f): "Spellcasting", not "Only ones that grant spells") |
+| app.js `entFilterGroups` | `Eligible only` switch | `Prerequisites` row: `Eligible` · `Not yet` · `Can't verify` | new (M3); D172(d)'s own words |
+| app.js `entFilterGroups` | — | `Ability bonus` row: `Str` … `Cha` | new (M3) |
+
 ## Totals
 
 | measure | count |

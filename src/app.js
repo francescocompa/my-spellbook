@@ -418,8 +418,12 @@ const FILTER_DEFAULT=()=>({q:"",levels:new Set(),school:"",cls:"",time:new Set()
 // control of their own that already shows its state, so a chip would only say it twice.
 const F_TIME={action:"Action",bonus:"Bonus action",reaction:"Reaction",long:"Longer casting"};
 const F_COMP={v:"Verbal",s:"Somatic",m:"Material"};
-const F_TAGS={ritual:"Ritual",conc:"Concentration",atk:"Attack roll",upcast:"Upcasts",
+const F_TAGS={ritual:"Ritual",conc:"Concentration",atk:"Attack roll",upcast:"Upcast",
   consume:"Consumes material"};
+// M4: a switch drawn from a boolean — the filter card's Reprints and the forms picker's
+// Marked use the Library's `.swk`, the way `filterMenu` draws its own switches
+const syncSwitch=(id,on)=>{const b=$(id);if(!b)return;b.classList.toggle("swoff",!on);b.setAttribute("aria-checked",String(!!on));};
+const syncReprint=()=>syncSwitch("#fReprint",state.filters.reprint==="all");
 function activeFilterChips(){
   const f=state.filters, out=[];
   if(f.levels.size){const ls=[...f.levels].sort((a,b)=>a-b);
@@ -431,7 +435,7 @@ function activeFilterChips(){
   if(f.dmg)out.push(cap1(f.dmg)+" damage");
   [[f.time,F_TIME],[f.comp,F_COMP],[f.tags,F_TAGS]].forEach(([set,map])=>{
     [...set].forEach(k=>out.push(map[k]||cap1(String(k))));});
-  if(f.reprint!=="dedupe")out.push("All editions");
+  if(f.reprint!=="dedupe")out.push("Reprints");
   if(f.books&&(f.books.size!==SRC.size||[...SRC].some(c=>!f.books.has(c))))
     out.push(`Books (${f.books.size})`);
   return out;
@@ -4410,8 +4414,8 @@ function openEntityPicker(kind,category,at){
   // resting menu show no selection at all, which is half of why the old preset-all row
   // looked like a wall. D171's Mystic guard survives it: an untouched row still filters
   // nothing, so a class the books state no primary for is only ever hidden deliberately.
-  ENT={kind,category,slot,lv,q:"",books:new Set(SRC),grantsOnly:false,hideNo:false,
-       cats:new Set(),catList,abils:new Set(),open:null};
+  ENT={kind,category,slot,lv,q:"",books:new Set(SRC),grantsOnly:false,
+       cats:new Set(),catList,abils:new Set(),prq:new Set(),raise:new Set(),open:null};
   $("#entTitle").textContent = kind==="opt"?`Choose ${slot.name.replace(/s$/,"").toLowerCase()}`
     : kind==="species"?"Choose a species / lineage"
     : kind==="class"?(lv!=null?"Change the class at level "+lv:"Choose a class")
@@ -4472,9 +4476,16 @@ function entFilterGroups(){
   if(ENT.kind!=="class"){
     g.push({key:"grants",head:"Spellcasting",kind:"switch",
       get:()=>ENT.grantsOnly,set:v=>{ENT.grantsOnly=v;}});
-    g.push({key:"prq",head:"Eligible only",kind:"switch",
-      get:()=>ENT.hideNo,set:v=>{ENT.hideNo=v;}});
+    // M3 (D172(d)): the prerequisite STATE the engine already computes, made a filter —
+    // the three-way D31 keeps (met / not met / can't check) instead of the binary
+    // "hide ones I can't take", which flattened "can't verify" into "no"
+    g.push({key:"prq",head:"Prerequisites",kind:"toggle",
+      items:[["ok","Eligible"],["no","Not yet"],["maybe","Can’t verify"]],set:ENT.prq});
   }
+  // M3 (D172(d)): which score a feat can raise. A feat that lets you choose among several
+  // matches any of them, and the ASI's either/or names all six — which is the truth of it.
+  if(ENT.kind==="feat")g.push({key:"raise",head:"Ability bonus",kind:"toggle",
+    items:AB_KEYS.map(a=>[a,ABIL_SHORT[a]]),set:ENT.raise,clsOf:a=>"abt "+a});
   g.push(entBooksGroup());
   return g;
 }
@@ -4488,12 +4499,13 @@ function renderEntityList(){
   renderEntBudget();
   const q=ENT.q.toLowerCase();
   let items=entItems(ENT.books)
-    .filter(i=>(!q||i.name.toLowerCase().includes(q))&&(!ENT.grantsOnly||grantsAny(i.grants)));
+    .filter(i=>(!q||i.name.toLowerCase().includes(q))&&(!ENT.grantsOnly||grantsAny(i.grants))
+      &&(!ENT.prq.size||ENT.prq.has(prereqState(i).state))
+      &&(!ENT.raise.size||(i.ability||[]).some(g=>(g.abils||[]).some(a=>ENT.raise.has(a)))));
   // eligible first, then the ones whose prerequisites you don't meet, dimmed at the bottom
   const rank=it=>{const p=prereqState(it);return p.state==="no"?1:0;};
   items.sort((a,b)=>rank(a)-rank(b)||a.name.localeCompare(b.name)||a.source.localeCompare(b.source));
   const blocked=items.filter(i=>rank(i)===1);
-  if(ENT.hideNo)items=items.filter(i=>rank(i)===0);
   const noun=ENT.kind==="opt"?"options":ENT.kind==="species"?"species"
     :ENT.kind==="class"?"classes":"feats";
   // D168: the cost of changing THIS level is a fact about the level, not about each class
@@ -4504,16 +4516,15 @@ function renderEntityList(){
     ?classChangeCost(ENT.lv,"\u0000"):null;   // a key no class has: what ANY change costs
   $("#entSub").innerHTML=`${items.length} ${noun}`
     +(ENT.kind==="class"?"":` · <span class="ico">${ICONS.spark}</span> grants spells`)
-    +(blocked.length&&!ENT.hideNo?` · ${blocked.length} need something you don’t have`:"")
+    +(blocked.length?` · ${blocked.length} need something you don’t have`:"")
     +(dropAll?` · <span class="subwarn">${esc(dropAll.name)} holds only this level: changing it takes `
       +`${esc(dropAll.name)}${dropAll.picks?` and its ${dropAll.picks} pick${dropAll.picks===1?"":"s"}`:""}`
       +` out of the build</span>`:"")
     +(ENT.note?` · ${esc(ENT.note)}`:"");
   // the ⋯ button says THAT the list is narrowed, not by how much — a count on an icon
   // button pushes the icon off centre and names a number nothing acts on
-  const nf=[ENT.kind!=="class"&&ENT.grantsOnly,ENT.kind!=="class"&&ENT.hideNo,
-      !sameSet(ENT.books,SRC)].filter(Boolean).length
-    +(ENT.kind==="feat"&&ENT.cats.size?1:0)
+  const nf=[ENT.kind!=="class"&&ENT.grantsOnly,!sameSet(ENT.books,SRC)].filter(Boolean).length
+    +(ENT.kind==="feat"&&ENT.cats.size?1:0)+(ENT.prq.size?1:0)+(ENT.raise.size?1:0)
     +(ENT.kind==="class"&&ENT.abils.size?1:0);
   $("#entMenuBtn").classList.toggle("on",!!nf);
   // D168: what "selected" means for a class. Rewriting a level, it is the class that level
@@ -4691,7 +4702,7 @@ function activateBuild(id){
   applyState(BUILDS.builds[id].state);
   pruneState();                             // only drops refs to content that no longer EXISTS
   persistBuilds();
-  $("#fq").value=state.filters.q; $("#fReprint").value=state.filters.reprint;
+  $("#fq").value=state.filters.q; syncReprint();
   refreshAll(); render(); renderBuildList();
 }
 function switchBuild(id){
@@ -8495,15 +8506,15 @@ function renderSpells(){
   // level filter chips (present levels only)
   const presentLevels=[...new Set(items.map(i=>i.sp.level))].sort((a,b)=>a-b);
   buildToggleRow($("#fLevel"),presentLevels.map(l=>[String(l),l===0?"Cantrip":ROMAN[l]]),F.levels,true);
-  syncOpt($("#fSchool"),[...new Set(items.map(i=>i.sp.school).filter(Boolean))].sort().map(s=>[s,s]),F.school,"All schools");
+  syncOpt($("#fSchool"),[...new Set(items.map(i=>i.sp.school).filter(Boolean))].sort().map(s=>[s,s]),F.school,"All");
   const accessNames=[...new Set([].concat(...items.map(i=>i.takers.map(t=>t.name).concat([...i.srcs]))))].sort();
-  syncOpt($("#fClass"),[[ALL_SPELLS,"Every spell (ignore eligibility)"]].concat(accessNames.map(s=>[s,s])),F.cls,"Any source");
-  syncOpt($("#fSave"),[...new Set([].concat(...items.map(i=>i.sp.save)))].sort().map(s=>[s,cap1(s)]),F.save,"Any save");
-  syncOpt($("#fDmg"),[...new Set([].concat(...items.map(i=>i.sp.dmg)))].sort().map(s=>[s,cap1(s)]),F.dmg,"Any damage");
+  syncOpt($("#fClass"),[[ALL_SPELLS,"Every spell"]].concat(accessNames.map(s=>[s,s])),F.cls,"All");
+  syncOpt($("#fSave"),[...new Set([].concat(...items.map(i=>i.sp.save)))].sort().map(s=>[s,cap1(s)]),F.save,"All");
+  syncOpt($("#fDmg"),[...new Set([].concat(...items.map(i=>i.sp.dmg)))].sort().map(s=>[s,cap1(s)]),F.dmg,"All");
   renderFilterBooks(new Set(items.map(i=>i.sp.source)));
   buildToggleRow($("#fTime"),[["action","Action"],["bonus","Bonus"],["reaction","Reaction"],["long","Longer"]],F.time);
   buildToggleRow($("#fComp"),[["v","V"],["s","S"],["m","M"]],F.comp);
-  buildToggleRow($("#fTags"),[["ritual","Ritual"],["conc","Concentr."],["atk","Atk roll"],["upcast","Upcasts"],["consume","Consumes mat."]],F.tags);
+  buildToggleRow($("#fTags"),Object.entries(F_TAGS),F.tags);
   $("#fChosen").classList.toggle("on",F.chosen);
   // D142(c): the button is an icon and carries no count — what is set is named in the chip
   // row directly below instead. No second "filters are set" state on the button: it already
@@ -8996,7 +9007,7 @@ function openFam(sp){
   // and would filter almost all of them out.
   const books=new Set(buildCreatures(sp).map(c=>c.source).filter(Boolean));
   FAM={sp,own:ownMarked,q:"",books,allBooks:new Set(books),only:false};
-  $("#famSearch").value=""; $("#famOnly").checked=false;
+  $("#famSearch").value=""; syncSwitch("#famOnly",false);
   $("#famModal").classList.remove("hidden");
   renderFam();
 }
@@ -10809,12 +10820,12 @@ $("#entMenuBtn").onclick=e=>{e.stopPropagation();toggleMenu("#entMenuPop");};
 $("#fq").oninput=e=>{state.filters.q=e.target.value;render();};
 $("#filterBtn").onclick=()=>{$("#filterPanel").classList.toggle("hidden");$("#filterBtn").classList.toggle("on");};
 $("#afClear").onclick=()=>$("#clearFilters").click();
-$("#clearFilters").onclick=()=>{const q=state.filters.q;state.filters=FILTER_DEFAULT();state.filters.q=q;$("#fReprint").value="dedupe";refreshAll();render();};
+$("#clearFilters").onclick=()=>{const q=state.filters.q;state.filters=FILTER_DEFAULT();state.filters.q=q;syncReprint();refreshAll();render();};
 $("#fSchool").onchange=e=>{state.filters.school=e.target.value;render();};
 $("#fClass").onchange=e=>{state.filters.cls=e.target.value;render();};
 $("#fSave").onchange=e=>{state.filters.save=e.target.value;render();};
 $("#fDmg").onchange=e=>{state.filters.dmg=e.target.value;render();};
-$("#fReprint").onchange=e=>{state.filters.reprint=e.target.value;refreshAll();render();};
+$("#fReprint").onclick=()=>{state.filters.reprint=state.filters.reprint==="all"?"dedupe":"all";syncReprint();refreshAll();render();};
 $("#fChosen").onclick=()=>{state.filters.chosen=!state.filters.chosen;render();};
 $("#pickOnly").onclick=()=>{PICK.onlyPicked=!PICK.onlyPicked;renderPickList();};
 $("#prepOnly").onclick=()=>{PREP.onlyPicked=!PREP.onlyPicked;renderPrepList();};
@@ -10840,7 +10851,7 @@ $("#famClose").onclick=closeFam;
 $("#famModal").onclick=e=>{if(e.target===$("#famModal"))closeFam();};
 $("#famSearch").oninput=e=>{if(FAM){FAM.q=e.target.value;renderFam();}};
 $("#famMenuBtn").onclick=e=>{e.stopPropagation();toggleMenu("#famMenuPop");};
-$("#famOnly").onchange=e=>{if(FAM){FAM.only=e.target.checked;renderFam();}};
+$("#famOnly").onclick=()=>{if(FAM){FAM.only=!FAM.only;syncSwitch("#famOnly",FAM.only);renderFam();}};
 $("#prepPrev").onclick=()=>{if(PREP&&PREP.step>0){PREP.step--;PREP.search="";renderPrepStep();}};
 $("#prepNext").onclick=()=>{if(PREP&&PREP.step<PREP.steps.length-1){PREP.step++;PREP.search="";renderPrepStep();}};
 $("#prepSearch").oninput=e=>{if(PREP){PREP.search=e.target.value;renderPrepList();}};
@@ -11087,7 +11098,7 @@ armConfirm($("#resetBtn"),null,()=>{
   state.classes=[];state.feats=[];state.optFeats=[];state.speciesKey="";state.chosen={};state.choices={};state.nextRowId=1;
   state.filters=FILTER_DEFAULT();
   save();                              // auto-save: the cleared build IS the saved build (D34)
-  $("#fq").value="";$("#fReprint").value="dedupe";
+  $("#fq").value="";syncReprint();
   $("#filterPanel").classList.add("hidden");$("#filterBtn").classList.remove("on");
   refreshAll();render();});
 $("#themeBtn").onclick=()=>{const r=document.documentElement,cur=r.getAttribute("data-theme");r.setAttribute("data-theme",cur==="dark"?"light":cur==="light"?"dark":(matchMedia("(prefers-color-scheme:dark)").matches?"light":"dark"));closeMenu();};
@@ -11529,7 +11540,7 @@ if(!globalThis.__SB_HEADLESS__)(async()=>{
   // newly-available content sources default to on (homebrew, a fresh import)
   if(CUSTOM&&CUSTOM.spells&&CUSTOM.spells.length&&!SRC.has(HB_SRC)){SRC.add(HB_SRC);saveSources();}
   pruneState();
-  $("#fReprint").value=state.filters.reprint;
+  syncReprint();
   $("#fq").value=state.filters.q;
   loadTableOpts(); $("#tGroup").value=tableOpts.group; renderColMenu();
   loadPrintOpts();

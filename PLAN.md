@@ -3,8 +3,8 @@
 > What is queued, and what is blocked on a decision. `STATE.md` says where things stand;
 > this says what comes next. Closed items → `ARCHIVE.md#closed-backlog`.
 >
-> **Phase M (the filter system, D172) is the live phase.** The surface is chosen (D173) and
-> **M1a, M1b and M2 have shipped** (v1.5.30, v1.5.31) — **M3 and M4 remain.** **Phase N (the
+> **Phase M (the filter system, D172) is DONE** — M1a–M2 (v1.5.30, v1.5.31), **M3 and M4
+> (v1.5.40, D182)**. **Phase N (the
 > creator ladder, D176) opened 2026-09-05: N1 shipped (v1.5.34 → v1.5.39, D177–D181); N2
 > onward each need a decision entry first.**
 >
@@ -256,7 +256,7 @@ D157 owns the charter, the agents, the rejected shapes — cite it. Reports land
     swap detection · High Elf / Human origin · A-09 character-forge handoff · A-13 concept line ·
     A-14 homebrew recipe · A-15 mirror script.
 
-## Phase M — the filter system (D172, decided 2026-09-02) — ⏳ M1a/M1b/M2 DONE (v1.5.30, v1.5.31) · M3, M4 on
+## Phase M — the filter system (D172, decided 2026-09-02) — ✅ DONE (v1.5.30, v1.5.31, v1.5.40)
 
 Every picker's filters, audited against 5etools' own source and rebuilt to one standard.
 **D172 owns the SET and D173 the SURFACE — cite them, don't re-derive.** Nothing here needs
@@ -278,11 +278,12 @@ regenerates the mockups; `filters1.html` is the one that was chosen.
   spell pickers, with Level where the pool spans more than one. Rows are built from the pool in
   front of you, so a class-scoped picker offers only what that class has. Duration is derived
   in `durCat` rather than added to the extractors.
-- [ ] **M3 · The feat filters** (D172(d)) — prerequisite STATE (eligible / not yet / can't
-  verify, replacing the binary "hide ones I can't take") and ability bonus. Size S.
-- [ ] **M4 · The wording pass** — his *"dry, streamlined"*: every group a noun, every binary a
-  labelled toggle, one name per thing ("Books", never "Source book"). It lands WITH M1's
-  standard, not before it. Feeds the copy-veto pass. Size S.
+- [x] **M3 · The feat filters** (D172(d)) — shipped **v1.5.40**, **D182(a,b)**: Prerequisites
+  is a three-way row (Eligible / Not yet / Can't verify) and Ability bonus a row of the six
+  scores.
+- [x] **M4 · The wording pass** — shipped **v1.5.40**, **D182(c,d)**: one name per thing across
+  the table's filter card, the prepared list and the forms picker; Reprints and Marked are
+  switches. Its rows are in `audits/copy-table.md` for the veto pass.
 - Not in scope, with his agreement (D172(e)): species size / speed / traits / creature type —
   we extract none of it, and it would mean both extractors, cparity and a data refresh.
 

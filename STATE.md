@@ -63,6 +63,4 @@ surfaces; cite them. `audits/` is a point-in-time artifact: `/clean` archives it
 consumed it, together with the three mockup rounds in `scratchpad/mockups/`
 (`scores.html`, `picks.html`, `fold.html`, each with its `mk*.py`).
 
-⟳ Rename previous session → "Character creator feasibility, scores, and the picks card" · session: local_d5588eff-b469-43ac-a8dc-493404743459
-
 The queue after Phase M is N2 (decision entry first) and L5.5 onward — see `PLAN.md`.

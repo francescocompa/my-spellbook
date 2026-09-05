@@ -3192,6 +3192,41 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     `.pgrow` + `.pgtoggle`, `.scoremenu .mswitch .swk`, `.modal .bldname`. **Affects:**
     D70 (the floor now lives in the row's tile), D178(f), D180.
 
+- **D182 (2026-09-05) DECIDED — the feat filters read the prerequisite STATE, and every
+  filter surface speaks the menu's vocabulary.** Phase M's M3 and M4, both from D172; shipped
+  as v1.5.40.
+  - **(a) Prerequisites is a three-way toggle row, not a switch.** "Eligible only" hid
+    everything the engine rated "no" — and D31's "maybe" went with it, flattened into a no.
+    The row's three chips are the engine's own states: **Eligible** (`ok`), **Not yet**
+    (`no`), **Can't verify** (`maybe`), any subset, empty means all (D174(b)). Feats,
+    invocations and species share it; the class picker has no prerequisites (D171(a)).
+    *Rejected:* keeping the switch beside the row (two controls for one fact); a repeatable
+    switch (D172(d) already declined it).
+  - **(b) Ability bonus is a row of the six scores** in their D173(b) colours, feats only. A
+    feat matches when ANY of its `ability` entries names a selected score, so a "choose one
+    of Int/Wis/Cha" feat answers for all three and the ASI's either/or answers for all six —
+    which is what those feats do. Nothing new is extracted: `ability` has carried the
+    scores since D176.
+  - **(c) One name per thing, across every filter surface.** The table's filter card said
+    "Source book", "Casting time", "Saving throw", "Damage type", "Class / list", "Tags",
+    "Editions" where the pickers' menu (D174) says Books, Cast time, Save, Damage; now the
+    card says the same, plus **Access** (who gives you the spell — the noun the spell detail
+    already uses) and **Properties** for the ritual/concentration/attack/upcast/material
+    row, whose chips lose their abbreviations ("Concentr.", "Atk roll", "Consumes mat.") and
+    take the names the active-filter strip already printed. Every select's empty option is
+    **All**; the book quick actions are All · None · 2024 core · My sources, as in the menu;
+    the prepared list's level popover and the forms picker's book head follow.
+  - **(d) A binary is a labelled switch.** "Editions" (a two-option select) is **Reprints**,
+    a `.swk` switch: on shows every printing, off the newest only; its strip chip reads
+    "Reprints". The forms picker's "Only the ones I've marked" checkbox is a **Marked**
+    switch. `syncSwitch`/`syncReprint` draw both from state, the way `filterMenu` draws its
+    own; `state.filters.reprint` keeps its `dedupe|all` values, so stored builds are
+    untouched.
+  - **Enforced by:** `entFilterGroups` (`prq`, `raise`), the `prq`/`raise` clauses in
+    `renderEntityList`, `F_TAGS` as the one source of the property names, `syncSwitch`.
+    **Affects:** PLAN.md (Phase M closes), D31, D172(d), D174, `audits/copy-table.md` (the
+    M4 rows, for the veto pass).
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives
