@@ -2734,8 +2734,35 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
 .fldpts{font-size:11px;color:var(--muted);white-space:nowrap} .fldpts.over{color:var(--bad)}
 .scoremenu{position:relative;display:inline-flex}
 .scoremenu .btn.tiny{padding:0 8px;line-height:1.5;font-size:14px}
-.scoremenu .menupop{min-width:230px}
-.menupop .msub{display:block;font-size:11px;color:var(--muted);font-weight:400}
+/* menu rows never wrap (D178): label on one line, the note UNDER it, both clipped */
+.scoremenu .menupop{min-width:250px;max-width:280px}
+.scoremenu .mitem{display:flex;flex-direction:column;align-items:flex-start;gap:1px;width:100%;box-sizing:border-box;padding:6px 11px;white-space:nowrap;overflow:hidden}
+.scoremenu .mitem .mlab,.scoremenu .mitem .msub{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.scoremenu .mitem.on{background:var(--accent-soft)}
+.scoremenu .msub{font-size:11px;color:var(--muted);font-weight:400;line-height:1.3}
+.scoremenu .mrow{display:flex;align-items:stretch;gap:2px}
+.scoremenu .mrow .mitem{flex:1;min-width:0}
+.scoremenu .mchev{flex:0 0 30px;display:inline-flex;align-items:center;justify-content:center;border:none;background:none;border-radius:7px;cursor:pointer;padding:0;color:var(--muted)}
+.scoremenu .mchev:hover{background:var(--panel-2);color:inherit}
+/* the chevron is the guide's own (`.gclv .lvlcar`), drawn the same way — a rule elsewhere scopes it */
+.scoremenu .mchev .lvlcar{flex:0 0 auto;position:relative;width:12px;height:12px;font-size:0}
+.scoremenu .mchev .lvlcar::before{content:"";position:absolute;left:50%;top:50%;width:5px;height:5px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:translate(-50%,-50%) translateY(-1px) rotate(45deg)}
+.scoremenu .mchev .lvlcar.up::before{transform:translate(-50%,-50%) translateY(1px) rotate(-135deg)}
+.scoremenu .mform{display:flex;flex-direction:column;gap:3px;padding:4px 11px 8px}
+.scoremenu .mfin{font:inherit;font-size:13px;font-variant-numeric:tabular-nums;padding:5px 8px;border:1px solid var(--line-strong);border-radius:7px;background:var(--panel-2);color:inherit;width:100%;box-sizing:border-box}
+.scoremenu .mfin.bad{border-color:var(--bad)}
+.scoremenu .mfin:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.scoremenu .mswitch{flex-direction:row;align-items:center;flex-wrap:wrap;column-gap:8px;cursor:default}
+.scoremenu .mswitch .mlab{flex:1 1 auto}
+.scoremenu .mswitch .swk{flex:0 0 auto;margin-left:auto}
+.scoremenu .mswitch .msub{flex-basis:100%}
+/* the roll's reel (D178, from monster-forge's initiative roll): a 1em window, a column that scrolls to the result */
+.abbig .nf-digit{display:inline-block;height:1em;line-height:1;overflow:hidden;vertical-align:top}
+.abbig .nf-col{display:flex;flex-direction:column;transform:translateY(0);transition:transform 1.35s cubic-bezier(.16,.84,.3,1)}
+.abbig .nf-n{height:1em;line-height:1;display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums}
+@media (prefers-reduced-motion:reduce){.abbig .nf-col{transition:none}}
+/* a wizard tile's copies, beside the free allowance (D178) */
+.dcell .dcopy{font-style:normal;font-size:10px;color:var(--accent);margin-left:2px}
 .abscores{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}
 .abwrap{position:relative;display:block;min-width:0}
 .abscore{width:100%;box-sizing:border-box;font:inherit;color:inherit;cursor:pointer;display:flex;flex-direction:column;
@@ -2747,7 +2774,8 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
 .abscore.main{border-color:var(--ab-x);background:color-mix(in srgb,var(--ab-x) 12%,transparent)}
 .abscore.main.str{--ab-x:var(--ab-str)} .abscore.main.dex{--ab-x:var(--ab-dex)} .abscore.main.con{--ab-x:var(--ab-con)} .abscore.main.int{--ab-x:var(--ab-int)} .abscore.main.wis{--ab-x:var(--ab-wis)} .abscore.main.cha{--ab-x:var(--ab-cha)}
 .abhead{display:inline-flex;align-items:center;gap:3px}
-.absave{width:6px;height:6px;border-radius:50%;border:1.5px solid var(--muted);opacity:.85;flex:0 0 auto}
+/* a saving-throw proficiency is a border on the chip itself (D178), inset so the chip keeps its size */
+.abchip.absv{box-shadow:inset 0 0 0 1px currentColor}
 .abbig{font-size:17px;font-weight:600;line-height:1.15}
 .abtot{font-size:11px;color:var(--muted);min-height:1.3em}
 /* the popover: the app's own menu surface, anchored to the tile — left-hung for the first

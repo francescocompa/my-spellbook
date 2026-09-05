@@ -458,7 +458,7 @@ const activeBuild=()=>BUILDS.builds[BUILDS.activeId];
 
 const blankBuildState=()=>({classes:[],speciesKey:"",feats:[],optFeats:[],featSlots:{},levelOrder:[],
   customSources:[],chosen:{},choices:{},sbFav:{},nextRowId:1,filters:null,
-  currentLevel:null,swaps:{},sbFavSkip:[],abilities:{},originBonus:{},scoreBonus:[],scoreMethod:"type"});
+  currentLevel:null,swaps:{},sbFavSkip:[],abilities:{},originBonus:{},scoreBonus:[],scoreMethod:"type",scoreOptimize:false,rollFormula:"4d6dl1"});
 // the live `state` <-> the plain object stored in a build.
 // The ARRAYS ARE THE ACQUISITION ORDER (E1 · D115(b,h)): `feats`, `optFeats` and each
 // row's `chosen[id].cantrips`/`.spells` list picks in the order they were acquired.
@@ -481,6 +481,8 @@ function serializeState(){ const f=state.filters; return {
   originBonus:state.originBonus||{},      // the 2024 origin +2/+1, code -> amount (D176)
   scoreBonus:state.scoreBonus||[],        // named per-ability bonuses: {name,ab,add}|{name,ab,set} (D177(b))
   scoreMethod:state.scoreMethod||"type",  // type | array | point | roll (D177(e))
+  scoreOptimize:!!state.scoreOptimize,    // keep the six values best-first on the class order
+  rollFormula:state.rollFormula||"4d6dl1", // dice notation: NdM, kh/kl/dh/dl N, ±N
 };}
 function applyState(s){ s=s||blankBuildState();
   // the live state must never share sub-objects with the stored build (see save()) —
@@ -495,6 +497,8 @@ function applyState(s){ s=s||blankBuildState();
     originBonus:(s.originBonus&&typeof s.originBonus==="object")?s.originBonus:{},
     scoreBonus:Array.isArray(s.scoreBonus)?s.scoreBonus:[],
     scoreMethod:["type","array","point","roll"].includes(s.scoreMethod)?s.scoreMethod:"type",
+    scoreOptimize:!!s.scoreOptimize,
+    rollFormula:parseFormula(s.rollFormula)?s.rollFormula:"4d6dl1",
     currentLevel:typeof s.currentLevel==="number"?s.currentLevel:null,
     // swapsNorm heals as well as reads: a stored map from before swaps split by kind
     // arrives as one event per level and comes out in the two-slot shape
@@ -1341,7 +1345,32 @@ const STD_ARRAY=[15,14,13,12,10,8];
 const POINT_COST={8:0,9:1,10:2,11:3,12:4,13:5,14:7,15:9};
 const POINT_BUDGET=27;
 function pointsSpent(){const b=state.abilities||{}; return AB_KEYS.reduce((n,a)=>n+(POINT_COST[b[a]]??0),0);}
-const rollScore=()=>{const d=[0,0,0,0].map(()=>1+Math.floor(Math.random()*6)).sort((x,y)=>y-x); return d[0]+d[1]+d[2];};
+// dice notation, the established shape: `4d6dl1` (drop lowest 1), `4d6kh3` (keep highest 3),
+// `3d6`, `2d6+6`; kl/dh the mirror. Whitespace and case do not matter. null when it isn't one.
+function parseFormula(f){
+  const m=/^(\d*)d(\d+)(?:(kh|kl|dh|dl)(\d+))?([+-]\d+)?$/.exec(String(f||"").replace(/\s+/g,"").toLowerCase());
+  if(!m)return null;
+  const n=m[1]?+m[1]:1, d=+m[2], mode=m[3]||null, k=m[4]?+m[4]:0, mod=m[5]?+m[5]:0;
+  if(n<1||n>40||d<2||d>100||(mode&&(k<1||k>n)))return null;
+  return {n,d,mode,k,mod};
+}
+// how many dice actually count, after keep/drop
+const formulaKept=p=>p.mode==="kh"||p.mode==="kl"?p.k:p.mode?p.n-p.k:p.n;
+function rollFormula(f){const p=parseFormula(f)||parseFormula("4d6dl1");
+  const dice=[]; for(let i=0;i<p.n;i++)dice.push(1+Math.floor(Math.random()*p.d));
+  dice.sort((x,y)=>y-x);
+  const kept=p.mode==="kh"?dice.slice(0,p.k):p.mode==="dl"?dice.slice(0,p.n-p.k)
+    :p.mode==="kl"?dice.slice(p.n-p.k):p.mode==="dh"?dice.slice(p.k):dice;
+  return kept.reduce((a,b)=>a+b,0)+p.mod;}
+const formulaRange=f=>{const p=parseFormula(f)||parseFormula("4d6dl1"), c=formulaKept(p); return {min:c+p.mod,max:c*p.d+p.mod};};
+// D178: the origin bonus is +2/+1 or +1/+1/+1, so what the OTHER abilities already hold decides
+// which pills this one may offer. The current value is always offered, so it can be undone.
+function originOptions(a){
+  const ob=state.originBonus||{}, others=AB_KEYS.filter(k=>k!==a);
+  const twos=others.filter(k=>ob[k]===2).length, ones=others.filter(k=>ob[k]===1).length;
+  const can2=!twos&&ones<2, can1=!(twos&&ones)&&ones<3;
+  return [[2,"+2",can2||ob[a]===2],[1,"+1",can1||ob[a]===1],[0,"none",true]];
+}
 // the order abilities are filled in: casting stats first (class-row order), then the
 // other primaries, then Con, then whatever is left — best value to the first
 function fillOrder(){
@@ -1353,6 +1382,9 @@ function fillOrder(){
 }
 function fillScores(pool){const vals=pool.slice().sort((x,y)=>y-x); state.abilities={};
   fillOrder().forEach((a,i)=>{state.abilities[a]=vals[i];});}
+// the Optimize switch (D178): while on, any six values are kept best-first on the class order
+function optimizeScores(){ if(!state.scoreOptimize)return;
+  const vals=AB_KEYS.map(a=>(state.abilities||{})[a]).filter(v=>typeof v==="number"); if(vals.length===6)fillScores(vals);}
 // a source's own numbers from its casting stat, or null while that stat is blank
 function castNums(ab,scores,pb){
   const sc=scores||(R&&R.scores); if(!ab||!sc||sc[ab]==null)return null;
@@ -8336,14 +8368,21 @@ function renderCart(){
         :(c.capAdj&&c.capAdj[j]!=null)?c.capAdj[j]
         :(cp&&cp.cap[j]!=null?cp.cap[j]:totalCap);
       const geAt=j=>c.spells.filter(k=>lvlOf(k)>=j).length;
+      // D178: a wizard's COPIES never eat the allowance of the levels below — only the free
+      // picks at higher levels do. Walk top-down keeping the free count per level, so a book
+      // with 36 copied 2nd-level spells still reads "0/8" at 1st, not "0/0".
+      const freeAt={}; let freeAbove=0;
       for(let L=r.maxLvl;L>=1;L--){
         const atL=c.spells.filter(k=>lvlOf(k)===L).length;
-        let room=Infinity; for(let j=1;j<=L;j++)room=Math.min(room,capAt(j)-geAt(j));
+        let room=Infinity;
+        if(wiz){for(let j=1;j<=L;j++)room=Math.min(room,capAt(j)); room-=freeAbove;
+          freeAt[L]=Math.min(atL,Math.max(0,room)); freeAbove+=freeAt[L];}
+        else for(let j=1;j<=L;j++)room=Math.min(room,capAt(j)-geAt(j));
         // room goes NEGATIVE when you are over the cap — and being over the TOTAL drives it
         // negative at every level at once, which used to print "4 of up to 0". A tile may
         // never claim you hold more than its own maximum: the denominator floors at what is
         // actually held, and the .over state (plus the meter above) says what is wrong.
-        const free=Math.max(0,atL+room);       // room left if you are not already over
+        const free=wiz?Math.max(0,room):Math.max(0,atL+room);   // room left if you are not already over
         const ceil=Math.max(atL,free);
         const overFree=atL>free;
         const copied=overFree&&wiz;                 // wizard: extra = copied into the book (legal)
@@ -8358,7 +8397,12 @@ function renderCart(){
             :(room<0&&atL===0&&!wiz)?`. No room here while you are over your ${r.static?"known":"prepared"} total`
             :r.static&&!kn?` (fills up gradually as you level)`:"")+`. Tap to edit.`;
         cell.onclick=()=>openLevelPick(r.idx,L);
-        cell.innerHTML=`<b>${atL}<span class="dcap">/${ceil}</span></b><small>${ROMAN[L]}${L===r.maxLvl?" · max":""}</small>`;dist.append(cell);}
+        // D178: a wizard's tile reads the FREE allowance as its ceiling, with the copies beside
+        // it — "40/40" hid that only 4 of them were free; a copied spell never raises the cap
+        cell.innerHTML=copied
+          ?`<b>${free}<span class="dcap">/${free}</span><i class="dcopy">+${atL-free}</i></b><small>${ROMAN[L]}${L===r.maxLvl?" · max":""}</small>`
+          :`<b>${atL}<span class="dcap">/${ceil}</span></b><small>${ROMAN[L]}${L===r.maxLvl?" · max":""}</small>`;
+        dist.append(cell);}
       b.append(dist);
       if(wiz){const cpbtn=el("button","btn lbl-ico");cpbtn.append(icoEl("plus"),document.createTextNode("Copy a spell into your book"));
         cpbtn.style.cssText="margin-top:8px;font-size:12px";
@@ -10552,12 +10596,13 @@ function renderScores(){
     t.setAttribute("aria-haspopup","dialog"); t.setAttribute("aria-expanded","false");
     const head=el("span","abhead");
     head.append(Object.assign(el("span","abchip "+a),{textContent:(ABIL_SHORT[a]||a).toUpperCase()}));
-    head.append(el("span","absave hidden")); t.append(head);
+    t.append(head);
     t.append(el("span","abbig")); t.append(el("span","abtot"));
     const pop=el("div","menupop abpop hidden"); pop.setAttribute("role","dialog"); pop.setAttribute("aria-label",ABIL[a]);
     t.onclick=e=>{e.stopPropagation(); const open=!pop.classList.contains("hidden");
       closeMenu(); if(!open){fillScorePop(a,pop); pop.classList.remove("hidden");
-        const f=pop.querySelector("input,select"); if(f){f.focus(); if(f.select)f.select();}}
+        // D178: the base field takes focus only while it is BLANK — a filled score is read first
+        const f=pop.querySelector("input.apin,select.apsel"); if(f&&!(state.abilities||{})[a])f.focus();}
       syncMenuAria();};
     wrap.append(t,pop); row.append(wrap);});
   renderScoreNums();
@@ -10583,18 +10628,18 @@ function fillScorePop(a,pop){
     sel.value=base[a]==null?"":String(base[a]);
     sel.onchange=()=>{const v=+sel.value; if(!v)return; const other=AB_KEYS.find(k=>k!==a&&base[k]===v);
       state.abilities=state.abilities||{}; if(other&&base[a]!=null)state.abilities[other]=base[a]; else if(other)delete state.abilities[other];
-      state.abilities[a]=v; again();};
+      state.abilities[a]=v; optimizeScores(); again();};
     line("Base",sel);
   } else {
     const inp=el("input","apin"); inp.type="number"; inp.inputMode="numeric"; inp.setAttribute("aria-label",ABIL[a]+", base score");
     inp.min=m==="point"?"8":"1"; inp.max=m==="point"?"15":"30";
     inp.value=typeof base[a]==="number"?String(base[a]):""; inp.placeholder="–";
     inp.onchange=()=>{let v=parseInt(inp.value,10); if(m==="point"&&v)v=Math.max(8,Math.min(15,v));
-      state.abilities=state.abilities||{}; if(v>0)state.abilities[a]=Math.min(30,v); else delete state.abilities[a]; again();};
+      state.abilities=state.abilities||{}; if(v>0)state.abilities[a]=Math.min(30,v); else delete state.abilities[a]; optimizeScores(); again();};
     line("Base",inp);
   }
   const ob=state.originBonus||{}, pills=el("span","appills");
-  [[2,"+2"],[1,"+1"],[0,"none"]].forEach(([n,lab])=>{const on=(ob[a]||0)===n;
+  originOptions(a).forEach(([n,lab,ok])=>{ if(!ok)return; const on=(ob[a]||0)===n;
     const b=el("button","abpill"+(on?" on "+a:""),lab); b.type="button"; b.setAttribute("aria-pressed",String(on));
     b.onclick=()=>{state.originBonus=state.originBonus||{}; if(n)state.originBonus[a]=n; else delete state.originBonus[a]; again();};
     pills.append(b);});
@@ -10622,35 +10667,70 @@ function renderScoreNums(){
     t.classList.toggle("main",isMain);
     t.querySelector(".abbig").textContent=v==null?"–":String(v);
     t.querySelector(".abtot").textContent=v==null?"":fmtMod(scoreMod(v));
-    const ring=t.querySelector(".absave"); ring.classList.toggle("hidden",!isSave);
-    ring.title=isSave?"Saving throw proficiency, from "+sv.cls+" (your first class)":"";
+    const chip=t.querySelector(".abchip"); chip.classList.toggle("absv",isSave);
+    chip.title=isSave?"Saving throw proficiency, from "+sv.cls+" (your first class)":"";
     t.setAttribute("aria-label",ABIL[a]+(v==null?", blank":", "+v+" ("+fmtMod(scoreMod(v))+")")
       +(isMain?", main ability":"")+(isSave?", saving throw proficiency":""));});
   const pts=$("#scorePts"); if(pts){const on=(state.scoreMethod||"type")==="point"; pts.classList.toggle("hidden",!on);
     if(on){const left=POINT_BUDGET-pointsSpent(); pts.textContent=left+" of "+POINT_BUDGET+" points left"; pts.classList.toggle("over",left<0);}}
 }
-// the ⋯ menu (D177(e)): a fill method, the class-aware fill, and an ARMED clear
+// the ⋯ menu (D177(e), D178): a fill method, the Optimize switch, the roll's formula
+// behind a chevron, and an ARMED clear. Rows never wrap: the note sits under its label.
+let SCORE_FORM_OPEN=false;
 function renderScoreMenu(){
   const pop=$("#scoreMenuPop"); if(!pop)return; pop.innerHTML=""; SCORE_ARM=false;
   const m=state.scoreMethod||"type";
   const head=t=>pop.append(el("div","mopt colhead",t));
-  const item=(label,sub,on,fn,cls)=>{const b=el("button",(on?"on ":"")+(cls||"")); b.type="button"; b.setAttribute("role","menuitem");
-    b.append(el("span",null,label)); if(sub)b.append(el("span","msub",sub)); b.onclick=e=>{e.stopPropagation(); fn();}; pop.append(b); return b;};
+  const item=(label,sub,on,fn,cls,host)=>{const b=el("button","mitem"+(on?" on":"")+(cls?" "+cls:"")); b.type="button"; b.setAttribute("role","menuitem");
+    b.append(el("span","mlab",label)); if(sub)b.append(el("span","msub",sub)); b.onclick=e=>{e.stopPropagation(); fn();}; (host||pop).append(b); return b;};
   const apply=(method,pool)=>{state.scoreMethod=method; if(pool)fillScores(pool);
     if(method==="point"){state.abilities=state.abilities||{}; AB_KEYS.forEach(a=>{const v=state.abilities[a]; state.abilities[a]=v?Math.max(8,Math.min(15,v)):8;});}
-    closeMenu(); refreshAll(); render();};
+    optimizeScores(); closeMenu(); refreshAll(); render();};
   head("Fill scores");
   item("Standard array","15 · 14 · 13 · 12 · 10 · 8",m==="array",()=>apply("array",STD_ARRAY));
   item("Point buy",POINT_BUDGET+" points, 8 to 15",m==="point",()=>apply("point"));
   item("Type them","",m==="type",()=>apply("type"));
-  item("Roll","4d6, drop the lowest",m==="roll",()=>apply("roll",[0,0,0,0,0,0].map(rollScore)));
+  // the roll row: the roll itself, and a chevron that opens its formula
+  const rrow=el("div","mrow");
+  const f=state.rollFormula||"4d6dl1";
+  item("Roll",f,m==="roll",()=>{const vals=[0,0,0,0,0,0].map(()=>rollFormula(f)); apply("roll",vals); animateScoreRoll(f);},"",rrow);
+  const chev=el("button","mchev"+(SCORE_FORM_OPEN?" up":"")); chev.type="button"; chev.setAttribute("aria-label","Roll formula"); chev.setAttribute("aria-expanded",String(SCORE_FORM_OPEN));
+  chev.append(el("span","lvlcar"+(SCORE_FORM_OPEN?" up":"")));
+  chev.onclick=e=>{e.stopPropagation(); SCORE_FORM_OPEN=!SCORE_FORM_OPEN; renderScoreMenu();};
+  rrow.append(chev); pop.append(rrow);
+  if(SCORE_FORM_OPEN){const fr=el("div","mform");
+    const inp=el("input","mfin"); inp.value=f; inp.setAttribute("aria-label","Roll formula"); inp.spellcheck=false;
+    const hint=el("span","msub","4d6dl1 · 4d6kh3 · 3d6 · 2d6+6");
+    const check=()=>{const ok=!!parseFormula(inp.value); inp.classList.toggle("bad",!ok); return ok;};
+    inp.oninput=check;
+    inp.onchange=()=>{ if(check()){state.rollFormula=inp.value.replace(/\s+/g,"").toLowerCase(); save(); renderScoreMenu();} };
+    inp.onkeydown=e=>{ if(e.key==="Enter"){e.preventDefault(); inp.blur();} e.stopPropagation(); };
+    fr.append(inp,hint); pop.append(fr);}
   head("Scores");
-  item("Fill for my classes","the best values on the main abilities",false,()=>{
-    const pool=AB_KEYS.map(a=>(state.abilities||{})[a]).filter(v=>typeof v==="number");
-    apply(m,pool.length===6?pool:STD_ARRAY);});
+  // Optimize: a switch, not a verb — while on, the six values sit best-first on the class order
+  const orow=el("div","mitem mswitch"); orow.append(el("span","mlab","Optimize"),el("span","msub","best values on the main abilities"));
+  const sw=el("button","swk"+(state.scoreOptimize?"":" swoff")); sw.type="button"; sw.setAttribute("role","switch");
+  sw.setAttribute("aria-checked",String(!!state.scoreOptimize)); sw.setAttribute("aria-label","Optimize scores");
+  sw.onclick=e=>{e.stopPropagation(); state.scoreOptimize=!state.scoreOptimize; optimizeScores(); renderScoreMenu(); refreshAll(); render();};
+  orow.append(sw); pop.append(orow);
   const clr=item("Clear scores","",false,()=>{
-    if(!SCORE_ARM){SCORE_ARM=true; clr.firstChild.textContent="Clear all six?"; return;}
+    if(!SCORE_ARM){SCORE_ARM=true; clr.querySelector(".mlab").textContent="Clear all six?"; return;}
     state.abilities={}; state.originBonus={}; state.scoreBonus=[]; closeMenu(); refreshAll(); render();},"danger");
+}
+// The roll's reel — monster-forge's initiative roll, ported: each tile's number becomes a
+// column of twenty random values in the formula's range with the real one last, and the
+// column scrolls up to it. The face underneath already holds the result, so a viewer with
+// reduced motion sees it at once and nothing waits on the animation.
+function animateScoreRoll(f){
+  const {min,max}=formulaRange(f), sc=(R&&R.scores)||abilityScores(featsAt()), base=state.abilities||{};
+  document.querySelectorAll("#scoreRow .abscore").forEach(t=>{
+    const a=AB_KEYS.find(k=>t.classList.contains(k)); if(!a||sc[a]==null||base[a]==null)return;
+    const shift=sc[a]-base[a], big=t.querySelector(".abbig"), span=Math.max(0,max-min), seq=[];
+    for(let i=0;i<20;i++)seq.push(min+shift+(span?Math.floor(Math.random()*(span+1)):0));
+    seq.push(sc[a]);
+    big.innerHTML=`<span class="nf-digit"><span class="nf-col" style="--nf-len:${seq.length}">${seq.map(n=>`<span class="nf-n">${n}</span>`).join("")}</span></span>`;
+    requestAnimationFrame(()=>{const col=big.querySelector(".nf-col"); if(col)col.style.transform=`translateY(-${seq.length-1}em)`;});});
+  setTimeout(()=>renderScoreNums(),1500);   // the reel's last frame IS the face; this just tidies the DOM
 }
 $("#scoreMenuBtn").onclick=e=>{e.stopPropagation(); renderScoreMenu(); toggleMenu("#scoreMenuPop");};
 
@@ -11430,7 +11510,7 @@ if(typeof module!=="undefined"&&module.exports){
     // acquisition-order helpers (D146's empty slot is a rule, not a convention)
     isHole,hole,holeTag,baseKey,sameEnt,trimHoles,noHoles,nextCopy,copyCount,
     // ability scores + proficiency bonus (D176)
-    abilityScores,featScoreGains,profBonus,castNums,scoreMod,featsAt,scoreParts,mainAbilities,saveProfs,fillOrder,fillScores,pointsSpent,
+    abilityScores,featScoreGains,profBonus,castNums,scoreMod,featsAt,scoreParts,mainAbilities,saveProfs,fillOrder,fillScores,pointsSpent,originOptions,parseFormula,rollFormula,formulaRange,optimizeScores,
     // storage and digest integrity
     mergeDigests,filterDigest,digestSize,emptyDigest,verLt,
     // let the fixture stand the module up

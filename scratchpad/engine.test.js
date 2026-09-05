@@ -323,7 +323,38 @@ const casterLevel = (slots) => {
   SB.fillScores([15, 14, 13, 12, 10, 8]);
   eq("11s · the standard array lands best-first on that order", SB.abilityScores([]), { str: 13, dex: 10, con: 12, int: 15, wis: 8, cha: 14 });
   SB.set.state({ ...base, abilities: { str: 8, dex: 15, con: 14, int: 15, wis: 8, cha: 8 } });
-  eq("11t · point buy costs 27 for 15/15/14 and three 8s", SB.pointsSpent(), 25);
+  eq("11t · point buy costs 25 for 15/15/14 and three 8s", SB.pointsSpent(), 25);
+  SB.set.clsBy(CLS);
+}
+
+// ── 12 · the origin budget, the roll formula, and Optimize (D178) ──────────
+{
+  const opts = (a) => SB.originOptions(a).filter((o) => o[2]).map((o) => o[1]);
+  const base = { classes: [], levelOrder: [], feats: [], optFeats: [], speciesKey: "", customSources: [], chosen: {}, featSlots: {}, choices: {}, abilities: {}, originBonus: {}, scoreBonus: [] };
+  SB.set.state({ ...base, originBonus: {} });
+  eq("12a · nothing assigned: every pill offered", opts("str"), ["+2", "+1", "none"]);
+  SB.set.state({ ...base, originBonus: { int: 2 } });
+  eq("12b · a +2 elsewhere removes +2 here", opts("str"), ["+1", "none"]);
+  eq("12c · …but the ability holding it keeps it, to undo", opts("int"), ["+2", "+1", "none"]);
+  SB.set.state({ ...base, originBonus: { int: 1, wis: 1 } });
+  eq("12d · two +1s elsewhere remove +2", opts("str"), ["+1", "none"]);
+  SB.set.state({ ...base, originBonus: { int: 2, wis: 1 } });
+  eq("12e · +2 and +1 elsewhere remove +1 too", opts("str"), ["none"]);
+  SB.set.state({ ...base, originBonus: { int: 1, wis: 1, cha: 1 } });
+  eq("12f · three +1s elsewhere remove +1 too", opts("str"), ["none"]);
+  eq("12g · the formula parses the established notation",
+    ["4d6dl1", "4d6kh3", "3d6", "2d6+6", "4D6 KH3", "d20"].map((f) => !!SB.parseFormula(f)), [true, true, true, true, true, true]);
+  eq("12h · …and rejects what isn't one", ["4d6dl5", "abc", "", "4d", "0d6"].map((f) => !!SB.parseFormula(f)), [false, false, false, false, false]);
+  eq("12i · the range follows keep/drop and the modifier",
+    [SB.formulaRange("4d6dl1"), SB.formulaRange("2d6+6"), SB.formulaRange("3d6")], [{ min: 3, max: 18 }, { min: 8, max: 18 }, { min: 3, max: 18 }]);
+  const rolls = Array.from({ length: 200 }, () => SB.rollFormula("4d6dl1"));
+  eq("12j · 200 rolls of 4d6dl1 all land in 3..18", rolls.every((v) => v >= 3 && v <= 18), true);
+  SB.set.clsBy({ ...CLS, "Wizard|XPHB": { name: "Wizard", caster: "full", ability: "int", traits: { primary: ["int"], saves: ["int", "wis"] } } });
+  SB.set.state({ ...base, classes: [{ id: "r0", clsKey: "Wizard|XPHB", level: 1, subKey: null }], levelOrder: ["r0"],
+    abilities: { str: 15, dex: 8, con: 10, int: 12, wis: 13, cha: 14 }, scoreOptimize: true });
+  SB.optimizeScores();
+  eq("12k · Optimize re-sorts six typed values onto the class order (Wizard: Int, Con, then Dex Wis Cha Str)",
+    SB.abilityScores([]), { str: 8, dex: 13, con: 14, int: 15, wis: 12, cha: 10 });
   SB.set.clsBy(CLS);
 }
 

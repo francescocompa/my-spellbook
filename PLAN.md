@@ -310,6 +310,15 @@ his call (⚑ below).
   popover inside the card and the viewport at 1280 (left-hung) and 375 (right-hung, 236px);
   every tile child centred to 0.00px; pill on 13.9:1, off 6.4:1, modifier on the tint 6.6:1;
   restored byte-identical; 0 console errors; engine 55 ok.
+  **Second review, nine notes, D178 — v1.5.36:** origin pills follow the +2/+1 · +1/+1/+1
+  budget; save proficiency is a border on the chip; the base field focuses only while blank;
+  menu rows never wrap with the note under the label; Optimize is a switch; the roll formula
+  behind a chevron in dice notation; the roll reel from monster-forge's initiative; a wizard's
+  tile reads the free allowance with copies beside it and copies leave the lower levels alone
+  (`4/4 +36 · 2nd`, `0/8 · 1st`, was `40/40` and `0/0`). **Verified:** Int +2 → Cha offers +1
+  only → Str offers none, the holder keeps its pill; blank Wis focuses, filled Int does not;
+  `4d6kh3` accepted and `nope` refused; Optimize re-sorts six values; six reels of 21 values
+  land on the totals; engine 66 ok.
   Storage: `abilities` base six + `originBonus`, appended at the end of `serializeState` so
   untouched builds compare equal; one `choices` entry per ASI/+1 feat pick (D135's `##n`
   suffix keeps repeats distinct). Engine: a score at level L = base + origin + ASI choices at
@@ -335,6 +344,13 @@ his call (⚑ below).
   character-forge chassis) land whenever their inputs exist.
 
 ## Open ⚑ — calls for Francesco
+
+- [ ] **Prepared budget & picks grows with the pick count** (his note, 2026-09-05, D178(g)): a
+  wizard with 40 book spells is 40 chips in the card. Options to bring: fold the chip run per
+  class behind a count with a disclosure; group the chips by spell level as folded groups (the
+  eligible list's own pattern); a one-line scrolling field under a mask (the D142(a)
+  `.pickfield` pattern) with "show all"; or drop the chips from the card and mark picks in the
+  eligible list only. 🔶 mockup + his pick. ⚑ (owner: Francesco, 2026-09-05)
 
 - [x] **N1 before or after M3/M4?** → **N1 now** (his call, 2026-09-05); M3/M4 after. Phase N is decided (D176) and Phase M has two small tasks
   left. Either order is fine; N1 is L and touches the guide, the table and the print. ⚑

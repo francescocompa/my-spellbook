@@ -3089,6 +3089,39 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     `saveProfs()`, `engine.test.js` fixture 11's added assertions. **Affects:** D176 (the
     model, unchanged in scope), D142(b), D173, the N1 line in PLAN.
 
+- **D178 (2026-09-05) DECIDED — second review of the score block (his nine notes on v1.5.35),
+  and a wizard's copies leave the lower levels alone.** Amends D177 in place.
+  - **(a) Origin pills follow the budget.** +2/+1 or +1/+1/+1: a +2 elsewhere, or two +1s
+    elsewhere, hide +2 here; a +2 and a +1 elsewhere, or three +1s, hide +1 too. The
+    ability's CURRENT value is always offered so it can be undone. *Rejected:* a soft flag
+    after the fact (the row would let you build +2/+2).
+  - **(b) Save proficiency is a border on the chip itself** (inset, so the chip keeps its
+    size), not a ring beside it. The hover explanation stays on the chip.
+  - **(c) The base field takes focus on open only while it is BLANK.** A filled score is
+    read first; auto-selecting it invited overtyping.
+  - **(d) Menu rows never wrap:** label on one line, the note UNDER it, both clipped.
+    **"Fill for my classes" is an Optimize SWITCH**, not a verb: while on, the six values are
+    kept best-first on the class order (casting stats, then primaries, then Con) after every
+    edit and fill. The **roll's formula sits behind a chevron in line with the Roll row**,
+    in the established dice notation — `4d6dl1`, `4d6kh3`, `3d6`, `2d6+6` — validated as
+    you type, stored per build, the default 4d6dl1. *Rejected:* the formula as its own menu
+    section (his call, v1.5.35 hid it); a free-text hint sentence.
+  - **(e) The roll animates as monster-forge's initiative roll does** — his explicit ask, so
+    the cross-project rule is set aside for this one mechanism: each tile's number becomes a
+    column of twenty values in the formula's range with the real one last, scrolling up to
+    it (1.35s, the same easing); the face underneath already holds the result, so reduced
+    motion shows it at once.
+  - **(f) A wizard's per-level tile reads the FREE allowance as its ceiling**, with the copies
+    beside it (`4/4 +36`), and copies never eat the allowance of the levels below: the room
+    at level L is the cumulative cap minus the FREE picks held above L, walked top-down.
+    "40/40 · 2nd · max" was a wizard holding 4 free and 36 copied spells; the same book read
+    "0/0" at 1st where 8 were still free. Non-wizard tiles are unchanged (the D70 floor).
+  - **(g) The prepared-picks height** (his ninth note) is a design call — options and a
+    mockup first, not a change in this batch. ⚑ in PLAN.
+  - **Enforced by:** `originOptions`, `parseFormula`/`rollFormula`/`formulaRange`,
+    `optimizeScores`, `animateScoreRoll`, the `freeAt` walk in `renderCart`, `.abchip.absv`,
+    and `engine.test.js` fixture 12 (eleven assertions). **Affects:** D177(a,c,e), D70.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives
