@@ -1682,6 +1682,47 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     choice), the SRD product-identity merge, the connected-choice collapse, and the trade that
     still offers a spell already swapped away — that last one needs his build to reproduce.
 
+- **D187 (2026-09-05) DECIDED — a choice that came with something folds into it, and an
+  import supersedes the bundle's licensed-name twin.** Two more of the six. Shipped as
+  v1.5.45.
+  - **(a) A settled single choice folds into the answer that granted it.** His note:
+    *"collapse some choice rows into one when strictly connected (ex. Invocation > Agonizing
+    Blast becomes Agonizing Blast (Eldritch Blast) instead of adding a selection row)"*. The
+    rail read `ELDRITCH INVOCATIONS · Agonizing Blast` and then the whole prompt sentence with
+    `Eldritch Blast` under it — the same decision, said twice. It reads
+    `Agonizing Blast (Eldritch Blast)` now, one row, and the card says the same. **His call
+    on the width: forced OR already answered**, not forced only. Two guards keep it honest —
+    a DEFAULT is never treated as an answer (an option group reads `done` off the value its
+    control happens to show, D166(b), while `state.choices` is empty, and folding that would
+    hide a decision nobody made), and a group asking for SEVERAL never folds, because its
+    chips are the answer. The fold is reversible where it happened: the suffix on the card is
+    a button that puts the rows back for the rest of the walk (`GUNFOLD`, per walk, never
+    stored — a fold is a way of reading the chain, not a fact about the build).
+    *Rejected:* folding only a choice with one legal option (his first option — narrower, and
+    it leaves every answered row standing); hand-scoping it to invocations (the same shape
+    recurs on feats and species grants and would need doing again).
+  - **(b) An import supersedes the bundle's licensed-name twin.** SRD 5.2 strips the wizard's
+    name off 17 spells and `extract.py` builds the PUBLIC subset under the licensed ones —
+    record, prose and every grant — because those are the only names that may ship on a public
+    page. `mergeDigests` keys on `name|source`, so an import carrying
+    `Tasha's Hideous Laughter|XPHB` never overrode the baked `Hideous Laughter|XPHB`: both
+    survived and the pickers listed the spell twice (his report). `dropSrdTwins` drops the
+    baked twin, matched by the SRD alias the IMPORTED record carries — **so the mapping
+    arrives with his own data and no licensed name is ever baked into `docs/`**. The alias is
+    added to `SPELL_BY_NAME` second, so a baked grant that names the licensed spell still
+    resolves and a spell really called that keeps the head of its own list.
+    *Rejected:* shipping the real names in the public build (simplest merge, and it
+    republishes on a public page exactly what the rename exists to strip — I would not);
+    leaving both and marking them as printings of each other (D19's Reprints shape, but he
+    would keep seeing two rows, which is the report).
+  - **Enforced by:** src/app.js `guideVisSecs`/`guideFolded`/`GUNFOLD` and the fold pass at the
+    foot of `guideSteps`; `dropSrdTwins` and the alias loop in `buildIndexes`. **Fixture 15**
+    covers the twin drop, including that it is keyed by SOURCE and that a `srd:true` record
+    can never drop anything. **Affects:** D166(b), D130(b), D19, D91, D160, GOTCHAS.md.
+  - **Still open from the same report:** the swap system (two mockups drawn, `swap1`/`swap2`,
+    awaiting his pick) and the trade that still offers a spell already swapped away — that one
+    needs his build to reproduce.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

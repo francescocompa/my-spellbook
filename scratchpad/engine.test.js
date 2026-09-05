@@ -459,5 +459,38 @@ const casterLevel = (slots) => {
   SB.set.ent(null);
 }
 
+// ── 15 · the licensed-name twin an import supersedes (D187(b)) ─────────────
+// SRD 5.2 strips the wizard's name off 17 spells and the PUBLIC bundle is built under the
+// licensed ones, because the real names may not ship on a public page. `mergeDigests` keys
+// on `name|source`, so an import carrying "Tasha's Hideous Laughter|XPHB" does NOT override
+// the baked "Hideous Laughter|XPHB" — both survived and the pickers listed the spell twice
+// (his report). Silent in every way that matters: two plausible rows, both castable, both
+// real. The drop is matched by the SRD alias the IMPORTED record carries, so the mapping
+// arrives with his own data and nothing licensed is ever baked.
+{
+  const baked = [
+    { name: "Hideous Laughter", source: "XPHB", srd: "Hideous Laughter" },
+    { name: "Arcane Hand", source: "XPHB", srd: "Arcane Hand" },
+    { name: "Fireball", source: "XPHB", srd: true },
+  ];
+  const imported = [
+    { name: "Tasha's Hideous Laughter", source: "XPHB", srd: "Hideous Laughter" },
+    { name: "Fireball", source: "XPHB", srd: true },
+  ];
+  eq("15a · the baked twin goes, and only the twin",
+    SB.dropSrdTwins(baked, imported).map((s) => s.name),
+    ["Arcane Hand", "Fireball"]);
+  eq("15b · with no import nothing is dropped",
+    SB.dropSrdTwins(baked, []).map((s) => s.name),
+    ["Hideous Laughter", "Arcane Hand", "Fireball"]);
+  eq("15c · a `srd: true` record names no alias, so it can never drop anything",
+    SB.dropSrdTwins(baked, [{ name: "Fireball", source: "XPHB", srd: true }]).length, 3);
+  // the alias is per SOURCE: another book's spell of the same licensed name is not this one
+  eq("15d · the match is keyed by source, so another book's twin is left alone",
+    SB.dropSrdTwins(baked, [{ name: "Tasha's Hideous Laughter", source: "PHB", srd: "Hideous Laughter" }])
+      .map((s) => s.name),
+    ["Hideous Laughter", "Arcane Hand", "Fireball"]);
+}
+
 console.log(`\n${pass} ok · ${fail} fail`);
 process.exit(fail ? 1 : 0);

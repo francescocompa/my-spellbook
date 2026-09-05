@@ -328,6 +328,15 @@ function buildIndexes(){
   OPT_BY={}; DATA.optfeats.forEach(o=>OPT_BY[key(o.name,o.source)]=o);
   SPELL_BY={}; DATA.spells.forEach(s=>SPELL_BY[key(s.name,s.source)]=s);
   SPELL_BY_NAME={}; DATA.spells.forEach(s=>{(SPELL_BY_NAME[s.name.toLowerCase()]=SPELL_BY_NAME[s.name.toLowerCase()]||[]).push(s);});
+  // D187(b): SRD 5.2 strips the wizard's name off 17 spells, and `srd` carries the licensed
+  // one. The PUBLIC bundle is built under those names — record, prose and every grant that
+  // names them (extract.py's rename pass) — so once an import brings the real record and its
+  // SRD twin is dropped, a baked grant reading "Hideous Laughter" would resolve to nothing.
+  // The licensed name is an ALIAS into the same record. It is added second, so a spell that
+  // really is called that keeps the head of its own list and `grantRec` still prefers it.
+  DATA.spells.forEach(s=>{const alt=typeof s.srd==="string"?s.srd.trim().toLowerCase():"";
+    if(!alt||alt===s.name.toLowerCase())return;
+    (SPELL_BY_NAME[alt]=SPELL_BY_NAME[alt]||[]).push(s);});
 }
 // The subclass a build ROW points at (D127). The stored `subKey` is still name|source and
 // NOTHING migrates — but that key is ambiguous, so the row's own class scopes it: look
@@ -341,6 +350,18 @@ function subOfRow(row){
   return SUB_BY[row.subKey]||null;
 }
 // assemble DATA from the three layers and rebuild indexes; call whenever content changes
+// the licensed-name twins an import supersedes (D187(b)). Split out so the gate can hold
+// the rule: a record is dropped ONLY when an imported spell of the same source names it as
+// its own SRD alias, so nothing that merely shares a name with something is ever lost.
+function dropSrdTwins(baseSpells,impSpells){
+  const list=baseSpells||[];
+  if(!list.length||!(impSpells||[]).length)return list;
+  const twin=new Set();
+  (impSpells||[]).forEach(sp=>{
+    const alt=typeof sp.srd==="string"?sp.srd.trim():"";
+    if(alt&&alt.toLowerCase()!==String(sp.name).toLowerCase())twin.add(key(alt,sp.source));});
+  return twin.size?list.filter(sp=>!twin.has(key(sp.name,sp.source))):list;
+}
 function assembleData(){
   // IMPORT_CACHE is filled by importLoad() before boot (D93) — assembleData stays SYNCHRONOUS,
   // which is what lets every existing caller (a custom-spell edit, an apply, a source change)
@@ -361,6 +382,15 @@ function assembleData(){
   // storage. Copying it into IndexedDB would duplicate 4 MB and, worse, freeze a stale
   // copy of the bundle that would then win over the newer one a release later.
   const base=IMPORTED?mergeDigests(BAKED||emptyDigest(),IMPORTED):(BAKED||emptyDigest());
+  // D187(b): the same spell, twice, under two names. SRD 5.2 renames 17 product-identity
+  // spells (Bigby's Hand → Arcane Hand) and the PUBLIC bundle is built under the licensed
+  // ones, because that is the whole point of the rename — the real names may not ship on a
+  // public page. `mergeDigests` keys on `name|source`, so an import carrying
+  // "Tasha's Hideous Laughter|XPHB" does not override the baked "Hideous Laughter|XPHB":
+  // both survive and the pickers list the spell twice (his report). The import supersedes
+  // its twin here, matched by the SRD name the IMPORTED record carries — so the mapping
+  // arrives with the data he supplied and no licensed name is ever baked into `docs/`.
+  if(IMPORTED)base.spells=dropSrdTwins(base.spells,IMPORTED.spells);
   DATA={meta:base.meta||{},sources:Object.assign({},base.sources),
     spells:(base.spells||[]).slice(),classes:base.classes||[],subclasses:base.subclasses||[],
     feats:base.feats||[],races:base.races||[],optfeats:base.optfeats||[],
@@ -1743,6 +1773,30 @@ function guideSteps(){
     const req=s.sections.filter(x=>!x.optional);
     s.optional=!req.length;
     s.done=req.length?req.every(x=>x.done):s.sections.every(x=>x.done);});
+  // D187(a): a choice STRICTLY CONNECTED to the thing that granted it is not a second
+  // question — it is part of that thing's answer, and drawing it as its own row said the
+  // same decision twice. His example: the rail read "ELDRITCH INVOCATIONS · Repelling Blast"
+  // and then "CHOOSE ONE OF YOUR KNOWN WARLOCK CANTRIPS THAT REQUIRES AN ATTACK ROLL ·
+  // Eldritch Blast" underneath it. It folds into the giver's own value now:
+  // "Repelling Blast (Eldritch Blast)".
+  // Two kinds fold, both his call: a choice with ONE legal option (there was never a
+  // decision) and a choice you have ANSWERED. A DEFAULT is not an answer — an option group
+  // reads `done` off the value its control happens to show (D166(b)) while `state.choices`
+  // is empty, and folding that would hide a decision nobody made. So the test is the stored
+  // answer, never `done`.
+  // A one-spell GROUP (`cpick`) folds too, once answered — that is his own example:
+  // Agonizing Blast's "choose one of your known Warlock cantrips that deals damage" with
+  // Eldritch Blast in it. A group still owing a pick keeps its row and its list; only the
+  // settled answer folds. A group asking for SEVERAL never folds: its chips are the answer.
+  steps.forEach(s=>{
+    const host=s.sections.find(x=>x.id==="self"); if(!host)return;
+    s.sections.forEach(x=>{
+      if(x===host||x.need>1)return;
+      if(x.kind==="cpick"){ if(x.have>=x.need&&x.value)x.foldedInto=host.id; return; }
+      if(x.kind!=="choice")return;
+      const forced=((x.choice&&x.choice.options)||[]).length<=1;
+      const answered=x.cid!=null&&state.choices[x.cid]!=null;
+      if((forced||answered)&&x.value)x.foldedInto=host.id;});});
   steps.sort((a,b)=>a.lv-b.lv||a.ord-b.ord||(a.pos||0)-(b.pos||0));
   const frontier=steps.reduce((m,s)=>s.done&&s.kind!=="class"?Math.max(m,s.lv):m,0);
   steps.forEach(s=>{
@@ -1872,15 +1926,29 @@ function guideChoiceValue(c){
 let GUIDE={on:false,aside:false,desc:false,reverse:false,cur:null,curSec:null,pane:"stage",place:{},
   passed:new Set()};   // D184: steps this walk moved off while they were still open
 const guideKey=s=>(s&&s.key)||"";
+// D187(a): the sections folded into a step's own answer, and the text they add to it.
+// `GUNFOLD` holds the steps the reader has opened back up — per walk, never stored: a fold
+// is a way of reading the chain, not a fact about the build.
+let GUNFOLD=new Set();
+const guideFolded=step=>(!step||GUNFOLD.has(step.key))?[]
+  :(step.sections||[]).filter(x=>x.foldedInto);
+const guideFoldText=step=>{const f=guideFolded(step);
+  return f.length?"("+f.map(x=>x.value).join(", ")+")":"";};
+// the sections a step actually DRAWS. A folded one is part of another section's answer, so
+// every "does this step ask more than one thing" test has to read this and not the raw list
+// — otherwise a step whose only sibling folded still labels and wraps itself as if it had
+// two questions, and its own value line never draws (D187(a)).
+const guideVisSecs=step=>(step&&step.sections||[]).filter(x=>!x.foldedInto||GUNFOLD.has(step.key));
 const guideSecKey=sec=>sec.step+"#"+sec.id;
 function openGuide(desc,reverse){ GUIDE.on=true; GUIDE.aside=false; GUIDE.pane="stage";
   GAUTO=null;   // D163: a fresh walk opens its first step's picker again
   GUIDE.desc=!!desc; GUIDE.reverse=!!reverse;
-  GUIDE.cur=null; GUIDE.curSec=null; GUIDE.place={}; GUIDE.passed.clear(); GC.open=null;
+  GUIDE.cur=null; GUIDE.curSec=null; GUIDE.place={}; GUIDE.passed.clear();
+  GUNFOLD.clear(); GC.open=null;
   closeGpick(); stagePickDrop(); render(); }
 function closeGuide(){ if(!GUIDE.on)return; GUIDE.on=false; GUIDE.aside=false;
   GUIDE.reverse=false; GUIDE.cur=null; GUIDE.curSec=null; GUIDE.place={}; GUIDE.passed.clear();
-  GC.open=null;
+  GUNFOLD.clear(); GC.open=null;
   // D163: `closeGpick` only releases the SPELL picker (it returns early with no GPICK), so
   // leaving the guide with the entity picker hosted stranded the detail surface inside a
   // detached pane — and every later detail modal in the app opened into it, unstyled and
@@ -2315,6 +2383,8 @@ function renderGuideChain(steps,cur){
     if(open){
       const list=el("div","gcsteps");
       group.forEach(st=>st.sections.forEach(sec=>{
+        // D187(a): a folded choice draws no row of its own — its answer rides the giver's
+        if(sec.foldedInto&&!GUNFOLD.has(st.key))return;
         const isCur=st.key===GUIDE.cur;
         const b=el("button","gcstep "+sec.status+(sec.optional?" optional":"")
           +(isCur?" cur":"")+(sec.ill?" gcill":""));
@@ -2327,7 +2397,8 @@ function renderGuideChain(steps,cur){
         const dup=group.length===1&&st.sections.length===1
           &&String(sec.label||"").toLowerCase()===headTitle.toLowerCase();
         if(!dup)k.append(el("span","gcl",sec.label));
-        k.append(el("span","gcv",guideSecText(sec)));
+        k.append(el("span","gcv",[guideSecText(sec),
+          sec.id==="self"?guideFoldText(st):""].filter(Boolean).join(" ")));
         b.append(k);
         const stx=el("span","gcs");
         stx.append(icoEl(sec.ill?"warn":sec.done?"check":sec.status==="skipped"?"warn":"dot"));
@@ -2783,15 +2854,30 @@ const guideNoun=sec=>secIsCantrip(sec)?(sec.need>1?"cantrips":"a cantrip")
 // one SECTION of the current step's card: what it asks, what it holds, and the control
 // that answers it. Returns null when the section has nothing to draw.
 function guideSecBlock(step,sec,rowOf,inline){
-  const multi=step.sections.length>1;
+  const multi=guideVisSecs(step).length>1;
   // D162: `inline` means the picker is open IN the stage, so the button that opens it is
   // redundant — the list below IS the control. Everything else about the section still
   // draws: its chips, its value, its errors. Below the guide's breakpoint `inline` is
   // never true, and the buttons stay, because there the picker is a modal that needs one.
   const b=el("div","gsecb");
-  const val=t=>el("div","gval",t);
+  // D187(a): the giver's value line carries the choices folded into it, and the suffix is
+  // the way back — clicking it puts their rows back for the rest of this walk. Nothing is
+  // hidden that cannot be reopened where it was hidden.
+  const val=t=>{
+    const d=el("div","gval",t);
+    const f=sec.id==="self"?guideFolded(step):[];
+    if(f.length){
+      const btn=el("button","gfoldbtn","("+f.map(x=>x.value).join(", ")+")");
+      btn.title=(f.length===1?"This choice came with it. Click to change it."
+        :"These choices came with it. Click to change them.");
+      btn.onclick=()=>{GUNFOLD.add(step.key);render();};
+      d.append(" ",btn);
+    }
+    return d;
+  };
   const hint=t=>el("div","grhint",t);
   if(sec.kind==="pick"||sec.kind==="cpick"){
+    if(sec.foldedInto&&!GUNFOLD.has(step.key))return null;   // D187(a)
     // chips ARE the answer (D130(b)) — one representation, each with its own ✕
     const chips=el("div","gchips");
     (sec.keys||[]).forEach((k,j)=>{
@@ -2849,7 +2935,9 @@ function guideSecBlock(step,sec,rowOf,inline){
     if(inline&&!b.children.length)return null;
     return guideSecWrap(step,sec,b,inline);
   }
-  if(sec.kind==="choice"){ b.append(choiceRow(sec.choice)); return guideSecWrap(step,sec,b); }
+  if(sec.kind==="choice"){
+    if(sec.foldedInto&&!GUNFOLD.has(step.key))return null;   // D187(a)
+    b.append(choiceRow(sec.choice)); return guideSecWrap(step,sec,b); }
   if(sec.kind==="species"){
     if(sec.done&&!multi)b.append(val(sec.value));
     if(!inline){
@@ -3007,7 +3095,7 @@ function guideSecBlock(step,sec,rowOf,inline){
 // a section's frame: its own label and counter, but only where there is more than one
 // section to tell apart — a single-section step is already named by the card's header
 function guideSecWrap(step,sec,body,chipped){
-  if(step.sections.length<2)return body;
+  if(guideVisSecs(step).length<2)return body;
   // D162: a section shown as a CHIP already carries its label and its count, so drawing the
   // section header underneath repeats it — the same redundancy the opener buttons had.
   if(chipped)return body;
@@ -11728,6 +11816,8 @@ if(typeof module!=="undefined"&&module.exports){
     secOpenSlot,firstOpen,dropSlot,toggle,blankBuildState,FILTER_DEFAULT,
     // a guide step owns ONE slot: a full slot CHANGES rather than overspends (D185)
     entOwnsSwap,entSlotSpend,takeOpt,optHoleFor,
+    // the licensed-name twin an import supersedes (D187(b))
+    dropSrdTwins,
     // ability scores + proficiency bonus (D176)
     abilityScores,featScoreGains,profBonus,castNums,scoreMod,featsAt,scoreParts,mainAbilities,saveProfs,fillOrder,fillScores,pointsSpent,originOptions,parseFormula,rollFormula,formulaRange,optimizeScores,
     // storage and digest integrity

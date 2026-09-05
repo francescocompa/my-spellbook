@@ -2398,6 +2398,11 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
 .alwchip{display:inline-flex;align-items:center;gap:4px;color:var(--good);font-weight:600}
 .alwchip svg{width:10px;height:10px}
 .alwchip.soft{color:var(--muted)}
+/* D187(a): the choices folded into a giver's own answer. It reads as part of the value it
+   follows, not as a control — until you want it, which is what the hover says. */
+.gfoldbtn{font:inherit;color:var(--muted);background:none;border:0;padding:0 2px;cursor:pointer;
+  border-bottom:1px dotted var(--line-2,var(--line))}
+.gfoldbtn:hover{color:var(--ink)}
 .gpsech{display:flex;align-items:baseline;gap:10px;margin:18px 0 6px}
 .gpsech:first-child{margin-top:4px}
 .gpsech .gpfilt{color:var(--muted);display:inline-flex;align-items:center}
