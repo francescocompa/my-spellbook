@@ -2752,10 +2752,10 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
 .scoremenu .mfin{font:inherit;font-size:13px;font-variant-numeric:tabular-nums;padding:5px 8px;border:1px solid var(--line-strong);border-radius:7px;background:var(--panel-2);color:inherit;width:100%;box-sizing:border-box}
 .scoremenu .mfin.bad{border-color:var(--bad)}
 .scoremenu .mfin:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-.scoremenu .mswitch{flex-direction:row;align-items:center;flex-wrap:wrap;column-gap:8px;cursor:default}
-.scoremenu .mswitch .mlab{flex:1 1 auto}
-.scoremenu .mswitch .swk{flex:0 0 auto;margin-left:auto}
-.scoremenu .mswitch .msub{flex-basis:100%}
+.scoremenu .mswitch{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:10px;align-items:center;cursor:default}
+.scoremenu .mswitch .mlab{grid-column:1;grid-row:1}
+.scoremenu .mswitch .msub{grid-column:1;grid-row:2}
+.scoremenu .mswitch .swk{grid-column:2;grid-row:1;align-self:center}   /* on the label's line, not centred across the note (D179) */
 /* the roll's reel (D178, from monster-forge's initiative roll): a 1em window, a column that scrolls to the result */
 .abbig .nf-digit{display:inline-block;height:1em;line-height:1;overflow:hidden;vertical-align:top}
 .abbig .nf-col{display:flex;flex-direction:column;transform:translateY(0);transition:transform 1.35s cubic-bezier(.16,.84,.3,1)}
@@ -2776,7 +2776,7 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
 .abhead{display:inline-flex;align-items:center;gap:3px}
 /* a saving-throw proficiency is a border on the chip itself (D178), inset so the chip keeps its size */
 .abchip.absv{box-shadow:inset 0 0 0 1px currentColor}
-.abbig{font-size:17px;font-weight:600;line-height:1.15}
+.abbig{font-size:17px;font-weight:600;line-height:1;height:1em;display:block;font-variant-numeric:tabular-nums}
 .abtot{font-size:11px;color:var(--muted);min-height:1.3em}
 /* the popover: the app's own menu surface, anchored to the tile — left-hung for the first
    three tiles, right-hung for the last three, so it never leaves the card at 375 */
@@ -2800,6 +2800,10 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
 .menupop .abpill{font:inherit;font-size:11px;font-weight:600;padding:1px 8px;border-radius:9px;border:1px solid var(--line);
   background:transparent;color:var(--muted);cursor:pointer;line-height:1.6}
 .menupop .abpill:hover{background:transparent;border-color:var(--line-strong);color:inherit}
+.menupop .abpill:disabled{opacity:.4;cursor:default;border-style:dashed}
+.menupop .abpill:disabled:hover{border-color:var(--line);color:var(--muted)}
+.menupop .apreset{font:inherit;font-size:11px;padding:1px 6px;border:none;background:none;color:var(--muted);cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px}
+.menupop .apreset:hover{background:none;color:inherit}
 .menupop .abpill.on{color:inherit;border-color:var(--ab-x);background:color-mix(in srgb,var(--ab-x) 14%,transparent)}
 .menupop .abpill.on.str{--ab-x:var(--ab-str)} .menupop .abpill.on.dex{--ab-x:var(--ab-dex)} .menupop .abpill.on.con{--ab-x:var(--ab-con)} .menupop .abpill.on.int{--ab-x:var(--ab-int)} .menupop .abpill.on.wis{--ab-x:var(--ab-wis)} .menupop .abpill.on.cha{--ab-x:var(--ab-cha)}
 .menupop .abadd{display:block;width:100%;margin-top:6px;padding:7px 10px;text-align:center;border:1px dashed var(--line-strong);
@@ -2814,3 +2818,9 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
 td .abnum{display:block;font-size:10.5px;color:var(--muted);white-space:nowrap;margin-top:1px}
 .trnum{text-align:center;font-weight:600}
 @media (max-width:420px){.abscores{gap:4px}.abscore{padding:5px 2px 4px}.abbig{font-size:15px}.abpop{width:236px}}
+
+/* the character name is a field that looks like a label until touched, exactly as the version
+   name is (D179): whatever a broader rule sets on inputs, at rest it has no border and no box */
+.menupop .bswgrpn,.bswpop .bswgrpn,.modal .bldchar,.bldhead .bldchar{border:1px solid transparent;background:none;box-shadow:none;outline:none}
+.menupop .bswgrpn:hover,.bswpop .bswgrpn:hover,.modal .bldchar:hover,.bldhead .bldchar:hover{border-color:var(--line-strong)}
+.menupop .bswgrpn:focus,.bswpop .bswgrpn:focus,.modal .bldchar:focus,.bldhead .bldchar:focus{border-color:var(--accent);background:var(--bg)}

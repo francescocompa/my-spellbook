@@ -319,6 +319,13 @@ his call (⚑ below).
   only → Str offers none, the holder keeps its pill; blank Wis focuses, filled Int does not;
   `4d6kh3` accepted and `nope` refused; Optimize re-sorts six values; six reels of 21 values
   land on the totals; engine 66 ok.
+  **Third review, six notes, D179 — v1.5.37:** disabled pills + Reset; no chip in the popover
+  header; face and reel share one geometry (0.00px); Optimize switch on its label's line; the
+  build switcher's character ⋯ menu (new empty version · delete character); character name
+  borderless at rest in both places. **Verified:** Cha offers +2 disabled while Int holds it,
+  Reset clears; the reel's last frame lands 0.00px from the face in x/y/w/h, same font; a new
+  empty version is blank, named v2, placed after its siblings, under the same character; delete
+  character arms then removes the group; builds and state restored byte-identical; engine 66 ok.
   Storage: `abilities` base six + `originBonus`, appended at the end of `serializeState` so
   untouched builds compare equal; one `choices` entry per ASI/+1 feat pick (D135's `##n`
   suffix keeps repeats distinct). Engine: a score at level L = base + origin + ASI choices at

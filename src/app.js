@@ -4775,6 +4775,21 @@ function newBuild(charName,verName){
   BUILDS.builds[b.id]=b; BUILDS.order.push(b.id);
   persistBuilds(); switchBuild(b.id);
 }
+// D179: a new EMPTY version under an existing character — the manager's duplicate copies
+// the state, this one starts blank, named like the next version would be
+function newVersionOf(char){
+  const sibs=buildsOf(char); if(!sibs.length)return;
+  const b=mkBuild(null,null,nextVersionName(char));
+  // named, always: an unnamed character auto-follows its build (D35), and a blank build
+  // would rename the whole group "New character" the moment it was created
+  b.meta.character=char; b.meta.named=true; sibs.forEach(x=>{x.meta.named=true;});
+  BUILDS.builds[b.id]=b;
+  BUILDS.order.splice(BUILDS.order.indexOf(sibs[sibs.length-1].id)+1,0,b.id);
+  persistBuilds(); switchBuild(b.id);
+}
+// every version of a character, gone — deleteBuild keeps the invariants (never no build,
+// the active one re-pointed), so it is called once per version rather than re-implemented
+function deleteCharacter(char){ buildsOf(char).map(b=>b.id).forEach(id=>deleteBuild(id)); }
 function openNewBuild(){
   closeMenu();
   $("#nbChar").value=""; $("#nbVer").value="";
@@ -4930,8 +4945,19 @@ function renderBswPop(){
     gh.append(nameInput("bswgrpn",char,v=>{
       buildsOf(char).forEach(b=>{b.meta.character=v;b.meta.named=true;});
       afterBuildMeta(true);}));
-    const nver=buildsOf(char).length;
-    gh.append(el("span","bsgn",nver===1?"1 version":nver+" versions"));
+    // D179: the count gave way to the character's own menu — a new empty version, or the
+    // character and every version of it gone (armed, D53). Same row menu the versions use.
+    const cdots=el("button","bswdots ico"); cdots.append(icoEl("dots"));
+    cdots.setAttribute("aria-label","Actions for "+char); cdots.title="New empty version, or delete the character";
+    const cmenu=el("div","bswmenu hidden");
+    const cmi=(ico,label,fn)=>{const x=el("button","bswmi");x.append(icoEl(ico,"mi"));x.append(document.createTextNode(label));
+      x.onclick=e=>{e.stopPropagation();fn(x);};return x;};
+    cmenu.append(cmi("plus","New empty version",()=>{closeMenu();newVersionOf(char);}));
+    const cdel=cmi("trash","Delete character",()=>{}); cdel.classList.add("danger");
+    armConfirm(cdel,null,()=>{closeMenu();deleteCharacter(char);});
+    cmenu.append(cdel);
+    cdots.onclick=e=>{e.stopPropagation(); const wasOpen=!cmenu.classList.contains("hidden"); closeBswMenus(); if(!wasOpen)placeBswMenu(cmenu,cdots);};
+    gh.append(cdots,cmenu);
     grp.append(gh);
     const rows=el("div","bsgrows"); grp.append(rows);
     buildsOf(char).forEach(b=>{
@@ -10611,7 +10637,7 @@ function renderScores(){
 function fillScorePop(a,pop){
   pop.innerHTML="";
   const main=mainAbilities(), sv=saveProfs(), base=state.abilities||{}, m=state.scoreMethod||"type";
-  const h=el("div","aph"); h.innerHTML=abChip(a)+" "+esc(ABIL[a]);
+  const h=el("div","aph"); h.append(el("span",null,ABIL[a]));   // D179: the name alone, no chip
   const tags=[main.has(a)?"main":"",sv.abils.has(a)?"save":""].filter(Boolean).join(" · ");
   if(tags)h.append(el("span","apr",tags));
   pop.append(h);
@@ -10639,11 +10665,16 @@ function fillScorePop(a,pop){
     line("Base",inp);
   }
   const ob=state.originBonus||{}, pills=el("span","appills");
-  originOptions(a).forEach(([n,lab,ok])=>{ if(!ok)return; const on=(ob[a]||0)===n;
+  originOptions(a).forEach(([n,lab,ok])=>{ const on=(ob[a]||0)===n;
+    // D179: a pill the budget rules out stays in place, DISABLED — the row keeps its shape
+    // and says why a +2 is not on offer, instead of quietly shrinking
     const b=el("button","abpill"+(on?" on "+a:""),lab); b.type="button"; b.setAttribute("aria-pressed",String(on));
+    if(!ok){b.disabled=true; b.title="The origin bonus is +2/+1 or +1/+1/+1; the other abilities already hold it";}
     b.onclick=()=>{state.originBonus=state.originBonus||{}; if(n)state.originBonus[a]=n; else delete state.originBonus[a]; again();};
     pills.append(b);});
-  line("Origin",pills);
+  const ol=line("Origin",pills);
+  if(Object.keys(ob).length){const rs=el("button","apreset","Reset"); rs.type="button"; rs.title="Clear the origin bonus on every ability";
+    rs.onclick=()=>{state.originBonus={}; again();}; ol.append(rs);}
   scoreParts(a,featsAt()).filter(x=>x.kind==="feat").forEach(x=>line(x.who,el("span","apn","+"+x.amt),"ro"));
   (state.scoreBonus||[]).forEach((b,i)=>{ if(b.ab!==a)return;
     const name=el("input","apname"); name.value=b.name||""; name.placeholder="Bonus name"; name.setAttribute("aria-label","Bonus name");
@@ -10665,7 +10696,7 @@ function renderScoreNums(){
   [...row.querySelectorAll(".abscore")].forEach(t=>{
     const a=AB_KEYS.find(k=>t.classList.contains(k)), v=a?sc[a]:null, isMain=main.has(a), isSave=sv.abils.has(a);
     t.classList.toggle("main",isMain);
-    t.querySelector(".abbig").textContent=v==null?"–":String(v);
+    t.querySelector(".abbig").innerHTML=`<span class="nf-digit"><span class="nf-col"><span class="nf-n">${v==null?"–":v}</span></span></span>`;
     t.querySelector(".abtot").textContent=v==null?"":fmtMod(scoreMod(v));
     const chip=t.querySelector(".abchip"); chip.classList.toggle("absv",isSave);
     chip.title=isSave?"Saving throw proficiency, from "+sv.cls+" (your first class)":"";

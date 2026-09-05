@@ -3122,6 +3122,35 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     `optimizeScores`, `animateScoreRoll`, the `freeAt` walk in `renderCart`, `.abchip.absv`,
     and `engine.test.js` fixture 12 (eleven assertions). **Affects:** D177(a,c,e), D70.
 
+- **D179 (2026-09-05) DECIDED — third review of the score block, and the character's own
+  menu in the build switcher.** His six notes on v1.5.36; amends D177/D178 in place.
+  - **(a) Origin pills stay in place and DISABLE** when the budget rules them out (dashed,
+    dimmed, a hover that says why), instead of disappearing (D178(a) hid them); a **Reset**
+    on the Origin row clears the bonus on every ability, shown only while one is set.
+  - **(b) The popover header is the ability's NAME alone** — the coloured chip was the
+    tile's label repeated an inch away.
+  - **(c) One geometry for the face and the reel.** The resting number is rendered in the
+    reel's own structure (a 1em window, a column, one cell), so the roll's last frame and
+    the face are the same box in the same font — measured 0.00px apart in x, y, width and
+    height. His note: *"a subtle font or placement difference with the final result"*.
+  - **(d) The build switcher's character row carries a ⋯ menu where the version count
+    was:** **New empty version** (a blank build under the same character, placed after its
+    siblings, named as the next version would be — and the character becomes NAMED, or the
+    D35 auto-follow would rename the whole group after the blank build) and **Delete
+    character** (armed, D53; every version through `deleteBuild`, which keeps the
+    never-no-build and active-repointed invariants). The manager keeps its count.
+  - **(e) The character name field has no resting border in either place**, exactly as the
+    version name: a rule scoped to the switcher and the manager pins it, whatever a broader
+    input rule says. (Measured transparent at rest before and after; the rule is a
+    guarantee, not a fix for a border found.)
+  - **(f) The Optimize switch sits on the label's line**, the note under the label only —
+    a two-column grid, not a wrapping row.
+  - **(g) Prepared budget & picks:** two shapes mocked (`scratchpad/mockups/picks.html`,
+    `python3 scratchpad/mkpicks.py`) — fold per class, group by level — 🔶 his pick.
+  - **Enforced by:** `originOptions` + the disabled pill in `fillScorePop`, `renderScoreNums`'s
+    reel-shaped face, `newVersionOf`/`deleteCharacter` and the group menu in `renderBswPop`,
+    the `.bswgrpn`/`.bldchar` resting-border rules, `.scoremenu .mswitch` grid.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives
