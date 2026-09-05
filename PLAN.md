@@ -326,6 +326,8 @@ his call (⚑ below).
   Reset clears; the reel's last frame lands 0.00px from the face in x/y/w/h, same font; a new
   empty version is blank, named v2, placed after its siblings, under the same character; delete
   character arms then removes the group; builds and state restored byte-identical; engine 66 ok.
+  **v1.5.38 (D180):** the picked chips grouped by level, a group past 12 chips one scrolling
+  row under the mask with a wrap-open toggle; the wizard tile reads `40/4`.
   Storage: `abilities` base six + `originBonus`, appended at the end of `serializeState` so
   untouched builds compare equal; one `choices` entry per ASI/+1 feat pick (D135's `##n`
   suffix keeps repeats distinct). Engine: a score at level L = base + origin + ASI choices at
@@ -352,7 +354,7 @@ his call (⚑ below).
 
 ## Open ⚑ — calls for Francesco
 
-- [ ] **Prepared budget & picks grows with the pick count** (his note, 2026-09-05, D178(g)): a
+- [x] **Prepared budget & picks grows with the pick count** (his note, 2026-09-05, D178(g)) → **D180, v1.5.38**: grouped by level, a big group one scrolling row. Was: a
   wizard with 40 book spells is 40 chips in the card. Options to bring: fold the chip run per
   class behind a count with a disclosure; group the chips by spell level as folded groups (the
   eligible list's own pattern); a one-line scrolling field under a mask (the D142(a)

@@ -16,7 +16,7 @@ APP_CSS = open(os.path.join(ROOT, "src", "styles.css"), encoding="utf-8").read()
 assert "</style" not in APP_CSS.lower()
 
 data = json.load(open(os.path.join(ROOT, "data", "data.json"), encoding="utf-8"))
-wiz = [s for s in data["spells"] if s.get("source") == "XPHB" and "wizard" in [c.lower() for c in (s.get("classes") or [])]]
+wiz = [s for s in data["spells"] if s.get("source") == "XPHB"]
 def names(level, n):
     out = sorted({s["name"] for s in wiz if s.get("level") == level})
     return out[:n]
@@ -64,7 +64,7 @@ def grouped(open_lv):
 
 CSS = """
 .mk-grid{display:flex;flex-wrap:wrap;gap:26px 30px;align-items:flex-start}
-.mk-col{width:470px}
+.mk-col{width:660px}
 .mk-col h2{font:600 13px/1.3 var(--sans);margin:0 0 6px}
 .mk-col p{font-size:12px;color:var(--muted);margin:0 0 10px;min-height:4em}
 .mk-pair{display:flex;gap:14px;align-items:flex-start}
@@ -77,12 +77,12 @@ CSS = """
 .mk-fold .lvlcar{flex:0 0 auto;position:relative;width:12px;height:12px;font-size:0}
 .mk-fold .lvlcar::before,.mk-lg .lvlcar::before{content:"";position:absolute;left:50%;top:50%;width:5px;height:5px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:translate(-50%,-50%) translateY(-1px) rotate(45deg)}
 .mk-fold .lvlcar.up::before,.mk-lg .lvlcar.up::before{transform:translate(-50%,-50%) translateY(1px) rotate(-135deg)}
-.mk-fsum{font-weight:600}
+.mk-fsum{font-weight:600;white-space:nowrap}
 .mk-fsub{color:var(--muted);margin-left:auto;white-space:nowrap}
 .mk-fold+.cartchips{margin-top:8px}
 /* 2 · level groups */
 .mk-lgs{margin-top:8px;display:flex;flex-direction:column;gap:4px}
-.mk-lg{display:flex;align-items:center;gap:8px;width:100%;padding:5px 6px;font:inherit;font-size:11.5px;font-weight:600;
+.mk-lg{display:flex;align-items:center;gap:8px;width:100%;white-space:nowrap;padding:5px 6px;font:inherit;font-size:11.5px;font-weight:600;
   color:var(--muted);background:none;border:none;border-top:1px solid var(--line);cursor:pointer;text-align:left;letter-spacing:.02em;text-transform:uppercase}
 .mk-lg .lvlcar{flex:0 0 auto;position:relative;width:12px;height:12px;font-size:0}
 .mk-lgn{margin-left:auto;font-weight:500;text-transform:none;letter-spacing:0;white-space:nowrap}

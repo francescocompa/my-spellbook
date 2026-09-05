@@ -8325,6 +8325,8 @@ function renderSlots(){
     cw.append(box);}
 }
 
+const PICK_ROW_MAX=12;               // past this a level group is one scrolling row (D180)
+const PICK_EXP=new Set();            // "classIdx@level" groups wrapped open this session
 function renderCart(){
   const body=$("#cartBody");body.innerHTML="";
   const nPick=Object.values(state.chosen).reduce((a,c)=>a+(c.cantrips?.length||0)+(c.spells?.length||0),0);
@@ -8425,9 +8427,9 @@ function renderCart(){
         cell.onclick=()=>openLevelPick(r.idx,L);
         // D178: a wizard's tile reads the FREE allowance as its ceiling, with the copies beside
         // it — "40/40" hid that only 4 of them were free; a copied spell never raises the cap
-        cell.innerHTML=copied
-          ?`<b>${free}<span class="dcap">/${free}</span><i class="dcopy">+${atL-free}</i></b><small>${ROMAN[L]}${L===r.maxLvl?" · max":""}</small>`
-          :`<b>${atL}<span class="dcap">/${ceil}</span></b><small>${ROMAN[L]}${L===r.maxLvl?" · max":""}</small>`;
+        // D180: held over free, plainly ("40/4") — the second number is the free allowance and
+        // that is the one that has to be right; the copies are the title's and the colour's
+        cell.innerHTML=`<b>${atL}<span class="dcap">/${copied?free:ceil}</span></b><small>${ROMAN[L]}${L===r.maxLvl?" · max":""}</small>`;
         dist.append(cell);}
       b.append(dist);
       if(wiz){const cpbtn=el("button","btn lbl-ico");cpbtn.append(icoEl("plus"),document.createTextNode("Copy a spell into your book"));
@@ -8435,17 +8437,36 @@ function renderCart(){
         cpbtn.title="Wizards can copy spells found in play into the book, beyond the free per-level allowance (any Wizard spell up to your top slot level).";
         cpbtn.onclick=()=>openLevelPick(r.idx,r.maxLvl);b.append(cpbtn);}
     }
-    // chosen chips
-    const picks=[...c.cantrips.map(k=>({k,cantrip:true})),...c.spells.map(k=>({k,cantrip:false}))];
-    if(picks.length){const cc=el("div","cartchips");
-      picks.map(p=>({...p,sp:SPELL_BY[p.k]})).filter(p=>p.sp).sort((a,b)=>a.sp.level-b.sp.level||a.sp.name.localeCompare(b.sp.name))
-        .forEach(p=>{const chip=el("span","cartchip");chip.append(el("span","lv",p.sp.level===0?"C":ROMAN[p.sp.level].replace(/\D/g,"")));
+    // chosen chips, grouped by spell level (D180). A group past PICK_ROW_MAX chips is ONE
+    // ROW that scrolls under a right-edge mask (the Access row's pattern, D124's `.tlchips`
+    // mask) with a toggle to wrap it open for the session; a small group wraps as before.
+    const picks=[...c.cantrips.map(k=>({k,cantrip:true})),...c.spells.map(k=>({k,cantrip:false}))]
+      .map(p=>({...p,sp:SPELL_BY[p.k]})).filter(p=>p.sp);
+    if(picks.length){
+      const byLv=new Map(); picks.forEach(p=>{const l=byLv.get(p.sp.level)||[]; l.push(p); byLv.set(p.sp.level,l);});
+      [...byLv.keys()].sort((a,b)=>a-b).forEach(L=>{
+        const items=byLv.get(L).sort((a,b)=>a.sp.name.localeCompare(b.sp.name));
+        const key=r.idx+"@"+L, many=items.length>PICK_ROW_MAX, exp=many&&PICK_EXP.has(key);
+        const g=el("div","pgrp"+(many?" many":"")); g.dataset.exp=exp?"1":"0";
+        const gh=el("div","pgh");
+        gh.append(el("span","pgl",L===0?"Cantrips":ROMAN[L]+" level"));
+        // the count, and for a wizard the free allowance at that level beside it
+        let n=String(items.length);
+        if(L>0&&kn&&kn.book){const cap=kn.cap[L]!=null?kn.cap[L]:kn.total; if(items.length>cap)n+=" · "+cap+" free";}
+        gh.append(el("span","pgn",n));
+        if(many){const tg=el("button","pgtoggle"); tg.type="button";
+          tg.title=exp?"Back to one row":"Show every chip"; tg.setAttribute("aria-label",tg.title); tg.setAttribute("aria-expanded",String(exp));
+          tg.onclick=()=>{if(exp)PICK_EXP.delete(key); else PICK_EXP.add(key); renderCart();};
+          gh.append(tg);}
+        g.append(gh);
+        const cc=el("div","cartchips");
+        items.forEach(p=>{const chip=el("span","cartchip");chip.append(el("span","lv",p.sp.level===0?"C":ROMAN[p.sp.level].replace(/\D/g,"")));
           // the pick itself carries the gap flag (D42's visible contract, at chip altitude):
           // its book is off, nothing is removed, the banner has the one-click fix
           if(!srcOn(p.sp.source)){chip.classList.add("gapped");
             chip.title=bookName(p.sp.source)+" is turned off in Sources. The pick is kept, not removed, and the banner above can turn the book back on.";}
           const nm=el("span",null,p.sp.name);attachSpell(nm,p.sp);chip.append(nm);const x=xBtn(null,()=>removeChosen(r.idx,p.k));chip.append(x);cc.append(chip);});
-      b.append(cc);}
+        g.append(cc); b.append(g);});}
     // granted (free) for this class
     body.append(b);
   });

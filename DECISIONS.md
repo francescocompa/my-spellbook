@@ -3151,6 +3151,25 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     reel-shaped face, `newVersionOf`/`deleteCharacter` and the group menu in `renderBswPop`,
     the `.bswgrpn`/`.bldchar` resting-border rules, `.scoremenu .mswitch` grid.
 
+- **D180 (2026-09-05) DECIDED — the picked chips are grouped by spell level, and a big group
+  is ONE ROW that scrolls.** Closes D178(g)/D179(g) after the two-shape mockup
+  (`scratchpad/mockups/picks.html`).
+  - **(a) Shape: group by level** (his pick of the two, amended): a header per level with
+    its count, the chips under it. **Not a fold** — past a threshold (12 chips) the group is
+    one row scrolling horizontally under the right-edge mask, exactly the Access row in a
+    spell's detail (D124's `.tlchips` mask), with a toggle that wraps it open; under the
+    threshold the chips wrap as before. *Rejected:* fold per class behind a summary line
+    (recommended; he preferred the levels readable at a glance); both combined; a
+    one-line field for the whole run; dropping the chips from the card.
+  - **(b) Open while few, folded past the threshold — automatic**, no state stored: a
+    group's manual wrap-open lives for the session only. *Rejected:* remembered per build;
+    always closed on load.
+  - **(c) The wizard tile reads held over free, plainly:** `40/4`, no `+36` — *"the key is
+    to get the second number correct"*. The copies stay in the tile's colour and title, and
+    the level header says "40 · 4 free".
+  - **Enforced by:** `PICK_ROW_MAX`, `PICK_EXP` and the `.pgrp` block in `renderCart`;
+    `.pgrp.many[data-exp="0"] .cartchips`. **Affects:** D178(f), D142(a), D124.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

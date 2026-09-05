@@ -2762,7 +2762,26 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
 .abbig .nf-n{height:1em;line-height:1;display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums}
 @media (prefers-reduced-motion:reduce){.abbig .nf-col{transition:none}}
 /* a wizard tile's copies, beside the free allowance (D178) */
-.dcell .dcopy{font-style:normal;font-size:10px;color:var(--accent);margin-left:2px}
+/* the picked chips, grouped by level (D180): a header row per level; a group past the
+   threshold is ONE ROW scrolling under the D124 mask, with a toggle to wrap it open */
+/* the group and its scroller are capped at the card: a nowrap row must scroll INSIDE, never widen the page */
+.pgrp{margin-top:8px;min-width:0;max-width:100%}
+/* width:0 + min-width:100%: the scroller contributes NOTHING to its column's intrinsic width
+   (the right column grew to 5,123px around a 40-chip row) and still fills the card */
+.pgrp.many[data-exp="0"] .cartchips{width:0;min-width:100%;box-sizing:border-box}
+.pgh{display:flex;align-items:center;gap:8px;min-height:20px}
+.pgl{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.pgn{font-size:11px;color:var(--muted)}
+.pgtoggle{flex:0 0 auto;margin-left:auto;position:relative;width:22px;height:22px;border:none;background:none;color:var(--muted);cursor:pointer;font-size:0;padding:0;transition:transform .15s,color .15s}
+.pgtoggle::before{content:"";position:absolute;left:50%;top:50%;width:7px;height:7px;border-right:1.6px solid currentColor;border-bottom:1.6px solid currentColor;transform:translate(-50%,-50%) translateY(-2.5px) rotate(45deg)}
+.pgtoggle:hover{color:var(--accent)}
+.pgrp[data-exp="1"] .pgtoggle{transform:rotate(180deg)}
+.pgrp .cartchips{margin-top:5px}
+.pgrp.many[data-exp="0"] .cartchips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;padding-bottom:1px;
+  -webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 34px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 34px),transparent)}
+.pgrp.many[data-exp="0"] .cartchips>*:last-child{margin-right:36px}
+.pgrp.many[data-exp="0"] .cartchips::-webkit-scrollbar{display:none;width:0;height:0}
+.pgrp.many[data-exp="0"] .cartchip{flex:0 0 auto;white-space:nowrap}
 .abscores{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}
 .abwrap{position:relative;display:block;min-width:0}
 .abscore{width:100%;box-sizing:border-box;font:inherit;color:inherit;cursor:pointer;display:flex;flex-direction:column;
