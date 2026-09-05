@@ -8383,22 +8383,21 @@ function renderCart(){
       if(c.ms.weighs){
         attachTip(msMeter,tipRows("Magical Secrets",[["Cap",String(c.ms.cap)],["From",`level ${c.ms.onset}`]])
           +`<p style="margin-top:6px">An off-list spell can only have been taken from L${c.ms.onset} on, so every one you hold BELOW that has already spent an acquisition event that would otherwise have reached your top spell levels. The per-level tiles above are narrowed to match.</p>`);}}
-    // Per-level tiles. Denominator = how many you can hold at that level right now:
-    // (picked here) + (room still addable). Daily preparers have a flat cap (free spread).
-    // Known/level-swap and wizard books have a progressive cap[L] = max at level ≥ L
-    // (L8 Bard caps IV at 4, III at 9, II/I at 12) — room = min over j≤L of cap[j] − held ≥ j.
-    // A wizard may exceed a level's cap by COPYING spells in: shown as "copied", not an error.
+    // Per-level ROWS (D181, folding D180's chip groups with the D70 tiles): every level from
+    // cantrips to the top castable one is a row — its name, the tile's numbers (held over
+    // what you can hold there: the D70 floor for a preparer, the FREE allowance for a wizard,
+    // whose copies never eat the levels below, D178(f)), and its chips. Past PICK_ROW_MAX the
+    // chips are ONE ROW scrolling under the mask, with a toggle at the row's right end (the
+    // Access row's, D147) that wraps the full list open for the session (D180(b)).
     const totalCap = kn ? kn.total : r.prepared;
-    if(r.maxLvl>=1 && totalCap>0){const dist=el("div","dist");
-      const lvlOf=k=>{const s=SPELL_BY[k];return s?s.level:-1;};
-      const capAt=j=>wiz?(kn.cap[j]!=null?kn.cap[j]:kn.total)
-        :kn?kn.total
-        :(c.capAdj&&c.capAdj[j]!=null)?c.capAdj[j]
-        :(cp&&cp.cap[j]!=null?cp.cap[j]:totalCap);
-      const geAt=j=>c.spells.filter(k=>lvlOf(k)>=j).length;
-      // D178: a wizard's COPIES never eat the allowance of the levels below — only the free
-      // picks at higher levels do. Walk top-down keeping the free count per level, so a book
-      // with 36 copied 2nd-level spells still reads "0/8" at 1st, not "0/0".
+    const lvlOf=k=>{const s=SPELL_BY[k];return s?s.level:-1;};
+    const capAt=j=>wiz?(kn.cap[j]!=null?kn.cap[j]:kn.total)
+      :kn?kn.total
+      :(c.capAdj&&c.capAdj[j]!=null)?c.capAdj[j]
+      :(cp&&cp.cap[j]!=null?cp.cap[j]:totalCap);
+    const geAt=j=>c.spells.filter(k=>lvlOf(k)>=j).length;
+    const tiles={};                  // L -> {ceil, cls, title}
+    if(r.maxLvl>=1 && totalCap>0){
       const freeAt={}; let freeAbove=0;
       for(let L=r.maxLvl;L>=1;L--){
         const atL=c.spells.filter(k=>lvlOf(k)===L).length;
@@ -8409,64 +8408,58 @@ function renderCart(){
         // room goes NEGATIVE when you are over the cap — and being over the TOTAL drives it
         // negative at every level at once, which used to print "4 of up to 0". A tile may
         // never claim you hold more than its own maximum: the denominator floors at what is
-        // actually held, and the .over state (plus the meter above) says what is wrong.
-        const free=wiz?Math.max(0,room):Math.max(0,atL+room);   // room left if you are not already over
+        // actually held (D70), and the .over state (plus the meter above) says what is wrong.
+        const free=wiz?Math.max(0,room):Math.max(0,atL+room);
         const ceil=Math.max(atL,free);
         const overFree=atL>free;
         const copied=overFree&&wiz;                 // wizard: extra = copied into the book (legal)
         const isErr=!!c.overLevels[L]||(overFree&&!copied);
-        const cell=el("div","dcell"+(L===r.maxLvl?" top":"")+(isErr?" over":copied?" copied":""));
-        cell.style.cursor="pointer";
-        cell.title=`${ROMAN[L]}-level ${wiz?"in your spellbook":r.static?"in your known spells":"prepared"} · ${atL} of up to ${ceil} at this level`
-          +(copied?` (+${atL-free} copied in beyond the free allowance)`
-            :overFree?`. You are over your ${wiz?"spellbook":r.static?"known":"prepared"} total, so there is no room left at any level until you drop some`
-            // an EMPTY tile zeroed by the shared over-total must not promise growth (D70's
-            // reason-clause, not its maths): leveling can't fill it while the total is over
-            :(room<0&&atL===0&&!wiz)?`. No room here while you are over your ${r.static?"known":"prepared"} total`
-            :r.static&&!kn?` (fills up gradually as you level)`:"")+`. Tap to edit.`;
-        cell.onclick=()=>openLevelPick(r.idx,L);
-        // D178: a wizard's tile reads the FREE allowance as its ceiling, with the copies beside
-        // it — "40/40" hid that only 4 of them were free; a copied spell never raises the cap
-        // D180: held over free, plainly ("40/4") — the second number is the free allowance and
-        // that is the one that has to be right; the copies are the title's and the colour's
-        cell.innerHTML=`<b>${atL}<span class="dcap">/${copied?free:ceil}</span></b><small>${ROMAN[L]}${L===r.maxLvl?" · max":""}</small>`;
-        dist.append(cell);}
-      b.append(dist);
-      if(wiz){const cpbtn=el("button","btn lbl-ico");cpbtn.append(icoEl("plus"),document.createTextNode("Copy a spell into your book"));
-        cpbtn.style.cssText="margin-top:8px;font-size:12px";
-        cpbtn.title="Wizards can copy spells found in play into the book, beyond the free per-level allowance (any Wizard spell up to your top slot level).";
-        cpbtn.onclick=()=>openLevelPick(r.idx,r.maxLvl);b.append(cpbtn);}
+        tiles[L]={ceil:copied?free:ceil,cls:(isErr?" over":copied?" copied":"")+(L===r.maxLvl?" top":""),
+          title:`${ROMAN[L]}-level ${wiz?"in your spellbook":r.static?"in your known spells":"prepared"} · ${atL} of up to ${copied?free:ceil} at this level`
+            +(copied?` (+${atL-free} copied in beyond the free allowance)`
+              :overFree?`. You are over your ${wiz?"spellbook":r.static?"known":"prepared"} total, so there is no room left at any level until you drop some`
+              :(room<0&&atL===0&&!wiz)?`. No room here while you are over your ${r.static?"known":"prepared"} total`
+              :r.static&&!kn?` (fills up gradually as you level)`:"")+`. Tap to edit.`};}
     }
-    // chosen chips, grouped by spell level (D180). A group past PICK_ROW_MAX chips is ONE
-    // ROW that scrolls under a right-edge mask (the Access row's pattern, D124's `.tlchips`
-    // mask) with a toggle to wrap it open for the session; a small group wraps as before.
-    const picks=[...c.cantrips.map(k=>({k,cantrip:true})),...c.spells.map(k=>({k,cantrip:false}))]
-      .map(p=>({...p,sp:SPELL_BY[p.k]})).filter(p=>p.sp);
-    if(picks.length){
-      const byLv=new Map(); picks.forEach(p=>{const l=byLv.get(p.sp.level)||[]; l.push(p); byLv.set(p.sp.level,l);});
-      [...byLv.keys()].sort((a,b)=>a-b).forEach(L=>{
-        const items=byLv.get(L).sort((a,b)=>a.sp.name.localeCompare(b.sp.name));
-        const key=r.idx+"@"+L, many=items.length>PICK_ROW_MAX, exp=many&&PICK_EXP.has(key);
-        const g=el("div","pgrp"+(many?" many":"")); g.dataset.exp=exp?"1":"0";
-        const gh=el("div","pgh");
-        gh.append(el("span","pgl",L===0?"Cantrips":ROMAN[L]+" level"));
-        // the count, and for a wizard the free allowance at that level beside it
-        let n=String(items.length);
-        if(L>0&&kn&&kn.book){const cap=kn.cap[L]!=null?kn.cap[L]:kn.total; if(items.length>cap)n+=" · "+cap+" free";}
-        gh.append(el("span","pgn",n));
-        if(many){const tg=el("button","pgtoggle"); tg.type="button";
-          tg.title=exp?"Back to one row":"Show every chip"; tg.setAttribute("aria-label",tg.title); tg.setAttribute("aria-expanded",String(exp));
-          tg.onclick=()=>{if(exp)PICK_EXP.delete(key); else PICK_EXP.add(key); renderCart();};
-          gh.append(tg);}
-        g.append(gh);
-        const cc=el("div","cartchips");
+    const byLv=new Map();
+    [...c.cantrips.map(k=>({k,cantrip:true})),...c.spells.map(k=>({k,cantrip:false}))]
+      .map(p=>({...p,sp:SPELL_BY[p.k]})).filter(p=>p.sp)
+      .forEach(p=>{const l=byLv.get(p.sp.level)||[]; l.push(p); byLv.set(p.sp.level,l);});
+    const rows=el("div","pgrows");
+    const topL=Math.max(r.maxLvl||0,...byLv.keys());
+    for(let L=0;L<=topL;L++){
+      const items=(byLv.get(L)||[]).sort((a,b)=>a.sp.name.localeCompare(b.sp.name));
+      const key=r.idx+"@"+L, many=items.length>PICK_ROW_MAX, exp=many&&PICK_EXP.has(key);
+      const g=el("div","pgrp"+(many?" many":"")); g.dataset.exp=exp?"1":"0";
+      const gh=el("div","pgh");
+      gh.append(el("span","pgl",L===0?"Cantrips":ROMAN[L]+" level"));
+      if(L===0){const t=el("span","pgtile"+(c.cantOver?" over":""));
+        t.innerHTML=`<b>${c.cantrips.length}<span class="dcap">/${r.cantrips||0}</span></b>`;
+        t.title=`Cantrips · ${c.cantrips.length} of ${r.cantrips||0}`; gh.append(t);}
+      else{const ti=tiles[L]; const t=el("button","pgtile"+(ti?ti.cls:"")); t.type="button";
+        t.innerHTML=`<b>${items.length}<span class="dcap">/${ti?ti.ceil:"–"}</span></b>`+(L===r.maxLvl?`<small>max</small>`:"");
+        t.title=ti?ti.title:"Tap to edit."; t.onclick=()=>openLevelPick(r.idx,L); gh.append(t);}
+      g.append(gh);
+      const row=el("div","pgrow");
+      if(!items.length)row.append(el("span","pgnone","none"));
+      else{const cc=el("div","cartchips");
         items.forEach(p=>{const chip=el("span","cartchip");chip.append(el("span","lv",p.sp.level===0?"C":ROMAN[p.sp.level].replace(/\D/g,"")));
           // the pick itself carries the gap flag (D42's visible contract, at chip altitude):
           // its book is off, nothing is removed, the banner has the one-click fix
           if(!srcOn(p.sp.source)){chip.classList.add("gapped");
             chip.title=bookName(p.sp.source)+" is turned off in Sources. The pick is kept, not removed, and the banner above can turn the book back on.";}
           const nm=el("span",null,p.sp.name);attachSpell(nm,p.sp);chip.append(nm);const x=xBtn(null,()=>removeChosen(r.idx,p.k));chip.append(x);cc.append(chip);});
-        g.append(cc); b.append(g);});}
+        row.append(cc);
+        if(many){const tg=el("button","pgtoggle"); tg.type="button";
+          tg.title=exp?"Back to one row":"Show every chip"; tg.setAttribute("aria-label",tg.title); tg.setAttribute("aria-expanded",String(exp));
+          tg.onclick=()=>{if(exp)PICK_EXP.delete(key); else PICK_EXP.add(key); renderCart();};
+          row.append(tg);}}
+      g.append(row); rows.append(g);}
+    b.append(rows);
+    if(wiz){const cpbtn=el("button","btn lbl-ico");cpbtn.append(icoEl("plus"),document.createTextNode("Copy a spell into your book"));
+      cpbtn.style.cssText="margin-top:8px;font-size:12px";
+      cpbtn.title="Wizards can copy spells found in play into the book, beyond the free per-level allowance (any Wizard spell up to your top slot level).";
+      cpbtn.onclick=()=>openLevelPick(r.idx,r.maxLvl);b.append(cpbtn);}
     // granted (free) for this class
     body.append(b);
   });

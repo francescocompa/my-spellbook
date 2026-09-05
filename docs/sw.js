@@ -1,7 +1,7 @@
 // My Spellbook — offline shell for the published build.
 // Written by build.py; CACHE carries the build's own stamp, so a deploy retires every
 // older cache the first time the new worker activates.
-const CACHE = "spellbook-7fa2fb5c372c";
+const CACHE = "spellbook-b59f5e99fb15";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./apple-touch-icon.png",
   "./icons/icon-192.png", "./icons/icon-512.png", "./icons/icon-maskable-512.png"];
 

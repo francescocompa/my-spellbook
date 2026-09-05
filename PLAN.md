@@ -328,6 +328,9 @@ his call (⚑ below).
   character arms then removes the group; builds and state restored byte-identical; engine 66 ok.
   **v1.5.38 (D180):** the picked chips grouped by level, a group past 12 chips one scrolling
   row under the mask with a wrap-open toggle; the wizard tile reads `40/4`.
+  **v1.5.39 (D181):** the tile row folded into the level rows (name · tile numbers · chips,
+  toggle at the chip row's right end); the Optimize switch's track restated; the manager's
+  version name borderless at rest.
   Storage: `abilities` base six + `originBonus`, appended at the end of `serializeState` so
   untouched builds compare equal; one `choices` entry per ASI/+1 feat pick (D135's `##n`
   suffix keeps repeats distinct). Engine: a score at level L = base + origin + ASI choices at

@@ -3170,6 +3170,28 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
   - **Enforced by:** `PICK_ROW_MAX`, `PICK_EXP` and the `.pgrp` block in `renderCart`;
     `.pgrp.many[data-exp="0"] .cartchips`. **Affects:** D178(f), D142(a), D124.
 
+- **D181 (2026-09-05) DECIDED — the level tiles fold into the level rows; and two D173-class
+  fixes.** His three closing notes; one mockup (`scratchpad/mockups/fold.html`,
+  `python3 scratchpad/mkfold.py`, shapes A and B), one interview.
+  - **(a) Shape A, chips always shown** (his pick, amended): the tile row is gone; every
+    level from cantrips to the top castable one is a row — its name, the tile's numbers
+    (held over what you can hold there, the max mark, the over/copied colour, tap to edit
+    picks as the tile did), and its chips under it. Past 12 chips the chips are ONE ROW
+    scrolling under the mask, and **the toggle sits at the chip row's right end**, as the
+    Access row's does in a spell's detail, wrapping the full list open. An empty level says
+    "none". *Rejected:* A with a chevron per row (chips hidden until opened); B, the tile
+    row kept with each tile a toggle for its level.
+  - **(b) Session memory only:** opened rows are remembered until reload, nothing stored.
+    *Rejected:* top level open by default; remembered per build.
+  - **(c) The Optimize switch had been stripped to its knob** by `.menupop button` (the
+    D173 trap: transparent track, 7px radius, 8px padding) — the track is restated inside
+    the score menu; OFF's ring measures 6.36:1.
+  - **(d) The version name in the manager measured a line-strong border on a filled box at
+    rest;** pinned borderless like the character name (D179(e)).
+  - **Enforced by:** the `tiles` map and `.pgrows` loop in `renderCart`, `.pgtile`,
+    `.pgrow` + `.pgtoggle`, `.scoremenu .mswitch .swk`, `.modal .bldname`. **Affects:**
+    D70 (the floor now lives in the row's tile), D178(f), D180.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

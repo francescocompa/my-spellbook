@@ -2762,22 +2762,30 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
 .abbig .nf-n{height:1em;line-height:1;display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums}
 @media (prefers-reduced-motion:reduce){.abbig .nf-col{transition:none}}
 /* a wizard tile's copies, beside the free allowance (D178) */
-/* the picked chips, grouped by level (D180): a header row per level; a group past the
-   threshold is ONE ROW scrolling under the D124 mask, with a toggle to wrap it open */
-/* the group and its scroller are capped at the card: a nowrap row must scroll INSIDE, never widen the page */
-.pgrp{margin-top:8px;min-width:0;max-width:100%}
-/* width:0 + min-width:100%: the scroller contributes NOTHING to its column's intrinsic width
-   (the right column grew to 5,123px around a 40-chip row) and still fills the card */
-.pgrp.many[data-exp="0"] .cartchips{width:0;min-width:100%;box-sizing:border-box}
-.pgh{display:flex;align-items:center;gap:8px;min-height:20px}
-.pgl{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
-.pgn{font-size:11px;color:var(--muted)}
-.pgtoggle{flex:0 0 auto;margin-left:auto;position:relative;width:22px;height:22px;border:none;background:none;color:var(--muted);cursor:pointer;font-size:0;padding:0;transition:transform .15s,color .15s}
+/* the per-level rows (D180 → D181): name · the tile's numbers · the chips. Past the threshold
+   the chips are ONE ROW scrolling under the D124 mask, the toggle at the row's right end */
+.pgrows{margin-top:8px;display:flex;flex-direction:column}
+.pgrp{min-width:0;max-width:100%;padding:4px 0;border-top:1px solid var(--line)}
+.pgh{display:flex;align-items:center;gap:8px;min-height:22px}
+.pgl{flex:1;min-width:0;font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.pgtile{font:inherit;font-size:11px;padding:2px 7px;border-radius:7px;border:1px solid var(--line-strong);background:var(--panel);color:inherit;
+  display:inline-flex;align-items:baseline;gap:5px;min-width:40px;justify-content:center;font-variant-numeric:tabular-nums}
+button.pgtile{cursor:pointer}
+.pgtile .dcap{color:var(--muted);font-size:9px;font-weight:400}
+.pgtile small{font-size:9px;color:var(--muted)}
+.pgtile.top{border-color:var(--accent)}.pgtile.top small{color:var(--accent)}
+.pgtile.copied{border-color:var(--accent);color:var(--accent)}
+.pgtile.over{border-color:var(--bad);color:var(--bad)}
+.pgrow{display:flex;align-items:flex-start;gap:6px;margin-top:4px}
+.pgrow .cartchips{flex:1 1 0;min-width:0;margin-top:0}
+.pgnone{font-size:11px;color:var(--muted);opacity:.7;padding:2px 0}
+.pgtoggle{flex:0 0 auto;position:relative;width:22px;height:22px;margin-top:1px;border:none;background:none;color:var(--muted);cursor:pointer;font-size:0;padding:0;transition:transform .15s,color .15s}
 .pgtoggle::before{content:"";position:absolute;left:50%;top:50%;width:7px;height:7px;border-right:1.6px solid currentColor;border-bottom:1.6px solid currentColor;transform:translate(-50%,-50%) translateY(-2.5px) rotate(45deg)}
 .pgtoggle:hover{color:var(--accent)}
 .pgrp[data-exp="1"] .pgtoggle{transform:rotate(180deg)}
-.pgrp .cartchips{margin-top:5px}
-.pgrp.many[data-exp="0"] .cartchips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;padding-bottom:1px;
+/* the one-row scroller: flex-basis 0 so it contributes no intrinsic width (the right column
+   grew to 5,123px around a 40-chip row) and still fills the row beside the toggle */
+.pgrp.many[data-exp="0"] .cartchips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;padding-bottom:1px;width:0;
   -webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 34px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 34px),transparent)}
 .pgrp.many[data-exp="0"] .cartchips>*:last-child{margin-right:36px}
 .pgrp.many[data-exp="0"] .cartchips::-webkit-scrollbar{display:none;width:0;height:0}
@@ -2843,3 +2851,13 @@ td .abnum{display:block;font-size:10.5px;color:var(--muted);white-space:nowrap;m
 .menupop .bswgrpn,.bswpop .bswgrpn,.modal .bldchar,.bldhead .bldchar{border:1px solid transparent;background:none;box-shadow:none;outline:none}
 .menupop .bswgrpn:hover,.bswpop .bswgrpn:hover,.modal .bldchar:hover,.bldhead .bldchar:hover{border-color:var(--line-strong)}
 .menupop .bswgrpn:focus,.bswpop .bswgrpn:focus,.modal .bldchar:focus,.bldhead .bldchar:focus{border-color:var(--accent);background:var(--bg)}
+/* D181: `.menupop button` had stripped the Optimize switch to its knob (the D173 trap once
+   more — it measured transparent, 7px radius, 8px padding): the track is restated here */
+.scoremenu .mswitch .swk{width:26px;height:15px;padding:0;border:none;border-radius:99px;background:var(--accent)}
+.scoremenu .mswitch .swk:hover{background:var(--accent)}
+.scoremenu .mswitch .swk.swoff,.scoremenu .mswitch .swk.swoff:hover{background:var(--panel-2);box-shadow:inset 0 0 0 1.5px var(--muted)}
+/* D181: the version name in the manager measured a line-strong border on a filled box at
+   rest; it is a label until touched, like the character name (D179(e)) */
+.modal .bldname,.bldrow .bldname{border:1px solid transparent;background:none;box-shadow:none}
+.modal .bldname:hover,.bldrow .bldname:hover{border-color:var(--line-strong)}
+.modal .bldname:focus,.bldrow .bldname:focus{border-color:var(--accent);background:var(--bg)}
