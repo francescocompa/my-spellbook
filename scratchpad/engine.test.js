@@ -407,5 +407,57 @@ const casterLevel = (slots) => {
   SB.set.data({ fullMc: data.fullMc, pact: data.pact, sources: {} });
 }
 
+// ── 14 · a guide step owns ONE slot, so a full slot CHANGES (D185) ─────────
+// His report: *"there is no way to change a selected feat in the guided builder"*. The
+// obvious gesture — click the feat you want instead — ran `takeFeat`, which fills a hole or
+// appends and never consults the budget, so an origin step read `origin 2/1` while its card
+// still named the first feat. Inside the guide the picker now carries `owns`, the entry
+// answering THIS step; once the slot budget is full a take drops that one first, and the new
+// entry lands in the hole it leaves so it keeps the level the slot arrives at. Two things
+// must stay true or the fix trades one silent bug for another: an IN-BUDGET add must not
+// re-point ownership (a second metamagic at Sorcerer 2 belongs to the second step), and
+// `owns` null — every other surface — must leave the old add-and-flag behaviour alone.
+{
+  const OPTS = {
+    "Careful Spell|XPHB": { name: "Careful Spell", source: "XPHB", types: ["MM"] },
+    "Distant Spell|XPHB": { name: "Distant Spell", source: "XPHB", types: ["MM"] },
+    "Empowered Spell|XPHB": { name: "Empowered Spell", source: "XPHB", types: ["MM"] },
+  };
+  SB.set.optBy(OPTS);
+  const slot = { name: "Metamagic", types: ["MM"], cap: 2 };
+  const stand = (optFeats, owns) => {
+    SB.set.state({ ...SB.blankBuildState(), filters: SB.FILTER_DEFAULT(), optFeats });
+    SB.set.ent({ kind: "opt", slot, owns });
+  };
+  const take = (k) => { const swapped = SB.entOwnsSwap(); SB.takeOpt(k); return swapped; };
+
+  stand(["Careful Spell|XPHB"], { key: "Careful Spell|XPHB" });
+  eq("14a · under the cap a take is an ADD, not a change", SB.entSlotSpend(), { have: 1, cap: 2 });
+  eq("14b · …so nothing is dropped and both are held",
+    [take("Distant Spell|XPHB"), SB.get.state().optFeats],
+    [false, ["Careful Spell|XPHB", "Distant Spell|XPHB"]]);
+
+  stand(["Careful Spell|XPHB", "Distant Spell|XPHB"], { key: "Careful Spell|XPHB" });
+  eq("14c · at the cap the step's OWN entry goes and the sibling's is untouched",
+    [take("Empowered Spell|XPHB"), SB.noHoles(SB.get.state().optFeats)],
+    [true, ["Distant Spell|XPHB", "Empowered Spell|XPHB"]]);
+
+  // The drop leaves the SLOT (D146) — that is what holds the sibling at its own position and
+  // so at its own level. Which INDEX the replacement then lands in is `optHoleFor`'s job and
+  // fixture 7's subject; it needs a class to map a hole's tag to a progression, which this
+  // fixture deliberately does not stand up.
+  stand(["Careful Spell|XPHB", "Distant Spell|XPHB"], { key: "Careful Spell|XPHB" });
+  SB.entOwnsSwap();
+  eq("14d · the drop leaves the slot standing rather than sliding the sibling up a level",
+    [SB.get.state().optFeats.map(SB.isHole), SB.get.state().optFeats[1]],
+    [[true, false], "Distant Spell|XPHB"]);
+
+  stand(["Careful Spell|XPHB", "Distant Spell|XPHB"], null);
+  eq("14e · with no step asking — every surface outside the guide — nothing is ever dropped",
+    [take("Empowered Spell|XPHB"), SB.get.state().optFeats],
+    [false, ["Careful Spell|XPHB", "Distant Spell|XPHB", "Empowered Spell|XPHB"]]);
+  SB.set.ent(null);
+}
+
 console.log(`\n${pass} ok · ${fail} fail`);
 process.exit(fail ? 1 : 0);

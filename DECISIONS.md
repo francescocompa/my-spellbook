@@ -1614,6 +1614,44 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     covers the landing rule and the padding; both go red if either is re-pointed at
     `firstOpen`. **Affects:** D125 (premise corrected), D146, D118(b,g), GOTCHAS.md.
 
+- **D185 (2026-09-05) DECIDED — the guide gives the detail surface back, and a step that
+  owns a slot CHANGES it rather than overspending.** Two reports: *"on the guided builder
+  character view, I should be able to open spell details or other details"* and *"there is no
+  way to change a selected feat in the guided builder."* Unrelated causes, both reproduced.
+  Shipped as v1.5.43.
+  - **(a) The detail surface comes back when the walk goes aside.** `SPMODAL` is a SINGLETON
+    that the stage BORROWS: above 1100px `stagePrev()` MOVES it into the guide's preview pane
+    (D166) so clicking a name fills the pane instead of opening a dialog. `renderGuide`
+    returned at `aside` BEFORE the code that hands it back, so the guide slid off-screen and
+    `inert` still holding the app's only detail box — and every detail the character view
+    opened rendered into it. The click worked, the state changed, nothing appeared: D149(e)'s
+    dead-control shape, one layer out. `stagePrevPut()` now runs on the way out. The PICKER
+    stays hosted, so returning finds the step as you left it (D130(e)) and re-borrows the
+    surface — a detail you were reading follows you back into the pane. *Rejected:* dropping
+    the whole hosted picker on the way out (loses the step's open surface, which is exactly
+    what the aside contract promises to keep); giving the pane a detail box of its own (two
+    surfaces to keep in step, and D166 chose the move for that reason).
+  - **(b) A guide step owns ONE slot, so a full slot changes rather than overspends.**
+    `takeFeat`/`takeOpt` fill a hole or append and never consult the budget — right outside
+    the guide (flag, don't prune, D42) and wrong inside it, where a step's card claims one
+    answer. Clicking a second origin feat read **`origin 2/1`** with the card still naming the
+    first; three metamagics read `3/2`. The picker now carries `owns`, a DESCRIPTOR (`{key}`,
+    null while the slot is empty) handed over by the CALL SITE and never read off the walk
+    (D133(a)) — so every other surface leaves it null and keeps the old behaviour. Once
+    `entSlotSpend()` says the slot is full, a take drops what THIS step holds and the new
+    entry lands in the hole it leaves (D146), keeping the level that slot arrives at.
+    **Within budget nothing changes**: two metamagics at Sorcerer 2 are still two clicks, and
+    an in-budget add does NOT re-point ownership — that pick went to a SIBLING step's slot,
+    and aiming the next change at it would rewrite another step's answer. His call, over
+    refusing the click with a "this slot is full" message, and over showing every feat in the
+    slot on the card and leaving the overspend. Covers feats AND optional features, his call:
+    one code path, and fixing one would leave a known twin.
+  - **Enforced by:** src/app.js `renderGuide`'s aside branch; `entSlotSpend` (the one owner of
+    the numbers the budget pill prints, so the pill and the rule cannot disagree),
+    `entOwnsSwap`, `ENT.owns`, and the `held` field on feat/optfeat sections. **Fixture 14**
+    in `scratchpad/engine.test.js` pins the cap rule and the untouched sibling; it goes red on
+    a revert. **Affects:** D166, D149(e), D130(e), D42, D84, D146, GOTCHAS.md.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

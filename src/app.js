@@ -1620,7 +1620,8 @@ function guideSteps(){
     const st=add({key:"feat~"+i,lv:slv,ord:slv===1?3:6,kind:"feat",slot:"origin",pos:i,
       sub:"Origin feat",label:"Origin feat",multiLabel:f?f.name:"Origin feat",
       sections:[gsec({id:"self",kind:"feat",label:"Origin feat",slot:"origin",pos:i,
-        done:!!f,value:f?f.name:null})]});   // an EMPTY SLOT holds the slot, not the answer (D146)
+        done:!!f,value:f?f.name:null,
+        held:(fk&&!isHole(fk))?fk:null})]});   // an EMPTY SLOT holds the slot, not the answer (D146)
     if(fk&&!isHole(fk))hostBy.set("f"+fk+"@"+slv,st);});
   // one class step per character level — the wizard's "continue or multiclass" answer
   // (D118(e)); every level the plan holds is a decision already made
@@ -1681,7 +1682,8 @@ function guideSteps(){
     const st=add({key:"feat~"+(originCap+i),lv,ord:6,kind:"feat",slot:lv>=19?"epic":"general",
       pos:originCap+i,sub:lab,label:lab,multiLabel:f?f.name:lab,
       sections:[gsec({id:"self",kind:"feat",label:lab,slot:lv>=19?"epic":"general",
-        pos:originCap+i,done:!!f,value:f?f.name:null})]});   // D146
+        pos:originCap+i,done:!!f,value:f?f.name:null,
+        held:(fk&&!isHole(fk))?fk:null})]});   // D146
     if(fk&&!isHole(fk))hostBy.set("f"+fk+"@"+lv,st);});
   // optional-feature slots ride their progression's counts (D28), like optAcqLevels()
   const oa=optAcqLevels(), byProg=new Map();
@@ -1701,7 +1703,8 @@ function guideSteps(){
         const st=add({key:"optfeat~"+row.id+"~"+p.name+"~"+lv+"~"+k,lv,ord:6,kind:"optfeat",
           row:row.id,pos:k,sub:p.name,label:p.name,multiLabel:o?o.name:p.name,pool,
           sections:[gsec({id:"self",kind:"optfeat",label:p.name,pool,done:!!ok,
-            value:o?o.name:null})]});
+            value:o?o.name:null,
+            held:(ok&&!isHole(ok))?ok:null})]});
         if(ok)hostBy.set("o"+ok+"@"+lv,st);}}});}));
   // D126(g) · D130(c): every choice the build carries is a SECTION of the step for the
   // feature that granted it — Magic Initiate's list, its ability, its cantrips and its
@@ -2036,7 +2039,14 @@ function renderGuide(){
   const steps=(R&&R.gsteps&&R.gsteps.length)?R.gsteps:guideSteps();
   const cur=(GUIDE.cur&&steps.find(x=>x.key===GUIDE.cur))||null;
   renderGuideBack(steps,cur);
-  if(aside)return;
+  // D185(a): the detail surface is a SINGLETON the stage BORROWS — `stagePrev` MOVES
+  // `SPMODAL` into the preview pane rather than drawing a second one. A slid-away guide is
+  // off-screen and `inert`, so leaving with the borrow held sent every detail the character
+  // view opened into a box nobody could reach: the click worked, the state changed, and
+  // nothing appeared — the exact shape of a dead control (D149(e)'s lesson, one layer out).
+  // Give it back here. The PICKER stays hosted, so coming back finds the step as you left
+  // it (D130(e)), and `stagePickMount` re-borrows the surface on the way in.
+  if(aside){stagePrevPut();return;}
   renderGuideHead(steps);
   v.classList.toggle("gvchain",GUIDE.pane==="chain");
   v.classList.toggle("railshut",!!GUIDE.railShut);   // D166(d): the rail, collapsed by hand
@@ -2716,13 +2726,16 @@ function guideSubSelect(rowId,rowOf){
 }
 // the app's OWN optional-feature picker for this progression's slot (D126(g)) — the same
 // call the timeline's quick-choose makes, so there is one invocation picker, not two
-function guideOptBtn(pool,label,cls){
+function guideOptBtn(pool,label,cls,owns){
   if(!pool||!pool.prog)return null;
   const b=el("button","btn"+(cls||""),label);
   b.onclick=()=>openGainChooser({kind:"opt",prog:pool.prog,giver:pool.giver,
-    giverSrc:pool.giverSrc,cl:pool.cl});
+    giverSrc:pool.giverSrc,cl:pool.cl,owns:{key:owns||null}});
   return b;
 }
+// the feat CATEGORY a guide section's slot draws on. Two callers had this ternary inline
+// and a third would have copied it; origin ⊆ general is the rule it encodes (D84).
+const featSecCat=sec=>sec.slot==="epic"?"epic":sec.slot==="origin"?"origin":"general";
 // dropping ONE pick from a chip's ✕ (D130(b)). Both paths are the app's existing writers —
 // a class pick goes through `toggle` (the same call the modal's ✓ row makes) and a granted
 // choice through the same `state.choices` filter the Choices card's chip uses. The tip on
@@ -2852,8 +2865,7 @@ function guideSecBlock(step,sec,rowOf,inline){
     if(!inline){
       const btn=el("button","btn"+(sec.done?"":" on gbig"),
         sec.done?"Change the feat":"Choose a feat");
-      btn.onclick=()=>openEntityPicker("feat",
-        sec.slot==="epic"?"epic":sec.slot==="origin"?"origin":"general");
+      btn.onclick=()=>openEntityPicker("feat",featSecCat(sec),{owns:{key:sec.held||null}});
       b.append(btn);
     }
     // the ASI note is reference — how to express a choice this app deliberately does not
@@ -2871,7 +2883,8 @@ function guideSecBlock(step,sec,rowOf,inline){
   if(sec.kind==="optfeat"){
     if(sec.done&&!multi)b.append(val(sec.value));
     const btn=guideOptBtn(sec.pool,sec.done?"Change it"
-      :"Choose "+String(sec.label).replace(/s$/,"").toLowerCase(),sec.done?"":" on gbig");
+      :"Choose "+String(sec.label).replace(/s$/,"").toLowerCase(),sec.done?"":" on gbig",
+      sec.held||null);
     if(btn)b.append(btn);
     else b.append(hint("This slot's progression has no chooser of its own. Its options are on the character view, under Optional features."));
     return guideSecWrap(step,sec,b);
@@ -3270,8 +3283,7 @@ function guideSecOpen(step,sec){
   if(!sec)return null;
   if(sec.kind==="pick"||sec.kind==="cpick")return ()=>openGpickSec(step,sec);
   if(sec.kind==="species")return ()=>openEntityPicker("species");
-  if(sec.kind==="feat")return ()=>openEntityPicker("feat",
-    sec.slot==="epic"?"epic":sec.slot==="origin"?"origin":"general");
+  if(sec.kind==="feat")return ()=>openEntityPicker("feat",featSecCat(sec),{owns:{key:sec.held||null}});
   // D168: a class level answers with the same full-size picker species and feats have.
   // A step that already HOLDS a level opens it on that level (picking rewrites it); the
   // growth step opens it with no level, where picking takes the next one.
@@ -4467,7 +4479,13 @@ function openEntityPicker(kind,category,at){
   // resting menu show no selection at all, which is half of why the old preset-all row
   // looked like a wall. D171's Mystic guard survives it: an untouched row still filters
   // nothing, so a class the books state no primary for is only ever hidden deliberately.
+  // D185(b): the guide opens this picker FOR ONE STEP, and that step owns one slot. `owns`
+  // is a DESCRIPTOR, not a key — `{key}` is null while the slot stands empty, and its mere
+  // presence is what says "a step is asking this". Handed over by the CALL SITE, never read
+  // off the walk here (D133(a)), so every other surface that opens this picker leaves it
+  // null and keeps the plain add-and-flag behaviour D42 asks for.
   ENT={kind,category,slot,lv,q:"",books:new Set(SRC),grantsOnly:false,
+       owns:(at&&at.owns)||null,
        cats:new Set(),catList,abils:new Set(),prq:new Set(),raise:new Set(),open:null};
   $("#entTitle").textContent = kind==="opt"?`Choose ${slot.name.replace(/s$/,"").toLowerCase()}`
     : kind==="species"?"Choose a species / lineage"
@@ -4690,13 +4708,19 @@ function renderEntityList(){
     btn.setAttribute("aria-label",blbl);
     btn.title=blbl+(pr.state==="no"?" · you don’t meet its prerequisites, you can still take it":"");
     btn.onclick=()=>{
+      let swapped=false;
       // a local override can reveal a book the global selection has off; committing a pick
       // from it enables that book globally, otherwise afterSourceChange would prune the pick
       if(!on&&!srcOn(it.source)){SRC.add(it.source);saveSources();ENT.note=`Enabled ${bookName(it.source)} in your sources`;}
       if(ENT.kind==="species"){state.speciesKey=on?"":k;}
-      else if(ENT.kind==="opt"){ if(on)dropOptCopy(k); else takeOpt(k); }
+      else if(ENT.kind==="opt"){ if(on)dropOptCopy(k); else{ swapped=entOwnsSwap(); takeOpt(k); } }
       else{ if(on)dropFeatCopy(k);
-            else takeFeat(k,ENT.category||featSlot(it)); }
+            else{ swapped=entOwnsSwap(); takeFeat(k,ENT.category||featSlot(it)); } }
+      // what the STEP holds, re-pointed only where this take really answered ITS slot: the
+      // slot stood empty, or the take replaced what was in it. An in-budget add went to a
+      // SIBLING slot — a second metamagic at Sorcerer 2 belongs to the second Metamagic
+      // step — and re-pointing there would aim the next change at another step's answer.
+      if(ENT.owns&&!on&&(swapped||!ENT.owns.key))ENT.owns.key=k;
       save();refreshAll();render();renderEntityList(); };
     row.append(btn);
     // "You can gain this invocation more than once" (D135). The take button keeps its own
@@ -5711,6 +5735,37 @@ function openPrqPop(anchorEl,pick){
   PRQPOP.style.top=(r.bottom+6+h>innerHeight?Math.max(8,r.top-h-6):r.bottom+6)+"px";
 }
 const sameSet=(a,b)=>!!a&&!!b&&a.size===b.size&&[...a].every(x=>b.has(x));
+// how many of this picker's slot are spent, and how many there are — the numbers the
+// budget pill prints. ONE owner (D185(b)): the pill reading `origin 1/1` and the rule that
+// decides whether a click is a change rather than a second spend must never disagree.
+function entSlotSpend(){
+  if(!ENT||ENT.kind==="species"||ENT.kind==="class")return null;
+  if(ENT.kind==="opt"){
+    const have=state.optFeats.filter(k=>{const o=OPT_BY[baseKey(k)];
+      return o&&o.types.some(t=>ENT.slot.types.includes(t));}).length;
+    return {have,cap:ENT.slot.cap};}
+  const b=featBudget();
+  return ENT.category==="origin"?{have:b.originPicked,cap:b.origin}
+    :ENT.category==="epic"?{have:b.epicPicked,cap:b.epic}
+    :{have:b.slotsUsed,cap:b.general};
+}
+// A GUIDE STEP OWNS ONE SLOT, and its card claims one answer (D185(b)). Taking another
+// entry while the slot budget is already full is a CHANGE, not a second spend: drop what
+// this step holds and the new entry lands in the hole it leaves (`featHoleFor`/`optHoleFor`
+// find it), so it keeps the level that slot arrives at. Within budget nothing changes —
+// two metamagics at Sorcerer 2 are still two clicks — and outside the guide `ENT.owns` is
+// null, so the character view keeps adding and flagging exactly as D42 asks.
+// His report: *"there is no way to change a selected feat in the guided builder"* — the
+// obvious gesture read `origin 2/1` and left the card still naming the first feat.
+function entOwnsSwap(){
+  const o=ENT&&ENT.owns; if(!o||!o.key)return false;
+  const sp=entSlotSpend(); if(!sp||!sp.cap||sp.have<sp.cap)return false;
+  const arr=ENT.kind==="opt"?state.optFeats:state.feats;
+  const i=arr.findIndex(x=>!isHole(x)&&x===o.key);
+  if(i<0)return false;
+  if(ENT.kind==="opt")dropOptAt(i); else dropFeatAt(i);
+  return true;
+}
 // what the picker owes you at this level: the feat budget, or the slot's own count
 function renderEntBudget(){
   const box=$("#entBudget");if(!box)return;
@@ -7651,7 +7706,7 @@ function openGainChooser(pick){
     const sl=optSlots().find(s=>s.name===pick.prog.name)
       ||{name:pick.prog.name,types:pick.prog.types,cap:pick.prog.counts[Math.max(0,pick.cl-1)]||1,
          picked:[],giver:pick.giver,giverSrc:pick.giverSrc};
-    openEntityPicker("opt",sl);}
+    openEntityPicker("opt",sl,{owns:pick.owns||null});}
 }
 // Spellcasting runs on TWO clocks, and a caster-caster multiclass pulls them apart:
 //   • MAX SPELL LEVEL is set by that class's OWN level — multiclassing never raises it.
@@ -11620,6 +11675,8 @@ if(typeof module!=="undefined"&&module.exports){
     isHole,hole,holeTag,baseKey,sameEnt,trimHoles,noHoles,nextCopy,copyCount,
     // where a pick LANDS: the section owns the slot, not the row's first hole (D184)
     secOpenSlot,firstOpen,dropSlot,toggle,blankBuildState,FILTER_DEFAULT,
+    // a guide step owns ONE slot: a full slot CHANGES rather than overspends (D185)
+    entOwnsSwap,entSlotSpend,takeOpt,optHoleFor,
     // ability scores + proficiency bonus (D176)
     abilityScores,featScoreGains,profBonus,castNums,scoreMod,featsAt,scoreParts,mainAbilities,saveProfs,fillOrder,fillScores,pointsSpent,originOptions,parseFormula,rollFormula,formulaRange,optimizeScores,
     // storage and digest integrity
@@ -11627,6 +11684,8 @@ if(typeof module!=="undefined"&&module.exports){
     // let the fixture stand the module up
     // `state` and `PREVIEW` are const objects, so they are PATCHED, never replaced — the
     // same reason the app itself never reassigns them.
+    // read the module's own state back — the fixtures mutate it through the app's writers
+    get:{state:()=>state},
     set:{
       data:v=>{DATA=v;},
       clsBy:v=>{CLS_BY=v;},
@@ -11634,6 +11693,8 @@ if(typeof module!=="undefined"&&module.exports){
       featBy:v=>{FEAT_BY=v;},
       imported:v=>{IMPORTED=v;},
       state:v=>{Object.keys(state).forEach(k=>{delete state[k];});Object.assign(state,v);},
+      ent:v=>{ENT=v;},
+      optBy:v=>{OPT_BY=v;},
       preview:v=>{Object.assign(PREVIEW,v);},
     },
   };

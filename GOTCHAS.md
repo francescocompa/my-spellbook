@@ -197,6 +197,23 @@
   LEVEL (`R.pool` is per level — standing the view on the landing's level re-caps the list
   before the cap is ever consulted) and the write. Fixture 13 in `engine.test.js` goes red on
   any of them.
+- **The guide's preview pane MOVES the app's only detail surface, so anything that leaves the
+  guide mounted must give it back (D185(a)).** `SPMODAL` is a singleton; above 1100px
+  `stagePrev()` re-parents it into the stage so a name click fills the pane instead of opening
+  a dialog. `renderGuide` returned at `aside` before the hand-back, so the walk slid off-screen
+  and `inert` still holding it — and every detail the CHARACTER VIEW opened went into that box.
+  The click worked, `#spmodal` was shown, and nothing appeared. Same shape as D149(e)'s
+  modal-under-a-modal, one layer out. Any future surface that borrows a singleton node has to
+  return it on every exit path, not just the one that tears the host down.
+- **A shared writer plus a step that owns a slot is an overspend waiting to happen
+  (D185(b)).** `takeFeat`/`takeOpt` fill a hole or append and never read the budget — correct
+  outside the guide (flag, don't prune, D42) and wrong inside it, where a step's card claims
+  ONE answer. Clicking a second origin feat gave `origin 2/1` with the card still naming the
+  first. The budget test and the pill the picker prints now come from ONE function
+  (`entSlotSpend`), and the step's ownership travels as `ENT.owns` from the CALL SITE (D133(a))
+  so no other surface inherits the behaviour. **The subtle half: an IN-BUDGET add must not
+  re-point ownership** — that pick went to a SIBLING step's slot (the second metamagic at
+  Sorcerer 2), and re-pointing would aim the next change at another step's answer.
 - **Nothing may re-render from inside a render pass (D164).** `renderGuideStage` clears the
   stage and rebuilds it; anything it calls that itself calls `render()` — opening a picker,
   closing a stale one — runs a SECOND clear-and-rebuild inside the first, and which half
