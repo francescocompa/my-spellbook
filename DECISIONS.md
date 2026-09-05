@@ -3014,6 +3014,40 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     both-extractors rule, D50 (stat-block prose rides the same stripper), D147 (the Access
     chips stay unlinked), D149 (the choices block), D164.
 
+- **D176 (2026-09-05) DECIDED — the character-creator question: every destination is valid,
+  and the boundary moves ONE rung at a time, scores + proficiency bonus first.** Closes
+  D158(c)'s "decision entry first" (L5.8) and answers the question D158(a) recorded without
+  answering. The study is `audits/character-creator-feasibility.md` (§6 has the three
+  directions, §4 the ladder N0–N6).
+  - **(a) Where a character lives.** Raw answer, to *"Where does a character live once it
+    leaves My Spellbook?"*: **"All of these options"** — in My Spellbook itself, in
+    character-forge or Notion, and on paper. Read as: the app is a creator in its own right
+    AND the ecosystem's compiler AND the paper source, so no destination can be designed out.
+    Consequence: the export surfaces (A-03 text plan for paper and Notion, A-09 the
+    character-forge chassis) are part of the horizon, not alternatives to it; D36's
+    file-export-only rule still bounds them. *Rejected:* one home (would have let one of the
+    three directions retire the others).
+  - **(b) How far, now: scores and proficiency bonus only** (N1 = A-06 as costed in
+    `audits/A-direction.md` §3). Six base scores, the origin +2/+1 bonus, one `choices` entry
+    per ASI or +1 feat pick, PB from character level; DC and attack per source on the table
+    and the printed sheet, custom-source DC defaulting to "yours", prerequisite `checks` on a
+    score resolving to pass/fail while every other check stays advisory (D31 holds). **Not
+    in this rung:** backgrounds as entities, saves, skills, tools, HP, AC, gear, a sheet page.
+    CLAUDE.md's non-goal sentence moves from "not modelled" to "scores and proficiency bonus
+    only, nothing else" when N1 ships. *Rejected:* N1–N3 (scores, backgrounds,
+    proficiencies — what a character-forge chassis needs; queued as the next rung, not
+    taken); N1–N6 (everything, including gear and a sheet; only coherent with the
+    spellbook-as-sole-home reading, which (a) declined).
+  - **(c) The ladder is gated per rung.** Each further rung (N2 backgrounds, N3
+    proficiencies/HP/AC, N4 gear, N5 sheet + second print kind, N6 homebrew for the new
+    kinds) needs its own decision entry naming what stays out, because the audit's warning
+    stands: once scores exist the next request is saves and skills. **D118(d)'s "full
+    character creator (a different app)" is NOT superseded** by this entry — it is questioned
+    rung by rung; N5 is the rung that would supersede it, and that call is his.
+  - **Enforced by:** this entry, PLAN.md's Phase N, `engine.test.js` fixtures for the slice
+    of scores (N1's done-when). **Affects:** CLAUDE.md non-goals (at N1 ship), D31, D115(b,h),
+    D142(b), D148(c), D158(a,c), PLAN L5.8 (closed by this entry).
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

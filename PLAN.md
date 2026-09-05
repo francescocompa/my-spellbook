@@ -245,7 +245,8 @@ D157 owns the charter, the agents, the rejected shapes — cite it. Reports land
   - [ ] **L5.6 · PWA install check + a mobile pass on the Pages build** (D158(r); A-08). His
     action first, then measured fixes.
   - [ ] **L5.7 · Geometry full retrofit** (D158(g)), measured before/after, own release. Size L.
-  - [ ] **L5.8 · Ability scores + PB: the decision entry** (D158(c)); the build queued behind it.
+  - [x] **L5.8 · Ability scores + PB: the decision entry** (D158(c)) — **D176**, 2026-09-05; the
+    build is **Phase N · N1** below.
   - [ ] **L5.9 · Magic items as custom-source prefill**, then rewards (D158(n)). Size M/L + M.
   - [ ] **L5.10 · Compare two versions** (A-05). Size M/L.
   - [ ] **L5.11 · Doc diet**: DECISIONS.md to an index at the next `/clean` (D158(q)).
@@ -283,7 +284,43 @@ regenerates the mockups; `filters1.html` is the one that was chosen.
 - Not in scope, with his agreement (D172(e)): species size / speed / traits / creature type —
   we extract none of it, and it would mean both extractors, cparity and a data refresh.
 
+## Phase N — the character-creator ladder (D176, decided 2026-09-05) — 🔶 N1 is the only rung taken
+
+The study is `audits/character-creator-feasibility.md`; **D176 owns the calls**: every
+destination is valid (this app, character-forge/Notion, paper), the boundary moves one rung
+at a time, and each rung after N1 needs its own decision entry. Order relative to Phase M is
+his call (⚑ below).
+
+- [ ] **N1 · Ability scores + proficiency bonus** (A-06 as costed, D176(b)). Size L.
+  Storage: `abilities` base six + `originBonus`, appended at the end of `serializeState` so
+  untouched builds compare equal; one `choices` entry per ASI/+1 feat pick (D135's `##n`
+  suffix keeps repeats distinct). Engine: a score at level L = base + origin + ASI choices at
+  or below L in the acquisition order (D115(b,h)); PB from character level; DC and attack per
+  casting source; `cs.dc` defaults to "yours". UI: a six-tile row on the Character card
+  (`--ab-*`, D142(b)); the guide's ASI step gains a "which score" section; the table's DC and
+  attack become numbers; the print's two ruled blanks fill; `checks` on a score resolve.
+  Exporter and importer additive. *Done when:* `engine.test.js` has fixtures for the score
+  slice (an ASI at level 4 is not counted at level 3), PB by level and a source DC; the table,
+  the print and a prerequisite each show a derived number in the pane; a pre-N1 build
+  round-trips byte-identical; CLAUDE.md's non-goal sentence reads "scores and proficiency
+  bonus only, nothing else"; gate clean.
+- [ ] **N2 · Backgrounds as an entity** — 🔶 its own decision entry first (D176(c)). Both
+  extractors (`backgrounds.json`), the entity picker's `background` kind, a guide step, the
+  origin +2/+1 moving onto it. Size M.
+- [ ] **N3 · Proficiencies, HP, hit dice, AC** — 🔶 decision entry first. Multiclass rules,
+  the unarmoured-defence hand table (both extractors). Size L.
+- [ ] **N4 · Starting equipment and armour/weapons** (`items-base.json`) — 🔶. Size M/L.
+- [ ] **N5 · A sheet page and a second print kind** — 🔶 the rung that would supersede
+  D118(d); collides with character-forge's scope. Size L.
+- [ ] **N6 · Homebrew for the new kinds** via the K2 tray recipe. Size S–M.
+- Exports are part of the horizon, not a rung: A-03 (level plan as text, L5.5) and A-09 (the
+  character-forge chassis) land whenever their inputs exist.
+
 ## Open ⚑ — calls for Francesco
+
+- [ ] **N1 before or after M3/M4?** Phase N is decided (D176) and Phase M has two small tasks
+  left. Either order is fine; N1 is L and touches the guide, the table and the print. ⚑
+  (owner: Francesco, 2026-09-05)
 
 - [x] **🔶 Pick the filter surface** — **variant 1, the sectioned popover** (D173), with three
   fixes he attached to it, all shipped in v1.5.30. Phase M is unblocked.
