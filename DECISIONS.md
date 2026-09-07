@@ -1809,6 +1809,104 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
   - **Enforced by:** src/app.js `SPMODAL.onclick`; `scratchpad/sweeps/handlers.js` rule (h).
     **Affects:** D149(e), D185(a), GOTCHAS.md.
 
+- **D191 (2026-09-07) DECIDED — N2: a background is the origin, and nothing else.** The rung's
+  own entry, which D176(c) requires before anything is built. Interviewed 2026-09-07; four
+  calls, all his.
+  - **(a) Origin only.** The background owns the two things N1 asks you to set by hand — the
+    **+2/+1 origin bonus** and the **origin feat**. Its skills, tool, language and starting
+    equipment are extracted and READ ON ITS DETAIL as text, and nothing derives from them, so
+    D176's "scores and the proficiency bonus, and nothing else" still holds word for word.
+    *Rejected:* modelling the proficiency choose-shapes too (it is most of N3's `profs` slice
+    pulled forward, and the non-goal sentence would have to be rewritten a rung early);
+    the full 2024 entity with equipment (N2+N3+N4 as one rung, against D176's one-at-a-time).
+  - **(b) A background NARROWS the origin pills, it does not own them.** With a background
+    picked, the pills offer only the three abilities it names, with D178's +2/+1 vs +1/+1/+1
+    budget still applying inside those three. With none picked they stay free, exactly as
+    v1.5.39 ships. *Rejected:* the background merely SUGGESTING with an apply button (nothing
+    is ever refused, which fits D31's advisory habit — but then the origin bonus has no owner
+    and the background is decoration); the background owning the bonus outright and the pills
+    leaving the score tiles (cleanest model, but a build with no background loses a control it
+    has today and N1's surface gets rebuilt one release after shipping).
+  - **(c) 2024 backgrounds only** — those carrying an `ability` block. A 2014 background has no
+    ability bonus and a prose "feature" where the origin feat goes, so under (a) it would grant
+    NOTHING this rung models. *Rejected:* extracting both and letting the Editions filter and
+    D19's reprint dedupe separate them (the consistent answer, and what species and classes do
+    — but every 2014 row would be a pick that changes nothing, which is worse than absent);
+    both with 2014 dimmed and a `why` (D40's machinery for a case the filter already covers).
+  - **(d) The Character card, and the guide's FIRST step.** A background row beside species and
+    class, and a guide step that comes **before** the score step, so the pills are already
+    narrowed when you meet them. *Rejected:* a step after the scores (cheaper, but picking a
+    background would then re-narrow pills you have already set and send the walk backwards —
+    the exact shape D184 spent v1.5.42 removing); the card with no guide step at all (the
+    bonus set in one place and constrained from another, with nothing walking you through it).
+  - **Enforced by:** both extractors (`backgrounds.json`, 2024 filter, and `cparity.js` proves
+    them equal), the entity picker's `background` kind, `state.backgroundKey`, the origin pill
+    narrowing, and an engine fixture for (b). **Affects:** D176, D177(b), D178, D168, D19,
+    D118(d), and **D192**, which hides all of it in Simplified.
+
+- **D192 (2026-09-07) DECIDED — the creator ladder is a MODE, not a destination.** His ask,
+  raised in the N2 interview: an app setting that switches between complete and simplified
+  character creation, "simplified removes all unnecessary elements and essentially streamlines
+  for spellbook creation". This re-reads D176: the rungs stop being how far the app has
+  climbed and become how far THIS session wants to climb.
+  - **(a) Simplified is the app before N1, exactly.** No score block, no background, no origin
+    bonus; the proficiency bonus, each caster's DC and attack go back to **ruled blanks for a
+    human**, and a `13+` prerequisite reads "can't verify" rather than yes or no. That is not a
+    new behaviour to write — it is D176's own stated fallback, the path a build with no scores
+    entered already takes. His call, over two softer boundaries. *Rejected:* hiding only what
+    does not touch spells and keeping a minimal casting-ability input so DC and attack stay
+    numbers (the most useful reading of "streamlined for spellbook creation", and the rule
+    scales as N3–N5 land — but it invents a third, half-sized score surface to maintain);
+    hiding only the non-spell rungs with the score block whole (barely simplifies anything
+    today, since the scores are most of what is on screen).
+  - **(b) Simplified is the DEFAULT, and the setting is app-wide** (his call, explicit): a
+    switch in the settings menu beside the theme, stored outside the build like every other
+    global preference (`spellForge.*`), and changing it changes every character at once — not
+    a per-build property. So the app opens as what it has always been, a spell planner, and
+    Complete is opt-in. *Rejected:* Complete as the default (nothing changes for anyone who
+    never opens settings, but the app's plainest use goes behind a setting); asking once per
+    character and remembering it per build (fits builds that differ in kind, and he asked for
+    an app setting, not a per-build one).
+  - **(c) Simplified HIDES, it never prunes** — the flag-don't-prune rule the source toggles
+    already follow (D42), applied to a mode. Flip to Simplified and back and every score, every
+    origin pill and the background are where you left them; nothing stored is dropped and no
+    export loses a field. Taken from convention, not asked.
+  - **(d) One gate, not a sweep of hidden classes.** `abilityScores()` is the single funnel
+    into `R.scores`, so Simplified makes it return the empty score set and DC, attack, the
+    prerequisite verdicts and the print's blanks all fall back to the pre-N1 path for free;
+    the proficiency bonus derives from LEVEL, not scores, so it needs its own gate beside it.
+    The surfaces are emptied, not merely covered: `#scoreBlock` takes `hidden` AND
+    `renderScores` returns before building a single tile, popover or listener, so Simplified
+    carries no dormant controls. The score CHOICES stop at the same one gate — `featScoreGains`
+    pushes none — so the guide and the Choices card ask nothing without either knowing about
+    the mode.
+  - **Enforced by:** src/app.js `abilityScores`, `profBonus`'s caller, `renderScores`, the
+    guide's step list; an engine fixture pinning that Simplified derives nothing and that a
+    round-trip through both modes restores byte-identical. **Affects:** D176, D191, D177–D181,
+    D42, D31, D108's print.
+
+- **D193 (2026-09-07) DECIDED — "add" is a dashed full-row control, and Add a class now looks
+  like one.** His note, mid-session: give the add-class row the style the score popover's
+  "+ Add a bonus" uses. Shipped with D192 in v1.5.49.
+  - **(a) It matches `.menupop .abadd` exactly** — dashed `--line-strong` border, 8px radius,
+    transparent, `--muted` at 12px, `7px 10px`, centred, hover to `--ink` on an accent border.
+    Measured against a live `.abadd` on the same page rather than copied by eye: every one of
+    the seven properties equal.
+  - **(b) The drawn caret goes.** `#addClass` is a `<select>`, and every select in this app
+    carries its caret as a background-image with `padding-right:28px` — which is what made the
+    row read as a FIELD. The label was left-aligned before; centring it while keeping
+    the select's 28px right inset would have sat it 9px off, so the caret had to go for the
+    row to read as `.abadd` does. Measured symmetric to **0.00px** at 845px and at 375px, and
+    the `+` does the affordance work the caret was doing. *Rejected:*
+    keeping the caret and balancing it with an equal left inset (honest about the control being
+    a dropdown, but then it is not the style he asked for — `.abadd` has no caret).
+  - **(c) Its neighbours are deliberately NOT changed.** "Add an origin feat", "Add a general
+    feat" and "Add a custom source" stay field-shaped rows with a left `+` and a caret. His
+    note named one control; adding a class is a different kind of act from filling a named
+    slot, and the two shapes now say so. Worth revisiting as one pass if he wants them aligned.
+  - **Enforced by:** src/styles.css `#addClass`, src/app.js `refreshAddClass`'s `+` label.
+    **Affects:** D177's full-row Add, D147's field rows.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

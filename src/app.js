@@ -1364,6 +1364,24 @@ function featsAt(){ if(PREVIEW.level==null)return hasHole(state.feats)?noHoles(s
 // score is never invented: a base left blank is null and everything derived from it stays
 // blank too (the print's ruled field, the table's dash). Scores and PB are the WHOLE model
 // — no saves, skills, HP or AC (D176(b)); D31 still reads every other check as "?".
+// ── D192: complete vs simplified character creation ─────────────────────────────────────
+// Simplified is the app as it stood BEFORE N1, and it is the DEFAULT: no scores, no
+// background, no origin bonus, and every number they derive back to a blank for a human —
+// which is not a second code path but D176's own fallback, the one a build with no score
+// entered already takes. It HIDES, never prunes (D42's rule, applied to a mode): flip to
+// Simplified and back and every score, pill and background is where you left it. App-wide
+// like the other `spellForge.*` preferences, never a build property — one switch changes
+// every character, which is what he asked for.
+const LS_MODE="spellForge.mode.v1";
+let CREATOR="simple";                       // "simple" | "full"
+const fullCreator=()=>CREATOR==="full";
+function loadCreatorMode(){ try{const t=localStorage.getItem(LS_MODE);
+  if(t==="full"||t==="simple")CREATOR=t;}catch(e){} }
+function setCreatorMode(m){ CREATOR=(m==="full")?"full":"simple";
+  // headless (D158(j)) has no storage and no DOM — a fixture flips the mode and reads the engine
+  if(globalThis.__SB_HEADLESS__)return;
+  try{localStorage.setItem(LS_MODE,CREATOR);}catch(e){storageNotice(e);}
+  refreshAll(); render(); }
 const scoreMod=s=>Math.floor((s-10)/2);
 const fmtMod=m=>(m>=0?"+":"−")+Math.abs(m);
 const profBonus=lv=>Math.ceil(Math.max(1,lv||1)/4)+1;
@@ -1374,6 +1392,9 @@ const profBonus=lv=>Math.ceil(Math.max(1,lv||1)/4)+1;
 // `out`, when given, receives the score CHOICES so the Choices card and the guide can ask.
 function featScoreGains(fk,f,out){
   const gains={}; const add=(a,n)=>{gains[a]=(gains[a]||0)+n;};
+  // D192: Simplified asks no score question, so it pushes no choice and counts no gain —
+  // the stored answers stay untouched and come back the moment Complete is switched on
+  if(!fullCreator())return gains;
   const list=(f&&f.ability)||[]; if(!list.length)return gains;
   if(list.every(g=>g.hidden&&g.choose)){
     const id="f"+fk+":asi", v=(state.choices[id]||[]).filter(a=>AB_KEYS.includes(a)).slice(0,2);
@@ -1393,6 +1414,11 @@ function featScoreGains(fk,f,out){
 // already higher — a Headband of Intellect's 19); sets apply last, and a set stands even
 // on a blank base, because the item does not care what you rolled.
 function abilityScores(feats){
+  // D192(d): the whole of Simplified's arithmetic. Every derived number in the app reads
+  // this one result, and each already has a "the score is blank" branch (D176), so the
+  // empty set puts DC, attack, the prerequisite verdicts and the print's ruled fields back
+  // to what they were before N1 — no second path to keep in step.
+  if(!fullCreator()){const none={}; AB_KEYS.forEach(a=>{none[a]=null;}); return none;}
   const base=state.abilities||{}, ob=state.originBonus||{}, gains={}, adds={}, sets={}, out={};
   (feats||[]).forEach(fk=>{ if(isHole(fk))return; const f=FEAT_BY[baseKey(fk)]; if(!f)return;
     const g=featScoreGains(fk,f,null); Object.keys(g).forEach(a=>{gains[a]=(gains[a]||0)+g[a];});});
@@ -4112,7 +4138,7 @@ function compute(){
   const featsNow=featsAt();
   const {gout,recExp}=collectGrants(records,casters,charLevel,featsNow,optFeatsAt(),sharedStat);
   // D176: the scores at the view level and the proficiency bonus that goes with it
-  const scores=abilityScores(featsNow), pb=profBonus(charLevel);
+  const scores=abilityScores(featsNow), pb=fullCreator()?profBonus(charLevel):null;
 
   // eligible pool = each caster's own list + its active expansions
   const pool=new Map(); // spellKey -> {sp,takers:[{idx,name,cantrip}],grants:[],srcs:Set}
@@ -8723,7 +8749,7 @@ function renderSlots(){
   g.append(mk("Eligible",R.pool.size||"—","spells"));
   // D177(d): proficiency as a stat, and one line per caster with the numbers its casting
   // stat makes — blank while that score is blank (D176: nothing is guessed)
-  g.append(mk("Proficiency",fmtMod(R.pb),""));
+  if(R.pb!=null)g.append(mk("Proficiency",fmtMod(R.pb),""));   // D192: absent in Simplified
   let cn=$("#castNums"); if(!cn){cn=el("div",null); cn.id="castNums"; cn.style.marginTop="12px"; $("#slotRow").parentElement.before(cn);}
   cn.innerHTML="";
   if(R.casters.length){cn.append(el("label","fld","Casting"));const box=el("div","castnums");
@@ -10464,7 +10490,7 @@ function renderClassRows(){
 function refreshAddClass(){const s=$("#addClass");s.innerHTML="";
   const opts=classOptions();
   const noneLabel=(DATA.classes||[]).length?"every class is already in this build":"No classes loaded";
-  s.append(new Option(opts.length?"Add a class":noneLabel,""));
+  s.append(new Option(opts.length?"+ Add a class":noneLabel,""));   // the `+` the dashed row wants
   opts.forEach(o=>s.append(new Option(o.t,o.v)));s.value="";
   s.disabled=!opts.length;}
 function refreshSpecies(){const r=state.speciesKey?RACE_BY[state.speciesKey]:null;
@@ -11065,6 +11091,9 @@ function refreshAll(){CASTMODS=activeCastMods();refreshSpecies();refreshAddFeat(
 let SCORE_ARM=false;                     // the Clear item is armed (D53), one click at a time
 function renderScores(){
   const row=$("#scoreRow"); if(!row)return; row.innerHTML="";
+  // D192: nothing inside is constructed in Simplified — no tiles, no popovers, no listeners
+  const blk=$("#scoreBlock"); if(blk)blk.classList.toggle("hidden",!fullCreator());
+  if(!fullCreator())return;
   AB_KEYS.forEach((a,i)=>{
     const wrap=el("span","menu abwrap"+(i>2?" right":""));
     const t=el("button","abscore "+a); t.type="button";
@@ -11525,6 +11554,11 @@ armConfirm($("#resetBtn"),null,()=>{
   $("#fq").value="";syncReprint();
   $("#filterPanel").classList.add("hidden");$("#filterBtn").classList.remove("on");
   refreshAll();render();});
+// D192: the switch reads the mode and writes it; `setCreatorMode` re-renders, so the whole
+// app changes under an open menu and the row it was clicked on stays where it is.
+function syncCreatorSw(){const sw=$("#creatorSw"); if(!sw)return;
+  sw.classList.toggle("swoff",!fullCreator()); sw.setAttribute("aria-checked",String(fullCreator()));}
+$("#creatorSw").onclick=e=>{e.stopPropagation(); setCreatorMode(fullCreator()?"simple":"full"); syncCreatorSw();};
 $("#themeBtn").onclick=()=>{const r=document.documentElement,cur=r.getAttribute("data-theme");r.setAttribute("data-theme",cur==="dark"?"light":cur==="light"?"dark":(matchMedia("(prefers-color-scheme:dark)").matches?"light":"dark"));closeMenu();};
 // overflow settings menu
 function closeMenu(except){document.querySelectorAll(".menupop").forEach(p=>{if(p!==except)p.classList.add("hidden");});
@@ -11968,6 +12002,7 @@ if(!globalThis.__SB_HEADLESS__)(async()=>{
   $("#fq").value=state.filters.q;
   loadTableOpts(); $("#tGroup").value=tableOpts.group; renderColMenu();
   loadPrintOpts();
+  loadCreatorMode(); syncCreatorSw();   // D192 — before the first paint, never after
   maybeOnboard();
   fillIcons(); wireHelpNotes();
   refreshAll();render();
@@ -12000,7 +12035,7 @@ if(typeof module!=="undefined"&&module.exports){
     // a trade is two halves and either may stand alone (D188)
     swapNorm,swapsNorm,unswap,
     // ability scores + proficiency bonus (D176)
-    abilityScores,featScoreGains,profBonus,castNums,scoreMod,featsAt,scoreParts,mainAbilities,saveProfs,fillOrder,fillScores,pointsSpent,originOptions,parseFormula,rollFormula,formulaRange,optimizeScores,
+    abilityScores,featScoreGains,profBonus,castNums,scoreMod,setCreatorMode,fullCreator,featsAt,scoreParts,mainAbilities,saveProfs,fillOrder,fillScores,pointsSpent,originOptions,parseFormula,rollFormula,formulaRange,optimizeScores,
     // storage and digest integrity
     mergeDigests,filterDigest,digestSize,emptyDigest,verLt,
     // let the fixture stand the module up

@@ -121,6 +121,5 @@ fifteen closed flags and the 1.0–1.4 changelog rows moved to `ARCHIVE.md`; stu
 is at ~293 rows and is still waiting on his veto. Both are candidates for the next `/clean`,
 not for a close-of-session pass.
 
-⟳ Rename previous session → "Ten reports closed, the trade rebuilt as two halves, and an unclearable alert" · session: (resolve by cwd + most recent lastActivityAt)
 
 The queue after N2 is L5.5 onward — see `PLAN.md`.

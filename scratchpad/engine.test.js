@@ -260,7 +260,10 @@ const casterLevel = (slots) => {
 // ── 11 · ability scores slice like picks, and a blank derives nothing (D176) ─
 // The rules that would break silently: an ASI counted at a level before its slot; a blank
 // base score turned into a number; the ASI's either/or misread (+2/+2 or +1 alone).
+// D192: every assertion here is about COMPLETE creation, so it says so — Simplified is the
+// app's default now, and fixture 18 is the one that pins what it derives (nothing).
 {
+  SB.setCreatorMode("full");
   const FEATS = {
     "Ability Score Improvement|XPHB": { name: "Ability Score Improvement", source: "XPHB", category: "G",
       ability: [{ abils: ["str", "dex", "con", "int", "wis", "cha"], amount: 2, choose: true, hidden: true },
@@ -564,6 +567,49 @@ const casterLevel = (slots) => {
   eq("17e · …while a real pick from a missing book is reported exactly as before",
     gaps({ ...blank, chosen: { r0: { cantrips: ["Light|XPHB"], spells: [] } } }),
     { refs: [{ kind: "spell", name: "Light", source: "XPHB" }], books: ["XPHB"] });
+}
+
+// ── 18 · Simplified derives nothing, and hides without pruning (D192) ────────
+// The two ways this breaks silently: a number that keeps deriving in Simplified (the mode
+// then means nothing), and a mode flip that EDITS the build — the whole point of D192(c) is
+// that Simplified is a lens, so a round-trip has to come back byte-identical.
+{
+  const FEATS = {
+    "Actor|XPHB": { name: "Actor", source: "XPHB", category: "G",
+      ability: [{ abils: ["cha"], amount: 1, choose: false }] },
+    "Resilient|XPHB": { name: "Resilient", source: "XPHB", category: "G",
+      ability: [{ abils: ["str", "dex", "con", "int", "wis", "cha"], amount: 1, choose: true, count: 1 }] },
+  };
+  SB.set.featBy(FEATS);
+  const built = { classes: [{ id: "r0", clsKey: "Wizard|XPHB", level: 8, subKey: null }],
+    levelOrder: ["r0","r0","r0","r0","r0","r0","r0","r0"],
+    feats: ["Actor|XPHB"], optFeats: [], speciesKey: "", customSources: [], chosen: {},
+    featSlots: { "Actor|XPHB": "general" }, choices: { "fResilient|XPHB:ab0": ["con"] },
+    abilities: { cha: 15, con: 14 }, originBonus: { cha: 2, con: 1 } };
+  SB.set.state({ ...built });
+  SB.set.preview({ level: null });
+
+  SB.setCreatorMode("full");
+  const whole = SB.abilityScores(["Actor|XPHB"]);
+  eq("18a · Complete derives the score it always did", whole.cha, 18);
+  eq("18b · …and the numbers that hang off it", SB.castNums("cha", whole, 3), { dc: 15, atk: 7, mod: 4 });
+
+  SB.setCreatorMode("simple");
+  eq("18c · Simplified derives no score at all",
+    SB.abilityScores(["Actor|XPHB"]),
+    { str: null, dex: null, con: null, int: null, wis: null, cha: null });
+  eq("18d · …so DC and attack are blank, not zero — the pre-N1 fallback (D176)",
+    SB.castNums("cha", SB.abilityScores(["Actor|XPHB"]), 3), null);
+  const asked = []; SB.featScoreGains("Resilient|XPHB", FEATS["Resilient|XPHB"], asked);
+  eq("18e · …and no score question is asked", [asked.length, Object.keys(SB.featScoreGains("Actor|XPHB", FEATS["Actor|XPHB"], null)).length], [0, 0]);
+
+  // D192(c): hides, never prunes — the stored answers must survive the round trip untouched
+  eq("18f · Simplified stores nothing away: the build is byte-identical",
+    JSON.stringify(SB.get.state()), JSON.stringify(built));
+  SB.setCreatorMode("full");
+  eq("18g · …and switching back derives exactly what it did before",
+    JSON.stringify(SB.abilityScores(["Actor|XPHB"])), JSON.stringify(whole));
+  SB.setCreatorMode("simple");   // leave the harness on the app's own default
 }
 
 console.log(`\n${pass} ok · ${fail} fail`);

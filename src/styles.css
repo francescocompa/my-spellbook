@@ -777,9 +777,16 @@ table.spelltable .pickcell.innate{color:var(--gold)}
 table.spelltable .pickcell.inbook{color:var(--muted);opacity:.75}
 
 /* ── v5: controls polish, steppers, checkboxes, menu, table + modal ── */
-/* add-class: full-width dropdown, theme-aware */
-#addClass{width:100%;margin-top:2px;cursor:pointer;color:var(--ink);border-color:var(--line-strong)}
-#addClass:hover:not(:disabled){border-color:var(--accent)}
+/* Add a class takes the score popover's full-row Add (`.menupop .abadd`, D177): dashed,
+   centred, muted, with the `+` doing the affordance work. It is a <select>, so the drawn
+   caret every select carries (a background-image, not a glyph) is dropped for this one —
+   the dashed row already reads as "add", and the caret is what made it read as a field. */
+#addClass{width:100%;margin-top:6px;padding:7px 10px;text-align:center;text-align-last:center;
+  border:1px dashed var(--line-strong);border-radius:8px;
+  background-image:none;background-color:transparent;
+  color:var(--muted);font-size:12px;cursor:pointer}
+#addClass:hover:not(:disabled){color:var(--ink);border-color:var(--accent);background-color:transparent}
+#addClass option{text-align:left;color:var(--ink);background:var(--bg)}
 /* one class, one row: with every class in the build there is nothing left to add, and the
    control has to look as spent as it is */
 #addClass:disabled{cursor:default;color:var(--muted);border-color:var(--line);opacity:1}
@@ -2752,10 +2759,10 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
 .scoremenu .btn.tiny{padding:0 8px;line-height:1.5;font-size:14px}
 /* menu rows never wrap (D178): label on one line, the note UNDER it, both clipped */
 .scoremenu .menupop{min-width:250px;max-width:280px}
-.scoremenu .mitem{display:flex;flex-direction:column;align-items:flex-start;gap:1px;width:100%;box-sizing:border-box;padding:6px 11px;white-space:nowrap;overflow:hidden}
-.scoremenu .mitem .mlab,.scoremenu .mitem .msub{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.scoremenu .mitem,#menuPop .mitem{display:flex;flex-direction:column;align-items:flex-start;gap:1px;width:100%;box-sizing:border-box;padding:6px 11px;white-space:nowrap;overflow:hidden}
+.scoremenu .mitem .mlab,.scoremenu .mitem .msub,#menuPop .mitem .mlab,#menuPop .mitem .msub{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis}
 .scoremenu .mitem.on{background:var(--accent-soft)}
-.scoremenu .msub{font-size:11px;color:var(--muted);font-weight:400;line-height:1.3}
+.scoremenu .msub,#menuPop .msub{font-size:11px;color:var(--muted);font-weight:400;line-height:1.3}
 .scoremenu .mrow{display:flex;align-items:stretch;gap:2px}
 .scoremenu .mrow .mitem{flex:1;min-width:0}
 .scoremenu .mchev{flex:0 0 30px;display:inline-flex;align-items:center;justify-content:center;border:none;background:none;border-radius:7px;cursor:pointer;padding:0;color:var(--muted)}
@@ -2768,10 +2775,13 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
 .scoremenu .mfin{font:inherit;font-size:13px;font-variant-numeric:tabular-nums;padding:5px 8px;border:1px solid var(--line-strong);border-radius:7px;background:var(--panel-2);color:inherit;width:100%;box-sizing:border-box}
 .scoremenu .mfin.bad{border-color:var(--bad)}
 .scoremenu .mfin:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-.scoremenu .mswitch{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:10px;align-items:center;cursor:default}
-.scoremenu .mswitch .mlab{grid-column:1;grid-row:1}
-.scoremenu .mswitch .msub{grid-column:1;grid-row:2}
-.scoremenu .mswitch .swk{grid-column:2;grid-row:1;align-self:center}   /* on the label's line, not centred across the note (D179) */
+/* D192: the app menu holds a switch row now, and a row that never wraps (D178) needs the
+   width its note asks for — measured, not guessed */
+#menuPop{min-width:206px}
+.scoremenu .mswitch,#menuPop .mswitch{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:10px;align-items:center;cursor:default}
+.scoremenu .mswitch .mlab,#menuPop .mswitch .mlab{grid-column:1;grid-row:1}
+.scoremenu .mswitch .msub,#menuPop .mswitch .msub{grid-column:1;grid-row:2}
+.scoremenu .mswitch .swk,#menuPop .mswitch .swk{grid-column:2;grid-row:1;align-self:center}   /* on the label's line, not centred across the note (D179) */
 /* the roll's reel (D178, from monster-forge's initiative roll): a 1em window, a column that scrolls to the result */
 .abbig .nf-digit{display:inline-block;height:1em;line-height:1;overflow:hidden;vertical-align:top}
 .abbig .nf-col{display:flex;flex-direction:column;transform:translateY(0);transition:transform 1.35s cubic-bezier(.16,.84,.3,1)}
@@ -2869,9 +2879,9 @@ td .abnum{display:block;font-size:10.5px;color:var(--muted);white-space:nowrap;m
 .menupop .bswgrpn:focus,.bswpop .bswgrpn:focus,.modal .bldchar:focus,.bldhead .bldchar:focus{border-color:var(--accent);background:var(--bg)}
 /* D181: `.menupop button` had stripped the Optimize switch to its knob (the D173 trap once
    more — it measured transparent, 7px radius, 8px padding): the track is restated here */
-.scoremenu .mswitch .swk{width:26px;height:15px;padding:0;border:none;border-radius:99px;background:var(--accent)}
-.scoremenu .mswitch .swk:hover{background:var(--accent)}
-.scoremenu .mswitch .swk.swoff,.scoremenu .mswitch .swk.swoff:hover{background:var(--panel-2);box-shadow:inset 0 0 0 1.5px var(--muted)}
+.scoremenu .mswitch .swk,#menuPop .mswitch .swk{width:26px;height:15px;padding:0;border:none;border-radius:99px;background:var(--accent)}
+.scoremenu .mswitch .swk:hover,#menuPop .mswitch .swk:hover{background:var(--accent)}
+.scoremenu .mswitch .swk.swoff,.scoremenu .mswitch .swk.swoff:hover,#menuPop .mswitch .swk.swoff,#menuPop .mswitch .swk.swoff:hover{background:var(--panel-2);box-shadow:inset 0 0 0 1.5px var(--muted)}
 /* D181: the version name in the manager measured a line-strong border on a filled box at
    rest; it is a label until touched, like the character name (D179(e)) */
 .modal .bldname,.bldrow .bldname{border:1px solid transparent;background:none;box-shadow:none}

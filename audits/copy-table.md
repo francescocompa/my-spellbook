@@ -389,6 +389,18 @@ two questions and each row has to say which one it is.
 **D189** — what changed is which picks reach it, so a banner naming a book that cannot exist
 is no longer produced at all.
 
+## D192 — the creation mode, and the add-class row (2026-09-07)
+
+Three strings. The naming call is **Full character** for the switch: "Complete" was the word
+used through the interview, but the row reads as a property of the character on screen, not a
+mode of the app, and "Full" is the shorter half of the pair the note already explains.
+
+| location | before | after | why |
+|---|---|---|---|
+| index.html `#creatorRow` label | — | `Full character` | new (D192(b)); the switch in the settings menu, off by default |
+| index.html `#creatorRow` note | — | `scores and background` | new; measured to fit the row at 206px — D178 says a menu row never wraps, so the copy is what gives |
+| app.js `refreshAddClass` | `Add a class` | `+ Add a class` | the row is the score popover's dashed full-row Add now, and that pattern carries the `+` (his note) |
+
 ## Totals
 
 | measure | count |

@@ -57,6 +57,16 @@
         <button id="customBtn"><span class="mi ico" data-ico="pencil"></span>Custom spell</button>
         <button id="hbBtn"><span class="mi ico" data-ico="stack"></span>My homebrew</button>
         <div class="sep"></div>
+        <!-- D192: a binary is a SWITCH, not a verb (D182's rule, and the Optimize switch's
+             shape). Simplified is the default and the app as it stood before N1: no scores,
+             no background, and the numbers they derive back to blanks for a human. It hides,
+             it never prunes, and it is app-wide — one switch changes every character. -->
+        <div class="mitem mswitch" id="creatorRow">
+          <span class="mlab">Full character</span>
+          <span class="msub">scores and background</span>
+          <button class="swk swoff" type="button" id="creatorSw" role="switch" aria-checked="false" aria-label="Full character creation"></button>
+        </div>
+        <div class="sep"></div>
         <button id="themeBtn"><span class="mi ico" data-ico="theme"></span>Toggle theme</button>
         <div class="sep"></div>
         <button id="resetBtn" class="danger"><span class="mi ico" data-ico="reset"></span>Reset build</button>
