@@ -226,6 +226,17 @@
   back into its slot. The browser masked it completely: `sliceChosen` strips holes before
   calling `unswap`, so the pushed value read correctly at every level. Engine fixture 16 is
   what caught it. When an event grows a field, grow `swapEvents` in the same commit.
+- **`state.choices` holds THREE shapes and only one of them is spells (D189).** An option
+  group and a casting ability store a plain string; a granted spell group stores an array of
+  `name|source` keys; and a SCORE choice (D176) stores **an array of ABILITY IDS** — `["cha"]`.
+  An array test alone does not tell the last two apart, which is how `buildGaps` came to report
+  a pick called `cha` from a book named `""` and the live build grew a banner asking him to
+  re-import a book that cannot exist. Test the KEY (`name|source`), never just the container.
+  Same family as the `innate`/`prepared` three-shape traps below.
+- **A gap is a pick whose BOOK is missing — a reference with no book is not a gap (D189).**
+  Anything reported without a source can only ever produce an alert with no action that clears
+  it. `buildGaps` refuses an empty source outright, which is the general guard behind the
+  specific one above.
 - **Nothing may re-render from inside a render pass (D164).** `renderGuideStage` clears the
   stage and rebuilds it; anything it calls that itself calls `render()` — opening a picker,
   closing a stale one — runs a SECOND clear-and-rebuild inside the first, and which half

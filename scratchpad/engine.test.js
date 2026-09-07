@@ -539,5 +539,32 @@ const casterLevel = (slots) => {
     ["a|X", "b|X", "Bane|XPHB", "d|X", "Blight|XPHB"]);
 }
 
+// ── 17 · a gap is a pick whose BOOK is missing (D189) ──────────────────────
+// The live build showed "1 pick needs a book that isn't loaded, so re-import it" with no book
+// that could ever satisfy it. `state.choices` holds three shapes and only one is a list of
+// spell keys: an option or a casting ability stores a plain string, but a SCORE choice (D176)
+// stores an array of ABILITY IDS — `["cha"]` — which this walked as if they were spells. The
+// banner named a book called "", so no import and no toggle could clear it.
+{
+  SB.set.state({ ...SB.blankBuildState(), filters: SB.FILTER_DEFAULT() });
+  const gaps = (st) => { const g = SB.buildGaps(st); return { refs: g.refs, books: [...g.books] }; };
+  const blank = { classes: [], feats: [], optFeats: [], chosen: {}, choices: {} };
+
+  eq("17a · a score choice's ability ids are not spell keys, and raise no gap",
+    gaps({ ...blank, choices: { "sc:1": ["cha"], "sc:2": ["int", "cha"] } }),
+    { refs: [], books: [] });
+  eq("17b · a casting ability, stored as a bare string, raises none either",
+    gaps({ ...blank, choices: { "ab:1": "cha" } }), { refs: [], books: [] });
+  eq("17c · a granted spell group IS a list of spell keys, and a missing book still shows",
+    gaps({ ...blank, choices: { "mk:1": ["Fireball|XPHB"] } }),
+    { refs: [{ kind: "spell", name: "Fireball", source: "XPHB" }], books: ["XPHB"] });
+  eq("17d · a reference naming no book at all is never reported — nothing could clear it",
+    gaps({ ...blank, chosen: { r0: { cantrips: [], spells: ["Fireball|"] } } }),
+    { refs: [], books: [] });
+  eq("17e · …while a real pick from a missing book is reported exactly as before",
+    gaps({ ...blank, chosen: { r0: { cantrips: ["Light|XPHB"], spells: [] } } }),
+    { refs: [{ kind: "spell", name: "Light", source: "XPHB" }], books: ["XPHB"] });
+}
+
 console.log(`\n${pass} ok · ${fail} fail`);
 process.exit(fail ? 1 : 0);

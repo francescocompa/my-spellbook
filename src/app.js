@@ -5891,7 +5891,11 @@ function buildGaps(st){
     // an entity whose whole book isn't loaded (a lean import) is kept by pruneState
     // (D56) — surface it here from its stored key so the bar can name the book
     if(!o){ if(rawKey==null)return; const parts=String(rawKey).split("|");
-      out.push({kind,name:parts[0],source:parts[1]||""}); books.add(parts[1]||""); return; }
+      // D189: a reference with NO BOOK names nothing that can be turned on or re-imported,
+      // so reporting it can only ever produce a banner nobody is able to clear. Whatever it
+      // is, it is not a gap — a gap is a pick whose BOOK is missing.
+      if(!parts[1])return;
+      out.push({kind,name:parts[0],source:parts[1]}); books.add(parts[1]); return; }
     if(visible(o))return; out.push({kind,name:o.name,source:o.source});
     if(!srcOn(o.source))books.add(o.source);};
   (st.classes||[]).forEach(r=>{add("class",CLS_BY[r.clsKey],r.clsKey); if(r.subKey)add("subclass",subOfRow(r),r.subKey);});
@@ -5900,7 +5904,14 @@ function buildGaps(st){
   (st.optFeats||[]).forEach(k=>add("option",OPT_BY[baseKey(k)],k));
   const spells=new Set();
   Object.values(st.chosen||{}).forEach(c=>[...(c.cantrips||[]),...(c.spells||[])].forEach(k=>spells.add(k)));
-  Object.values(st.choices||{}).forEach(v=>(Array.isArray(v)?v:[]).forEach(k=>spells.add(k)));
+  // D189: `state.choices` holds three shapes, and only ONE of them is a list of spell keys.
+  // An option or a casting ability stores a plain string (skipped by the array test), but a
+  // SCORE choice (D176) stores an ARRAY OF ABILITY IDS — `["cha"]` — and this walked it as
+  // if those were spells. `SPELL_BY["cha"]` is nothing, so it was reported as a pick from a
+  // book called "", and the bar asked him to re-import a book that cannot exist. A stored
+  // spell reference is `name|source`; nothing without that separator is one.
+  Object.values(st.choices||{}).forEach(v=>(Array.isArray(v)?v:[])
+    .forEach(k=>{if(String(k).indexOf("|")>0)spells.add(k);}));
   spells.forEach(k=>add("spell",SPELL_BY[k],k));
   return {refs:out,books};
 }
@@ -11980,6 +11991,8 @@ if(typeof module!=="undefined"&&module.exports){
     entOwnsSwap,entSlotSpend,takeOpt,optHoleFor,
     // the licensed-name twin an import supersedes (D187(b))
     dropSrdTwins,
+    // a gap is a pick whose BOOK is missing, and a score choice is not a spell (D189)
+    buildGaps,
     // a trade is two halves and either may stand alone (D188)
     swapNorm,swapsNorm,unswap,
     // ability scores + proficiency bonus (D176)

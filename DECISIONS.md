@@ -1763,6 +1763,29 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     had masked because `sliceChosen` strips holes before it. **Affects:** D128, D115(g),
     D119(b), D126(h), D131(c), D146, D184, GOTCHAS.md.
 
+- **D189 (2026-09-07) DECIDED — a gap is a pick whose BOOK is missing, and an ability id is
+  not a spell.** His report from the live build: *"1 pick needs a book that isn't loaded, so
+  re-import it"*, with the tooltip naming **`cha (spell, )`** — a pick called `cha` from a book
+  with no name. Unclearable by construction: no import and no toggle can satisfy a book code
+  that is the empty string. Shipped as v1.5.47.
+  - **(a) Only a spell key is read as a spell key.** `state.choices` holds THREE shapes and
+    only one is a list of spells. An option group and a casting ability store a plain string
+    (already skipped by the array test), but a **SCORE choice stores an ARRAY OF ABILITY IDS**
+    (D176) — `["cha"]` — and `buildGaps` walked it as spell keys. A stored spell reference is
+    `name|source`; nothing without that separator is one. *Rejected:* resolving each value
+    against `SPELL_BY` and skipping the misses (what `pickedSpellNames` does — it would fix the
+    symptom, and a real pick from an unloaded book is exactly a key that resolves to nothing,
+    so it would take D56's whole feature down with it); moving score answers out of
+    `state.choices` (a D176 model change for a reporting bug).
+  - **(b) A reference naming no book is never reported.** The second guard, and the general
+    one: whatever such a key is, it names nothing that can be turned on or re-imported, so
+    surfacing it can only ever produce a banner nobody is able to clear. A gap is a pick whose
+    BOOK is missing.
+  - **Enforced by:** src/app.js `buildGaps` — the choices walk and `add`'s empty-source guard.
+    **Fixture 17** pins both, plus that a granted spell group and an ordinary pick from a
+    missing book still report exactly as before; 17a and 17d go red on a revert.
+    **Affects:** D176, D56, D42.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives
