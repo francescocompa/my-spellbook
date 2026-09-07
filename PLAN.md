@@ -108,7 +108,7 @@ regenerates the mockups; `filters1.html` was chosen.
   we extract none of it, and it would mean both extractors, cparity and a data refresh.
 → archived 2026-09-05: M1a–M4 task bodies — `ARCHIVE.md#phase-m`
 
-## Phase N — the character-creator ladder (D176, decided 2026-09-05) — 🔶 N1 is the only rung taken
+## Phase N — the character-creator ladder (D176, decided 2026-09-05) — ✅ N1 · ✅ N2 · 🔶 N3 onward gated
 
 The study is `audits/character-creator-feasibility.md`; **D176 owns the calls**: every
 destination is valid (this app, character-forge/Notion, paper), the boundary moves one rung
@@ -116,69 +116,17 @@ at a time, and each rung after N1 needs its own decision entry. Order relative t
 his call: N1 first, then M3/M4 (settled 2026-09-05).
 
 - [x] **N1 · Ability scores + proficiency bonus** (A-06 as costed, D176(b)) — shipped
-  **v1.5.34**, 2026-09-05. **Verified** in the pane on a throwaway Wizard 4 / Paladin 1 (restored
-  byte-identical after): Int 15 + origin +2 + ASI one tile → 19, two tiles → 18/14; at level 3
-  the level-4 ASI is out of effect (17) and PB reads 2; `INT 13+` → ok, `CHA 15+` → no, `STR 13+`
-  (blank) → ?; the tracker printed `+7 / 15` and `+5 / 13`; the table's Ability cell `DC 15 · +7`;
-  the guide's ASI step carries "Ability score increase · +1 Int, +1 Cha"; every tile child centred
-  to 0.00px at 1280 and 375, 0 overflow; cycler on-state 2.04:1 caught and fixed; 0 console errors;
-  gate clean, cparity 61 ok, engine 47 ok. Size L.
-  **Reviewed the same day — six notes, one mockup round (`scratchpad/mockups/scores.html`),
-  D177 — and reworked as v1.5.35:** the tile is the control and opens its own popover (base
-  focused, origin pills, feats read-only, named add/set bonuses, full-row Add last); main
-  abilities tinted, save ring from the first class; the ⋯ menu (array · point buy with its
-  counter · type · roll 4d6dl1 · fill for my classes · armed clear); the numbers moved to
-  Slots & casts. **Verified:** Int 15 + origin +2 + a +1 Manual + a set-19 → 19 then 20 with
-  the ASI; standard array lands 15 on Int and the pool select swaps two abilities; point buy
-  reads "0 of 27 points left" on the array; Clear arms then clears all three stores; the
-  popover inside the card and the viewport at 1280 (left-hung) and 375 (right-hung, 236px);
-  every tile child centred to 0.00px; pill on 13.9:1, off 6.4:1, modifier on the tint 6.6:1;
-  restored byte-identical; 0 console errors; engine 55 ok.
-  **Second review, nine notes, D178 — v1.5.36:** origin pills follow the +2/+1 · +1/+1/+1
-  budget; save proficiency is a border on the chip; the base field focuses only while blank;
-  menu rows never wrap with the note under the label; Optimize is a switch; the roll formula
-  behind a chevron in dice notation; the roll reel from monster-forge's initiative; a wizard's
-  tile reads the free allowance with copies beside it and copies leave the lower levels alone
-  (`4/4 +36 · 2nd`, `0/8 · 1st`, was `40/40` and `0/0`). **Verified:** Int +2 → Cha offers +1
-  only → Str offers none, the holder keeps its pill; blank Wis focuses, filled Int does not;
-  `4d6kh3` accepted and `nope` refused; Optimize re-sorts six values; six reels of 21 values
-  land on the totals; engine 66 ok.
-  **Third review, six notes, D179 — v1.5.37:** disabled pills + Reset; no chip in the popover
-  header; face and reel share one geometry (0.00px); Optimize switch on its label's line; the
-  build switcher's character ⋯ menu (new empty version · delete character); character name
-  borderless at rest in both places. **Verified:** Cha offers +2 disabled while Int holds it,
-  Reset clears; the reel's last frame lands 0.00px from the face in x/y/w/h, same font; a new
-  empty version is blank, named v2, placed after its siblings, under the same character; delete
-  character arms then removes the group; builds and state restored byte-identical; engine 66 ok.
-  **v1.5.38 (D180):** the picked chips grouped by level, a group past 12 chips one scrolling
-  row under the mask with a wrap-open toggle; the wizard tile reads `40/4`.
-  **v1.5.39 (D181):** the tile row folded into the level rows (name · tile numbers · chips,
-  toggle at the chip row's right end); the Optimize switch's track restated; the manager's
-  version name borderless at rest.
-  Storage: `abilities` base six + `originBonus`, appended at the end of `serializeState` so
-  untouched builds compare equal; one `choices` entry per ASI/+1 feat pick (D135's `##n`
-  suffix keeps repeats distinct). Engine: a score at level L = base + origin + ASI choices at
-  or below L in the acquisition order (D115(b,h)); PB from character level; DC and attack per
-  casting source; `cs.dc` defaults to "yours". UI: a six-tile row on the Character card
-  (`--ab-*`, D142(b)); the guide's ASI step gains a "which score" section; the table's DC and
-  attack become numbers; the print's two ruled blanks fill; `checks` on a score resolve.
-  Exporter and importer additive. *Done when:* `engine.test.js` has fixtures for the score
-  slice (an ASI at level 4 is not counted at level 3), PB by level and a source DC; the table,
-  the print and a prerequisite each show a derived number in the pane; a pre-N1 build
-  round-trips byte-identical; CLAUDE.md's non-goal sentence reads "scores and proficiency
-  bonus only, nothing else"; gate clean.
-- [x] **N2 · Backgrounds as an entity** — **D191**, 2026-09-07, shipped **v1.5.50**. Origin
-  only: the background owns the +2/+1 and names the origin feat, and its skills, tools,
-  languages and equipment are printed on its detail with a line saying nothing derives from
-  them. 2024 only (60 in the mirror, 4 in the SRD bundle). **Verified** in the browser on a
-  throwaway Wizard 4 / Paladin 1, restored byte-identical: Acolyte narrows the origin pills to
-  Int/Wis/Cha and leaves Str/Dex/Con with "none" alone; a +2 on Int drops Wis and Cha to +1
-  (D178's budget, inside the three); swapping to Soldier keeps Int's own +2 pill so it can be
-  undone; the offer takes Magic Initiate into the **origin** slot and the row then reads
-  "which this build has"; the detail lists all six facts; the walk at level 1 reads class →
-  background → species → origin feat → cast in Complete, and has no background step at all in
-  Simplified. `cparity` diffs all 60 records byte for byte; **fixture 19** guards the
-  narrowing and the held-bonus trap.
+  **v1.5.34**, 2026-09-05, then reviewed FOUR times over one day (D177 → D181, v1.5.35 →
+  v1.5.39): the tile became the control with its own popover, the origin pills learned the
+  +2/+1 budget, the roll got monster-forge's reel, and the tile row folded into the level rows.
+  Size L.
+- [x] **N2 · Backgrounds as an entity** — **D191**, shipped **v1.5.50**, 2026-09-07. Origin
+  only: the background owns the +2/+1 (narrowing the pills to its three abilities) and NAMES
+  its origin feat, offering it with one click; its skills, tools, languages and equipment are
+  printed on its detail deriving nothing. 2024 only — 60 in the mirror, 4 in the SRD bundle.
+  Both extractors, parity byte-for-byte on every record, fixture 19. Size M.
+→ archived 2026-09-07: N1's four review rounds and N2's verification evidence — `ARCHIVE.md#phase-n`
+
 - [ ] **N3 · Proficiencies, HP, hit dice, AC** — 🔶 decision entry first. Multiclass rules,
   the unarmoured-defence hand table (both extractors). Size L.
 - [ ] **N4 · Starting equipment and armour/weapons** (`items-base.json`) — 🔶. Size M/L.

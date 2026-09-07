@@ -4530,3 +4530,542 @@ regenerates the mockups; `filters1.html` is the one that was chosen.
 | **1.0.1** | 1.1 | e9d4886 | `/clean`: the doc set split (STATE → CLAUDE/PLAN/DECISIONS/GOTCHAS/CHANGELOG/ARCHIVE). |
 | **1.0.0** | 1.0 | 7523c81 | The app reports its own version. `VERSION` + `bump.py` + a footer tag; the numbering starts here. |
 
+## Changelog bodies — 1.5.0 → 1.5.33 (archived 2026-09-07) {#changelog-150-1533}
+
+The 34 rows `CHANGELOG.md` replaced with one stub: Phase K (the Library redesigned, K1–K4),
+Phase L's build list through L5.4 (the guide-stage rework and its three review rounds), and
+Phase M's M1a–M2. Verbatim, newest first. The models these shipped are still binding — they
+live in `DECISIONS.md`, not here.
+
+| Version | (was) | Commit | What shipped |
+|---|---|---|---|
+| **1.5.33** | — | — | **A granted spell opens from the block that names it** (**D175(c)**). In "Spells it gives you", a named spell is a link now — the row was a dead end, and the spell it named was three surfaces away. Both details live in the same box, so the jump remembers what it replaced and offers it back by name ("← Fey-Touched"): every other detail surface here is left by closing, and a one-way jump would have made this one a trap. Only a named spell is a link — a pick's question, an expansion and an option group describe a choice, not a spell. |
+| **1.5.32** | — | — | **A spell's higher-level line printed the base damage, not the increase** (**D175**). Conjure Elemental read *"the damage increases by 8d8;4d8"* where the book says 1d8, and **137 spells** had the same wrong number — Fireball 8d6, Cone of Cold 8d8, Color Spray 6d10. The tag stripper in both extractors kept the FIRST pipe segment of every `{@tag …}`; for `{@scaledamage}` and `{@scaledice}` that is the base, and the increase is two segments further on. Two tables now name every tag whose display text sits elsewhere, with the indices taken from 5etools' own unpackers — which also gives back the display text of the 30 link tags: *"Proficiency"* is *"Proficiency Bonus"* again, *"you have Cover"* is *"Three-Quarters Cover"*, and Create Undead's ghouls are plural. 605 strings corrected, nothing added or lost. `cparity.js` compares the two extractors' prose byte-identical now; counting paragraphs let the tables drift. |
+| **1.5.31** | — | — | **The filter menu, and the spell filters on both spell pickers** (**D174**; Phase M's M1b and M2). Every picker's filters are GROUPS that open one at a time, each closed row saying what it is narrowed to — nine groups is nine lines until you ask for one. The resting chip is filled and borderless, so the outline is spent only on what you have chosen; empty means all on every axis; the book checklist stays per book. The spell pickers gain School, Cast time, Duration, Components, Damage, Save and Condition with Ritual and Concentration as switches — the guide's picker, which the builder puts you in, had a search box and nothing else. Each row is built from the pool in front of you, so a class-scoped picker offers only what that class has. |
+| **1.5.30** | — | — | **A toggle chip keeps its box inside a popover, abilities keep their colour, and the off switch reads as a control** (**D173**, closing D172's gate on the sectioned popover). `.menupop button` outranked `.cbtn` and stripped its border, radius, size and centring, so every toggle row inside a popover rendered as loose menu text and only the selected ones looked like controls — the level rows, the feat categories and Main score all had it, while the same chip on the filter card always looked right. Ability toggles now take their `--ab-*` signature colour, ink and fill. The off switch is an outlined track with a solid knob: it measured 3.63:1 beside an on-state at 6.57, and now matches it. |
+| **1.5.29** | — | — | **A collapsed rail tile jumps to its level** (**D172(a)**, correcting D170(c)). It used to open the rail, which undid the width you collapsed it for. The rail stays as it is; the header chevron is what expands it. |
+| **1.5.28** | — | — | **The rail collapses from its own header, and the class picker gets the filters a class has** (**D170**, **D171**). The chain rail's collapse is a chevron in the rail's own header, right-aligned; collapsed, the rail is a 54px column of levels and how each one stands, and clicking one opens the rail on that level. It replaces the page-header control that hid the rail outright — a control for a state you cannot see. In the class picker, the two filters that cannot mean anything for a class are gone (prerequisites, grants-spells) and **Main score** replaces them, with the class's primary abilities leading its row as chips instead of a list of granted spells. |
+| **1.5.27** | — | — | **A take button now says whether the question takes one answer or several** (**D169**). `+` means one more of them — feats, invocations, a class's spell list, prepared spells. A ring means this one instead of those — the species, the class at a level, a spell trade or placement, and any section asking for a single pick. Both still become a ✓ once taken, and every take button in the app goes through one helper so the two marks cannot drift. Also: the FIRST class step opens its picker with the step — it is the one class step with nothing to choose the picker over. |
+| **1.5.26** | — | — | **The class step gets the full-size picker, and a class can be CHANGED** (**D168**). His note: a class could not be changed once chosen — the step drew its value and stopped, and the two big buttons beside it took the NEXT level rather than edited this one. The entity picker has a `class` kind now: search, book filter, and the class's own detail (core traits, progression, features) in the preview pane. Changing a level REWRITES its place in the level plan rather than adding one, and a change that would leave a class with no levels arms first and says so once, in the picker's bar. The picker never opens with its step — the growth step's two one-click buttons stay and this is the way out when neither is the answer — and the compact `<select>` it replaces is gone. |
+| **1.5.25** | — | — | **The next choice in a step is marked, and Next names it** (**D167**). Once a choice lands, the section to answer next wears the accent ring the chain already uses for the step you are standing on — his pick of the three mocked in `guide11.html`, with hover REPLACING the mark instead of layering on it, so a hovered chip never shows two states at once. Next walks the step's own sections before it moves to the level and says where it is going ("Next: spellbook spells"), reading the bare "Next" only once the step has nothing left to ask. |
+| **1.5.24** | — | — | **Seven of nine review notes** (**D166**). The last row of a picker was unreachable — the spell list kept its modal `max-height`, nesting a second scroller inside the body, and the tail sat in it. A preselected option (casting ability) now counts as answered in the guide, so the chain stops asking for a decision the card already made. A prefiltered group wears a funnel. The detail pane CLOSES from an icon inside it, with no box around it and nothing left behind; the collapse moved to the chain rail, on the header control that already existed. Buttons wider, not taller. XPHB dropped from class and subclass menus. The end-of-walk primary says what it offers. |
+| **1.5.23** | — | 37cf33e | **Eight adjustments to the guided builder** (**D165**), one a real bug: a pick taken beyond what the level asks for could not be dropped — `toggle` carries the character view's pull-back (D115(d)), so the click reshuffled the order instead of removing it. In the guide a held pick drops now, and a take beyond the window says which level's slot it filled. Also: the detail pane only opens above 1100px and only once something is selected, animating the picker down to make room, and it collapses by hand; the filter popover is no longer masked; the grouping header inside a picker is a label rather than a second heading; the walk's buttons grew; the level chip left the top bar; and finishing one section hands the picker to the next one still asking. |
+| **1.5.22** | — | a4ae516 | **The guide stage becomes a picker SURFACE** (**D164**, superseding D161's relocation and D162(c)). The picker opens with the step — no click to reveal it — and drops the chrome it only had as a dialog: no title, no close button, no footer. That kills two bugs with one cause: a node moved out of `.modal` loses `.modal .box`, `.modal .mh` and `.modal .mh .x`, which is why the header painted a band onto a transparent box and the × rendered as a raw browser button. The empty right band now carries a **preview pane** — the app's own detail surface, filled by clicking a row's name, so a modal is removed rather than a surface added. Every filter comes with the picker, with its bar lifted out of the scroller so the popover cannot clip. |
+| **1.5.21** | — | f252cf3 | **The in-stage picker, reviewed** (**D162**, on Francesco's notes; amends D161(c)). The list REPLACES the opener button instead of sitting under it — a button that repeats an open picker is noise. A step with several sections shows them as chips (the open one marked) and drops the section headers the chips already carry. **One column, always** — a picker is a list you read down — capped at 720 and centred. And the end of a walk is ONE card: the end-of-walk sentence sat below the nav while the card above still showed a step, so "done" and "next" claimed the same moment with the buttons between them. |
+| **1.5.20** | — | aed62f1 | **L5.4 — the guide step's picker moved INTO the stage** (B1-05, D158(f), **D161**, narrowing D126(f)). At 1280 the guide opened a 760px dialog over 852px of empty stage; the picker's box is relocated into the stage instead — same node, same render functions — and its list uses the width it gains (a grid, lineage groups spanning). Stage fill **12% → 68%**. Below the guide's own 820px breakpoint the picker stays a modal with its dialog semantics, and narrowing the window mid-pick hands it back. Francesco rejected two rounds of side panels first, for the right reason: they restated the chain rail. |
+| **1.5.19** | — | b961f15 | **L5.3 — the first import merges onto the bundle** (D158(d), amends D137; implementation calls in **D160**). `assembleData` was `IMPORTED||BAKED`, so the first import REPLACED the app's own content: 43 books became 1. It is a keyed merge now, with the import winning record by record — and the bundle is merged at assembly, never written into storage, so nothing is duplicated and next release's bundle still wins. Source counts are recomputed at assembly so a merged book's row matches the screen. |
+| **1.5.18** | — | 6fc3a45 | **L5.2 — the engine test, and the pooling correction it was written for.** Every half-caster now contributes ⌈its own level/2⌉ to the pooled caster level instead of joining one bucket floored once (**D158(b)**, `compute()` + `planSlots()`): Artificer 5 / Wizard 5 reads **8**, was 7; Paladin 1 / Sorcerer 4 reads **5**, was 4. `scratchpad/engine.test.js` joins the gate as its eighth line — ten fixtures, 33 assertions, run against `app.js` loaded headless behind a boot guard (D158(j)). Third-casters are still pooled and floored; flagged, not changed. |
+| **1.5.17** | — | 4f7907b | **K4 — the old machinery retired.** Refresh imported data and its whole cast, the miss memory (`spellForge.refreshMiss.v1`, the tray's miss note), the two K1/K2 orphans (`folderForget`, `clearImport`), and — with no job left but a button label — the REMEMBERED directory handle: `handles` dropped at `IDB_V` 3, so no permission grant is kept for nothing. The folder stays as an input. Two sentences naming deleted controls rewritten; three GOTCHAS entries updated as history; the deadfns allowlist spent, so that gate line is now zero. |
+| **1.5.16** | — | ea94023 | **K3 — the raw stash and the parser fingerprint** (D154(g) + **D159**). A brew is stashed raw at import (only brews: `_meta.sources` is the core/homebrew line), and `autoReparse()` re-reads it at boot with no prompt, reporting once, after. `build.py` injects `window.__PARSER__`, a hash of both extractors: **that**, not the version, is what makes data stale — since D158(i) a version moves on copy-only patches. Web books are named with **Update data** and never auto-fetched (D153). Fixed on the way: `filterDigest` dropped the new `parserHash`, so an un-re-parsed book read as current. |
+| **1.5.15** | — | fc2469f | **Wave 3c, the copy rewrite** (D157(d), D158(l), D158(r)): 227 strings to the brief, 181 em dashes and 63 ellipses out of the UI, five notes cut, one first-run line for Pages visitors; before/after table in `audits/copy-table.md`. Kept on purpose: ten progress ellipses, the `— none —` key, the bare `—` nil marker. |
+| **1.5.14** | — | 0e2e0e2 | The dialog observer counted an unseen modal as open, so every modal's FIRST open got no role, aria-modal or focus; found in the merged-tree smoke, fixed. |
+| **1.5.13** | — | 5687000 | **Wave 3b, UI/a11y/CSS:** all 14 modals are dialogs (role · aria-modal · aria-labelledby · focus in/out · Tab trap · Escape), a visible focus ring (5.5–7.1:1), badge 2.57 → 6.7:1, light `--cc-*` cells all ≥4.5:1, `.tlswapc` as a plate (D152), `<main>` and tab roles, glyphs through ICONS (D57), the tray scrolls into view, "No classes loaded" instead of a false sentence, one book-tag helper, 21 dead CSS tokens out, `--hairline` split from `--line-strong`. |
+| **1.5.12** | — | 2e141fd | The gate grows three lines (D158(k)): `deadfns.js`, `ids.js`, eslint (`eqeqeq` always except null, unused args and `catch` params ignored); a dead `pick` helper out of extract.js; K4's two orphans marked for the linter. |
+| **1.5.11** | — | d8eec9d | **Wave 3a, engine/importer:** `stageFiles` resets form refs and orders by `readOrder` like the other three paths (C3-01, the silent monster loss); the Choices card counts everything unanswered (D158(e)); D125's clamp skips a trade; `sbFav` edition-tolerant with a forward migration; dead functions out (K4's list kept); `hasSpells`/`countType` dropped from both extractors; cparity absorbs the six source assertions (58 ok); `bump.py` validates before writing VERSION and a `</style` guard in build.py. |
+| **1.5.10** | — | 61cd194 | Audit wave 1: B1 live-UX report, the string inventory and 30 screenshots; two aria-labels and one plural. |
+| **1.5.9** | — | 8fc489f | Audit wave 1: C1 app-structure report, eslint flat config + package.json (D157(e)), `TABLE_MM` and `BOOT_MODE` removed (written, never read). |
+| **1.5.8** | — | 324cfa0 | **D154 phase K2 — the pending-import tray.** What you just added, what is new in it, and one commit — above the status strip, and only while something is staged. It replaces D86's standing keep-plan and, with it, the plan's second meaning: unticking a book you HAVE used to delete it. **The tray adds and cannot remove** (D156) — every stored book is folded back into the keep-set before the write, so the button says "Add N books" and never wears danger; removal is the list's selection bar and only there. A book you already have is one sentence ("N books you already have will be re-read with parser vX"), not 44 untickable rows; the filter and All/None appear at 9 new books or more. `#importReport` stays outside the tray so a fetch's progress and a removal's receipt still show when there is no tray. Also: the narrow-width notice bar was shrinking to its content and wrapping one word per line whenever it carried an action button — it spans the width below 560px now. Verified: Add took the digest 44 → 45 and dropped nothing, then restored byte-identical; Discard armed and non-destructive; rows centred to 0.00px at 1280 and 375 in both themes. |
+| **1.5.7** | — | 55d8cb0 | **D154 phase K1 — the Library is ONE page.** The Sources|Manage tabs are gone. A status strip owns the web fetch (books · 5etools version · parser · storage, accent-bordered when a release is out) and absorbs the four surfaces that used to say fragments of the same answer. Below it, one list: G1 edition groups of R3 two-line rows — select-checkbox · name over kind counts · origin chip (web / file / built-in, stamped per book at apply time) · enable switch, and a disabled book DIMS with no badge. The checkbox now means SELECT: selecting raises monster-forge's bar (count · Clear · one switch for the lot · Remove, armed), which is the only removal path there is — "Remove imported data" is select-all-then-Remove now. Acquisition moved to the footer behind **＋ Add files** (zip · JSON · folder · paste); the permanent drop zone and drag-drop are gone with the tab that held them. The box is a flex column so the footer stays pinned and the strip stays put while the list scrolls. Removal proved singly and in bulk against the real 44-book digest and restored byte-identical; 0 of 44 origin chips misaligned at 1280 and 375 in both themes. **D155** records the five calls D154 left open. |
+| **1.5.6** | — | 064f110 | **D153 — the app follows the 5etools repo itself.** "Fetch 5etools data online" (Library → Manage) pulls the current release straight from the public mirror repo — version resolved and files served by the jsDelivr CDN (CORS-open), enumerated by the GitHub tree API, filtered through the REAL `zipWanted()` — into the same staging as a dropped zip: plan, tick books, Apply, per-book parser stamps, nothing stored until Apply. On Apply the release is recorded, and a boot check offers "Fetch it now" when the repo has a newer one (online only, dismissible per release). The repo address is editable ("Address…") because the mirror orgs rotate. A file failure is fatal and keeps the report: seen live, jsDelivr 403'd one file mid-burst and the surviving workers painted progress over the error — a `dead` flag now stops the fleet, with 3 backoff tries per file then one from the raw GitHub host. Verified against cparity's exact counts; pane storage snapshotted and restored byte-identical. |
+| **1.5.5** | — | f77d07b | **D152 — the timeline's alert tile is a PLATE, and `--muted` was never the lever.** D148 left the "0/2 PICKS" tile (`.lt-count.tlalert`) as the last contrast failure in the timeline modal — **3.85:1** for the number and **4.01:1** for the label on a `.here` card (4.26/4.44 on a normal one), 24 nodes failing in dark, 0 in light — deferred as a palette defect on the assumption that the fix meant greying the red toward `--muted` and losing the alert. **(a) That assumption was wrong, and measuring it is what unlocked the fix:** sweeping the whole `--bad`→`--muted` mix, *every* value fails on a `.here` card, and pure `--muted` — no red left at all — still reaches only **4.49:1**. The ink was never what held the tile down: a translucent `--bad-soft` over a dark card composites to a MID ground (#4c3128), and nothing of that lightness supports a mid red above it. **(b) So the tile darkens instead of the ink washing out** — an opaque plate, `color-mix(in srgb,var(--bad) 9%,var(--bg))`, with the number restored to **full `--bad`** (it was `bad 62% + muted`, so this is *more* red than before, not less) and the label sitting where the number used to. **5.23:1 / 5.38:1 dark, 4.87:1 / 5.25:1 light.** **(c) An opaque plate also deletes the `.here` variant:** the tile now composites identically over a current-level card and a normal one, so there is one background to reason about instead of two. *Rejected:* brighter ink (`bad 65% + --ink`, 5.07:1 — passes, but reads salmon-pink rather than red in dark, the exact identity loss the deferral was protecting); both-halfway (4.99:1, two variables moved for the least headroom); leave-and-document. *Cost named:* the two picks-tile states now differ in kind — a trade stays a TINT, an alert is a plate; aligning `.tlswapc` is ⚑ Francesco's call, not an accessibility fix. **Verified:** 24/24 alert nodes pass in both themes, text symmetric to **0.01px** at 1280 and 375, print untouched (the block hides `.modal,.spmodal` outright), gate green, cparity 0 fail. **Found while measuring, fixed in parallel:** the sweep also caught `.logains.dim` (`opacity:.6`, the *"No new features"* line) at **3.01:1** dark / **2.52:1** light — a fourth instance of D145(c)'s decorative-opacity class — which a concurrent session had independently found, measured to the same numbers, and fixed as **D151 / v1.5.4**, along with `.locard.zplan`'s `opacity:.82` that was compounding it. Nothing owed here. (This entry was renumbered D151 → D152 and 1.5.4 → 1.5.5 on discovering that branch: a parallel worktree reserves neither a version nor a D-id.) |
+| **1.5.4** | — | faa0d64 | **D151 — the quiet floor is `--muted`; there is no legal step below it.** D145(c) dropped a decorative `opacity` from `.lvltools` and `.fldnote`, but its audit could only see what was on screen, and **`.logains.dim` ("No new features") renders only for a character level that gains nothing** — the audited build had no such level. Measured in the real timeline against the real composited background, it was **2.49:1 dark / 2.10:1 light** on a plan card, 2.84 / 2.50 on the current one and 3.01 / 2.52 on a lived one. **(a) `.logains.dim` loses its `opacity:.6`**: the line is already `--muted`, which D145(a) derived to *just over* 4.5:1 against every surface it can land on — so the second quiet step `.dim` was reaching for does not exist. The italic is the whole distinction, and it is the right one: this line states an ABSENCE, not a list. **(b) `.locard.zplan` loses its `opacity:.82` too**, which was load-bearing for (a) — a plan card multiplies its opacity into everything inside it, so `.dim` there was `.6 x .82 = .492` and fixing `.dim` alone would have left it failing. That `.82` was independently holding a whole family of `--muted` text at **4.44:1 dark / 3.92:1 light** (`.lolv`, the clock tiles' `b`/`small`, `.tlchip.ghost`, `.gopen`). Two signals said "not yet lived"; the dashed border is the one that costs no contrast. `.locard.dragging`'s `.4` stays — a drag ghost is not a reading surface — and print is untouched by construction (`.modal` is `display:none` there). **Verified:** `.logains.dim` at **5.77:1 dark / 5.66:1 light** on all three card variants at 1280 and 375, no overflow and no horizontal scroll; the light timeline at **0 failures across 111 rendered text nodes**. Dark keeps **24**, all `.lt-count.tlalert` (3.85-4.44:1) — a *palette* defect that fails at full opacity and changes the alert's identity colour, so it is measured and flagged for Francesco rather than folded into an opacity fix. **GOTCHAS gains the traps this measurement paid for**: a hidden Browser pane never ticks the animation clock, so a transitioning colour freezes at its pre-flip value and reads as a phantom failure; `requestAnimationFrame` never resolves there either; `color(srgb ...)` is 0-1, not 0-255; a backgrounded `serve.py` that lost the port to another worktree serves the OTHER tree's files; borrowing that tree's `data/` makes `cparity.js` fail on someone else's extractor edits; and parallel worktrees share the tag store and the D-numbers — this shipped as D148/1.5.1 in its own worktree before `main` turned out to have taken D148-D150 and 1.5.1-1.5.3, and was renumbered on landing. |
+| **1.5.3** | — | d8e95c3 | **D150 — a class and its subclass are ONE modal, on one level spine.** Closes D149(f)'s 🔶: Francesco picked **variant A** off the mockup, *"but subclass expands together with other features in expand all"*. **(a)** The class modal holds both records' features in a single level-ordered list, so *"what do I get at level 6"* is one place. A subclass feature is told apart by an **accent rule and a tag bearing the subclass's name — never by position**, and the progression table's Features column and the "Spells it gives you" rows carry the same mark, so the distinction reads identically in all three. The header shows **two book tags** (an XPHB class can carry a TCE subclass, and D148(a)'s rule is that the book *is* the tag). `subclassTableGroups` join the progression table where a subclass has them; choices and grants both answer for the pair. *Rejected:* B · two bands and C · paired rail — clauses kept in D150(a). **(b)** **Expand all acts on both scopes.** It folded only the level groups, so a feature the reader had folded by hand stayed folded through an "Expand all" — the label was a lie for exactly the features they had been looking at. It reaches every feature inside the levels now, the subclass's included. **(c)** Both of a class row's detail buttons open the merged view; the subclass button keeps its own name and tip, because that is what was clicked, but a separate subclass modal would undo the merge the moment it opened. **Verified:** 0 contrast failures across **445 nodes** with every block forced open, both themes (min 4.82:1 dark / 4.87:1 light); the subclass tag symmetric to 0.00px on both axes; at 375, 0 horizontal page overflow; the Evoker's five choices appear in the merged modal and commit through the app's one picker. |
+| **1.5.2** | — | 60343bd | **D149 — the detail modal is a stack of disclosures, and a choice is answered where it is read.** Francesco's notes on 1.5.1. **(a)** Every block folds, and the **progression table starts shut** — twenty rows of numbers you consult rather than read, which pushed the features a screen and a half down. The title is the fold control and sits *inside* the header row, because the Features block hangs a second button off it and a button may not contain a button. **(b)** *"Subclass at · Level 3"* is gone from Core traits — the one row that described a relationship rather than the class. **(c)** The **feat modal follows the canon**: its facts list was sitting loose in the body while a class's facts sat in a titled block, so the two read as different objects. Every kind is now the same stack — At a glance · the prose under a kind title · the grants · the choices. **(d)** An **ability chip sits on the text baseline, measured**. Two faults at once: a hand-tuned `vertical-align:-1px` (wrong by exactly the pixel it was measuring) and an `inline-flex` wrapper whose `align-items:center` put the chip **3.5px** low. Measured with a zero-size inline-block probe — its bottom margin edge sits on the line's baseline — at **0.00px** everywhere, both themes. **(e)** **A choice is answered inside the modal that explains it.** The rows are the app's own `choiceRow`, never a copy, so a pick here and a pick on the Choices card are one control with one writer. Options and abilities resolve inline; a spell pick opens the app's one picker **raised above** the detail modal (`.modal.over`, z 75 over 70) — without that it opened underneath and read as a dead button. Escape takes the raised picker first. The block appears only once the element is in your build, because before that a choice has no id and nothing to write to. `render()` refreshes only that block, so no disclosure or scroll is lost. **(f) 🔶 open:** three **class ⊕ subclass merge** variants mocked against the real stylesheet with real digest content (`scratchpad/mockups/class-subclass.html`, gitignored; `python3 scratchpad/mkmerge.py` regenerates) — A · one spine with the subclass marked (recommended), B · two bands, C · paired rail. Awaiting Francesco. **Verified:** 0 contrast failures over **372** nodes (class, every block forced open) and 21 (Fey Touched) in dark, same in light, min 5.66:1; chip baseline delta 0.00px at every site; the full choice loop round-trips — pick in the raised picker, `state.choices` written, the modal's row refreshed to 1/1, picker closed and `over` cleared, modal still open on the same scroll and the same folds. |
+| **1.5.1** | — | c965fe1 | **D148 — one detail layout per KIND, and the book is the tag alone.** Francesco's notes on 1.5.0. **(a)** The book was being stated three times over — a chip beside a feat's name, a chip on a class row's label, and again spelled out in the modal subtitle. It is the **tag** now and nothing else; the tag's own popover already names the book in full and says where the element is printed (D51). **(b)** Prose is **structured at the extractor** instead of guessed at the renderer: `desc` was a flat list, so `isDescTitle` had to recover headings by regex and read *"You gain the following benefits."* — how nearly every 2024 feat opens — as one. `entry_blocks`/`entryBlocks` emit `["a paragraph", {n, e}]`, so a heading is DATA. Spells keep the flat array and the heuristic; `descBlocks` detects which shape it was handed, which is also what keeps an older import rendering. **(c)** A layout per kind: a **class** gets the Core Traits block (primary ability, hit die, saves, skills, weapons, armor, tools, starting equipment) and its **20-row progression table**, neither of which 1.5.0 had; a **feat** opens with a bullet list of facts — category, prerequisite, the ASI it grants, repeatable — before a word of prose; a **subclass** is its features; species and optional features are prose. **(d)** Features **group by level**, every group and section a disclosure, with one Collapse all. Level, PB and the Features column are composed by the app — the digest carries only what `classTableGroups` holds. **(e)** An ability is a **coloured chip** wherever it is a fact, prerequisite codes included (D142(b)'s `--ab-*`, already 5.3:1 in both themes). **(f)** "Spells it gives you" **divides by grant level** — every grant shape already carries `atLevel` — so a subclass states Level 3 / 5 / 7 / 9 / 10 instead of one comma run. **(g)** **Conditions explain themselves in place**: `conditionsdiseases.json` becomes an 18-record `conditions` map, `ccText`'s existing mark gains a key, and the book's own wording hangs off it in the spell, creature and detail modals. They survive a book filter — they are the rules vocabulary, not a book's content — and the parity harness gained a whole-record diff plus a census for the new map. **Verified:** 0 contrast failures over **373 / 47 / 13** nodes dark and 374 / 48 / 9 light (min 5.66:1); at 375 the page has **0** horizontal overflow and the progression table scrolls inside its own container; every new chip measured symmetric to ≤0.5px at both widths after centring the level chips, which `display:contents` had stretched 5.63px off. Parity exact: 51 checks, 0 fail, 0 whole-record diffs including the new `traits`, `table`, `ability`, block `desc` and `conditions`. An older import still renders — verified against a real stale one: 5 paragraphs, 3 headings, 0 blank bodies. **Cost:** `docs/index.html` 1613 → 1676 KB. |
+| **1.5.0** | — | 21d76c6 | **D147 — every buildable element carries its own text and names its book.** Francesco: *"include in the site the source of all character building elements that we can choose (ex. feats) … update the parser … include the feat modal … show this modal like we did for spells"*. The audit found the gap was **rules text, not source codes**: `source`/`book`/`page` were already on every array, but **nothing outside `spells` carried a `desc`** — a feat, an invocation, a species and a subclass were a name, a prerequisite and a one-line grant preview. **(a) Both extractors now carry the prose** — via the existing `flatten_entries`/`flattenEntries`, so `descP`'s heading and bullet handling works unchanged: feats **276/276**, optional features **213/213**, species **198/215**, class features **438/438**, subclass features **2143/2283**. Parity is exact: **0 whole-record diffs** across all six arrays. **(b) One modal for all five kinds**, borrowing SPMODAL as the creature modal does (D142(d)): name + book chip, a kind subtitle, the non-prose facts in the spell modal's own `.grid`, the rules text, then a `.gnote` naming the spells it gives you. A class or subclass has no prose of its own, so its body is its FEATURES, each with its level. **(c) Reached the way a spell is** — hover the NAME, click for the modal — from the picker rows, the builder's feat and invocation chips, and the timeline's gains line (the only place a class FEATURE is named). `attachEntity` stops the click, so the row still takes the pick and the chip still drops it. A `<select>` can hold neither a chip nor a link, so class, subclass and species state both on their **label**. **(d) The `source !== CORE` suppression is gone from all nine sites** it lived at, and `CORE` with it — but taken literally in a ~90px select it clipped the name it was labelling (**"Warlock (XI"**), so an option list suffixes the book only where two options share a name and the label's chip carries it unconditionally. **(e) A record with no text says so**: 17 setting-book species are `_copy` records whose `_mod` edits are deliberately not replayed, and 75 subclass features carry no `entries` at all — a sentence, never an empty box. Plus a display fix the modal exposed: a granted spell is named the way the book prints it (`grantPreview` resolves through `grantRec`), ending "Tasha'S Hideous Laughter" / "Hunger Of Hadar". **Cost:** `data.json` 2516 → 4051 KB and `dist` 3461 → 4915 KB (local, double-click); the public build barely moves — `docs/index.html` 1529 → 1613 KB (**+5%**), the SRD subset being 17 feats / 29 options / 9 species / 12+12 classes. **Verified:** 0 contrast failures over 42 nodes dark and 59 light (min 5.17:1 / 5.57:1); `.fldinfo` centred 0.00px on both axes at 1280 and 375; the class row's three labels share an exact baseline again (`align-items:end` had dropped "Lvl" 3.5px once its neighbours grew a chip); a name click leaves `state.feats` byte-identical and the picker open; Escape closes the detail modal, not the picker under it; repeated renders stack no chips; `state` byte-identical across the whole session. |
+
+## Decision bodies — D177–D189, the score block, Phase M's close and his bug batch (archived 2026-09-07) {#d177-d189-bodies}
+
+Thirteen entries whose surfaces have shipped and settled. `DECISIONS.md` keeps each
+headline, every clause letter, every *Rejected:* clause and the **Enforced by** line; the
+narrative, the measurements and the verification evidence are here, verbatim. Rules marked
+**→ Gotcha** have their enforced-in-code copy in `GOTCHAS.md`, which is the one to trust.
+D176 (the ladder's charter, N3 is gated on it) and D190–D194 (this session) stayed whole.
+
+- **D177 (2026-09-05) DECIDED — the ability-score block: the TILE is the control, and each
+  opens its own popover.** His six notes on N1 as shipped, one mockup round
+  (`scratchpad/mockups/scores.html`, `python3 scratchpad/mkscores.py` regenerates — five
+  shapes and the ⋯ menu), one interview.
+  - **(a) Shape: D, the per-tile popover** (his pick, with amendments). Clicking an ability
+    opens ITS popover, anchored to the tile, on the app's own `.menupop` surface: the base
+    field first and FOCUSED on open (you type straight away), the origin bonus as pills,
+    every feat that raised it read-only with its level, the custom bonuses, and a full-row
+    **+ Add a bonus** as the LAST element. No total row — the tile already says it. The base
+    field has a fixed width. *Rejected:* A, tiles read and rows edit (the breakdown always
+    visible, tallest); B, the folded disclosure under the row (what shipped, plus a fold);
+    C, an in-card sheet under the row for the open ability (grows the card); E, a read-only
+    card with one edit modal (calmest card, a round trip per edit).
+  - **(b) A custom bonus is per ability, named, and either ADDS or SETS.** `+1`/`-1` adds (a
+    Manual, a curse); a bare number sets the score to it unless it is already higher (a
+    Headband of Intellect's 19). Both from one field, told apart by the sign. Origin bonus
+    stays a pill row (+2 · +1 · none) inside the popover; the tile-face cycler is gone (his
+    note: at +0 it read as the modifier).
+  - **(c) The tile face.** Chip, total, modifier; **main abilities tinted** with their own
+    `--ab-*` colour, main = the UNION of every class's primary abilities (Wizard + Paladin
+    tints Int, Str and Cha); a small **ring on the chip for saving-throw proficiency**, from
+    the FIRST class only per the multiclass rule, with a hover that says so. No note beside
+    the label, nothing under the block. *Rejected:* main = casting stats only; saves from
+    every class.
+  - **(d) The derived numbers move to the Slots & casts card:** proficiency as a stat tile,
+    and one line per caster — class · casting stat · DC · attack. *Rejected:* inside the
+    popover only (discoverable only by opening it); nowhere on the card.
+  - **(e) The ⋯ menu, right-aligned in the label line, ships whole this round:** Standard
+    array, Point buy (27, with the points left shown beside the label while it is the
+    method), Type them (default), Roll (4d6 drop lowest, fixed), Fill for my classes (the
+    pool's best values onto the main abilities, casting stats first), Clear scores (armed).
+    Whatever the method, the tiles keep their shape. *Rejected, his call:* Swap two scores
+    and Copy as text (removed); the editable roll formula (hidden — the roll is 4d6dl1).
+  - **Enforced by:** `renderScores`/`openScorePop`/`renderScoreMenu` in `app.js`,
+    `scoreBonus` and `scoreMethod` at the END of `serializeState`, `mainAbilities()` and
+    `saveProfs()`, `engine.test.js` fixture 11's added assertions. **Affects:** D176 (the
+    model, unchanged in scope), D142(b), D173, the N1 line in PLAN.
+
+- **D178 (2026-09-05) DECIDED — second review of the score block (his nine notes on v1.5.35),
+  and a wizard's copies leave the lower levels alone.** Amends D177 in place.
+  - **(a) Origin pills follow the budget.** +2/+1 or +1/+1/+1: a +2 elsewhere, or two +1s
+    elsewhere, hide +2 here; a +2 and a +1 elsewhere, or three +1s, hide +1 too. The
+    ability's CURRENT value is always offered so it can be undone. *Rejected:* a soft flag
+    after the fact (the row would let you build +2/+2).
+  - **(b) Save proficiency is a border on the chip itself** (inset, so the chip keeps its
+    size), not a ring beside it. The hover explanation stays on the chip.
+  - **(c) The base field takes focus on open only while it is BLANK.** A filled score is
+    read first; auto-selecting it invited overtyping.
+  - **(d) Menu rows never wrap:** label on one line, the note UNDER it, both clipped.
+    **"Fill for my classes" is an Optimize SWITCH**, not a verb: while on, the six values are
+    kept best-first on the class order (casting stats, then primaries, then Con) after every
+    edit and fill. The **roll's formula sits behind a chevron in line with the Roll row**,
+    in the established dice notation — `4d6dl1`, `4d6kh3`, `3d6`, `2d6+6` — validated as
+    you type, stored per build, the default 4d6dl1. *Rejected:* the formula as its own menu
+    section (his call, v1.5.35 hid it); a free-text hint sentence.
+  - **(e) The roll animates as monster-forge's initiative roll does** — his explicit ask, so
+    the cross-project rule is set aside for this one mechanism: each tile's number becomes a
+    column of twenty values in the formula's range with the real one last, scrolling up to
+    it (1.35s, the same easing); the face underneath already holds the result, so reduced
+    motion shows it at once.
+  - **(f) A wizard's per-level tile reads the FREE allowance as its ceiling**, with the copies
+    beside it (`4/4 +36`), and copies never eat the allowance of the levels below: the room
+    at level L is the cumulative cap minus the FREE picks held above L, walked top-down.
+    "40/40 · 2nd · max" was a wizard holding 4 free and 36 copied spells; the same book read
+    "0/0" at 1st where 8 were still free. Non-wizard tiles are unchanged (the D70 floor).
+  - **(g) The prepared-picks height** (his ninth note) is a design call — options and a
+    mockup first, not a change in this batch. ⚑ in PLAN.
+  - **Enforced by:** `originOptions`, `parseFormula`/`rollFormula`/`formulaRange`,
+    `optimizeScores`, `animateScoreRoll`, the `freeAt` walk in `renderCart`, `.abchip.absv`,
+    and `engine.test.js` fixture 12 (eleven assertions). **Affects:** D177(a,c,e), D70.
+
+- **D179 (2026-09-05) DECIDED — third review of the score block, and the character's own
+  menu in the build switcher.** His six notes on v1.5.36; amends D177/D178 in place.
+  - **(a) Origin pills stay in place and DISABLE** when the budget rules them out (dashed,
+    dimmed, a hover that says why), instead of disappearing (D178(a) hid them); a **Reset**
+    on the Origin row clears the bonus on every ability, shown only while one is set.
+  - **(b) The popover header is the ability's NAME alone** — the coloured chip was the
+    tile's label repeated an inch away.
+  - **(c) One geometry for the face and the reel.** The resting number is rendered in the
+    reel's own structure (a 1em window, a column, one cell), so the roll's last frame and
+    the face are the same box in the same font — measured 0.00px apart in x, y, width and
+    height. His note: *"a subtle font or placement difference with the final result"*.
+  - **(d) The build switcher's character row carries a ⋯ menu where the version count
+    was:** **New empty version** (a blank build under the same character, placed after its
+    siblings, named as the next version would be — and the character becomes NAMED, or the
+    D35 auto-follow would rename the whole group after the blank build) and **Delete
+    character** (armed, D53; every version through `deleteBuild`, which keeps the
+    never-no-build and active-repointed invariants). The manager keeps its count.
+  - **(e) The character name field has no resting border in either place**, exactly as the
+    version name: a rule scoped to the switcher and the manager pins it, whatever a broader
+    input rule says. (Measured transparent at rest before and after; the rule is a
+    guarantee, not a fix for a border found.)
+  - **(f) The Optimize switch sits on the label's line**, the note under the label only —
+    a two-column grid, not a wrapping row.
+  - **(g) Prepared budget & picks:** two shapes mocked (`scratchpad/mockups/picks.html`,
+    `python3 scratchpad/mkpicks.py`) — fold per class, group by level — 🔶 his pick.
+  - **Enforced by:** `originOptions` + the disabled pill in `fillScorePop`, `renderScoreNums`'s
+    reel-shaped face, `newVersionOf`/`deleteCharacter` and the group menu in `renderBswPop`,
+    the `.bswgrpn`/`.bldchar` resting-border rules, `.scoremenu .mswitch` grid.
+
+- **D180 (2026-09-05) DECIDED — the picked chips are grouped by spell level, and a big group
+  is ONE ROW that scrolls.** Closes D178(g)/D179(g) after the two-shape mockup
+  (`scratchpad/mockups/picks.html`).
+  - **(a) Shape: group by level** (his pick of the two, amended): a header per level with
+    its count, the chips under it. **Not a fold** — past a threshold (12 chips) the group is
+    one row scrolling horizontally under the right-edge mask, exactly the Access row in a
+    spell's detail (D124's `.tlchips` mask), with a toggle that wraps it open; under the
+    threshold the chips wrap as before. *Rejected:* fold per class behind a summary line
+    (recommended; he preferred the levels readable at a glance); both combined; a
+    one-line field for the whole run; dropping the chips from the card.
+  - **(b) Open while few, folded past the threshold — automatic**, no state stored: a
+    group's manual wrap-open lives for the session only. *Rejected:* remembered per build;
+    always closed on load.
+  - **(c) The wizard tile reads held over free, plainly:** `40/4`, no `+36` — *"the key is
+    to get the second number correct"*. The copies stay in the tile's colour and title, and
+    the level header says "40 · 4 free".
+  - **Enforced by:** `PICK_ROW_MAX`, `PICK_EXP` and the `.pgrp` block in `renderCart`;
+    `.pgrp.many[data-exp="0"] .cartchips`. **Affects:** D178(f), D142(a), D124.
+
+- **D181 (2026-09-05) DECIDED — the level tiles fold into the level rows; and two D173-class
+  fixes.** His three closing notes; one mockup (`scratchpad/mockups/fold.html`,
+  `python3 scratchpad/mkfold.py`, shapes A and B), one interview.
+  - **(a) Shape A, chips always shown** (his pick, amended): the tile row is gone; every
+    level from cantrips to the top castable one is a row — its name, the tile's numbers
+    (held over what you can hold there, the max mark, the over/copied colour, tap to edit
+    picks as the tile did), and its chips under it. Past 12 chips the chips are ONE ROW
+    scrolling under the mask, and **the toggle sits at the chip row's right end**, as the
+    Access row's does in a spell's detail, wrapping the full list open. An empty level says
+    "none". *Rejected:* A with a chevron per row (chips hidden until opened); B, the tile
+    row kept with each tile a toggle for its level.
+  - **(b) Session memory only:** opened rows are remembered until reload, nothing stored.
+    *Rejected:* top level open by default; remembered per build.
+  - **(c) The Optimize switch had been stripped to its knob** by `.menupop button` (the
+    D173 trap: transparent track, 7px radius, 8px padding) — the track is restated inside
+    the score menu; OFF's ring measures 6.36:1.
+  - **(d) The version name in the manager measured a line-strong border on a filled box at
+    rest;** pinned borderless like the character name (D179(e)).
+  - **Enforced by:** the `tiles` map and `.pgrows` loop in `renderCart`, `.pgtile`,
+    `.pgrow` + `.pgtoggle`, `.scoremenu .mswitch .swk`, `.modal .bldname`. **Affects:**
+    D70 (the floor now lives in the row's tile), D178(f), D180.
+
+- **D182 (2026-09-05) DECIDED — the feat filters read the prerequisite STATE, and every
+  filter surface speaks the menu's vocabulary.** Phase M's M3 and M4, both from D172; shipped
+  as v1.5.40.
+  - **(a) Prerequisites is a three-way toggle row, not a switch.** "Eligible only" hid
+    everything the engine rated "no" — and D31's "maybe" went with it, flattened into a no.
+    The row's three chips are the engine's own states: **Eligible** (`ok`), **Not yet**
+    (`no`), **Can't verify** (`maybe`), any subset, empty means all (D174(b)). Feats,
+    invocations and species share it; the class picker has no prerequisites (D171(a)).
+    *Rejected:* keeping the switch beside the row (two controls for one fact); a repeatable
+    switch (D172(d) already declined it).
+  - **(b) Ability bonus is a row of the six scores** in their D173(b) colours, feats only. A
+    feat matches when ANY of its `ability` entries names a selected score, so a "choose one
+    of Int/Wis/Cha" feat answers for all three and the ASI's either/or answers for all six —
+    which is what those feats do. Nothing new is extracted: `ability` has carried the
+    scores since D176.
+  - **(c) One name per thing, across every filter surface.** The table's filter card said
+    "Source book", "Casting time", "Saving throw", "Damage type", "Class / list", "Tags",
+    "Editions" where the pickers' menu (D174) says Books, Cast time, Save, Damage; now the
+    card says the same, plus **Access** (who gives you the spell — the noun the spell detail
+    already uses) and **Properties** for the ritual/concentration/attack/upcast/material
+    row, whose chips lose their abbreviations ("Concentr.", "Atk roll", "Consumes mat.") and
+    take the names the active-filter strip already printed. Every select's empty option is
+    **All**; the book quick actions are All · None · 2024 core · My sources, as in the menu;
+    the prepared list's level popover and the forms picker's book head follow.
+  - **(d) A binary is a labelled switch.** "Editions" (a two-option select) is **Reprints**,
+    a `.swk` switch: on shows every printing, off the newest only; its strip chip reads
+    "Reprints". The forms picker's "Only the ones I've marked" checkbox is a **Marked**
+    switch. `syncSwitch`/`syncReprint` draw both from state, the way `filterMenu` draws its
+    own; `state.filters.reprint` keeps its `dedupe|all` values, so stored builds are
+    untouched.
+  - **Enforced by:** `entFilterGroups` (`prq`, `raise`), the `prq`/`raise` clauses in
+    `renderEntityList`, `F_TAGS` as the one source of the property names, `syncSwitch`.
+    **Affects:** PLAN.md (Phase M closes), D31, D172(d), D174, `audits/copy-table.md` (the
+    M4 rows, for the veto pass).
+
+- **D183 (2026-09-05) DECIDED — a `classVariant` list is class membership.** His report:
+  *"I can't see the Battle Familiar spell while building a Warlock (which 5etools marks as a
+  class receiving the spell)."* The generated lookup files a spell's classes under two keys:
+  `class` (the class's own list) and `classVariant` (a list a BOOK adds the spell to —
+  Fizban's dragon spells for the sorcerer and wizard, Arcana Unleashed's Battle Familiar for
+  the druid, warlock and wizard). Both extractors read only `class`, so every such spell was
+  reachable through a subclass or a feat and never through the class. The local mirror
+  already carried 180 of them; the live library, 213. Shipped as v1.5.41.
+  - **(a) Both keys are membership, deduped, in both extractors.** A spell's own source
+    already gates whether it is offered; the class list needs no second gate. `extract.js`
+    had honoured the older inline `fromClassListVariant` all along — this is the lookup-era
+    twin of that rule. *Rejected:* a `variant` marker on the class entry (nothing in the app
+    would read it, and the book's text says "added to the list", not "optionally").
+  - **(b) It reaches the live page through the parser fingerprint** (D159(b)): `__PARSER__`
+    moved with `extract.js`, so a stored library is re-read on the next visit — no re-import.
+  - **Enforced by:** the `("class", "classVariant")` loop in `extract.py`'s lookup pass and
+    its twin in `extract.js`; `cparity.js` compares `cls` byte-identical (0 fail, and the
+    mirror's 180 exercise it). **Affects:** GOTCHAS.md (extractor gaps), D91, D22.
+
+- **D184 (2026-09-05) DECIDED — the card you are standing on owns the slot, and Skip is
+  final.** His report, two bugs in one message: *"sometimes, after tinkering with spell
+  selection in the guided builder, a spell becomes 'unselectable' even though I fit the
+  requirements"*, and *"the guided builder doesn't really let me skip a step, it always
+  guides me back to the empty step unless I keep skipping."* Both reproduced on a Sorcerer 5.
+  One cause under them: **D125 read the ROW's first open slot as the landing for every
+  section of that row**, which was true when it was written and stopped being true the day
+  D146 made a drop leave an empty slot. Dropping one 1st-level pick from a level 5 card
+  re-capped that card at 1 — **112 spells to 30, every 2nd- and 3rd-level one gone** with only
+  a hint line saying why — and the same reading dragged the walk back to the level that owned
+  the hole, which is what made Skip alternate between two steps forever. Shipped as v1.5.42.
+  - **(a) A section's landing is its OWN first open slot** — an empty slot inside its range,
+    or its first position past what the array holds. `secOpenSlot` is the single owner;
+    `guideLandingSec`, the picker's cap and `toggle`'s write all read it, so they cannot
+    drift apart the way the cap and the insert point had. An empty slot an earlier level
+    left behind is **that level's question**, not this one's. *Rejected:* keeping the model
+    and extending the clamp to cover an answered section, so the walk moves you to the L1
+    card where a 30-spell list explains itself (faithful to D125 and smaller, but it makes
+    dropping a low-level pick yank you back down the walk — the second half of his report);
+    compacting the array on a drop so no hole is ever left (reopens D146, which was decided
+    the other way: a drop would re-date every pick below it).
+  - **(b) The pool is the SECTION's reach, never the landing's.** `castMax` comes from the
+    section you are standing on. Where the section is full and a take will really land in an
+    earlier empty slot, the hint says so per level — "A spell of level 1 or lower taken here
+    fills your still-open L1 slot instead" — instead of the list silently shrinking.
+  - **(c) The view stands on the section's own level.** `openGpickSec` used to preview the
+    LANDING section's level, which re-created (b) from the other side: a fresh open of a full
+    level 5 card with a level 1 slot outstanding moved the view to L1 and `R.pool` narrowed
+    to 30 before the cap was ever consulted. On the section's own level the pool, the cap,
+    `sliceInsertAt` and `toggle`'s write all agree.
+  - **(d) Skipped levels leave EMPTY SLOTS, exactly as a drop does (D146).** A take on the L3
+    card of an empty row lands at slot 4 with slots 0–3 standing open, rather than falling
+    into slot 0 and going red — which is the illegal-slot hazard D125 was raised about,
+    solved at the source instead of by moving the reader.
+  - **(e) SKIP IS FINAL.** `guideGo` records any step the walk moves off while it is still
+    open, and the clamp may never retarget you onto one; landing on a step clears it, because
+    you asked for that one. The step stays open and flagged in the chain either way — Skip
+    still commits nothing (D126(e)). *Rejected:* deleting D125's clamp outright (his call:
+    narrow it, don't retire it — and with (a) in place its premise is unreachable, so it now
+    costs six lines and guarantees the rail can never contradict the picker).
+  - **Enforced by:** src/app.js `secOpenSlot` (the one owner), `guideLandingSec`,
+    `openGpickSec`, `toggle`'s `slots` argument — handed over by the CALL SITE, never read
+    off the walk (D133(a)) — and `GUIDE.passed`. **Fixture 13** in `scratchpad/engine.test.js`
+    covers the landing rule and the padding; both go red if either is re-pointed at
+    `firstOpen`. **Affects:** D125 (premise corrected), D146, D118(b,g), GOTCHAS.md.
+
+- **D185 (2026-09-05) DECIDED — the guide gives the detail surface back, and a step that
+  owns a slot CHANGES it rather than overspending.** Two reports: *"on the guided builder
+  character view, I should be able to open spell details or other details"* and *"there is no
+  way to change a selected feat in the guided builder."* Unrelated causes, both reproduced.
+  Shipped as v1.5.43.
+  - **(a) The detail surface comes back when the walk goes aside.** `SPMODAL` is a SINGLETON
+    that the stage BORROWS: above 1100px `stagePrev()` MOVES it into the guide's preview pane
+    (D166) so clicking a name fills the pane instead of opening a dialog. `renderGuide`
+    returned at `aside` BEFORE the code that hands it back, so the guide slid off-screen and
+    `inert` still holding the app's only detail box — and every detail the character view
+    opened rendered into it. The click worked, the state changed, nothing appeared: D149(e)'s
+    dead-control shape, one layer out. `stagePrevPut()` now runs on the way out. The PICKER
+    stays hosted, so returning finds the step as you left it (D130(e)) and re-borrows the
+    surface — a detail you were reading follows you back into the pane. *Rejected:* dropping
+    the whole hosted picker on the way out (loses the step's open surface, which is exactly
+    what the aside contract promises to keep); giving the pane a detail box of its own (two
+    surfaces to keep in step, and D166 chose the move for that reason).
+  - **(b) A guide step owns ONE slot, so a full slot changes rather than overspends.**
+    `takeFeat`/`takeOpt` fill a hole or append and never consult the budget — right outside
+    the guide (flag, don't prune, D42) and wrong inside it, where a step's card claims one
+    answer. Clicking a second origin feat read **`origin 2/1`** with the card still naming the
+    first; three metamagics read `3/2`. The picker now carries `owns`, a DESCRIPTOR (`{key}`,
+    null while the slot is empty) handed over by the CALL SITE and never read off the walk
+    (D133(a)) — so every other surface leaves it null and keeps the old behaviour. Once
+    `entSlotSpend()` says the slot is full, a take drops what THIS step holds and the new
+    entry lands in the hole it leaves (D146), keeping the level that slot arrives at.
+    **Within budget nothing changes**: two metamagics at Sorcerer 2 are still two clicks, and
+    an in-budget add does NOT re-point ownership — that pick went to a SIBLING step's slot,
+    and aiming the next change at it would rewrite another step's answer. His call, over
+    refusing the click with a "this slot is full" message, and over showing every feat in the
+    slot on the card and leaving the overspend. Covers feats AND optional features, his call:
+    one code path, and fixing one would leave a known twin.
+  - **Enforced by:** src/app.js `renderGuide`'s aside branch; `entSlotSpend` (the one owner of
+    the numbers the budget pill prints, so the pill and the rule cannot disagree),
+    `entOwnsSwap`, `ENT.owns`, and the `held` field on feat/optfeat sections. **Fixture 14**
+    in `scratchpad/engine.test.js` pins the cap rule and the untouched sibling; it goes red on
+    a revert. **Affects:** D166, D149(e), D130(e), D42, D84, D146, GOTCHAS.md.
+
+- **D186 (2026-09-05) DECIDED — a pick you already hold never moves, and a spell your build
+  already grants says so.** Two of the six items in his 2026-09-05 report. Shipped as v1.5.44.
+  - **(a) The previewed-level pull-back is REFUSED, with a reason.** His note: *"there's still
+    a spell placing bug when picking and removing spells that moves spells to random earlier
+    slots."* Standing at level 3 and clicking one spell the build acquires at level 8 re-dated
+    FIVE picks (Cloud of Daggers L4→L5, Antagonize L5→L6, Counterspell L6→L7, Backlash L7→L8)
+    and dropped a 4th-level spell into a level-4 slot a Warlock cannot cast from. `toggle`'s
+    pull-back (D115(d)) still did `splice(i,1)` then `splice(at,0,…)` — the exact move D146
+    outlawed for a drop, which survived only because this path predates the slot model. The
+    click now changes nothing and says where the pick really lives. His call. *Rejected:*
+    keeping the pull-back but trading places with the pick already in that slot (two spells
+    re-dated instead of five, and it can still manufacture an illegal slot); dropping the pick
+    instead (recommended, declined — a click that deletes from a list where the pick never
+    showed is the surprise D115(d) was written against).
+  - **(b) A spell your build already grants is marked in the guide's picker.** His note. The
+    main table has said this since D104 — it drops the class's take button and shows the
+    granting source — but the guide's picker never did, so a spell a subclass hands you free
+    read as a plain choice. It is still OFFERED (nothing here is ever blocked, D31); it just
+    carries a chip. The chip claims **always prepared** only where `always` really holds this
+    class row, and **already granted** otherwise: `always` carries class-row indexes only
+    (D104), so a feat, a species or a custom source grants the same spell without landing
+    there, and a limited free cast is still worth taking as a known spell where an
+    always-prepared one is not. *Rejected:* excluding them from the pool the way `openPick`
+    does (he asked for them to be MARKED, and a spell that vanishes teaches nothing).
+  - **Enforced by:** src/app.js `toggle`'s `later` branch, `alreadyAlways`/`alwaysChip`, and
+    `.alwchip` in styles.css. **Affects:** D115(d) (its pull-back retired), D146, D104, D31.
+  - **Still open from the same report:** the swap system's rework (a mockup owes him a
+    choice), the SRD product-identity merge, the connected-choice collapse, and the trade that
+    still offers a spell already swapped away — that last one needs his build to reproduce.
+
+- **D187 (2026-09-05) DECIDED — a choice that came with something folds into it, and an
+  import supersedes the bundle's licensed-name twin.** Two more of the six. Shipped as
+  v1.5.45.
+  - **(a) A settled single choice folds into the answer that granted it.** His note:
+    *"collapse some choice rows into one when strictly connected (ex. Invocation > Agonizing
+    Blast becomes Agonizing Blast (Eldritch Blast) instead of adding a selection row)"*. The
+    rail read `ELDRITCH INVOCATIONS · Agonizing Blast` and then the whole prompt sentence with
+    `Eldritch Blast` under it — the same decision, said twice. It reads
+    `Agonizing Blast (Eldritch Blast)` now, one row, and the card says the same. **His call
+    on the width: forced OR already answered**, not forced only. Two guards keep it honest —
+    a DEFAULT is never treated as an answer (an option group reads `done` off the value its
+    control happens to show, D166(b), while `state.choices` is empty, and folding that would
+    hide a decision nobody made), and a group asking for SEVERAL never folds, because its
+    chips are the answer. The fold is reversible where it happened: the suffix on the card is
+    a button that puts the rows back for the rest of the walk (`GUNFOLD`, per walk, never
+    stored — a fold is a way of reading the chain, not a fact about the build).
+    *Rejected:* folding only a choice with one legal option (his first option — narrower, and
+    it leaves every answered row standing); hand-scoping it to invocations (the same shape
+    recurs on feats and species grants and would need doing again).
+  - **(b) An import supersedes the bundle's licensed-name twin.** SRD 5.2 strips the wizard's
+    name off 17 spells and `extract.py` builds the PUBLIC subset under the licensed ones —
+    record, prose and every grant — because those are the only names that may ship on a public
+    page. `mergeDigests` keys on `name|source`, so an import carrying
+    `Tasha's Hideous Laughter|XPHB` never overrode the baked `Hideous Laughter|XPHB`: both
+    survived and the pickers listed the spell twice (his report). `dropSrdTwins` drops the
+    baked twin, matched by the SRD alias the IMPORTED record carries — **so the mapping
+    arrives with his own data and no licensed name is ever baked into `docs/`**. The alias is
+    added to `SPELL_BY_NAME` second, so a baked grant that names the licensed spell still
+    resolves and a spell really called that keeps the head of its own list.
+    *Rejected:* shipping the real names in the public build (simplest merge, and it
+    republishes on a public page exactly what the rename exists to strip — I would not);
+    leaving both and marking them as printings of each other (D19's Reprints shape, but he
+    would keep seeing two rows, which is the report).
+  - **Enforced by:** src/app.js `guideVisSecs`/`guideFolded`/`GUNFOLD` and the fold pass at the
+    foot of `guideSteps`; `dropSrdTwins` and the alias loop in `buildIndexes`. **Fixture 15**
+    covers the twin drop, including that it is keyed by SOURCE and that a `srd:true` record
+    can never drop anything. **Affects:** D166(b), D130(b), D19, D91, D160, GOTCHAS.md.
+  - **Still open from the same report:** the swap system (two mockups drawn, `swap1`/`swap2`,
+    awaiting his pick) and the trade that still offers a spell already swapped away — that one
+    needs his build to reproduce.
+
+- **D188 (2026-09-05) DECIDED — THE LEVEL-UP TRADE IS TWO HALVES, AND NEITHER BINDS THE
+  OTHER.** His shape, off the `swap1` mockup: *"can we swap 1, but only mention the spell you
+  trade away as a chip (so that clicking gives you the details) and essentially allow an
+  additional spell choice, without necessarily binding them?"* Mockups `swap0`–`swap3` in
+  `scratchpad/mkswap.py`. Shipped as v1.5.46.
+  - **(a) Two halves, either standing alone.** "Giving up" and "Learning instead" are two rows
+    of the trade section, each set independently and in either order. The give-up is a real
+    spell CHIP — clicking its name opens the detail, like every other spell in the build (his
+    ask) — and the replacement is an ordinary spell choice beside it. `swapNorm`/`recordSwap`
+    accept `{row,out}` or `{row,in}`; an old two-part event is that shape with both halves
+    present, so **nothing stored needs migrating**.
+  - **(b) A half-made trade is a decision in progress, never an error** (his call). The card
+    says which way it is short — "one spell short until you learn one instead", "one spell
+    over until you say which one you gave up" — and nothing goes red. *Rejected:* flagging it
+    with the app's over/under language the moment one half lands (consistent, but it puts an
+    error on screen for a trade you are halfway through); recording no event at all and
+    letting a drop plus a pick stand in for a trade (simplest by far, and the earlier level's
+    empty slot would have nothing explaining it, so the chain would keep asking you to fill a
+    slot you gave up on purpose).
+  - **(c) The array truth each half keeps.** `out` — the spell is gone and the slot it left
+    stands open, **tagged `trade`** and carrying `pos`. `in` — the spell is held: in that
+    vacated slot when there is one, else APPENDED, which is what keeps undoing it a pop rather
+    than a shift. Both — the replacement sits at the given-up pick's position (D115(g)
+    unchanged), so a 4th-level spell traded in at L8 sits in an L1 slot and is still judged
+    legal, exactly as D119(b) already required.
+  - **(d) A traded slot is spoken for.** `holeFor` and `secOpenSlot` skip a `trade`-tagged
+    hole, so an ordinary take can never land in it, and the level card draws it as
+    **"Traded away"** rather than "Empty slot" — a fact, not a question (his Q1 answer).
+  - **(e) The rail carries a trade only once one exists** (`offRail`), and **a half-made one
+    counts** (his call): the rail is how you find your way back to something unfinished. On a
+    Warlock 9 that removes sixteen `to decide` rows. *Rejected:* waiting for both halves (the
+    strictest reading of his note, but a half-made trade would then be findable only by
+    remembering which level you were on).
+  - **Enforced by:** src/app.js `swapNorm`, `recordSwap`, `swapEvents` (which now carries
+    `pos`), `unswap`'s three branches, `guideTradeOut`/`guideTradeIn`/`guideTradeClear`,
+    `openGpickTrade` and the `tradeout` picker mode. **Fixture 16** pins all three `unswap`
+    branches and the normalisation; it caught `swapEvents` dropping `pos`, which the browser
+    had masked because `sliceChosen` strips holes before it. **Affects:** D128, D115(g),
+    D119(b), D126(h), D131(c), D146, D184, GOTCHAS.md.
+
+- **D189 (2026-09-07) DECIDED — a gap is a pick whose BOOK is missing, and an ability id is
+  not a spell.** His report from the live build: *"1 pick needs a book that isn't loaded, so
+  re-import it"*, with the tooltip naming **`cha (spell, )`** — a pick called `cha` from a book
+  with no name. Unclearable by construction: no import and no toggle can satisfy a book code
+  that is the empty string. Shipped as v1.5.47.
+  - **(a) Only a spell key is read as a spell key.** `state.choices` holds THREE shapes and
+    only one is a list of spells. An option group and a casting ability store a plain string
+    (already skipped by the array test), but a **SCORE choice stores an ARRAY OF ABILITY IDS**
+    (D176) — `["cha"]` — and `buildGaps` walked it as spell keys. A stored spell reference is
+    `name|source`; nothing without that separator is one. *Rejected:* resolving each value
+    against `SPELL_BY` and skipping the misses (what `pickedSpellNames` does — it would fix the
+    symptom, and a real pick from an unloaded book is exactly a key that resolves to nothing,
+    so it would take D56's whole feature down with it); moving score answers out of
+    `state.choices` (a D176 model change for a reporting bug).
+  - **(b) A reference naming no book is never reported.** The second guard, and the general
+    one: whatever such a key is, it names nothing that can be turned on or re-imported, so
+    surfacing it can only ever produce a banner nobody is able to clear. A gap is a pick whose
+    BOOK is missing.
+  - **Enforced by:** src/app.js `buildGaps` — the choices walk and `add`'s empty-source guard.
+    **Fixture 17** pins both, plus that a granted spell group and an ordinary pick from a
+    missing book still report exactly as before; 17a and 17d go red on a revert.
+    **Affects:** D176, D56, D42.
+
+## Phase N task bodies — N1 and N2 of the creator ladder (archived 2026-09-07) {#phase-n}
+
+The done-when evidence and the four review rounds `PLAN.md` replaced with two outcome lines.
+The MODELS are still binding and live in `DECISIONS.md`: D176 (the charter, N3 is gated on
+it), D177–D181 (the score block) and D191 (backgrounds). D192 later made the whole ladder a
+MODE — none of it renders in Simplified.
+
+## Phase N — the character-creator ladder (D176, decided 2026-09-05)
+
+- [x] **N1 · Ability scores + proficiency bonus** (A-06 as costed, D176(b)) — shipped
+  **v1.5.34**, 2026-09-05. **Verified** in the pane on a throwaway Wizard 4 / Paladin 1 (restored
+  byte-identical after): Int 15 + origin +2 + ASI one tile → 19, two tiles → 18/14; at level 3
+  the level-4 ASI is out of effect (17) and PB reads 2; `INT 13+` → ok, `CHA 15+` → no, `STR 13+`
+  (blank) → ?; the tracker printed `+7 / 15` and `+5 / 13`; the table's Ability cell `DC 15 · +7`;
+  the guide's ASI step carries "Ability score increase · +1 Int, +1 Cha"; every tile child centred
+  to 0.00px at 1280 and 375, 0 overflow; cycler on-state 2.04:1 caught and fixed; 0 console errors;
+  gate clean, cparity 61 ok, engine 47 ok. Size L.
+  **Reviewed the same day — six notes, one mockup round (`scratchpad/mockups/scores.html`),
+  D177 — and reworked as v1.5.35:** the tile is the control and opens its own popover (base
+  focused, origin pills, feats read-only, named add/set bonuses, full-row Add last); main
+  abilities tinted, save ring from the first class; the ⋯ menu (array · point buy with its
+  counter · type · roll 4d6dl1 · fill for my classes · armed clear); the numbers moved to
+  Slots & casts. **Verified:** Int 15 + origin +2 + a +1 Manual + a set-19 → 19 then 20 with
+  the ASI; standard array lands 15 on Int and the pool select swaps two abilities; point buy
+  reads "0 of 27 points left" on the array; Clear arms then clears all three stores; the
+  popover inside the card and the viewport at 1280 (left-hung) and 375 (right-hung, 236px);
+  every tile child centred to 0.00px; pill on 13.9:1, off 6.4:1, modifier on the tint 6.6:1;
+  restored byte-identical; 0 console errors; engine 55 ok.
+  **Second review, nine notes, D178 — v1.5.36:** origin pills follow the +2/+1 · +1/+1/+1
+  budget; save proficiency is a border on the chip; the base field focuses only while blank;
+  menu rows never wrap with the note under the label; Optimize is a switch; the roll formula
+  behind a chevron in dice notation; the roll reel from monster-forge's initiative; a wizard's
+  tile reads the free allowance with copies beside it and copies leave the lower levels alone
+  (`4/4 +36 · 2nd`, `0/8 · 1st`, was `40/40` and `0/0`). **Verified:** Int +2 → Cha offers +1
+  only → Str offers none, the holder keeps its pill; blank Wis focuses, filled Int does not;
+  `4d6kh3` accepted and `nope` refused; Optimize re-sorts six values; six reels of 21 values
+  land on the totals; engine 66 ok.
+  **Third review, six notes, D179 — v1.5.37:** disabled pills + Reset; no chip in the popover
+  header; face and reel share one geometry (0.00px); Optimize switch on its label's line; the
+  build switcher's character ⋯ menu (new empty version · delete character); character name
+  borderless at rest in both places. **Verified:** Cha offers +2 disabled while Int holds it,
+  Reset clears; the reel's last frame lands 0.00px from the face in x/y/w/h, same font; a new
+  empty version is blank, named v2, placed after its siblings, under the same character; delete
+  character arms then removes the group; builds and state restored byte-identical; engine 66 ok.
+  **v1.5.38 (D180):** the picked chips grouped by level, a group past 12 chips one scrolling
+  row under the mask with a wrap-open toggle; the wizard tile reads `40/4`.
+  **v1.5.39 (D181):** the tile row folded into the level rows (name · tile numbers · chips,
+  toggle at the chip row's right end); the Optimize switch's track restated; the manager's
+  version name borderless at rest.
+  Storage: `abilities` base six + `originBonus`, appended at the end of `serializeState` so
+  untouched builds compare equal; one `choices` entry per ASI/+1 feat pick (D135's `##n`
+  suffix keeps repeats distinct). Engine: a score at level L = base + origin + ASI choices at
+  or below L in the acquisition order (D115(b,h)); PB from character level; DC and attack per
+  casting source; `cs.dc` defaults to "yours". UI: a six-tile row on the Character card
+  (`--ab-*`, D142(b)); the guide's ASI step gains a "which score" section; the table's DC and
+  attack become numbers; the print's two ruled blanks fill; `checks` on a score resolve.
+  Exporter and importer additive. *Done when:* `engine.test.js` has fixtures for the score
+  slice (an ASI at level 4 is not counted at level 3), PB by level and a source DC; the table,
+  the print and a prerequisite each show a derived number in the pane; a pre-N1 build
+  round-trips byte-identical; CLAUDE.md's non-goal sentence reads "scores and proficiency
+  bonus only, nothing else"; gate clean.
+- [x] **N2 · Backgrounds as an entity** — **D191**, 2026-09-07, shipped **v1.5.50**. Origin
+  only: the background owns the +2/+1 and names the origin feat, and its skills, tools,
+  languages and equipment are printed on its detail with a line saying nothing derives from
+  them. 2024 only (60 in the mirror, 4 in the SRD bundle). **Verified** in the browser on a
+  throwaway Wizard 4 / Paladin 1, restored byte-identical: Acolyte narrows the origin pills to
+  Int/Wis/Cha and leaves Str/Dex/Con with "none" alone; a +2 on Int drops Wis and Cha to +1
+  (D178's budget, inside the three); swapping to Soldier keeps Int's own +2 pill so it can be
+  undone; the offer takes Magic Initiate into the **origin** slot and the row then reads
+  "which this build has"; the detail lists all six facts; the walk at level 1 reads class →
+  background → species → origin feat → cast in Complete, and has no background step at all in
+  Simplified. `cparity` diffs all 60 records byte for byte; **fixture 19** guards the
+  narrowing and the held-bonus trap.
+
