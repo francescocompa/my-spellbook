@@ -8,6 +8,14 @@
 > creator ladder, D176) opened 2026-09-05: N1 shipped (v1.5.34 → v1.5.39, D177–D181); N2
 > onward each need a decision entry first.**
 >
+> **Out of phase, 2026-09-05 → 07: his guided-builder reports, D184–D189** (v1.5.42 → v1.5.47).
+> Nine closed — the skip loop, the vanishing spell pool, details on the character view, a feat
+> that could not be changed, the previewed-level pull-back, a granted spell unmarked, the
+> doubled choice row, the SRD licensed-name twin, and an unclearable gap banner — plus the
+> level-up trade rebuilt as two independent halves (D188, off the `swap0`–`swap3` mockups).
+> One item is still open and sits as ⚑ below: a trade that offers a spell already swapped away,
+> which does not reproduce here.
+>
 > **Phase L (the audit, D157) is TRIAGED — D158 holds every disposition.** Wave 3 (L4) shipped;
 > the build list (L5) is under way — **L5.1 through L5.4 are done** and the guided builder's
 > rework (L5.4) drew three rounds of his review, D161 → D166. Two of his notes are still open
@@ -173,9 +181,15 @@ his call: N1 first, then M3/M4 (settled 2026-09-05).
 
 → archived 2026-09-05: 12 closed items — `ARCHIVE.md#flags-closed-by-2026-09-05`
 
-- [ ] **Copy veto pass** — `audits/copy-table.md`, 227 rows; revert by name. Also decide the ten
-  progress ellipses ("Fetching…", kept as "still running"). Phase M's **M4** will add the filter
-  strings to it. ⚑ (owner: Francesco, 2026-09-02)
+- [ ] **Copy veto pass** — `audits/copy-table.md`, **~292 rows**; revert by name. Also decide the
+  ten progress ellipses ("Fetching…", kept as "still running"). **M4's eighteen filter strings
+  landed 2026-09-05, and the D184 / D186–D189 guided-builder sections are appended at the end.**
+  The one naming call in the last batch is the trade's **Giving up / Learning instead**.
+  ⚑ (owner: Francesco, 2026-09-02, restamped 2026-09-07)
+- [ ] **A trade still offers a spell already swapped away** — his 2026-09-05 report, NOT
+  reproducible here: a Warlock 8 that trades at L7 correctly offers the replacement at L8, and
+  chained trades behave. D188 rebuilt this surface since, so it is worth re-checking before
+  chasing it. Needs his build export to pin. ⚑ (owner: Francesco, 2026-09-07)
 - [ ] **Third-casters are still POOLED, then floored** — found while implementing D158(b),
   outside its scope. `Math.floor(third/3)` sums Eldritch Knight and Arcane Trickster levels
   into one bucket; the table reads "a third of your Fighter levels" and "a third of your Rogue

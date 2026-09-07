@@ -7,12 +7,12 @@
 > |---|---|
 > | `CLAUDE.md` | What this project is, its conventions, build/run, the verify gate, versioning |
 > | `PLAN.md` | The queue — what is next, what is flagged for Francesco |
-> | `DECISIONS.md` | Every decision D7–D188 and what was rejected |
+> | `DECISIONS.md` | Every decision D7–D189 and what was rejected |
 > | `GOTCHAS.md` | Traps that have already cost a session |
 > | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 > | `ARCHIVE.md` | Bodies of consumed phases, decisions and old rationale |
 
-## TL;DR (2026-09-05 · **v1.5.46** live, pushed and tagged · `73ec1c1` · **Phase M DONE (D182) · nine of his guided-builder reports closed (D184–D188)** · seven releases today, v1.5.40 → v1.5.46)
+## TL;DR (2026-09-07 · **v1.5.47** live, pushed and tagged · `c2cfc11` · **Phase M DONE (D182) · ten of his reports closed, D184–D189** · eight releases this session, v1.5.40 → v1.5.47)
 
 - **Where it stands.** **Phase M closed** with M3 and M4 (v1.5.40, **D182**): the feat picker's
   "Eligible only" is a three-way Prerequisites row (Eligible / Not yet / Can't verify) plus an
@@ -49,9 +49,14 @@
   set independently and in either order, the give-up a real chip whose name opens the detail;
   a half-made trade is a decision in progress and says so; the vacated slot is tagged so no
   ordinary take can land in it and the card reads "Traded away"; the rail carries a trade only
-  once one exists. **Open — ① a trade still offering a spell swapped away one level earlier:
-  NOT reproducible here (a Warlock 8 traded at L7 correctly offers the replacement at L8,
-  chained trades too), so it needs his build.**
+  once one exists. **And v1.5.47 (D189) killed an unclearable alert on the live build**: the gap
+  bar read *"1 pick needs a book that isn't loaded"* over a pick called **`cha` from a book with
+  no name** — `state.choices` holds three shapes and a SCORE choice stores an array of ABILITY
+  IDS, which `buildGaps` walked as spell keys. It tests the key (`name|source`) now, and a
+  reference naming no book is never reported. **Open — ① a trade still offering a spell swapped
+  away one level earlier: NOT reproducible here (a Warlock 8 traded at L7 correctly offers the
+  replacement at L8, chained trades too), and D188 rebuilt that surface since, so re-check
+  before chasing it — it needs his build export.**
 - **Next action: N2 (backgrounds) needs its own decision entry before anything is built**
   (D176(c)) — /interview him on the rung, then build. L5.5 onward still queued.
 - **Manual for Francesco:** ① the **copy-veto pass** over `audits/copy-table.md` (now 245
@@ -70,6 +75,8 @@
   forms (D81); ⑦ L5.5's format (copy the build as a level plan).
 - **Read before touching the guide's pick landing:** D184, then GOTCHAS' `firstOpen` vs
   `secOpenSlot` entry — the cap, the previewed level and the write must move together.
+- **Read before touching anything that walks `state.choices`:** D189 and its GOTCHAS entry —
+  three shapes, and only one of them is a list of spells.
 - **Read before touching the level-up trade:** D188, then GOTCHAS' two D188 entries — a
   TRADED empty slot is spoken for, and an event field `swapEvents` does not copy is invisible
   to `unswap`.
@@ -110,7 +117,10 @@ its `mk*.py`).
 
 A full `/clean` ran 2026-09-05 (D158(q)/L5.11): D115–D175 bodies, Phase K/L/M task bodies,
 fifteen closed flags and the 1.0–1.4 changelog rows moved to `ARCHIVE.md`; stubs point.
+**DECISIONS.md has taken D176–D189 since** and is back over ~1900 lines; `audits/copy-table.md`
+is at ~293 rows and is still waiting on his veto. Both are candidates for the next `/clean`,
+not for a close-of-session pass.
 
-⟳ Rename previous session → "Nine guided-builder reports, and the trade rebuilt as two halves" · session: (resolve by cwd + most recent lastActivityAt)
+⟳ Rename previous session → "Ten reports closed, the trade rebuilt as two halves, and an unclearable alert" · session: (resolve by cwd + most recent lastActivityAt)
 
 The queue after N2 is L5.5 onward — see `PLAN.md`.

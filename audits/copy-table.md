@@ -365,6 +365,30 @@ there, and the sentence has to say which. Veto reverts the row.
 | app.js `renderGpick` hint (a slot open behind you) | `A pick taken here fills the still-open L5 slot first. That is where it lands.` | `Every spell slot this step owns is filled. A spell of level 1 or lower taken here fills your still-open L1 slot instead.` | the old line was true of every pick; it is now true only up to that slot's level (D184(b)) |
 | app.js `renderGpick` hint (nothing open behind you) | `Every slot of this kind is filled. Click one you hold to drop it first.` | `Every spell slot this step owns is filled. A pick taken here lands past what your schedule gives you. Click one you hold to drop it first.` | "of this kind" named the array, not the step; and it never said what a take would do |
 
+## D186–D189 — the guided-builder batch (2026-09-05 → 07)
+
+Every user-visible string this batch added. Veto reverts by row; the ones marked **new** had
+no predecessor. The trade's two labels are the batch's only naming call: **Giving up** /
+**Learning instead** over the old single "Swap a spell", chosen because the section now asks
+two questions and each row has to say which one it is.
+
+| location | before | after | why |
+|---|---|---|---|
+| app.js `toggle`, refused pull-back | — | `<Spell> arrives at level 8, above the level you are viewing. Go to level 8, or clear the level view, to change it.` | new (D186(a)); the click used to move five picks silently |
+| app.js `gpickRow` chip | — | `always prepared` | new (D186(b)); only where the class really has it free |
+| app.js `gpickRow` chip | — | `already granted` | new (D186(b)); a feat, species or custom source, where taking it is still worth it |
+| app.js guide card, folded choice | a row of its own | `Agonizing Blast (Eldritch Blast)` | short (D187(a)); one row where the rail said the same decision twice |
+| app.js trade section | `Swap a spell` (one row of chips) | `Giving up` / `Learning instead` | new (D188); two independent halves need two labels |
+| app.js trade slot | — | `Trade one away` · `Learn one instead` | new (D188); the empty half, in the pick slot's own chip |
+| app.js trade note | — | `You are one spell short until you learn one instead. The slot it left is standing open, marked as traded away.` | new (D188(b)); a half-made trade is not an error and must not read as one |
+| app.js trade note | — | `You are one spell over until you say which one you gave up for it.` | new (D188(b)) |
+| app.js pick chip, traded slot | `Empty slot` | `Traded away` | new (D188(d)); a fact, not a question |
+| app.js rail, half-made trade | `to decide` | `− Bane · nothing learned yet` / `+ Blight · nothing given up yet` | new (D188(e)) |
+
+**Not a string change, but on the same surfaces:** the gap bar's own wording is untouched by
+**D189** — what changed is which picks reach it, so a banner naming a book that cannot exist
+is no longer produced at all.
+
 ## Totals
 
 | measure | count |
