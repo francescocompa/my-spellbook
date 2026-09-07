@@ -5,8 +5,10 @@
 >
 > **Phase M (the filter system, D172) is DONE** — M1a–M2 (v1.5.30, v1.5.31), **M3 and M4
 > (v1.5.40, D182)**. **Phase N (the
-> creator ladder, D176) opened 2026-09-05: N1 shipped (v1.5.34 → v1.5.39, D177–D181); N2
-> onward each need a decision entry first.**
+> creator ladder, D176) opened 2026-09-05: N1 shipped (v1.5.34 → v1.5.39, D177–D181) and
+> **N2 shipped 2026-09-07 (v1.5.50, D191)**; N3 onward each need a decision entry first. The
+> ladder is also a MODE now (**D192**, v1.5.49): Complete or Simplified, app-wide, Simplified
+> by default, and every rung is absent in Simplified.**
 >
 > **Out of phase, 2026-09-05 → 07: his guided-builder reports, D184–D189** (v1.5.42 → v1.5.47).
 > Nine closed — the skip loop, the vanishing spell pool, details on the character view, a feat
@@ -190,6 +192,25 @@ his call: N1 first, then M3/M4 (settled 2026-09-05).
 
 → archived 2026-09-05: 12 closed items — `ARCHIVE.md#flags-closed-by-2026-09-05`
 
+- [ ] **The "0 picks" unclearable gap bar** — ⚠ **being fixed in a separate session**
+  (task_2f797cfd, started 2026-09-07). On the public build a pick naming an XPHB feat outside
+  the SRD subset makes the bar read *"0 picks need a book you have turned off"* over a book
+  that is already ON, with a button that can never clear it. D189's family, one condition
+  along: `buildGaps` returns a ref whose book is loaded and enabled but whose RECORD is absent.
+  **Do not start it here** — expect a new D-entry and a fixture beside 17. ⚑ (owner: that
+  session, 2026-09-07)
+- [ ] **Is Simplified the right default?** — D192(b) took it on his instruction, and it changes
+  what the app looks like on first open for everyone. Wants his eyes on a real build before it
+  is settled for good. ⚑ (owner: Francesco, 2026-09-07)
+- [ ] **The guide's background step is SECOND, not first** — after the class step, which every
+  other step's existence hangs off, and before species, the origin feat and every score
+  question (D191(f)). He asked for "first"; say whether this reading is right. ⚑ (owner:
+  Francesco, 2026-09-07)
+- [ ] **A book that publishes ONLY backgrounds is invisible** — the source registry counts five
+  kinds and backgrounds are not one, so such a book would not be listed and `filterDigest`
+  could drop it (D191(f)). Nothing is hidden today: all six books with 2024 backgrounds also
+  publish feats. Costs both extractors, the Library strip and the filter. ⚑ (owner: Francesco,
+  2026-09-07)
 - [ ] **Copy veto pass** — `audits/copy-table.md`, **~292 rows**; revert by name. Also decide the
   ten progress ellipses ("Fetching…", kept as "still running"). **M4's eighteen filter strings
   landed 2026-09-05, and the D184 / D186–D189 guided-builder sections are appended at the end.**

@@ -20,7 +20,7 @@ same thing, one of them is wrong:
 | `CLAUDE.md` (this) | What the project is, conventions, build/run, the verify gate, versioning |
 | `STATE.md` | Where things stand right now, and what is blocked on Francesco |
 | `PLAN.md` | The queue — what is next, what is gated |
-| `DECISIONS.md` | Every decision D7–D189 and the options rejected with them |
+| `DECISIONS.md` | Every decision D7–D194 and the options rejected with them |
 | `GOTCHAS.md` | Traps that have already cost a session. **Read before touching the extractors, the importer, grants resolution or any DOM handler.** |
 | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 | `ARCHIVE.md` | Bodies of consumed phases and old rationale — stubs in the live docs point here |
@@ -82,6 +82,11 @@ and to `filterDigest`'s carry-forward list in the same commit** (that hole has o
 times). A fixture that cannot fail is worse than none: change the rule, watch it go red, put it
 back.
 
+Adding a whole digest **array** is the same trap one level up (**D191**): `DIGEST_ARRAYS`,
+`ENT_KEY`, `emptyDigest`, `assembleData`'s own literal and `extract.py`'s `_srd_subset` are
+five independent lists of the same fact, and three of five is silent — the bundle carried the
+records and `DATA` had none. Read the array back off `DATA` in the browser, not off `__DATA__`.
+
 `cparity.js` drives the **real** predicates (`zipWanted`, `dropFoundryStubs`, `readOrder`,
 `carriedMonster`). A harness that rolls its own copy is how the `foundry.json` corruption hid
 for two sessions — never re-implement one there.
@@ -139,7 +144,16 @@ narrowed this; per-pick stamps stay rejected); no server sync or accounts; no sh
 a page or URL (D36); no full bestiary (D78 carries a bounded creature set). Of a character's
 numbers, **ability scores and the proficiency bonus are modelled, and nothing else** (D176):
 the six base scores are typed, the origin bonus and every score-raising feat are added at the
-view level, and DC and attack follow. Saves, skills, tools, HP, AC, gear and a sheet are not
-modelled; anything needing them is left blank for a human rather than guessed, and a score
-never entered derives nothing. Each further rung of the creator ladder needs its own decision
-entry (D176(c), `audits/character-creator-feasibility.md`).
+view level, and DC and attack follow. **N2 added a background (D191) and changed nothing about
+that sentence**: a background owns the origin — the +2/+1 it narrows and the origin feat it
+names — and its skills, tools, languages and equipment are PRINTED on its detail, deriving
+nothing. Saves, skills, tools, HP, AC, gear and a sheet are still not modelled; anything
+needing them is left blank for a human rather than guessed, and a score never entered derives
+nothing. Each further rung of the creator ladder needs its own decision entry (D176(c),
+`audits/character-creator-feasibility.md`).
+
+**And all of it is a MODE (D192).** Character creation is Complete or Simplified, app-wide,
+**Simplified by default** — the app exactly as it stood before N1: no scores, no background,
+and the proficiency bonus, DC and attack back to blanks. It hides, it never prunes. Two gates
+carry it (`abilityScores` returns the empty set, `featScoreGains` asks no question), so a new
+derived number inherits the behaviour for free — but a new SURFACE has to hide itself.
