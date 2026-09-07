@@ -1780,6 +1780,48 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     weighed and dropped — three reads, two of them legitimately build-wide. **→ Gotcha.**
     **Affects:** D115(b,h), D146, D186, D31.
 
+- **D195 (2026-09-07) DECIDED — a book that is HERE and ON is not a gap, and a subclass's
+  book is the LAST segment of its uid.** D189, one condition along. His repro on the public
+  build: a Wizard 8 holding `Lucky|XPHB` drew the bar reading, verbatim, **"0 picks need a
+  book you have turned off · Player's Handbook (2024) · [Turn them on]"** — a zero count, a
+  book `srcOn` says is on and `DATA.sources` has, and a button that cannot clear it because
+  there is nothing to turn on. Not contrived: the SRD 5.2 bundle **declares** XPHB and carries
+  a fraction of its records, so any build naming another XPHB feat or spell hits it. Shipped
+  as v1.5.52.
+  - **(a) The source is the last segment, never the second.** Found while reproducing. A
+    subclass uid is `Short|Class|ClassSource|Source`, so `rawKey.split("|")[1]` read the CLASS
+    NAME as a book code: a build holding `Bladesinging|Wizard|XPHB|TCE` with Tasha's unloaded
+    asked him to *"re-import Wizard"* — a book that does not exist, cannot be imported and
+    cannot be turned on, which is D189's disease under a different name. `pruneState` has
+    always used `.pop()` for exactly this question; `buildGaps` asks it the same way now.
+  - **(b) No bar. A pick whose book is present and on is not a book problem.** The unresolved
+    branch treated "no record" as "the book is missing" unconditionally. It is a third state:
+    the book is here, it is on, and the loaded data simply does not carry that record.
+    `buildGaps` returns book problems only, so nothing about it reaches the bar.
+    *Rejected:* **a third flavour of the bar** with its own message ("these picks aren't in the
+    books you have loaded") and no button — the more informative answer, and the one that
+    keeps faith with D42's flag-don't-prune, but it loses on two counts. `pruneState` already
+    **deletes** this exact case for six of the eight families it walks (a ref whose record is
+    gone while its book is loaded "no longer EXISTS"), so the bar would announce picks the
+    app removes on the next load. And on the public build, where a partial XPHB is the
+    designed steady state, it would stand permanently for any imported build — dismissable by
+    nothing, which is the shape D189 outlawed. *Also rejected:* teaching `pruneState` to drop
+    stale keys in `state.chosen` and `state.choices` too, the two families it leaves alone
+    (that is a real asymmetry and the honest home for this information, but it MUTATES saved
+    builds — a model change to close a reporting bug, the same restraint D189(a) took).
+  - **(c) The bar states both properties itself.** `renderGapBar` classifies `off` as present
+    **and off** (it was present, full stop) and hides when the count is zero or no code
+    survives classification. Redundant after (a) and (b) — books non-empty implies a ref with
+    that source — and kept deliberately, so a future caller cannot re-open the same
+    unclearable banner from the other end.
+  - **Also fixed by (a)+(b):** `switchBuild` reads `buildGaps(b.state).books` **before**
+    `activateBuild` prunes, so the same three misreadings popped the "turn these on" modal
+    over a book already on. And `state.chosen`/`state.choices` are never pruned, which is why
+    the bar was **permanent**, not transient, for a stale spell key.
+  - **Enforced by:** src/app.js `buildGaps`'s unresolved branch and `renderGapBar`'s guard.
+    **Fixture 17f–17i** beside D189's; 17f goes red on reverting (b), 17h and 17i on either.
+    **→ Gotcha. Affects:** D189, D56, D42, D127, D146.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

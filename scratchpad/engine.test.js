@@ -567,6 +567,31 @@ const casterLevel = (slots) => {
   eq("17e · …while a real pick from a missing book is reported exactly as before",
     gaps({ ...blank, chosen: { r0: { cantrips: ["Light|XPHB"], spells: [] } } }),
     { refs: [{ kind: "spell", name: "Light", source: "XPHB" }], books: ["XPHB"] });
+
+  // D195, one condition along. Everything above ran with `DATA.sources` empty, so every
+  // unresolved key was a genuinely missing book. Stand XPHB up as LOADED and ON — the public
+  // build's own shape, where the SRD bundle declares XPHB but carries a fraction of its
+  // records — and a pick naming a record the data does not have is no longer a book problem.
+  SB.set.data({ fullMc: data.fullMc, pact: data.pact, sources: { XPHB: { name: "Player's Handbook (2024)" }, TCE: { name: "Tasha's" } } });
+  SB.set.src(["XPHB"]);                              // XPHB on, TCE loaded but off
+
+  eq("17f · a book that is HERE and ON is not a gap — nothing could clear that bar",
+    gaps({ ...blank, feats: ["Lucky|XPHB"] }), { refs: [], books: [] });
+  eq("17g · …and the same key with the book merely turned OFF still reports, as it must",
+    gaps({ ...blank, chosen: { r0: { cantrips: [], spells: ["Mind Sliver|TCE"] } } }),
+    { refs: [{ kind: "spell", name: "Mind Sliver", source: "TCE" }], books: ["TCE"] });
+  // `Nomancer|XPHB` resolves to nothing, so BOTH halves of the row take the unresolved
+  // branch: the class is dropped by (b) — its book is here and on — and the subclass, from
+  // a book that is loaded but off, is reported against TCE and not against "Wizard".
+  eq("17h · a subclass uid is Short|Class|ClassSource|Source — the book is the LAST segment",
+    gaps({ ...blank, classes: [{ id: "r0", clsKey: "Nomancer|XPHB", subKey: "Bladesinging|Nomancer|XPHB|TCE", level: 3 }] }),
+    { refs: [{ kind: "subclass", name: "Bladesinging", source: "TCE" }], books: ["TCE"] });
+  eq("17i · …never the class name, which named a book called “Nomancer” nobody can import",
+    gaps({ ...blank, classes: [{ id: "r0", clsKey: "Nomancer|XPHB", subKey: "Evoker|Nomancer|XPHB|XPHB", level: 3 }] }),
+    { refs: [], books: [] });
+
+  SB.set.data({ fullMc: data.fullMc, pact: data.pact, sources: {} });   // back to the casting-only world
+  SB.set.src([]);
 }
 
 // ── 18 · Simplified derives nothing, and hides without pruning (D192) ────────

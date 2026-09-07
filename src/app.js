@@ -5961,11 +5961,23 @@ function buildGaps(st){
     // an entity whose whole book isn't loaded (a lean import) is kept by pruneState
     // (D56) — surface it here from its stored key so the bar can name the book
     if(!o){ if(rawKey==null)return; const parts=String(rawKey).split("|");
+      // D195(a): the source is the LAST segment, never the second. A subclass uid is
+      // `Short|Class|ClassSource|Source`, so `[1]` reads the CLASS NAME as a book code and
+      // the bar asked him to re-import a book called "Wizard". `pruneState` has always
+      // used `.pop()` here; this is the same question, so it asks it the same way.
+      const src=parts.length>1?parts[parts.length-1]:"";
       // D189: a reference with NO BOOK names nothing that can be turned on or re-imported,
       // so reporting it can only ever produce a banner nobody is able to clear. Whatever it
       // is, it is not a gap — a gap is a pick whose BOOK is missing.
-      if(!parts[1])return;
-      out.push({kind,name:parts[0],source:parts[1]}); books.add(parts[1]); return; }
+      if(!src)return;
+      // D195(b): …and neither is a reference whose book is HERE and ON. That is not a book
+      // problem at all — it is a pick naming a record the loaded data does not have, and
+      // there is no import and no toggle that would change it. Reported, it produced a bar
+      // reading "0 picks need a book you have turned off" over a book already on, with a
+      // "Turn them on" button that could never clear it. `pruneState` already deletes this
+      // case for every family it prunes; the two it leaves alone stay silent.
+      if(DATA.sources[src]&&srcOn(src))return;
+      out.push({kind,name:parts[0],source:src}); books.add(src); return; }
     if(visible(o))return; out.push({kind,name:o.name,source:o.source});
     if(!srcOn(o.source))books.add(o.source);};
   (st.classes||[]).forEach(r=>{add("class",CLS_BY[r.clsKey],r.clsKey); if(r.subKey)add("subclass",subOfRow(r),r.subKey);});
@@ -5995,18 +6007,23 @@ function enableBooks(codes){ codes.forEach(c=>SRC.add(c)); saveSources();
 function renderGapBar(){
   const bar=$("#gapBar"); if(!bar)return;
   const g=buildGaps();
-  if(!g.books.size){bar.classList.add("hidden");bar.innerHTML="";return;}
-  bar.innerHTML=""; bar.classList.remove("hidden");
-  // two flavours of gap: a loaded book merely turned OFF (one click fixes it) and a
-  // book that isn't in the loaded content at all (only a re-import can) — D56
-  const off=[...g.books].filter(c=>DATA.sources[c]);
+  // two flavours of gap, and only two: a loaded book merely turned OFF (one click fixes it)
+  // and a book that isn't in the loaded content at all (only a re-import can) — D56.
+  const off=[...g.books].filter(c=>DATA.sources[c]&&!srcOn(c));
   const absent=[...g.books].filter(c=>!DATA.sources[c]);
+  const codes=[...off,...absent];
   const n=g.refs.filter(r=>!srcOn(r.source)||!DATA.sources[r.source]).length;
+  // D195(c): the two properties the bar must hold whatever `buildGaps` hands it — it never
+  // renders a zero count, and it never names a book that is already on. `buildGaps` makes
+  // both true at the source; stating them here as well is what keeps a future caller from
+  // re-opening the same unclearable banner.
+  if(!n||!codes.length){bar.classList.add("hidden");bar.innerHTML="";return;}
+  bar.innerHTML=""; bar.classList.remove("hidden");
   const txt=el("div","gaptxt");
   txt.append(el("b",null,`${n} pick${n===1?"":"s"} need${n===1?"s":""} `
     +(absent.length&&off.length?"books you don’t have loaded or turned on"
       :absent.length?"a book that isn’t loaded, so re-import it":"a book you have turned off")));
-  txt.append(el("span",null,[...g.books].map(bookName).join(", ")));
+  txt.append(el("span",null,codes.map(bookName).join(", ")));
   bar.append(txt);
   if(off.length){
     const b=el("button","btn on","Turn them on");
@@ -12149,7 +12166,8 @@ if(typeof module!=="undefined"&&module.exports){
     entOwnsSwap,entSlotSpend,takeOpt,optHoleFor,
     // the licensed-name twin an import supersedes (D187(b))
     dropSrdTwins,
-    // a gap is a pick whose BOOK is missing, and a score choice is not a spell (D189)
+    // a gap is a pick whose BOOK is missing, and a score choice is not a spell (D189);
+    // a book that is here and ON is not a gap either, and a subclass's book is last (D195)
     buildGaps,
     // a trade is two halves and either may stand alone (D188)
     swapNorm,swapsNorm,unswap,
@@ -12172,6 +12190,7 @@ if(typeof module!=="undefined"&&module.exports){
       ent:v=>{ENT=v;},
       optBy:v=>{OPT_BY=v;},
       bgBy:v=>{BG_BY=v;},                 // D191 · N2
+      src:v=>{SRC=new Set(v);},           // D195: "the book is on" is half the gap test
       preview:v=>{Object.assign(PREVIEW,v);},
     },
   };

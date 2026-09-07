@@ -267,6 +267,19 @@
   Anything reported without a source can only ever produce an alert with no action that clears
   it. `buildGaps` refuses an empty source outright, which is the general guard behind the
   specific one above.
+- **…and neither is a reference whose book is HERE and ON (D195).** The third state, one
+  condition along: the book is loaded, it is enabled, and the data simply has no record under
+  that key — the public build's steady state, where the SRD bundle *declares* XPHB and carries
+  a fraction of it. Reported as a book gap it produced **"0 picks need a book you have turned
+  off · Player's Handbook (2024) · [Turn them on]"**, permanent for a stale `state.chosen` key
+  because nothing prunes those. `buildGaps` returns book problems only; `renderGapBar` also
+  refuses a zero count and any code already on. Before adding a bar for this case, read D195's
+  two rejected options — `pruneState` already DELETES it for six of eight families.
+- **A subclass's book is the LAST segment of its uid, never the second (D195).** A subclass
+  uid is `Short|Class|ClassSource|Source`, so `split("|")[1]` is the CLASS NAME; every other
+  stored key is `Name|Source`, which is why reading `[1]` looks right and passes every test
+  that never uses a subclass. `buildGaps` asked him to *"re-import Wizard"*. `pruneState`'s
+  `bookLoaded` has always used `.pop()` — copy that, don't re-derive it.
 - **Nothing may re-render from inside a render pass (D164).** `renderGuideStage` clears the
   stage and rebuilds it; anything it calls that itself calls `render()` — opening a picker,
   closing a stale one — runs a SECOND clear-and-rebuild inside the first, and which half
