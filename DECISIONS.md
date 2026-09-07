@@ -1786,6 +1786,29 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     missing book still report exactly as before; 17a and 17d go red on a revert.
     **Affects:** D176, D56, D42.
 
+- **D190 (2026-09-07) DECIDED — a delegated test walks UP from the click, it never reads the
+  target.** His report: the close button in the detail modal did nothing. It was dead over the
+  glyph and live over the padding around it — the modal's one closer is delegated
+  (`SPMODAL.onclick`) and tested `e.target.classList.contains("x")`, but the control is an ICON
+  button, so the click lands on the `<svg>`/`<path>` inside it and `e.target` is never the
+  button. The 14px icon inside a 28px control was dead; the 7px ring around it worked. The
+  check predates the icon set (v4, when `.x` was a typed `×`) and broke silently when the
+  glyphs became SVG. Shipped as v1.5.48.
+  - **(a) `closest(".x")`, on the one closer.** The test walks up from whatever was clicked, so
+    it matches the button through any children it grows. Every one of the four bodies that
+    borrow `SPMODAL` (spell, creature, entity, feature) prints the same `class="x ico"` button
+    and is fixed by the one line. *Rejected:* `pointer-events:none` on the icon (it would fix
+    this button and leave the next delegated test just as wrong, and it makes the icon
+    unhittable for anything else that ever wants it — a CSS answer to a JS bug); wiring an
+    `onclick` on each closer after every `innerHTML` write (four call sites to keep in step,
+    against one handler that already exists, and D149(e)'s single-closer rule exists precisely
+    so `ENTM` cannot outlive what it points at).
+  - **(b) The class is mechanical now.** `scratchpad/sweeps/handlers.js` grew rule **(h)**:
+    any `e.target.classList.contains(...)` in this codebase is a finding. It goes red on the
+    reverted line and green on the fix, and there are no other occurrences.
+  - **Enforced by:** src/app.js `SPMODAL.onclick`; `scratchpad/sweeps/handlers.js` rule (h).
+    **Affects:** D149(e), D185(a), GOTCHAS.md.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

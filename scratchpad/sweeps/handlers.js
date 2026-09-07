@@ -367,3 +367,23 @@ for (const f of FILES) {
   }
 }
 console.log(`[${gCount} findings]\n`);
+
+// ---------------------------------------------------------------------
+// (h) a delegated handler reading a class straight off e.target (D190)
+// ---------------------------------------------------------------------
+// Every control in this app is an ICON button, so the click lands on the
+// `<svg>`/`<path>` inside it and `e.target` is never the button. A delegated
+// test must walk UP (`e.target.closest(".cls")`); reading `classList` off the
+// target itself makes the icon dead and only the padding around it live.
+let hCount = 0;
+console.log("--- (h) e.target.classList.contains(...) in a delegated handler — use .closest() (D190) ---");
+for (const f of FILES) {
+  const { code, li } = fileData[f];
+  const re = /\b(?:e|ev|evt)\.target\.classList\.(?:contains|matches)\(/g;
+  let m;
+  while ((m = re.exec(code))) {
+    hCount++;
+    console.log(`${f}:${li(m.index)}  reads the class off e.target itself — an icon child never matches`);
+  }
+}
+console.log(`[${hCount} findings]\n`);

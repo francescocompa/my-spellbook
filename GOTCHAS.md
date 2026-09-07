@@ -122,6 +122,13 @@
   appeared — the exact shape of a dead control. `.modal.over` (z 75) is set only while the
   detail modal is actually open and dropped on every close, and Escape has to take the raised
   layer FIRST or one key press closes both. Any future modal-from-a-modal needs both halves.
+- **A delegated test that reads `e.target`'s own class is dead over every icon (D190).**
+  The detail modal's one closer tested `e.target.classList.contains("x")`. Every control here
+  is an ICON button, so the click lands on the `<svg>`/`<path>` inside it and `e.target` is
+  never the button: the middle 14px of a 28px close button did nothing, the 7px ring around it
+  worked. The check was written when `.x` was a typed `×` and broke silently when the glyphs
+  became SVG. Walk UP — `e.target.closest(".x")` — in any handler bound to a CONTAINER.
+  `scratchpad/sweeps/handlers.js` rule (h) fails on the pattern now.
 - **Refresh the LIVE part of an open modal, not the modal (D149(e)).** The detail modal joins
   the "open X follows every change" contract that the timeline and the guide's pick modal
   already have — but it re-renders only its choices block. Rebuilding the whole body would

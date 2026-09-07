@@ -9033,7 +9033,11 @@ let SPBACK=null;
 // one closer for the modal, so `ENTM` can never outlive what it points at
 function closeSpModal(){SPMODAL.classList.add("hidden");ENTM=null;SPBACK=null;
   const pm=$("#pickModal"); if(pm)pm.classList.remove("over");}
-SPMODAL.onclick=e=>{if(e.target===SPMODAL||e.target.classList.contains("x"))closeSpModal();};
+// The closer is an ICON button, so a click lands on the `<svg>`/`<path>` inside it and
+// `e.target` is never the button — `classList.contains("x")` read false for the middle
+// 14px of a 28px control and the close did nothing (D190). A delegated test on a control
+// that has children must walk UP from the target, never read the target itself.
+SPMODAL.onclick=e=>{if(e.target===SPMODAL||(e.target.closest&&e.target.closest(".x")))closeSpModal();};
 // ── B1-04/B2-01/C2-01: shared dialog semantics for every `.modal` ───────────────────────
 // 14 elements carry class="modal", scattered open/close call sites (dozens, none of them
 // funnelled through one function). Rewriting every call site was the higher-risk move —
