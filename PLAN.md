@@ -141,13 +141,10 @@ his call: N1 first, then M3/M4 (settled 2026-09-05).
 
 → archived 2026-09-05: 12 closed items — `ARCHIVE.md#flags-closed-by-2026-09-05`
 
-- [ ] **The "0 picks" unclearable gap bar** — ⚠ **being fixed in a separate session**
-  (task_2f797cfd, started 2026-09-07). On the public build a pick naming an XPHB feat outside
-  the SRD subset makes the bar read *"0 picks need a book you have turned off"* over a book
-  that is already ON, with a button that can never clear it. D189's family, one condition
-  along: `buildGaps` returns a ref whose book is loaded and enabled but whose RECORD is absent.
-  **Do not start it here** — expect a new D-entry and a fixture beside 17. ⚑ (owner: that
-  session, 2026-09-07)
+- [x] **The "0 picks" unclearable gap bar** — **CLOSED 2026-09-07, v1.5.52** (**D195**, in
+  `DECISIONS-SETTLED.md`; two GOTCHAS entries; fixtures 17f–17i). A pick whose book is present
+  AND on is not a book problem, so nothing about it reaches the bar; and a subclass's book is
+  the LAST segment of its uid, not the second, which had it asking to *re-import "Wizard"*.
 - [ ] **Is Simplified the right default?** — D192(b) took it on his instruction, and it changes
   what the app looks like on first open for everyone. Wants his eyes on a real build before it
   is settled for good. ⚑ (owner: Francesco, 2026-09-07)
@@ -169,6 +166,12 @@ his call: N1 first, then M3/M4 (settled 2026-09-05).
   reproducible here: a Warlock 8 that trades at L7 correctly offers the replacement at L8, and
   chained trades behave. D188 rebuilt this surface since, so it is worth re-checking before
   chasing it. Needs his build export to pin. ⚑ (owner: Francesco, 2026-09-07)
+- [ ] **The class row truncates on a WIDE screen too, in the sidebar** — measured while fixing
+  the phone case (D197): the Character card sits in the narrow left column, so at 1280px each
+  select gets **74.5px** of text room, *less* than at 481px. Every class name and every SRD
+  subclass fits; a long imported one ("Purple Dragon Knight (Banneret)") truncates. Widening
+  it means changing the desktop grid's proportions — his call, deliberately not taken.
+  ⚑ (owner: Francesco, 2026-09-07)
 - [ ] **Third-casters are still POOLED, then floored** — found while implementing D158(b),
   outside its scope. `Math.floor(third/3)` sums Eldritch Knight and Arcane Trickster levels
   into one bucket; the table reads "a third of your Fighter levels" and "a third of your Rogue

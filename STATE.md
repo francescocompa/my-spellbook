@@ -13,7 +13,7 @@
 > | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 > | `ARCHIVE.md` | Bodies of consumed phases, decisions and old rationale |
 
-## TL;DR (2026-09-07 · **v1.5.53** live, pushed and tagged · `cd6f385` · **Phase N · N2 DONE (D191) · creation is a MODE now (D192)** · six releases this session, v1.5.48 → v1.5.53)
+## TL;DR (2026-09-07 · **v1.5.54** live, pushed and tagged · `a2279b9` · **Phase N · N2 DONE (D191) · creation is a MODE now (D192)** · seven releases on 2026-09-07, v1.5.48 → v1.5.54)
 
 - **Where it stands.** **Character creation is a mode and Simplified is the default (v1.5.49,
   D192)** — his ask, raised mid-interview. Simplified is the app exactly as it stood before N1:
@@ -63,6 +63,15 @@
   outranked its own `flex`. And **Prepare daily's icon is centred**: a plain block button sits
   an icon on the text baseline. Every other icon-only button was measured — 20 controls across
   nine surfaces, all already symmetric.
+- **And the class row restacks on a phone (v1.5.54, D197).** Off the same measuring: the
+  four-column row gave the CLASS select **26px of text room at 320px** (36px of its 64px goes
+  to the field's own padding and drawn caret), so "Wizard" read `Wiza`; at 375px there were
+  50px, enough for the shortest class name and no subclass. Below 480px the class takes a full
+  line with the ✕ at its right and the subclass shares the next with Lvl — 177px and 232px of
+  room. Above 480 nothing changed. **Left for him:** on a WIDE screen the card sits in the
+  narrow left column, so each select gets **74.5px at 1280px**, *less* than at 481px — every
+  class name and every SRD subclass fits, a long imported subclass does not. Changing that is
+  the desktop grid's proportions, so it is flagged in `PLAN.md`, not taken.
 - **Manual for Francesco:** ① the **copy-veto pass** over `audits/copy-table.md` (~305 rows;
   this session appended three sections — D191's nine strings, D192's three, and the naming
   calls are **Full character** for the switch and the derive-nothing footnote on a background);
@@ -75,7 +84,8 @@
   ⑥ **PWA install check** on your phone (L5.6); ⑦ **third-casters are still pooled then
   floored** — Fighter 5 (EK) + Rogue 5 (AT) reads 3 where the table gives 2, a rules call;
   ⑧ print from Chrome or Safari (D108); ⑨ XMM on for Find Familiar's 2024 forms (D81);
-  ⑩ L5.5's format (copy the build as a level plan).
+  ⑩ L5.5's format (copy the build as a level plan); ⑪ **should the class row widen on the
+  desktop sidebar too?** (D197's measured-and-left, 74.5px per select at 1280).
 - **Where the D-entries are:** `DECISIONS.md` holds Binding + the live phase (D176, D191,
   D192) + Superseded; **every other D-id below is in `DECISIONS-SETTLED.md`** —
   `grep -n "D184" DECISIONS*.md` finds any of them in one step.
@@ -90,9 +100,13 @@
   button (GOTCHAS).
 - **Read before wiring any delegated handler:** D190 — walk UP from `e.target`, never read its
   own class; every control here has an icon child.
-- **Read before touching the header or any icon-only button:** D196 and its three GOTCHAS
-  entries — `header.top .menu` catches the build switch, `display:contents` makes a pair
-  compete instead of wrapping as one, and a block button puts its icon on the text baseline.
+- **Read before touching the header, the class row or any icon-only button:** D196 and its
+  three GOTCHAS entries — `header.top .menu` catches the build switch, `display:contents` makes
+  a pair compete instead of wrapping as one, and a block button puts its icon on the text
+  baseline — then **D197**, which restacks the class row below 480px off named cells
+  (`.cf-class` / `.cf-sub` / `.cf-lvl`), never `:nth-child`. The standing rule both serve:
+  **the header is one row or two FULL ones, never a ragged wrap, and text ellipsises rather
+  than bleeding** — measure it, don't eyeball it.
 - **Read before touching `buildGaps` or the gap bar:** D195 — a gap is a book problem, and a
   subclass's book is the LAST segment of its uid.
 - **Read before touching the guide's pick landing:** D184 (`firstOpen` vs `secOpenSlot`).
@@ -139,4 +153,5 @@ nothing per session and would churn every pointer into it — worth doing when L
 
 The queue after N2 is **N3 (gated on its own entry)** and L5.5 onward — see `PLAN.md`.
 
-⟳ Rename previous session → "The close button, creation modes, and backgrounds" · session: local_07fcd961-d67f-4447-aba7-2a2920dc7399
+⟳ Rename previous session → "The gap bar, the header, and the class row" · session: local_6720bd0e-1475-4245-b518-c719d0687d86
+⟳ Also still pending (left by an earlier session, apply if it has not been) → "The close button, creation modes, and backgrounds" · session: local_07fcd961-d67f-4447-aba7-2a2920dc7399
