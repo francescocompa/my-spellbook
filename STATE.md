@@ -7,12 +7,12 @@
 > |---|---|
 > | `CLAUDE.md` | What this project is, its conventions, build/run, the verify gate, versioning |
 > | `PLAN.md` | The queue — what is next, what is flagged for Francesco |
-> | `DECISIONS.md` | Every decision D7–D194 and what was rejected |
+> | `DECISIONS.md` | Every decision D7–D196 and what was rejected |
 > | `GOTCHAS.md` | Traps that have already cost a session |
 > | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 > | `ARCHIVE.md` | Bodies of consumed phases, decisions and old rationale |
 
-## TL;DR (2026-09-07 · **v1.5.51** live, pushed and tagged · `296afe5` · **Phase N · N2 DONE (D191) · creation is a MODE now (D192)** · four releases this session, v1.5.48 → v1.5.51)
+## TL;DR (2026-09-07 · **v1.5.53** live, pushed and tagged · `cd6f385` · **Phase N · N2 DONE (D191) · creation is a MODE now (D192)** · six releases this session, v1.5.48 → v1.5.53)
 
 - **Where it stands.** **Character creation is a mode and Simplified is the default (v1.5.49,
   D192)** — his ask, raised mid-interview. Simplified is the app exactly as it stood before N1:
@@ -46,11 +46,22 @@
 - **Next action: N3 (proficiencies, HP, hit dice, AC) needs its own decision entry** (D176(c))
   — /interview him on the rung, then build. **But L5.5 (copy the build as a level plan) is the
   cheaper next thing and only needs his format call.**
-- **⚠ Running elsewhere:** a separate session is fixing the **"0 picks" unclearable gap bar**
-  (task_2f797cfd) — on the public build a pick naming an XPHB feat outside the SRD subset makes
-  the bar read *"0 picks need a book you have turned off"* over a book that is already ON, with
-  a button that can never clear it. D189's family, one condition along. **Do not start this
-  here**; expect a new D-entry and a fixture beside 17.
+- **The "0 picks" unclearable gap bar is CLOSED (v1.5.52, D195)** — the task_2f797cfd work,
+  landed. D189's family one condition along: a pick whose book is present AND on is not a book
+  problem at all, so nothing about it reaches the bar (the rejected third flavour, and why
+  `pruneState`'s own stance settles it, are in D195(b)). Found alongside it: `buildGaps` read
+  the source from `split("|")[1]`, but a **subclass uid is `Short|Class|ClassSource|Source`** —
+  a missing Bladesinging asked him to *re-import "Wizard"*. The bar also refuses, on its own
+  account, a zero count or a book already on. **Fixtures 17f–17i.**
+- **The level chip is a header control now (v1.5.53, D196)**, his ask: "L7 / 20", its ⚠ and the
+  door to the timeline left the Character heading for `header.top`, so they are there in the
+  Spell table view too; on a phone the switch and the chip share a full second row with the
+  chip flush right. His rule came with it — **one row, or two FULL rows, never a ragged wrap,
+  and the name ellipsises rather than bleeding**. Three holes let it bleed 209px past the edge,
+  the nastiest being that **the build switch IS a `.menu`**, so a `header.top .menu` rule
+  outranked its own `flex`. And **Prepare daily's icon is centred**: a plain block button sits
+  an icon on the text baseline. Every other icon-only button was measured — 20 controls across
+  nine surfaces, all already symmetric.
 - **Manual for Francesco:** ① the **copy-veto pass** over `audits/copy-table.md` (~305 rows;
   this session appended three sections — D191's nine strings, D192's three, and the naming
   calls are **Full character** for the switch and the derive-nothing footnote on a background);
@@ -75,6 +86,11 @@
   button (GOTCHAS).
 - **Read before wiring any delegated handler:** D190 — walk UP from `e.target`, never read its
   own class; every control here has an icon child.
+- **Read before touching the header or any icon-only button:** D196 and its three GOTCHAS
+  entries — `header.top .menu` catches the build switch, `display:contents` makes a pair
+  compete instead of wrapping as one, and a block button puts its icon on the text baseline.
+- **Read before touching `buildGaps` or the gap bar:** D195 — a gap is a book problem, and a
+  subclass's book is the LAST segment of its uid.
 - **Read before touching the guide's pick landing:** D184 (`firstOpen` vs `secOpenSlot`).
   **Before anything that walks `state.choices`:** D189 — three shapes, one is spells.
   **Before the level-up trade:** D188 and its two GOTCHAS entries.
