@@ -30,12 +30,19 @@
 <div class="wrap">
   <header class="top">
     <h1>My Spellbook</h1>
-    <!-- v7 · T4: the active build, named and switchable without opening the manager -->
-    <div class="menu buildswitch">
-      <button class="bswitch" id="bswBtn" aria-haspopup="true" aria-expanded="false">
-        <span class="mi ico" data-ico="stack"></span><span class="bswchar" id="bswChar"></span><span class="bswver" id="bswVer"></span><span class="pk-caret">⌄</span>
-      </button>
-      <div class="menupop bswpop hidden" id="bswPop"></div>
+    <!-- D196: which build, and which level of it — one pair. `display:contents` on a wide
+         screen, so both are ordinary header items; on a phone the pair takes its own line
+         and the chip sits at its right end, in line with the character selector. -->
+    <div class="hdrbuild">
+      <!-- v7 · T4: the active build, named and switchable without opening the manager -->
+      <div class="menu buildswitch">
+        <button class="bswitch" id="bswBtn" aria-haspopup="true" aria-expanded="false">
+          <span class="mi ico" data-ico="stack"></span><span class="bswchar" id="bswChar"></span><span class="bswver" id="bswVer"></span><span class="pk-caret">⌄</span>
+        </button>
+        <div class="menupop bswpop hidden" id="bswPop"></div>
+      </div>
+      <!-- the chip reads "L7 / 20" (+ ⚠ when the sweep found something) and opens the timeline -->
+      <button class="lvlchip" id="clvlChip" type="button" aria-haspopup="dialog"></button>
     </div>
     <span class="spacer"></span>
     <button class="btn iconbtn ico" id="guideTopBtn" data-ico="compass" title="Guided builder: walk the build level by level" aria-label="Guided builder"></button>
@@ -108,8 +115,9 @@
 
       <!-- CHARACTER -->
       <div class="card" id="secChar">
-        <!-- the chip reads "L7 / 20" (+ ⚠ when the sweep found something) and opens the timeline -->
-        <h2>Character <span class="count" id="clvlChip"></span></h2>
+        <!-- D196: the level chip left this heading for the app header, so the level you are
+             viewing and the way into the timeline reach the Spell table view too -->
+        <h2>Character</h2>
         <div class="body">
           <div class="fieldset">
             <label class="fld">Classes &amp; levels</label>

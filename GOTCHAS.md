@@ -280,6 +280,24 @@
   stored key is `Name|Source`, which is why reading `[1]` looks right and passes every test
   that never uses a subclass. `buildGaps` asked him to *"re-import Wizard"*. `pruneState`'s
   `bookLoaded` has always used `.pop()` — copy that, don't re-derive it.
+- **The build switch IS a `.menu`, so a `header.top .menu` rule outranks its own `flex` (D196).**
+  `header.top .menu{flex:0 0 auto}` (0-1-1) beat `.buildswitch{flex:1 1 auto}` (0-1-0) and
+  left the switch unable to shrink: a long character name ran **209px past the header's right
+  edge** and the page grew a horizontal scrollbar, instead of the name ellipsising as it was
+  built to. Anything selecting `.menu` inside the header must say `:not(.buildswitch)`. Same
+  family as `.menupop button` restyling every button inside a popover.
+- **`display:contents` makes a pair compete item by item, not wrap as one (D196).** The build
+  switch + level chip as `display:contents` let the ⋯ menu wrap ALONE onto a second line at
+  ~700px. A wrapper that must move together has to be a real flex row. And in a `nowrap` row
+  every item is shrinkable by default: "L8 / 8" broke inside its own 76px pill until the chip
+  got `flex:0 0 auto;white-space:nowrap`. **Ellipsis needs `min-width:0` on every box between
+  the flex line and the text** — one missing link and the row overflows instead.
+- **An icon-only button must be a flex box; a block button puts its icon on the TEXT BASELINE
+  (D196).** `.prepbtn` hides its label on a phone and shows an icon — and the icon sat 5.25px
+  above centre, because the button itself was `display:block` and the `.ico` span was an
+  inline box on a baseline with descender space under it. `.btn:has(>.lbl-ico)` exists for
+  exactly this and missed it: that button holds a bare `.lbl` + `.ico` pair, not a `.lbl-ico`
+  wrapper. Measure an icon against its button's BORDER box before calling it centred.
 - **Nothing may re-render from inside a render pass (D164).** `renderGuideStage` clears the
   stage and rebuilds it; anything it calls that itself calls `render()` — opening a picker,
   closing a stale one — runs a SECOND clear-and-rebuild inside the first, and which half

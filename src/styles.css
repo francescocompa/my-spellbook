@@ -112,12 +112,26 @@
   footer.credit .appver:empty{display:none}
   footer.credit a{color:var(--accent);text-decoration:none}footer.credit a:hover{text-decoration:underline}
   /* controls are icon-height now, so the row centres — baseline only made sense for text */
-  header.top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:4px 0 14px;border-bottom:1px solid var(--line);margin-bottom:18px}
+  /* D196: ONE row, or two FULL rows on a phone — never a ragged wrap. `nowrap` is what
+     makes the first half true whatever the character is called: the build switch is the
+     only item that gives way (its name already ellipsises), everything else is fixed. */
+  header.top{display:flex;align-items:center;gap:14px;flex-wrap:nowrap;padding:4px 0 14px;border-bottom:1px solid var(--line);margin-bottom:18px}
   header.top .iconbtn,header.top .tabs,header.top .bswitch{height:34px;box-sizing:border-box}
   header.top .iconbtn{display:inline-flex;align-items:center;justify-content:center}
   header.top .tabs{align-items:stretch}
   header.top .tabs button{display:inline-flex;align-items:center}
-  header.top h1{font-size:23px}
+  header.top h1{font-size:23px;white-space:nowrap;flex:0 0 auto}
+  /* what may shrink, and what may not */
+  /* `:not(.buildswitch)` matters: the build switch IS a `.menu`, and this rule outranking
+     its own `flex` left it unable to shrink — the character's name ran straight out of the
+     header instead of ellipsising (Francesco, 2026-09-07). */
+  header.top .tabs,header.top .iconbtn,header.top .menu:not(.buildswitch){flex:0 0 auto}
+  /* the give-way chain, all the way down: without a `min-width:0` on every box between the
+     header and the name, there is nothing for the row to take and it OVERFLOWS instead of
+     ellipsising — the tabs sat on top of the level chip at 700px */
+  header.top .hdrbuild{min-width:0}
+  header.top .buildswitch{display:flex;flex:0 1 auto;min-width:0}
+  header.top .bswitch{min-width:0;max-width:min(260px,100%)}
   header.top .sub{color:var(--muted);font-size:12.5px}
   header.top .spacer{flex:1}
   .btn{font:inherit;font-size:12.5px;padding:6px 12px;border-radius:8px;cursor:pointer;border:1px solid var(--line-strong);background:var(--panel);color:var(--ink)}
@@ -756,6 +770,11 @@
 #tableView .card h2{flex-wrap:nowrap;min-width:0;gap:7px}
 #tableView .card h2 .ttl{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #tableView .card h2 .count{white-space:nowrap}
+/* the same baseline trap `.btn:has(>.lbl-ico)` fixes for labelled icon buttons, which this
+   one misses because it holds a bare `.lbl` + `.ico` pair rather than a `.lbl-ico` wrapper.
+   Left as a plain block button, its icon sat on the text baseline — 5.25px high of centre
+   once the label is hidden and the icon is all there is (Francesco, 2026-09-07). */
+.prepbtn{display:inline-flex;align-items:center;justify-content:center}
 .prepbtn .ico{display:none;font-size:14px;line-height:1}
 @media (max-width:620px){
   #tableView .card h2{padding:12px 11px}
@@ -1345,13 +1364,29 @@ table.spelltable .pickcell{cursor:help}
 .stagechip button{border:none;background:none;cursor:pointer;color:var(--muted);font-size:12px;padding:0;line-height:1}
 
 /* ── level preview (D54): the level chip becomes the scrubber ─────────────── */
-.card h2 .count.prevable{cursor:pointer}
-.card h2 .count.prevable:hover{color:var(--accent);background:var(--accent-soft)}
-/* symmetric padding: the 6px/9px split served the retired scrubber's trailing controls
-   (.pvb/.pvx, long gone from the JS) and left the bare "L4 / 8" text 3px off-centre */
-.card h2 .count.prevon{display:inline-flex;align-items:center;gap:5px;
-  color:var(--accent);background:var(--accent-soft)}
-.count .pvn{font-size:12px;font-variant-numeric:tabular-nums}
+/* D196: the chip lives in the app HEADER, not in the Character heading, so the level you
+   are viewing and the door to the timeline are there in the Spell table view too. It is a
+   real <button> now (it always had an onclick), sized to the header's 34px control row so
+   it lines up with the build switch beside it and the tabs opposite. */
+/* a real flex row, never `display:contents`: the pair has to WRAP AS ONE. As contents it
+   competed item-by-item for the top row and pushed the ⋯ menu alone onto a second line at
+   ~700px — an orphan nobody asked for. */
+.hdrbuild{display:flex;align-items:center;gap:14px;min-width:0}
+/* `flex:0 0 auto` + `nowrap`: the header is a nowrap row, so anything shrinkable gets
+   squeezed — "L8 / 8" broke across two lines inside the pill at 700px. The build switch is
+   the only item allowed to give way. */
+.lvlchip{height:34px;box-sizing:border-box;display:inline-flex;align-items:center;gap:5px;
+  flex:0 0 auto;white-space:nowrap;
+  padding:0 11px;border-radius:9px;border:1px solid var(--line);background:var(--panel-2);
+  font:inherit;font-family:var(--sans);font-size:11px;font-weight:600;color:var(--muted);
+  cursor:default}
+/* no level plan yet, so nothing to view and nothing to open — the pill is not drawn at all
+   rather than sitting empty (renderLevelChip empties it and drops .prevable together) */
+.lvlchip:empty{display:none}
+.lvlchip.prevable{cursor:pointer}
+.lvlchip.prevable:hover{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}
+.lvlchip.prevon{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}
+.lvlchip .pvn{font-size:12px;font-variant-numeric:tabular-nums}
 /* ── the timeline popover (E5 · D115(j)) ─────────────────────────────────── */
 /* fixed so the column's overflow can't clip it (the standing menus-in-scrollers rule);
    placed from the chip's rect by JS, full-width sheet under 641px */
@@ -1703,12 +1738,25 @@ label.fld .fldt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-wi
   /* the top row stays ONE row on a phone: the title steps down and the tabs tighten
      before anything is allowed to wrap (D47) */
   .tabs button .short{display:none}
+  /* D196: the build switch and the level chip take their own full-width line, the switch
+     filling it and the chip at the right edge — flush with the ⋯ menu above it. Two FULL
+     rows, which is the only wrap the header is allowed. The threshold is where the top row
+     stops holding all six at full size: h1 + a 260px switch + chip + guide + tabs + ⋯ wants
+     ~840px, and every pixel under that comes out of the character's name. 820 keeps the
+     name legible on one row and hands a tablet in portrait the phone's two. */
+  @media (max-width:820px){
+    header.top{flex-wrap:wrap}
+    .hdrbuild{order:9;flex:1 0 100%;gap:7px;margin-top:2px}
+    header.top .buildswitch{flex:1 1 auto;min-width:0}
+    /* same specificity as the one-row cap above, or that 260px wins and the switch sits
+       stranded in the middle of its own full-width line */
+    header.top .bswitch{max-width:none;width:100%}
+    .lvlchip{margin-left:auto}
+  }
   @media (max-width:620px){
     .wrap{padding-left:14px;padding-right:14px}
     header.top{gap:7px;flex-wrap:wrap;padding-bottom:11px;margin-bottom:14px}
-    /* forced onto its own full-width line, so the top row itself is untouched */
-    .buildswitch{order:9;flex:1 0 100%;margin-top:2px}
-    .bswitch{max-width:none;width:100%}
+    /* the pair's own-line treatment starts at 820px — see the block above this one */
     .bswitch .bswchar{flex:1;text-align:left}
     .bswpop{left:0;right:0;min-width:0;max-height:min(70vh,520px)}
     header.top h1{font-size:17px;white-space:nowrap;flex:0 0 auto}
@@ -1719,9 +1767,15 @@ label.fld .fldt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-wi
     .tabs button .full{display:none} .tabs button .short{display:inline}
     .iconbtn{flex:0 0 auto}
   }
+  /* the narrowest phones (320px): the top row has to hold the title, the guide button, the
+     switch and the ⋯ menu, and at 15.5px it did not — the menu wrapped alone onto a line of
+     its own, the ragged wrap the header is not allowed. Everything tightens a notch rather
+     than anything being dropped; the pair below is still the only break. */
   @media (max-width:400px){
-    header.top h1{font-size:15.5px}
-    .tabs button{padding:5px 8px;font-size:11.5px}
+    header.top{gap:5px}
+    header.top h1{font-size:14px}
+    .tabs button{padding:5px 6px;font-size:11px}
+    header.top .iconbtn{padding:0 9px}
   }
 
 /* ── custom source: a granted CHOICE, not a named spell (D96) ─────────────────── */

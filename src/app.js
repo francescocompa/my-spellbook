@@ -8006,7 +8006,8 @@ addEventListener("scroll",()=>{ if(_jumpRaf)return;
 addEventListener("resize",()=>syncJumpBar(),{passive:true});
 
 // ── level plan & the timeline popover (E5 · D115(j), supersedes D54's chip/D59's panel) ──
-// The Character card's level chip reads "L7 / 20" (+ ⚠ when the E4 sweep found
+// The APP HEADER's level chip (D196 moved it out of the Character heading, so it is there
+// in the Spell table view too) reads "L7 / 20" (+ ⚠ when the E4 sweep found
 // something) and opens the TIMELINE: a jumpable list of every character level — what
 // class it was taken in, what it granted, which sticky picks the schedule says arrived
 // there. Rows drag to reorder the level plan (this absorbed the old Level order panel);

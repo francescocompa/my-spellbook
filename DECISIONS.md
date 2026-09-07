@@ -1822,6 +1822,52 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     **Fixture 17f–17i** beside D189's; 17f goes red on reverting (b), 17h and 17i on either.
     **→ Gotcha. Affects:** D189, D56, D42, D127, D146.
 
+- **D196 (2026-09-07) DECIDED — the level chip belongs to the app header, and the header is
+  one row or two full ones.** His ask: *"move the level indicator and timeline button in the
+  header instead, so it's available also in spell table view. For mobile, put it aligned to
+  the right in line with the character selector button."* Then, on seeing the first attempt:
+  *"try never to wrap the header unless in mobile with two full rows"*, and *"do not bleed
+  outside the boundaries, if the name is too long, the name itself should be shortened with
+  …"*. Shipped as v1.5.53.
+  - **(a) Out of the Character heading, into the header.** `#clvlChip` was a `.count` in the
+    Character card's `<h2>`, which the Spell table view does not draw — so the level you were
+    previewing, the ⚠ from the build-health sweep and the only door to the timeline all
+    vanished the moment you switched tabs, on a surface that shows the spells of exactly that
+    level. It is a real `<button>` now (it always had an `onclick`), sized to the header's
+    34px control row. *Rejected:* a second copy of the chip in the table view's own header
+    (two nodes rendering one truth, and D115's per-level view is one truth).
+  - **(b) One row, or two FULL rows — never a ragged wrap.** His rule, and it is enforced
+    structurally rather than by tuning: the header is `flex-wrap:nowrap` above 820px, so the
+    only item that can give way is the build switch, whose name already ellipsises. Below
+    820 the wrap comes back and `.hdrbuild` — the switch and the chip, one node — takes a
+    full second line with the chip at its right edge, flush with the ⋯ menu above it. 820 is
+    where the top row stops holding all six at full size (~840px with a 260px switch), so a
+    tablet in portrait gets the phone's two rows rather than a squeezed name.
+  - **(c) The give-way chain, or the header bleeds.** Three separate misses, each of which
+    let content run past the header's right edge instead of ellipsising: `.hdrbuild` as
+    `display:contents` (the pair competed item by item and orphaned the ⋯ menu onto its own
+    line — it is a real flex row now, so the pair wraps as ONE); `header.top .menu{flex:0 0
+    auto}` outranking the switch's own `flex`, because **the build switch IS a `.menu`** —
+    with `flex-shrink:0` the name ran 209px out of the header; and a missing `min-width:0`
+    between the header and the name. At ≤400px everything tightens a notch (title 14px,
+    tabs 11px, gap 5px) so 320px is still two rows and not three.
+  - **(d) The chip never shrinks.** In a nowrap row anything shrinkable is squeezed: "L8 / 8"
+    broke across two lines inside its own pill at 700px. `flex:0 0 auto` + `white-space:nowrap`.
+  - **(e) An icon-only button must be a flex box, not a block with an inline icon.**
+    Audited on his report that Prepare daily's icon sat high on a phone: it was 5.25px above
+    centre because `.prepbtn` is a plain block button and its icon sat on the TEXT BASELINE
+    once the label is hidden — the same trap `.btn:has(>.lbl-ico)` already fixes for labelled
+    icon buttons, missed here because this button holds a bare `.lbl` + `.ico` pair rather
+    than a `.lbl-ico` wrapper. Every other icon-only button in the app was measured against
+    its own border box at 375 and 1280 — build view, table view, timeline, builds, library,
+    homebrew, custom spell, the detail modal and the guide, 20 distinct controls — and all
+    were already symmetric to within 0.6px. `.prepbtn` was the only one.
+  - **Enforced by:** src/index.html's `.hdrbuild`; src/styles.css `.lvlchip`, `header.top`
+    and the ≤820/≤620/≤400 blocks; `.prepbtn`. Measured, not eyeballed (CLAUDE.md): at 320,
+    375, 598, 820, 830, 900 and 1280, with a 66-character character name, `bleedRight` is
+    0.00 at every one and the page never scrolls sideways. **Affects:** D47, D54, D115(j),
+    D122, D182.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives
