@@ -1462,6 +1462,16 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     its own border box at 375 and 1280 — build view, table view, timeline, builds, library,
     homebrew, custom spell, the detail modal and the guide, 20 distinct controls — and all
     were already symmetric to within 0.6px. `.prepbtn` was the only one.
+  - **(f) …and it takes the control height of the button beside it (added v1.5.55).** His
+    follow-up on (e): *"the button has now the icon centered but the height is wrong."*
+    Centring it made the real mismatch legible — `.prepbtn` was **28px tall next to the ⋯
+    menu's 34px**, and 34×40 vs 34×41 wide, because it took `.btn`'s own padding while its
+    neighbour takes `.menu .iconbtn{height:34px}`. It is `height:34px;box-sizing:border-box`
+    in **both** modes now (the labelled desktop one was 32.75px, off by the same cause) and
+    the icon-only mode takes the ⋯'s own `padding:0 12px`. Verified at 320, 420, 620, 621
+    and 1280: same height and same top as `#tMenuBtn` at every one, icon symmetric to 0.00px
+    icon-only and label symmetric to 0.00px labelled. **A shared row is the unit to measure,
+    not the control** — an icon centred inside a box of the wrong size still reads wrong.
   - **Enforced by:** src/index.html's `.hdrbuild`; src/styles.css `.lvlchip`, `header.top`
     and the ≤820/≤620/≤400 blocks; `.prepbtn`. Measured, not eyeballed (CLAUDE.md): at 320,
     375, 598, 820, 830, 900 and 1280, with a 66-character character name, `bleedRight` is

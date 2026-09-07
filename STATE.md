@@ -13,7 +13,7 @@
 > | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 > | `ARCHIVE.md` | Bodies of consumed phases, decisions and old rationale |
 
-## TL;DR (2026-09-07 · **v1.5.54** live, pushed and tagged · `a2279b9` · **Phase N · N2 DONE (D191) · creation is a MODE now (D192)** · seven releases on 2026-09-07, v1.5.48 → v1.5.54)
+## TL;DR (2026-09-07 · **v1.5.55** live, pushed and tagged · **Phase N · N2 DONE (D191) · creation is a MODE now (D192)** · eight releases on 2026-09-07, v1.5.48 → v1.5.55)
 
 - **Where it stands.** **Character creation is a mode and Simplified is the default (v1.5.49,
   D192)** — his ask, raised mid-interview. Simplified is the app exactly as it stood before N1:
@@ -62,7 +62,10 @@
   the nastiest being that **the build switch IS a `.menu`**, so a `header.top .menu` rule
   outranked its own `flex`. And **Prepare daily's icon is centred**: a plain block button sits
   an icon on the text baseline. Every other icon-only button was measured — 20 controls across
-  nine surfaces, all already symmetric.
+  nine surfaces, all already symmetric. **v1.5.55 (D196(f))** finished it: centring the icon
+  made the real mismatch legible — the button was **28px tall next to the ⋯ menu's 34px** in
+  the same header. Both modes are 34px now. The lesson, in GOTCHAS: **a shared row is the unit
+  to measure, not the control.**
 - **And the class row restacks on a phone (v1.5.54, D197).** Off the same measuring: the
   four-column row gave the CLASS select **26px of text room at 320px** (36px of its 64px goes
   to the field's own padding and drawn caret), so "Wizard" read `Wiza`; at 375px there were

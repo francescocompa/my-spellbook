@@ -774,11 +774,16 @@
    one misses because it holds a bare `.lbl` + `.ico` pair rather than a `.lbl-ico` wrapper.
    Left as a plain block button, its icon sat on the text baseline — 5.25px high of centre
    once the label is hidden and the icon is all there is (Francesco, 2026-09-07). */
-.prepbtn{display:inline-flex;align-items:center;justify-content:center}
+/* …and the same 34px control height as the ⋯ menu it sits beside, in BOTH modes: `.btn`'s
+   own padding made it 28px tall next to a 34px neighbour, which is exactly what centring the
+   icon then made obvious (Francesco, 2026-09-07). */
+.prepbtn{display:inline-flex;align-items:center;justify-content:center;
+  height:34px;box-sizing:border-box}
 .prepbtn .ico{display:none;font-size:14px;line-height:1}
 @media (max-width:620px){
   #tableView .card h2{padding:12px 11px}
-  .prepbtn{padding:6px 9px}
+  /* icon-only: the ⋯ menu's own inset, so the two read as one pair, not two sizes */
+  .prepbtn{padding:0 12px}
   /* un-hiding an icon restores `.ico`'s own display — plain `inline` drops the centring
      and leaves the svg sitting on a text baseline */
   .prepbtn .lbl{display:none} .prepbtn .ico{display:inline-flex}

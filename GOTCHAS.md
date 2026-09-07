@@ -297,7 +297,11 @@
   above centre, because the button itself was `display:block` and the `.ico` span was an
   inline box on a baseline with descender space under it. `.btn:has(>.lbl-ico)` exists for
   exactly this and missed it: that button holds a bare `.lbl` + `.ico` pair, not a `.lbl-ico`
-  wrapper. Measure an icon against its button's BORDER box before calling it centred.
+  wrapper. Measure an icon against its button's BORDER box before calling it centred —
+  **and then measure the box against the control beside it (D196(f))**: `.prepbtn` was 28px
+  tall next to the ⋯ menu's 34px in the same header, because `.btn`'s padding sizes it and
+  `.menu .iconbtn{height:34px}` sizes its neighbour. An icon centred inside a box of the
+  wrong size still reads wrong. **A shared row is the unit to measure, not the control.**
 - **Nothing may re-render from inside a render pass (D164).** `renderGuideStage` clears the
   stage and rebuilds it; anything it calls that itself calls `render()` — opening a picker,
   closing a stale one — runs a SECOND clear-and-rebuild inside the first, and which half
