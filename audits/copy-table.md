@@ -401,6 +401,24 @@ mode of the app, and "Full" is the shorter half of the pair the note already exp
 | index.html `#creatorRow` note | — | `scores and background` | new; measured to fit the row at 206px — D178 says a menu row never wraps, so the copy is what gives |
 | app.js `refreshAddClass` | `Add a class` | `+ Add a class` | the row is the score popover's dashed full-row Add now, and that pattern carries the `+` (his note) |
 
+## D191 — backgrounds (N2, 2026-09-07)
+
+Every string the rung adds. The naming call is the derive-nothing footnote: the alternative
+was saying nothing and letting the reader wonder why the skills a background gives never
+appear anywhere else in the app.
+
+| location | before | after | why |
+|---|---|---|---|
+| index.html `#bgFld` | — | `Background` | new (D191(d)); the row between species and the scores it narrows |
+| app.js `entLabel` | — | `Background` | new; the detail's subtitle, the kind's name |
+| app.js `openEntityPicker` title | — | `Choose a background` | new; matches "Choose a species / lineage" |
+| app.js `bgFactsHTML` | — | `+2 and +1, or +1 each` | new; the budget beside the three abilities, in the book's own words |
+| app.js `bgFactsHTML` | — | `Your scores and the origin feat are part of the build. The skills, tools, languages and equipment are printed here to copy onto a sheet — this app does not track them.` | new (D191(a)); says what is modelled and what is only printed |
+| app.js `bgFactsHTML` | — | `not in the books you have loaded` / `<Book> is turned off` | new; a missing origin feat is two different problems with two different fixes |
+| app.js `refreshBackground` | — | `Gives you <Feat>. Take it as your origin feat` | new (D191(e)); an offer, never an automatic write |
+| app.js `refreshBackground` | — | `Gives you <Feat>, which this build has.` | new; the same row once the feat is in |
+| app.js guide section | — | `Choose a background` / `Change the background` | new; the species step's two verbs |
+
 ## Totals
 
 | measure | count |

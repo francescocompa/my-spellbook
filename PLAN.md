@@ -165,9 +165,18 @@ his call: N1 first, then M3/M4 (settled 2026-09-05).
   the print and a prerequisite each show a derived number in the pane; a pre-N1 build
   round-trips byte-identical; CLAUDE.md's non-goal sentence reads "scores and proficiency
   bonus only, nothing else"; gate clean.
-- [ ] **N2 · Backgrounds as an entity** — 🔶 its own decision entry first (D176(c)). Both
-  extractors (`backgrounds.json`), the entity picker's `background` kind, a guide step, the
-  origin +2/+1 moving onto it. Size M.
+- [x] **N2 · Backgrounds as an entity** — **D191**, 2026-09-07, shipped **v1.5.50**. Origin
+  only: the background owns the +2/+1 and names the origin feat, and its skills, tools,
+  languages and equipment are printed on its detail with a line saying nothing derives from
+  them. 2024 only (60 in the mirror, 4 in the SRD bundle). **Verified** in the browser on a
+  throwaway Wizard 4 / Paladin 1, restored byte-identical: Acolyte narrows the origin pills to
+  Int/Wis/Cha and leaves Str/Dex/Con with "none" alone; a +2 on Int drops Wis and Cha to +1
+  (D178's budget, inside the three); swapping to Soldier keeps Int's own +2 pill so it can be
+  undone; the offer takes Magic Initiate into the **origin** slot and the row then reads
+  "which this build has"; the detail lists all six facts; the walk at level 1 reads class →
+  background → species → origin feat → cast in Complete, and has no background step at all in
+  Simplified. `cparity` diffs all 60 records byte for byte; **fixture 19** guards the
+  narrowing and the held-bonus trap.
 - [ ] **N3 · Proficiencies, HP, hit dice, AC** — 🔶 decision entry first. Multiclass rules,
   the unarmoured-defence hand table (both extractors). Size L.
 - [ ] **N4 · Starting equipment and armour/weapons** (`items-base.json`) — 🔶. Size M/L.

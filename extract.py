@@ -1758,6 +1758,100 @@ if os.path.exists(_cdpath):
                               "kind": _key, "desc": entry_blocks(_c.get("entries"))}
 
 # ---- source registry (for the settings selector) ---------------------------
+
+# ── backgrounds (D191 · N2) ────────────────────────────────────────────────────────────────
+# 2024 ONLY, and the test is the record's own `ability` block: a 2014 background has none and
+# a prose "feature" where the origin feat goes, so under D191(a) it would grant nothing this
+# rung models — an entry that changes nothing is worse than an absent one (D191(c)).
+# The block is NOT the feat shape `ability_gain` reads. A background states it as two
+# `choose.weighted` entries over the SAME three abilities — weights [2,1] and [1,1,1] — which
+# is exactly D178's +2/+1 vs +1/+1/+1 budget, already implemented. So the three abilities are
+# all this needs to carry; the budget is the app's, not the data's.
+# **Keep identical to extract.js's `bgAbils` / the backgrounds loop.**
+def bg_tc(s):
+    """Title-case that leaves an apostrophe alone — `str.title()` gives "Calligrapher'S
+       Supplies". Word-initial only: start of string, or after a space, hyphen, slash or
+       paren. **Keep identical to extract.js's bgTc.**"""
+    return re.sub(r"(^|[\s\-(/])([a-z])", lambda m: m.group(1) + m.group(2).upper(), s)
+
+def bg_abils(b):
+    for blk in (b.get("ability") or []):
+        w = ((blk.get("choose") or {}).get("weighted") or {})
+        frm = [a for a in (w.get("from") or []) if a in ABIL_ORDER]
+        if frm: return frm
+    return []
+
+def bg_feat(b):
+    """The origin feat a background grants, as the app's `Name|SOURCE` key. 5etools writes the
+       reference lowercased and may qualify it (`magic initiate; cleric|xphb`) — the app models
+       Magic Initiate's class as a CHOICE on the feat, so the qualifier is dropped here and the
+       name is title-cased the way every other grant reference is (GOTCHAS)."""
+    for f in (b.get("feats") or []):
+        for k in f:
+            if not f[k]: continue
+            ref = str(k).split("|")
+            nm = ref[0].split(";")[0].strip()
+            src = (ref[1] if len(ref) > 1 else b.get("source", "")).upper()
+            if nm: return (bg_tc(nm) if nm.islower() else nm) + "|" + src
+    return None
+
+def bg_profs(v):
+    """skill/tool/language blocks: `[{"insight": true, "religion": true}]`, sometimes with a
+       `choose`. Read for DISPLAY only (D191(a)) — nothing in the app derives from these."""
+    fixed, choices = [], []
+    for blk in v or []:
+        if not isinstance(blk, dict): continue
+        for k, val in blk.items():
+            if k in ("choose", "any", "anyStandard"):
+                ch = val if isinstance(val, dict) else {}
+                frm = [bg_tc(rich_strip(str(x))) for x in (ch.get("from") or [])]
+                n = ch.get("count", val if isinstance(val, int) else 1)
+                choices.append({"from": frm, "count": n if isinstance(n, int) else 1})
+            elif val:
+                fixed.append(bg_tc(rich_strip(str(k))))
+    return {"fixed": fixed, "choices": choices}
+
+def bg_equipment(b):
+    """The starting-equipment options as readable lines, never as items (D191(a) — N4 owns
+       gear). `{"A": [...], "B": [...]}` is a choice between two kits."""
+    out = []
+    for blk in (b.get("startingEquipment") or []):
+        if not isinstance(blk, dict): continue
+        for lbl in sorted(blk.keys()):
+            bits = []
+            for it in (blk[lbl] or []):
+                if isinstance(it, str): bits.append(rich_strip(it))
+                elif isinstance(it, dict):
+                    if it.get("value") is not None:
+                        gp = it["value"] / 100 if it["value"] >= 100 else it["value"]
+                        bits.append(f"{gp:g} GP")
+                    else:
+                        nm = it.get("displayName") or str(it.get("item") or it.get("special") or "")
+                        nm = rich_strip(nm.split("|")[0])
+                        if nm:
+                            nm = bg_tc(nm) if nm.islower() else nm
+                            q = it.get("quantity")
+                            bits.append(f"{nm} x{q}" if q and q > 1 else nm)
+            if bits: out.append({"label": lbl, "items": bits})
+    return out
+
+backgrounds = []
+_bgdata = load(os.path.join(MIRROR, "backgrounds.json"))
+for bg in _bgdata.get("background", []):
+    if not valid_name(bg): continue
+    abils = bg_abils(bg)
+    if not abils: continue          # D191(c): no 2024 ability block, no entry
+    backgrounds.append({"name": bg["name"], "source": bg.get("source", ""),
+                        "group": bgroup(bg.get("source", "")), "book": bname(bg.get("source", "")),
+                        "reprinted": reprinted(bg), "supersededBy": superseded_by(bg),
+                        "page": bg.get("page"), "srd": bool(bg.get("srd52")),
+                        "abils": abils, "feat": bg_feat(bg),
+                        "skills": bg_profs(bg.get("skillProficiencies")),
+                        "tools": bg_profs(bg.get("toolProficiencies")),
+                        "languages": bg_profs(bg.get("languageProficiencies")),
+                        "equipment": bg_equipment(bg),
+                        "desc": entry_blocks(bg.get("entries"))})
+
 src_counter = defaultdict(lambda: {"spells": 0, "classes": 0, "subclasses": 0, "feats": 0, "species": 0})
 for s in spells.values(): src_counter[s["source"]]["spells"] += 1
 for c in classes: src_counter[c["source"]]["classes"] += 1
@@ -1786,6 +1880,7 @@ digest = {
     "meta": {"mirror": os.path.basename(os.path.dirname(MIRROR)), "spellCount": len(spells)},
     "sources": sources, "spells": list(spells.values()), "classes": classes,
     "subclasses": subclasses, "feats": feats, "races": races, "optfeats": optfeats,
+    "backgrounds": backgrounds,
     "monsters": monsters, "fullMc": FULL_MC, "pact": PACT, "conditions": conditions,
 }
 out_path = os.path.join(os.path.dirname(__file__), "data", "data.json")
@@ -1815,6 +1910,7 @@ def _srd_subset():
     sf = [f_ for f_ in feats if f_.get("srd")]
     sr = [r for r in races if r.get("srd")]
     so = [o for o in optfeats if o.get("srd")]
+    sbg = [b for b in backgrounds if b.get("srd")]   # D191 · N2
     cnt = defaultdict(lambda: {"spells": 0, "classes": 0, "subclasses": 0, "feats": 0, "species": 0})
     for s in ss: cnt[s["source"]]["spells"] += 1
     for c in sc: cnt[c["source"]]["classes"] += 1
@@ -1825,7 +1921,7 @@ def _srd_subset():
     srdsrc = {src: {"name": bname(src), "group": bgroup(src), "counts": c} for src, c in cnt.items()}
     return {"meta": {"srd": True, "spellCount": len(ss)}, "sources": srdsrc,
             "spells": ss, "classes": sc, "subclasses": ssub, "feats": sf, "races": sr,
-            "optfeats": so, "monsters": smon, "fullMc": FULL_MC, "pact": PACT,
+            "optfeats": so, "backgrounds": sbg, "monsters": smon, "fullMc": FULL_MC, "pact": PACT,
             # D148: the SRD conditions only — the public build's text names them too
             "conditions": {k: v for k, v in conditions.items() if v["source"] == "XPHB"}}
 

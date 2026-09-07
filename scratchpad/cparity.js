@@ -288,5 +288,29 @@ const gkey={classes:e=>e.name+"|"+e.source,
   if(appFullMc)cmp("FULL_MC: app.js vs extract.py data.json",JSON.stringify(appFullMc),JSON.stringify(py.fullMc));
   if(appPact)cmp("PACT: app.js vs extract.py data.json",JSON.stringify(appPact),JSON.stringify(py.pact));
 }
+// ── backgrounds, whole-record (D191 · N2) ──────────────────────────────────────────────
+// The grants loop above cannot cover these: a background carries no `grants` block at all.
+// Everything a background IS lives in the fields this rung reads, so the record is diffed
+// whole — the count, the roster, and each record byte for byte.
+{
+  const jb=digest.backgrounds||[], pb=py.backgrounds||[];
+  cmp("backgrounds · count",jb.length,pb.length);
+  const key=e=>e.name+"|"+e.source;
+  const jm={},pm={};
+  jb.forEach(e=>{jm[key(e)]=JSON.stringify(e);});
+  pb.forEach(e=>{pm[key(e)]=JSON.stringify(e);});
+  const jOnly=Object.keys(jm).filter(k=>!(k in pm)), pOnly=Object.keys(pm).filter(k=>!(k in jm));
+  cmp("backgrounds · records only one side has",jOnly.length+pOnly.length,0);
+  if(jOnly.length)console.log("     js-only:",jOnly.slice(0,6).join(", "));
+  if(pOnly.length)console.log("     py-only:",pOnly.slice(0,6).join(", "));
+  const shared=Object.keys(jm).filter(k=>k in pm), diff=shared.filter(k=>jm[k]!==pm[k]);
+  cmp(`backgrounds · record diff (of ${shared.length} shared)`,diff.length,0);
+  if(diff.length)diff.slice(0,3).forEach(k=>console.log("     e.g.",k,
+    "\n       js:",jm[k].slice(0,220),"\n       py:",pm[k].slice(0,220)));
+  // the two fields the app actually derives from — worth their own line, so a regression
+  // here is named rather than buried in a whole-record diff
+  const abText=d=>(d.backgrounds||[]).map(b=>key(b)+"|"+(b.abils||[]).join(",")+"|"+(b.feat||"")).sort().join(";");
+  cmp("backgrounds · abilities + origin feat",abText(digest)===abText(py),true);
+}
 console.log("report:",JSON.stringify(report).slice(0,160));
 process.exit(fail?1:0);

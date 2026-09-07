@@ -135,6 +135,22 @@
   throw away every disclosure the reader had opened and their scroll position, which is the
   same class of loss D120 logged for the timeline. Its `ENTM` pointer is cleared by the one
   closer, so a later `render()` can never revive a modal that is gone.
+- **A new digest array has to be added in FOUR places at once, or it survives the merge and
+  vanishes at assembly (D191).** `backgrounds` went into the extractors and the payload and
+  the picker still read empty: `DIGEST_ARRAYS` (what merges and what a book filter keeps),
+  `ENT_KEY` (how a record is identified across a merge), `emptyDigest` (the floor every
+  fallback lands on) and `assembleData`'s own literal (which names its arrays one by one) are
+  four independent lists of the same fact. Three of four is silent — `__DATA__.backgrounds`
+  had 4 records and `DATA.backgrounds` had 0. Add to all four in the same commit, then read
+  the array back off `DATA` in the browser, not off the bundle.
+- **`data-srd.json` is its own list too (D191).** `_srd_subset()` names every array it keeps,
+  so a new one is absent from the PUBLIC build while the local `dist/` has it — the shape of
+  a bug that only ever appears on Pages.
+- **The source registry counts five kinds, and a book that publishes only a SIXTH is invisible
+  (D191(f)).** `sources[src].counts` is spells/classes/subclasses/feats/species; backgrounds
+  are not counted, and `filterDigest` builds `keep` from the registry. Every book with 2024
+  backgrounds also publishes feats, so nothing is hidden today — a brew that shipped
+  backgrounds alone would be. Same shape as the bestiary-book entry above.
 - **Content assembly:** `window.__DATA__` (baked) is optional now. `assembleData()` picks
   imported > baked > empty, merges custom homebrew, calls `buildIndexes()`. Indexes
   (CLS_BY, SPELL_BY, …) are `let`, rebuilt on every content change — never captured.

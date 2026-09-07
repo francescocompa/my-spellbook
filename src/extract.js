@@ -135,6 +135,57 @@ function abilityGain(o){const out=[];
     }else if(blk.hidden)return;
     else ABIL_ORDER.forEach(a=>{if(blk[a])out.push({abils:[a],amount:blk[a],choose:false});});});
   return out;}
+// ── backgrounds (D191 · N2) — the twins of extract.py's bg_* ────────────────────────────
+// 2024 ONLY, tested by the record's own `ability` block (D191(c)). That block is NOT the feat
+// shape `abilityGain` reads: a background states it as two `choose.weighted` entries over the
+// SAME three abilities, weights [2,1] and [1,1,1] — exactly D178's budget, already in the app.
+// So the three abilities are all this carries; the budget stays the app's, not the data's.
+function bgTc(x){return String(x).replace(/(^|[\s\-(/])([a-z])/g,(m,a,b)=>a+b.toUpperCase());}
+function bgAbils(b){
+  for(const blk of (b.ability||[])){
+    const w=((blk.choose||{}).weighted)||{};
+    const frm=(w.from||[]).filter(a=>ABIL_ORDER.includes(a));
+    if(frm.length)return frm;}
+  return [];}
+// 5etools writes the origin-feat reference lowercased and may qualify it
+// (`magic initiate; cleric|xphb`) — the app models that class as a CHOICE on the feat, so the
+// qualifier is dropped and the name is title-cased like every other grant reference (GOTCHAS)
+function bgFeat(b){
+  for(const f of (b.feats||[])) for(const k of Object.keys(f)){
+    if(!f[k])continue;
+    const ref=String(k).split("|"), nm=ref[0].split(";")[0].trim();
+    const src=(ref.length>1?ref[1]:(b.source||"")).toUpperCase();
+    if(nm)return (nm===nm.toLowerCase()?bgTc(nm):nm)+"|"+src;}
+  return null;}
+// skill/tool/language blocks, read for DISPLAY only (D191(a)) — nothing derives from these
+function bgProfs(v){const fixed=[],choices=[];
+  for(const blk of (v||[])){
+    if(!blk||typeof blk!=="object")continue;
+    for(const k of Object.keys(blk)){
+      const val=blk[k];
+      if(k==="choose"||k==="any"||k==="anyStandard"){
+        const ch=(val&&typeof val==="object")?val:{};
+        const frm=(ch.from||[]).map(x=>bgTc(richStrip(String(x))));
+        const n=ch.count!=null?ch.count:(typeof val==="number"?val:1);
+        choices.push({from:frm,count:typeof n==="number"?n:1});}
+      else if(val)fixed.push(bgTc(richStrip(String(k))));}}
+  return {fixed,choices};}
+// the starting-equipment options as readable lines, never as items — N4 owns gear (D191(a))
+function bgEquipment(b){const out=[];
+  for(const blk of (b.startingEquipment||[])){
+    if(!blk||typeof blk!=="object")continue;
+    for(const lbl of Object.keys(blk).sort()){
+      const bits=[];
+      for(const it of (blk[lbl]||[])){
+        if(typeof it==="string")bits.push(richStrip(it));
+        else if(it&&typeof it==="object"){
+          if(it.value!=null){const gp=it.value>=100?it.value/100:it.value;
+            bits.push(String(Number(gp.toFixed(6)))+" GP");}
+          else{let nm=richStrip(String(it.displayName||it.item||it.special||"").split("|")[0]);
+            if(nm){ if(nm===nm.toLowerCase())nm=bgTc(nm);
+              const q=it.quantity; bits.push(q&&q>1?nm+" x"+q:nm);}}}}
+      if(bits.length)out.push({label:lbl,items:bits});}}
+  return out;}
 function profList(v){const fixed=[],choices=[];
   (v||[]).forEach(x=>{
     if(typeof x==="string")fixed.push(richStrip(x));
@@ -887,7 +938,7 @@ const BFILTER_RE=/\{@filter [^|}]*\|bestiary\|([^}]*)\}/g;
 function buildDigest(files){
   scanFormRefs(files);            // additive: a folder scan never went through unzipJsonFiles
   const books={};
-  const spells={}; const classes=[]; const subclasses=[]; const feats=[]; const races=[]; const optfeats=[];
+  const spells={}; const classes=[]; const subclasses=[]; const feats=[]; const races=[]; const optfeats=[]; const backgrounds=[];
   const conditions={};   // D148: name -> {name, source, page, kind, desc}
   let lookup=null,lookupNamed=false;
   const report={spells:0,classes:0,subclasses:0,feats:0,species:0,books:0,lookup:false,files:0,errors:[]};
@@ -986,6 +1037,14 @@ function buildDigest(files){
           _raw:ft});
         feats[feats.length-1].grants.marks=parseMarks(ft);
         applyOwnNote(feats[feats.length-1].grants,ownNoteBlocks(ft));});
+      (j.background||[]).forEach(bg=>{if(!validName(bg)){report.errors.push(f.name+": unnamed background skipped");return;}
+        const abils=bgAbils(bg); if(!abils.length)return;      // D191(c): no 2024 ability block, no entry
+        backgrounds.push({name:bg.name,source:bg.source||"",group:bgroup(bg.source||""),book:bname(bg.source||""),
+          reprinted:reprinted(bg),supersededBy:supersededBy(bg),page:bg.page??null,srd:!!bg.srd52,
+          abils,feat:bgFeat(bg),
+          skills:bgProfs(bg.skillProficiencies),tools:bgProfs(bg.toolProficiencies),
+          languages:bgProfs(bg.languageProficiencies),
+          equipment:bgEquipment(bg),desc:entryBlocks(bg.entries)});});
       (j.optionalfeature||[]).forEach(o=>{if(!validName(o)){report.errors.push(f.name+": unnamed optional feature skipped");return;}
         const hasSpells="additionalSpells"in o;
         optfeats.push({name:o.name,source:o.source||"",group:bgroup(o.source||""),book:bname(o.source||""),
@@ -1169,7 +1228,7 @@ function buildDigest(files){
       +" casts on its own progression but its data names no class list — spellList=null (D130)");});
 
   const digest={meta:{spellCount:Object.keys(spells).length,imported:true},sources,
-    spells:Object.values(spells),classes,subclasses,feats,races,optfeats,monsters,conditions};
+    spells:Object.values(spells),classes,subclasses,feats,races,optfeats,backgrounds,monsters,conditions};
   return {digest,report};
 }
 function looksLikeLookup(j){const ks=Object.keys(j);if(!ks.length)return false;
@@ -1202,7 +1261,7 @@ function dropFoundryStubs(j){
     if(Array.isArray(v)&&v.some(isFoundryStub)){hit=true;out[k]=v.filter(x=>!isFoundryStub(x));}
     else out[k]=v;}
   return hit?out:j;}
-function usefulJson(j){return !!(j&&typeof j==="object"&&((Array.isArray(j.monster)&&j.monster.some(carriedMonster))||Array.isArray(j.spell)||Array.isArray(j.class)||Array.isArray(j.subclass)||Array.isArray(j.feat)||Array.isArray(j.race)||Array.isArray(j.subrace)||Array.isArray(j.optionalfeature)||Array.isArray(j.book)||looksLikeLookup(j)));}
+function usefulJson(j){return !!(j&&typeof j==="object"&&((Array.isArray(j.monster)&&j.monster.some(carriedMonster))||Array.isArray(j.spell)||Array.isArray(j.class)||Array.isArray(j.subclass)||Array.isArray(j.feat)||Array.isArray(j.race)||Array.isArray(j.subrace)||Array.isArray(j.optionalfeature)||Array.isArray(j.background)||Array.isArray(j.book)||looksLikeLookup(j)));}
 async function unzipJsonFiles(buf,onFile){
   if(typeof DecompressionStream==="undefined")throw new Error("This browser can’t unzip files. Upload the .json files individually instead.");
   const dv=new DataView(buf),bytes=new Uint8Array(buf),n=buf.byteLength,td=new TextDecoder();

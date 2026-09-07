@@ -612,5 +612,42 @@ const casterLevel = (slots) => {
   SB.setCreatorMode("simple");   // leave the harness on the app's own default
 }
 
+// ── 19 · a background narrows the origin bonus, and never traps one (D191) ───
+// The two ways this breaks silently: the narrowing does not apply (the background is then
+// decoration), and the narrowing applies to a bonus ALREADY HELD, which would leave a pill
+// you can see but cannot clear — the exact trap D179 fixed for the budget rules.
+{
+  const BGS = {
+    "Acolyte|XPHB": { name: "Acolyte", source: "XPHB", abils: ["int", "wis", "cha"], feat: "Magic Initiate|XPHB" },
+    "Soldier|XPHB": { name: "Soldier", source: "XPHB", abils: ["str", "dex", "con"], feat: "Savage Attacker|XPHB" },
+  };
+  SB.set.bgBy(BGS);
+  SB.setCreatorMode("full");
+  const base = { classes: [{ id: "r0", clsKey: "Wizard|XPHB", level: 4, subKey: null }],
+    levelOrder: ["r0","r0","r0","r0"], feats: [], optFeats: [], speciesKey: "", customSources: [],
+    chosen: {}, featSlots: {}, choices: {}, abilities: {}, originBonus: {}, backgroundKey: "" };
+  const enabled = a => SB.originOptions(a).filter(o => o[2]).map(o => o[0]);
+
+  SB.set.state({ ...base });
+  eq("19a · no background: every pill is free, as v1.5.39 shipped", enabled("str"), [2, 1, 0]);
+
+  SB.set.state({ ...base, backgroundKey: "Acolyte|XPHB" });
+  eq("19b · a background offers its own three", [enabled("int"), enabled("wis"), enabled("cha")],
+    [[2, 1, 0], [2, 1, 0], [2, 1, 0]]);
+  eq("19c · …and nothing else — only 'none' is left", [enabled("str"), enabled("dex"), enabled("con")],
+    [[0], [0], [0]]);
+
+  // D178's budget still decides INSIDE the three: a +2 on Int leaves Wis +1 only
+  SB.set.state({ ...base, backgroundKey: "Acolyte|XPHB", originBonus: { int: 2 } });
+  eq("19d · the budget still applies within them", enabled("wis"), [1, 0]);
+
+  // the trap: swap to a background that excludes a bonus you already hold
+  SB.set.state({ ...base, backgroundKey: "Soldier|XPHB", originBonus: { int: 2 } });
+  eq("19e · a bonus already held keeps its own pill, so it can be undone", enabled("int"), [2, 0]);
+  eq("19f · …while its siblings are still narrowed to the new background", enabled("wis"), [0]);
+
+  SB.setCreatorMode("simple");
+}
+
 console.log(`\n${pass} ok · ${fail} fail`);
 process.exit(fail ? 1 : 0);

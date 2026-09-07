@@ -128,7 +128,7 @@ const PACT=[[1,1],[2,1],[2,2],[2,2],[2,3],[2,3],[2,4],[2,4],[2,5],[2,5],
 const HB_SRC="HB";   // homebrew source code
 const LS_CUSTOM="spellForge.custom.v1", LS_IMPORT="spellForge.import.v1";
 const BAKED = (typeof window!=="undefined" && window.__DATA__) || null;
-const emptyDigest=()=>({meta:{},sources:{},spells:[],classes:[],subclasses:[],feats:[],races:[],optfeats:[],conditions:{},fullMc:FULL_MC,pact:PACT});
+const emptyDigest=()=>({meta:{},sources:{},spells:[],classes:[],subclasses:[],feats:[],races:[],optfeats:[],backgrounds:[],conditions:{},fullMc:FULL_MC,pact:PACT});
 function loadJSON(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null;}catch(e){return null;}}
 
 // ── imported content lives in IndexedDB (D93) ──────────────────────────────────
@@ -270,7 +270,7 @@ async function rawPrune(live){
 }
 let DATA, IMPORTED=null, CUSTOM=null;
 // mutable indexes — rebuilt after every content change
-let CLS_BY={},SUB_BY={},SUBS_OF={},FEAT_BY={},RACE_BY={},OPT_BY={},SPELL_BY={},SPELL_BY_NAME={};
+let CLS_BY={},SUB_BY={},SUBS_OF={},FEAT_BY={},RACE_BY={},OPT_BY={},SPELL_BY={},SPELL_BY_NAME={},BG_BY={};
 // edition de-duplication: when the same element (by identity) exists under several
 // sources (2014 PHB + 2024 XPHB, TCE + …), keep only the newest and shadow the rest,
 // so the pickers never list the same class/subclass/feat/species/spell twice.
@@ -325,6 +325,7 @@ function buildIndexes(){
   SUBS_OF={}; DATA.subclasses.forEach(s=>{const k=key(s.className,s.classSource);(SUBS_OF[k]=SUBS_OF[k]||[]).push(s);});
   FEAT_BY={}; DATA.feats.forEach(f=>FEAT_BY[key(f.name,f.source)]=f);
   RACE_BY={}; DATA.races.forEach(r=>RACE_BY[key(r.name,r.source)]=r);
+  BG_BY={}; (DATA.backgrounds||[]).forEach(b=>BG_BY[key(b.name,b.source)]=b);   // D191 · N2
   OPT_BY={}; DATA.optfeats.forEach(o=>OPT_BY[key(o.name,o.source)]=o);
   SPELL_BY={}; DATA.spells.forEach(s=>SPELL_BY[key(s.name,s.source)]=s);
   SPELL_BY_NAME={}; DATA.spells.forEach(s=>{(SPELL_BY_NAME[s.name.toLowerCase()]=SPELL_BY_NAME[s.name.toLowerCase()]||[]).push(s);});
@@ -394,6 +395,8 @@ function assembleData(){
   DATA={meta:base.meta||{},sources:Object.assign({},base.sources),
     spells:(base.spells||[]).slice(),classes:base.classes||[],subclasses:base.subclasses||[],
     feats:base.feats||[],races:base.races||[],optfeats:base.optfeats||[],
+    backgrounds:base.backgrounds||[],           // D191 · N2
+
     // "Name|SRC" -> stat block (D78), and D148's conditions. `mergeDigests` already laid the
     // baked maps underneath the import's, so an older import (made before creature sets or
     // conditions existed) cannot blank what the app shipped with — the fallbacks below are
@@ -490,7 +493,7 @@ let bidSeq=0;
 const newBuildId=()=>"b"+Date.now().toString(36)+(bidSeq++).toString(36);
 const activeBuild=()=>BUILDS.builds[BUILDS.activeId];
 
-const blankBuildState=()=>({classes:[],speciesKey:"",feats:[],optFeats:[],featSlots:{},levelOrder:[],
+const blankBuildState=()=>({classes:[],speciesKey:"",backgroundKey:"",feats:[],optFeats:[],featSlots:{},levelOrder:[],
   customSources:[],chosen:{},choices:{},sbFav:{},nextRowId:1,filters:null,
   currentLevel:null,swaps:{},sbFavSkip:[],abilities:{},originBonus:{},scoreBonus:[],scoreMethod:"type",scoreOptimize:false,rollFormula:"4d6dl1"});
 // the live `state` <-> the plain object stored in a build.
@@ -517,6 +520,7 @@ function serializeState(){ const f=state.filters; return {
   scoreMethod:state.scoreMethod||"type",  // type | array | point | roll (D177(e))
   scoreOptimize:!!state.scoreOptimize,    // keep the six values best-first on the class order
   rollFormula:state.rollFormula||"4d6dl1", // dice notation: NdM, kh/kl/dh/dl N, ±N
+  backgroundKey:state.backgroundKey||"",  // D191 · N2 — the origin: +2/+1 and the origin feat
 };}
 function applyState(s){ s=s||blankBuildState();
   // the live state must never share sub-objects with the stored build (see save()) —
@@ -533,6 +537,7 @@ function applyState(s){ s=s||blankBuildState();
     scoreMethod:["type","array","point","roll"].includes(s.scoreMethod)?s.scoreMethod:"type",
     scoreOptimize:!!s.scoreOptimize,
     rollFormula:parseFormula(s.rollFormula)?s.rollFormula:"4d6dl1",
+    backgroundKey:typeof s.backgroundKey==="string"?s.backgroundKey:"",   // D191 · N2
     currentLevel:typeof s.currentLevel==="number"?s.currentLevel:null,
     // swapsNorm heals as well as reads: a stored map from before swaps split by kind
     // arrives as one event per level and comes out in the two-slot shape
@@ -1477,7 +1482,13 @@ const formulaRange=f=>{const p=parseFormula(f)||parseFormula("4d6dl1"), c=formul
 function originOptions(a){
   const ob=state.originBonus||{}, others=AB_KEYS.filter(k=>k!==a);
   const twos=others.filter(k=>ob[k]===2).length, ones=others.filter(k=>ob[k]===1).length;
-  const can2=!twos&&ones<2, can1=!(twos&&ones)&&ones<3;
+  let can2=!twos&&ones<2, can1=!(twos&&ones)&&ones<3;
+  // D191(b): a background NARROWS these to the three abilities it names — D178's +2/+1 vs
+  // +1/+1/+1 budget still decides inside them. With no background they stay free, exactly as
+  // v1.5.39 shipped. The HOLDER always keeps its own pill (D179), background or not: a bonus
+  // you cannot undo is a trap, and swapping to a background that excludes it would strand it.
+  const bg=BG_BY[state.backgroundKey];
+  if(bg&&!(bg.abils||[]).includes(a)){can2=false;can1=false;}
   return [[2,"+2",can2||ob[a]===2],[1,"+1",can1||ob[a]===1],[0,"none",true]];
 }
 // the order abilities are filled in: casting stats first (class-row order), then the
@@ -1696,6 +1707,16 @@ function guideSteps(){
   // same character level; `hostBy` is keyed by the grants owner token + that level
   const hostBy=new Map();
   // L1 group: species + the origin feat slot(s) — everything the app models (D118(d))
+  // D191(d) · N2: the background, ahead of the species and of the origin feat it grants,
+  // so the origin bonus is narrowed before anything asks about a score. Complete only
+  // (D192): Simplified has no origin, so the walk never mentions one.
+  if(fullCreator()){
+    const bg=BG_BY[state.backgroundKey];
+    add({key:"background~1",lv:1,ord:1.8,kind:"background",
+      label:"Background",multiLabel:bg?bg.name:"Background",
+      sections:[gsec({id:"self",kind:"background",label:"Background",done:!!bg,
+        value:bg?bg.name:null})]});
+  }
   const race=RACE_BY[state.speciesKey];
   hostBy.set("r@1",add({key:"species~1",lv:1,ord:2,kind:"species",
     label:"Species",multiLabel:race?race.name:"Species",
@@ -3021,6 +3042,16 @@ function guideSecBlock(step,sec,rowOf,inline){
   if(sec.kind==="choice"){
     if(sec.foldedInto&&!GUNFOLD.has(step.key))return null;   // D187(a)
     b.append(choiceRow(sec.choice)); return guideSecWrap(step,sec,b); }
+  if(sec.kind==="background"){
+    if(sec.done&&!multi)b.append(val(sec.value));
+    if(!inline){
+      const btn=el("button","btn"+(sec.done?"":" on gbig"),
+        sec.done?"Change the background":"Choose a background");
+      btn.onclick=()=>openEntityPicker("background"); b.append(btn);
+    }
+    if(inline&&!b.children.length)return null;
+    return guideSecWrap(step,sec,b,inline);
+  }
   if(sec.kind==="species"){
     if(sec.done&&!multi)b.append(val(sec.value));
     if(!inline){
@@ -3464,6 +3495,7 @@ function guideSecOpen(step,sec){
   if(!sec)return null;
   if(sec.kind==="pick"||sec.kind==="cpick")return ()=>openGpickSec(step,sec);
   if(sec.kind==="species")return ()=>openEntityPicker("species");
+  if(sec.kind==="background")return ()=>openEntityPicker("background");
   if(sec.kind==="feat")return ()=>openEntityPicker("feat",featSecCat(sec),{owns:{key:sec.held||null}});
   // D168: a class level answers with the same full-size picker species and feats have.
   // A step that already HOLDS a level opens it on that level (picking rewrites it); the
@@ -3491,6 +3523,7 @@ function stagePickIsFor(sec){
   if(STAGE_PICK.id==="gpickModal")return !!(GPICK&&GPICK.secId===sec.id);
   if(!ENT)return false;
   return (sec.kind==="species"&&ENT.kind==="species")||(sec.kind==="feat"&&ENT.kind==="feat")
+    ||(sec.kind==="background"&&ENT.kind==="background")
     ||(sec.kind==="class"&&ENT.kind==="class");
 }
 function openGpick(spec){
@@ -4739,6 +4772,9 @@ function entItems(srcSet){
   if(ENT.kind==="opt"){const want=new Set(ENT.slot.types);
     return DATA.optfeats.filter(o=>vis(o)&&o.types.some(t=>want.has(t)));}
   if(ENT.kind==="species")return DATA.races.filter(vis);
+  // D191: 2024 backgrounds only — the extractors emit no other kind, so this is the
+  // ordinary source + reprint gate and nothing else
+  if(ENT.kind==="background")return (DATA.backgrounds||[]).filter(vis);
   // D168: ONE CLASS, ONE ROW — the rule the growth step's menu already enforced. A class
   // whose row is in the build stays on offer (it levels up, or it is the answer this level
   // already holds); one that would only DUPLICATE that row under another printing does not.
@@ -4788,6 +4824,7 @@ function openEntityPicker(kind,category,at){
        cats:new Set(),catList,abils:new Set(),prq:new Set(),raise:new Set(),open:null};
   $("#entTitle").textContent = kind==="opt"?`Choose ${slot.name.replace(/s$/,"").toLowerCase()}`
     : kind==="species"?"Choose a species / lineage"
+    : kind==="background"?"Choose a background"
     : kind==="class"?(lv!=null?"Change the class at level "+lv:"Choose a class")
     : category==="origin"?"Choose an origin feat" : category==="epic"?"Choose an epic boon" : "Choose a general feat";
   $("#entSearch").value="";
@@ -4877,7 +4914,7 @@ function renderEntityList(){
   items.sort((a,b)=>rank(a)-rank(b)||a.name.localeCompare(b.name)||a.source.localeCompare(b.source));
   const blocked=items.filter(i=>rank(i)===1);
   const noun=ENT.kind==="opt"?"options":ENT.kind==="species"?"species"
-    :ENT.kind==="class"?"classes":"feats";
+    :ENT.kind==="background"?"backgrounds":ENT.kind==="class"?"classes":"feats";
   // D168: the cost of changing THIS level is a fact about the level, not about each class
   // on offer — drawn per row it was the same sentence thirteen times over, and clipped.
   // It belongs where the count is: in the bar, which the stage lifts out of the scroller,
@@ -4885,7 +4922,10 @@ function renderEntityList(){
   const dropAll=ENT.kind==="class"&&ENT.lv!=null
     ?classChangeCost(ENT.lv,"\u0000"):null;   // a key no class has: what ANY change costs
   $("#entSub").innerHTML=`${items.length} ${noun}`
-    +(ENT.kind==="class"?"":` · <span class="ico">${ICONS.spark}</span> grants spells`)
+    // the spark legend belongs to pickers whose rows can carry it. A class never does,
+    // and neither does a background: this rung models the origin, not spells (D191(a))
+    +((ENT.kind==="class"||ENT.kind==="background")?""
+      :` · <span class="ico">${ICONS.spark}</span> grants spells`)
     +(blocked.length?` · ${blocked.length} need something you don’t have`:"")
     +(dropAll?` · <span class="subwarn">${esc(dropAll.name)} holds only this level: changing it takes `
       +`${esc(dropAll.name)}${dropAll.picks?` and its ${dropAll.picks} pick${dropAll.picks===1?"":"s"}`:""}`
@@ -4903,6 +4943,7 @@ function renderEntityList(){
   // level instead of a tick, because a ✓ everywhere else means "click to remove" and here
   // nothing is ever removed by taking.
   const curSel = ENT.kind==="species"?state.speciesKey
+    :ENT.kind==="background"?state.backgroundKey
     :(ENT.kind==="class"&&ENT.lv!=null)?(rowAtLevel(ENT.lv)||{}).clsKey||null:null;
   if(!items.length){list.append(el("div","empty","Nothing matches those filters."));return;}
   let sepDone=false;
@@ -4924,7 +4965,8 @@ function renderEntityList(){
     // D168: taking THIS class at this level would empty another one — the row says which,
     // and what goes with it, and its take button arms (D53).
     const drop=ENT.kind==="class"?classChangeCost(ENT.lv,k):null;
-    const on = ENT.kind==="species"?curSel===k:ENT.kind==="class"?curSel===k:n>0;
+    const on = (ENT.kind==="species"||ENT.kind==="background")?curSel===k
+      :ENT.kind==="class"?curSel===k:n>0;
     const row=el("div","entrow"+(on?" on":"")+(pr.state==="no"?" blocked":""));
     const main=el("div","entmain");
     const nm=el("div","entname");
@@ -5002,7 +5044,7 @@ function renderEntityList(){
       return row;}
     const btn=el("button","tk ico-only"+(on?" on":""));
     // D169: one species, and only one — every other kind here is a slot you have several of
-    btn.append(takeIco(on,ENT.kind==="species"));
+    btn.append(takeIco(on,ENT.kind==="species"||ENT.kind==="background"));
     const blbl=on?"Selected. Click to remove":"Select";
     btn.setAttribute("aria-label",blbl);
     btn.title=blbl+(pr.state==="no"?" · you don’t meet its prerequisites, you can still take it":"");
@@ -5012,6 +5054,7 @@ function renderEntityList(){
       // from it enables that book globally, otherwise afterSourceChange would prune the pick
       if(!on&&!srcOn(it.source)){SRC.add(it.source);saveSources();ENT.note=`Enabled ${bookName(it.source)} in your sources`;}
       if(ENT.kind==="species"){state.speciesKey=on?"":k;}
+      else if(ENT.kind==="background"){state.backgroundKey=on?"":k;}
       else if(ENT.kind==="opt"){ if(on)dropOptCopy(k); else{ swapped=entOwnsSwap(); takeOpt(k); } }
       else{ if(on)dropFeatCopy(k);
             else{ swapped=entOwnsSwap(); takeFeat(k,ENT.category||featSlot(it)); } }
@@ -5506,6 +5549,7 @@ function applyImportedState(st){
   out.nextRowId=out.classes.length+1;
   const idMap=new Map((Array.isArray(st.classes)?st.classes:[]).map((r,i)=>[r.id,i+1]));
   out.speciesKey=String(st.speciesKey||"");
+  out.backgroundKey=String(st.backgroundKey||"");   // D191 · N2
   out.feats=(Array.isArray(st.feats)?st.feats:[]).map(String);
   out.optFeats=(Array.isArray(st.optFeats)?st.optFeats:[]).map(String);
   // which slot each feat was spent from (D84) — keyed by name|source, so no renumbering.
@@ -6049,7 +6093,7 @@ const sameSet=(a,b)=>!!a&&!!b&&a.size===b.size&&[...a].every(x=>b.has(x));
 // budget pill prints. ONE owner (D185(b)): the pill reading `origin 1/1` and the rule that
 // decides whether a click is a change rather than a second spend must never disagree.
 function entSlotSpend(){
-  if(!ENT||ENT.kind==="species"||ENT.kind==="class")return null;
+  if(!ENT||ENT.kind==="species"||ENT.kind==="background"||ENT.kind==="class")return null;
   if(ENT.kind==="opt"){
     const have=state.optFeats.filter(k=>{const o=OPT_BY[baseKey(k)];
       return o&&o.types.some(t=>ENT.slot.types.includes(t));}).length;
@@ -6079,7 +6123,7 @@ function entOwnsSwap(){
 // what the picker owes you at this level: the feat budget, or the slot's own count
 function renderEntBudget(){
   const box=$("#entBudget");if(!box)return;
-  if(ENT.kind==="species"||ENT.kind==="class"){box.classList.add("hidden");return;}
+  if(ENT.kind==="species"||ENT.kind==="background"||ENT.kind==="class"){box.classList.add("hidden");return;}
   box.classList.remove("hidden");box.innerHTML="";
   if(ENT.kind==="opt"){
     const have=state.optFeats.filter(k=>{const o=OPT_BY[baseKey(k)];return o&&o.types.some(t=>ENT.slot.types.includes(t));}).length;
@@ -6698,7 +6742,7 @@ async function webUpdateNotice(){
 // book you already have plus every book the staged files hold — where a tick means "this
 // is in my data". Unticking a book you have removes its content, which is the only way to
 // get storage back. Nothing is written until Apply.
-const DIGEST_ARRAYS=["spells","classes","subclasses","feats","races","optfeats"];
+const DIGEST_ARRAYS=["spells","classes","subclasses","feats","races","optfeats","backgrounds"];
 const ENT_KEY={
   spells:e=>lc(e.name)+"|"+lc(e.source),
   classes:e=>lc(e.name)+"|"+lc(e.source),
@@ -6708,6 +6752,7 @@ const ENT_KEY={
   feats:e=>lc(e.name)+"|"+lc(e.source),
   races:e=>lc(e.name)+"|"+lc(e.source),
   optfeats:e=>lc(e.name)+"|"+lc(e.source),
+  backgrounds:e=>lc(e.name)+"|"+lc(e.source),   // D191 · N2
 };
 // A file that merely REFERENCES a book it doesn't declare emits the bare code as that
 // book's name and "other" as its group. Letting that win turns "Test Book A" back into
@@ -9824,6 +9869,7 @@ function entLabel(it,kind){
   if(kind==="feat"){const l=featCatLabel(it);return /boon|style/i.test(l)?l:l+" feat";}
   if(kind==="opt")return optTypeLabel(it);
   if(kind==="species")return it.base&&it.base!==it.name?`${it.base} lineage`:"Species";
+  if(kind==="background")return "Background";
   if(kind==="class")return "Class";
   if(kind==="sub")return `${it.className||"Class"} subclass`;
   return "";}
@@ -9997,7 +10043,8 @@ function entFactsHTML(it,kind){
   // body while a class's facts sat in a block.
   return entBlk("At a glance",`<ul class="entfacts">${li.join("")}</ul>`);}
 // what to call the prose block, per kind — a feat gives BENEFITS, a species has TRAITS
-const ENT_PROSE_TITLE={feat:"Benefits",opt:"What it does",species:"Traits",sub:"About",class:"About"};
+const ENT_PROSE_TITLE={feat:"Benefits",opt:"What it does",species:"Traits",sub:"About",class:"About",
+  background:"About"};
 // "Spells it gives you", BY THE LEVEL YOU GET THEM (Francesco). `atLevel` is on every
 // grant shape already — it is what the acquisition walk reads — so the section states it
 // instead of flattening a subclass's four tiers into one comma run.
@@ -10037,7 +10084,35 @@ function entGrantsHTML(it,sub){
 // that reads as "this feat does nothing".
 const ENT_NOTEXT=`<p class="entnotext">The books’ own text for this isn’t in the imported data.`
   +` What it grants and where it is printed are below.</p>`;
+function bgFactsHTML(it){
+  const li=[];
+  const add=(k,v)=>{if(v)li.push(`<li><b>${k}</b> ${v}</li>`);};
+  // the two this rung models
+  add("Ability scores",(it.abils||[]).map(a=>abChip(a)).join(" ")
+    +` <span class="entnote">+2 and +1, or +1 each</span>`);
+  // a granted feat you cannot see is either a book you have turned off or one you never
+  // imported, and those are different problems with different fixes — so say which
+  const ft=it.feat?FEAT_BY[it.feat]:null, fsrc=it.feat?it.feat.split("|")[1]:"";
+  add("Origin feat",!it.feat?""
+    :ft?esc(ft.name)
+    :esc(it.feat.split("|")[0])+` <span class="entnote">`
+      +(srcOn(fsrc)?`not in the books you have loaded`:`${esc(bookName(fsrc))} is turned off`)
+      +`</span>`);
+  // and the ones it only REPORTS (D191(a)): nothing in the app derives from these
+  const profs=v=>{const f=(v&&v.fixed||[]).map(esc);
+    (v&&v.choices||[]).forEach(c=>f.push(`choose ${c.count} of ${c.from.map(esc).join(", ")||"any"}`));
+    return f.join(", ");};
+  add("Skills",profs(it.skills)); add("Tools",profs(it.tools)); add("Languages",profs(it.languages));
+  (it.equipment||[]).forEach(e=>add("Equipment "+esc(e.label),e.items.map(esc).join(", ")));
+  if(!li.length)return "";
+  return entBlk("At a glance",`<ul class="entfacts">${li.join("")}</ul>`
+    +`<div class="entnote bgderive">Your scores and the origin feat are part of the build. `
+    +`The skills, tools, languages and equipment are printed here to copy onto a sheet — `
+    +`this app does not track them.</div>`);}
 function entBodyHTML(it,kind,sub){
+  if(kind==="background"){
+    const prose=(it.desc||[]).length?descBlocks(it.desc):"";
+    return bgFactsHTML(it)+entBlk("About",prose||ENT_NOTEXT);}
   if(kind==="class")
     return classTraitsHTML(it)+classTableHTML(it,sub)+featuresHTML(it,kind,sub)
       +entGrantsHTML(it,sub)+entChoicesHTML(it,kind);
@@ -10493,6 +10568,39 @@ function refreshAddClass(){const s=$("#addClass");s.innerHTML="";
   s.append(new Option(opts.length?"+ Add a class":noneLabel,""));   // the `+` the dashed row wants
   opts.forEach(o=>s.append(new Option(o.t,o.v)));s.value="";
   s.disabled=!opts.length;}
+// ── the background row (D191 · N2) ───────────────────────────────────────────────────────
+// Complete only (D192): a background IS the origin, and Simplified has no origin.
+function refreshBackground(){
+  const blk=$("#bgBlock"); if(!blk)return;
+  blk.classList.toggle("hidden",!fullCreator());
+  if(!fullCreator())return;
+  const b=state.backgroundKey?BG_BY[state.backgroundKey]:null;
+  // a background whose BOOK is off is kept and flagged, like a species (T2, D42) — only one
+  // that no longer exists at all goes, and that is `pruneState`'s job, not this one
+  if(state.backgroundKey&&!b)state.backgroundKey="";
+  const fld=$("#bgFld");
+  if(fld){fld.className="fld";fld.textContent="Background";fldDetail(fld,b,"background");}
+  const lbl=$("#bgBtnLbl");
+  if(lbl){lbl.textContent=b?b.name:"None";
+    const btn=$("#bgBtn"); if(btn)btn.classList.toggle("gapped",!!(b&&!visible(b)));
+    if(b&&!visible(b))lbl.textContent=b.name+" · "+b.source+" is off";}
+  // D191(e): the origin feat is OFFERED, never written behind your back. One click takes it
+  // into the origin slot; nothing here ever removes or replaces a feat you chose yourself.
+  const note=$("#bgNote"); if(!note)return;
+  note.innerHTML=""; note.classList.add("hidden");
+  if(!b||!b.feat)return;
+  const ft=FEAT_BY[b.feat]; if(!ft)return;
+  if(state.feats.some(x=>sameEnt(x,b.feat))){
+    note.classList.remove("hidden");
+    note.append(el("span",null,`Gives you ${ft.name}, which this build has.`));
+    return;}
+  note.classList.remove("hidden");
+  note.append(el("span",null,`Gives you ${ft.name}. `));
+  const take=el("button","linkbtn",`Take it as your origin feat`); take.type="button";
+  take.onclick=()=>{ if(!srcOn(ft.source)){SRC.add(ft.source);saveSources();}
+    takeFeat(b.feat,"origin"); save(); refreshAll(); render(); };
+  note.append(take);
+}
 function refreshSpecies(){const r=state.speciesKey?RACE_BY[state.speciesKey]:null;
   // a species whose book is off is KEPT and flagged (T2) — only a species that no longer
   // exists at all is dropped, and that is `pruneState`'s job, not this one
@@ -11079,7 +11187,7 @@ function afterSourceChange(){
   saveSources(); save();               // sources are global; the build records what it saw
   refreshAll();renderLibList();render();
 }
-function refreshAll(){CASTMODS=activeCastMods();refreshSpecies();refreshAddFeat();renderClassRows();renderScores();renderFeatChips();renderOptFeats();renderFormPins();renderCustomSources();}
+function refreshAll(){CASTMODS=activeCastMods();refreshSpecies();refreshBackground();refreshAddFeat();renderClassRows();renderScores();renderFeatChips();renderOptFeats();renderFormPins();renderCustomSources();}
 
 // ── ability scores on the Character card (N1 · D176 · D177) ─────────────────
 // Six tiles, each the CONTROL for its own popover (D177(a)): chip with the save ring, the
@@ -11251,6 +11359,7 @@ $("#addClass").onchange=e=>{const clsKey=e.target.value;
     state.classes.push({clsKey,subKey:null,level:1,id:state.nextRowId++});renderClassRows();render();}
   e.target.value="";};
 $("#speciesBtn").onclick=()=>openEntityPicker("species");
+$("#bgBtn").onclick=()=>openEntityPicker("background");   // D191 · N2
 $("#originBtn").onclick=()=>openEntityPicker("feat","origin");
 $("#generalBtn").onclick=()=>openEntityPicker("feat","general");
 $("#epicBtn").onclick=()=>openEntityPicker("feat","epic");
@@ -11966,6 +12075,7 @@ function pruneState(){
   state.feats=(state.feats||[]).filter(fk=>isHole(fk)||FEAT_BY[baseKey(fk)]||!bookLoaded(baseKey(fk)));
   state.optFeats=(state.optFeats||[]).filter(ok=>isHole(ok)||OPT_BY[baseKey(ok)]||!bookLoaded(baseKey(ok)));
   if(state.speciesKey&&!RACE_BY[state.speciesKey]&&bookLoaded(state.speciesKey))state.speciesKey="";
+  if(state.backgroundKey&&!BG_BY[state.backgroundKey]&&bookLoaded(state.backgroundKey))state.backgroundKey="";
   // the one invariant worth re-asserting on every load: a TRAILING hole is not a slot.
   // Pruning above can expose one, and so can a file written by an older build.
   trimHoles(state.feats); trimHoles(state.optFeats);
@@ -12052,6 +12162,7 @@ if(typeof module!=="undefined"&&module.exports){
       state:v=>{Object.keys(state).forEach(k=>{delete state[k];});Object.assign(state,v);},
       ent:v=>{ENT=v;},
       optBy:v=>{OPT_BY=v;},
+      bgBy:v=>{BG_BY=v;},                 // D191 · N2
       preview:v=>{Object.assign(PREVIEW,v);},
     },
   };

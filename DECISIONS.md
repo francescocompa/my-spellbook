@@ -1839,10 +1839,30 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     background would then re-narrow pills you have already set and send the walk backwards —
     the exact shape D184 spent v1.5.42 removing); the card with no guide step at all (the
     bonus set in one place and constrained from another, with nothing walking you through it).
+  - **(e) The origin feat is OFFERED, never written behind your back.** The background names
+    it and one click takes it into the origin slot; nothing about picking or changing a
+    background ever adds, removes or replaces a feat on its own. Settled while building, not
+    in the interview. *Rejected:* taking it automatically on the pick (it is what the rules
+    say, and it would silently edit `state.feats` — the acquisition order (D115(b,h)) is his
+    data, changing background would have to guess whether the feat there was still "the
+    background's", and D42's flag-don't-prune exists precisely because this app does not
+    rewrite picks it did not ask about).
+  - **(f) Two boundaries this rung leaves standing, deliberately.** ① The guide step is
+    **second, not first** — after the class step, which every other step's existence hangs
+    off, and before species, the origin feat and every score question, which is the order the
+    2024 book itself uses and the whole reason (d) wanted it early. ② A book that publishes
+    **only** backgrounds is not in the source registry, so it would not be listed and
+    `filterDigest` could drop it: the registry counts spells, classes, subclasses, feats and
+    species, and adding a sixth count touches both extractors, the Library strip and the
+    filter. Every one of the six books with 2024 backgrounds is already in the registry
+    through its feats, so nothing is hidden today — → **Gotcha**, and a real cost if a brew
+    ever ships backgrounds alone.
   - **Enforced by:** both extractors (`backgrounds.json`, 2024 filter, and `cparity.js` proves
-    them equal), the entity picker's `background` kind, `state.backgroundKey`, the origin pill
-    narrowing, and an engine fixture for (b). **Affects:** D176, D177(b), D178, D168, D19,
-    D118(d), and **D192**, which hides all of it in Simplified.
+    them equal record by record), `DIGEST_ARRAYS`/`ENT_KEY`/`emptyDigest`/`assembleData` (all
+    four, or the array survives the merge and vanishes at assembly — it did), the entity
+    picker's `background` kind, `state.backgroundKey`, `originOptions`'s narrowing, and
+    **fixture 19**, which goes red on a revert. **Affects:** D176, D177(b), D178, D168, D19,
+    D118(d), D42, and **D192**, which hides all of it in Simplified.
 
 - **D192 (2026-09-07) DECIDED — the creator ladder is a MODE, not a destination.** His ask,
   raised in the N2 interview: an app setting that switches between complete and simplified
