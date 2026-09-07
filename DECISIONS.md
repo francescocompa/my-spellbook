@@ -1927,6 +1927,38 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
   - **Enforced by:** src/styles.css `#addClass`, src/app.js `refreshAddClass`'s `+` label.
     **Affects:** D177's full-row Add, D147's field rows.
 
+- **D194 (2026-09-07) DECIDED — the feat chips are a view of the previewed level, like
+  everything else on that card.** His report: *"when changing the current level, regardless of
+  correct mapping using guided builder, some features like feats still appear at levels before
+  they are taken, resulting in an error alert"*. Reproduced on a Wizard 8 holding an origin
+  feat (level 1) and a general feat (level 4): previewing level 1 drew BOTH chips, and the
+  general one wore a red **"Prerequisite not met — needs Level 4+"** warning. Shipped as
+  v1.5.51.
+  - **(a) The engine was never wrong; one view was.** `featsAt()` correctly returned the origin
+    feat alone, `renderFeatBudget` correctly read `0/0`, `optSlots` already sliced through
+    `optFeatsAt()` — every per-level reader in the file used the slice except
+    `renderFeatChips`, which walked raw `state.feats`. So the counter and the chips **directly
+    beside each other** contradicted one another on screen, and the chip then had its
+    "Level 4+" prerequisite judged against the level being PREVIEWED, which of course failed.
+    A feat you have not reached yet is not a feat whose prerequisite you fail.
+  - **(b) Absent, not dimmed.** A feat below its acquisition level is simply not drawn — the
+    same thing the picked-spell chips have always done, since per-level truth is a slice of
+    the acquisition order (D115(b,h)). *Rejected:* drawing it greyed with "arrives at level 4"
+    (it says more, and it is what D186 does when you ACT on such a pick — but the card is a
+    portrait of the character at this level, and a feat it does not have yet has no business
+    on it); keeping the chip and only suppressing the warning (the chip would still claim the
+    character has it, which is the half of the report he led with).
+  - **(c) The ✕ still writes by index into `state.feats`.** The filter skips inside the walk
+    rather than iterating a filtered copy, so a chip's remove button carries the position it
+    always did. Verified: at level 4 removing the second chip took the general feat and left
+    the origin one; at level 1 removing the only visible chip took the origin feat and left
+    an **empty slot** in its place (D146), the later feat untouched at its own index.
+  - **Enforced by:** src/app.js `renderFeatChips`'s `inEffect` set. No fixture: this is a DOM
+    view, and the engine contract underneath it (`featsAt` at a level below an acquisition) is
+    already pinned by fixture 11g. A sweep rule for `state.feats` inside a `render*` was
+    weighed and dropped — three reads, two of them legitimately build-wide. **→ Gotcha.**
+    **Affects:** D115(b,h), D146, D186, D31.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

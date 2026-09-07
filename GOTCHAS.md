@@ -205,6 +205,13 @@
   reader learned the hard way. It also skips `_img/` at the WALK (the FSA path) and by
   `webkitRelativePath` (the input path) — a synthetic entry list bypasses both, so a test that
   fabricates entries is not testing the filter.
+- **A level surface that reads raw `state.feats` shows feats the character has not reached,
+  and then fails their prerequisites (D194).** `renderFeatChips` was the last per-level reader
+  walking the whole array: at a previewed level 1 it drew a general feat taken at 4 and marked
+  it "Prerequisite not met — needs Level 4+", while `renderFeatBudget` **in the same row** read
+  0/0 from the slice. Every per-level reader takes `featsAt()` / `optFeatsAt()`; the raw array
+  is for WRITERS and for `featAcqLevels`, which is what computes the slice in the first place.
+  When filtering such a view, skip inside the walk — the ✕ writes by INDEX into `state.feats`.
 - **`firstOpen` is the ROW's next empty slot; a guide section's is `secOpenSlot`, and the
   two are not interchangeable (D184).** D125 was written when a take always landed in the
   row's first open slot — true until D146 made a drop leave an empty slot behind. After that,

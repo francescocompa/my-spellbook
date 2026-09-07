@@ -10951,7 +10951,16 @@ function renderOptFeats(){
 }
 const FCHIP_ORD=new Map();
 function renderFeatChips(){const box=$("#featChips");box.innerHTML="";FCHIP_ORD.clear();
+  // D194: the chip row is a VIEW OF THE PREVIEWED LEVEL like every other level surface
+  // (D115(b,h)) — `optSlots` already reads `optFeatsAt()`, and the budget beside these chips
+  // already counts the level's own slots. Drawing the whole of `state.feats` showed a feat
+  // at levels BELOW the one it was taken at, and then judged its "Level 4+" prerequisite
+  // against the level being previewed, so a perfectly legal general feat wore a
+  // "prerequisite not met" warning at level 1 while the counter beside it read 0/0.
+  // The INDEX stays the index into `state.feats` — the ✕ writes to his data, not to a view.
+  const inEffect=new Set(featsAt());
   state.feats.forEach((fk,i)=>{const f=FEAT_BY[baseKey(fk)];if(!f)return;
+  if(!inEffect.has(fk))return;      // not acquired yet at this level: absent, not a problem
   const pr=prereqState(f);
   const ord=(FCHIP_ORD.get(baseKey(fk))||0)+1; FCHIP_ORD.set(baseKey(fk),ord);
   const sl=featSlotOf(fk);
