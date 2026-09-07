@@ -10540,14 +10540,16 @@ function renderClassRows(){
     // features only mean anything inside the class's progression, and a separate subclass
     // modal would undo the merge the moment you opened it.
     const rowSub=subOfRow(row);
-    const cl=el("div");cl.append(fldDetail(el("label","fld","Class"),c.source?c:null,"class",rowSub));
+    // D197: the three cells are NAMED so the phone layout can place them explicitly —
+    // `:nth-child` here would break the day this row grows a fourth field
+    const cl=el("div","cf cf-class");cl.append(fldDetail(el("label","fld","Class"),c.source?c:null,"class",rowSub));
     const cs=el("select");classOptions(row.clsKey).forEach(o=>cs.append(new Option(o.t,o.v)));cs.value=row.clsKey;
     if(c.source&&!visible(c))cs.classList.add("gapped");
     cs.onchange=()=>{if(cs.value===row.clsKey)return;row.clsKey=cs.value;row.subKey=null;delete state.chosen[row.id];dropRowSwaps(row.id);save();renderClassRows();render();};
     cl.append(cs);div.append(cl);
     const subLvl=c.subclassLevel||3, locked=row.level<subLvl;
     const needsSub=!locked && !row.subKey && (SUBS_OF[key(c.name,c.source)]||[]).some(visible);
-    const sc=el("div");const sl=el("label","fld");
+    const sc=el("div","cf cf-sub");const sl=el("label","fld");
     sl.append(el("span","fldt","Subclass"));      // its own span so it can ellipsize
     if(locked)sl.append(lockChip(subLvl,"The subclass"));
     // named for the SUBCLASS but opening the merged view, so the two buttons agree
@@ -10565,7 +10567,7 @@ function renderClassRows(){
     ss.onchange=()=>{row.subKey=ss.value||null;save();renderClassRows();render();};sc.append(ss);
     div.append(sc);
     if(locked&&row.subKey){row.subKey=null;}
-    const lv=el("div");lv.append(el("label","fld","Lvl"));
+    const lv=el("div","cf cf-lvl");lv.append(el("label","fld","Lvl"));
     const st=el("div","stepper");const dec=el("button",null,"−");const li=el("input");li.type="number";li.min=1;li.max=20;li.value=row.level;const inc=el("button",null,"+");
     const setLvl=v=>{row.level=Math.max(1,Math.min(20,v||1));li.value=row.level;save();renderClassRows();render();};
     dec.onclick=()=>setLvl(row.level-1);inc.onclick=()=>setLvl(row.level+1);li.onchange=()=>setLvl(+li.value);

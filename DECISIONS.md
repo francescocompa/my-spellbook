@@ -488,7 +488,7 @@ closed one-offs) — is settled and lives in `DECISIONS-SETTLED.md`.
 
 ### The settled record — `DECISIONS-SETTLED.md`
 
-147 entries, verbatim. Open it to cite, to check whether something was already rejected, or
+148 entries, verbatim. Open it to cite, to check whether something was already rejected, or
 before touching a surface it owns. By era:
 
 | Entries | What they own |
@@ -498,5 +498,5 @@ before touching a surface it owns. By era:
 | **D115–D156** | the acquisition-order model, the guide (phases E–I), the timeline, empty slots (D146) |
 | **D157–D175** | the three-pillar audit (D157 charter, **D158 every disposition**), the filter system |
 | **D177–D189** | the score block's four review rounds, Phase M's close, his 2026-09 bug batch |
-| **D190, D193–D196** | delegated handlers, the add-class row, the feat chips' level slice, the gap bar, the header |
+| **D190, D193–D197** | delegated handlers, the add-class row, the feat chips' level slice, the gap bar, the header, the class row |
 

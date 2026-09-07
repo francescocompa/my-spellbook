@@ -1771,6 +1771,20 @@ label.fld .fldt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-wi
      switch and the ⋯ menu, and at 15.5px it did not — the menu wrapped alone onto a line of
      its own, the ragged wrap the header is not allowed. Everything tightens a notch rather
      than anything being dropped; the pair below is still the only break. */
+  /* D197: on a phone the four-column class row starves its own selects. At 320px the CLASS
+     select is 64px wide, 36px of which is the field's padding and drawn caret — 26px for the
+     text, so "Wizard" reads "Wiza" under the caret; at 375px there are 50px, which fits the
+     shortest class names and no subclass. The row restacks instead of squeezing: CLASS takes
+     a full line with the ✕ at its right, SUBCLASS and Lvl share the next. Both selects keep
+     their own ellipsis for the genuinely long names. */
+  @media (max-width:480px){
+    .classrow{grid-template-columns:1fr 80px auto}
+    .classrow .cf-class{grid-column:1/3;grid-row:1}
+    .classrow .rm{grid-column:3;grid-row:1}
+    .classrow .cf-sub{grid-column:1;grid-row:2}
+    .classrow .cf-lvl{grid-column:2;grid-row:2}
+    .classrow .subalert{grid-column:1/-1}
+  }
   @media (max-width:400px){
     header.top{gap:5px}
     header.top h1{font-size:14px}

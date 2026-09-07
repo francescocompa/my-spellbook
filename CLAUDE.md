@@ -21,7 +21,7 @@ same thing, one of them is wrong:
 | `STATE.md` | Where things stand right now, and what is blocked on Francesco |
 | `PLAN.md` | The queue — what is next, what is gated |
 | `DECISIONS.md` | **Read at start.** Binding rules, the phase in progress, superseded |
-| `DECISIONS-SETTLED.md` | **Reference, not a read.** The other 147 entries, D7–D196 — open it to cite, to check something was not already rejected, or before touching a surface it owns |
+| `DECISIONS-SETTLED.md` | **Reference, not a read.** The other 148 entries, D7–D197 — open it to cite, to check something was not already rejected, or before touching a surface it owns |
 | `GOTCHAS.md` | Traps that have already cost a session. **Read before touching the extractors, the importer, grants resolution or any DOM handler.** |
 | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 | `ARCHIVE.md` | Bodies of consumed phases and old rationale — stubs in the live docs point here |

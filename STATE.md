@@ -8,7 +8,7 @@
 > | `CLAUDE.md` | What this project is, its conventions, build/run, the verify gate, versioning |
 > | `PLAN.md` | The queue — what is next, what is flagged for Francesco |
 > | `DECISIONS.md` | **Read first.** Binding rules, the phase in progress, superseded |
-> | `DECISIONS-SETTLED.md` | The other 147 entries, D7–D196 — a reference, not a read |
+> | `DECISIONS-SETTLED.md` | The other 148 entries, D7–D197 — a reference, not a read |
 > | `GOTCHAS.md` | Traps that have already cost a session |
 > | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 > | `ARCHIVE.md` | Bodies of consumed phases, decisions and old rationale |

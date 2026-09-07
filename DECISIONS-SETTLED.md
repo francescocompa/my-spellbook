@@ -1467,3 +1467,34 @@ own `→ body:` pointer where their reasoning was archived by the 2026-08-31 `/c
     375, 598, 820, 830, 900 and 1280, with a 66-character character name, `bleedRight` is
     0.00 at every one and the page never scrolls sideways. **Affects:** D47, D54, D115(j),
     D122, D182.
+
+- **D197 (2026-09-07) DECIDED — on a phone the class row restacks; it never squeezes its own
+  selects.** Noticed while measuring D196's header at 320px and left out of scope there, then
+  his: *"fix the class row clipping at 320 too"*. Shipped as v1.5.54.
+  - **(a) The measurement, not the impression.** `.classrow` is a four-column grid
+    (`1fr 1fr 80px auto`). At 320px the two `1fr` columns get **64px and 66.9px** — and a
+    select spends 36px of that on its own padding and drawn caret, so the CLASS field had
+    **26px of text room** and "Wizard" (42.3px) read `Wiza` under the caret. It is not a
+    320px problem: at 375px there are **50px**, which fits the shortest class names and no
+    subclass at all.
+  - **(b) Restack, don't shrink.** Below 480px the row is `1fr 80px auto`: CLASS takes a full
+    line with the ✕ at its right, SUBCLASS and Lvl share the next. At 320px that is **177px**
+    of text room for the class and **90px** for the subclass, at 375px **232px** and **145px**
+    — both from 26px and 28.9px. *Rejected:* narrowing the 80px Lvl column and the caret
+    padding (it buys ~30px across all four columns, which is not enough at 320 and costs the
+    stepper its hit area everywhere else); a horizontal scroller for the row (a control you
+    have to scroll to reach is worse than one that wraps); `font-size` down on the selects
+    (13px is already the app's smallest field size, and it would shrink every field to fix
+    two).
+  - **(c) The cells are NAMED, not counted.** `.cf-class` / `.cf-sub` / `.cf-lvl` on the three
+    divs, so the phone layout places them explicitly. `:nth-child` would have been shorter and
+    would break the day the row grows a fourth field.
+  - **Measured and left alone:** on a WIDE screen the Character card sits in the narrow left
+    column, so at 1280px each select gets **74.5px** — less than at 481px. Every class name
+    fits (the longest, "Barbarian ·", is 65.4px) and so does every SRD subclass, but a long
+    imported one ("Purple Dragon Knight (Banneret)") truncates there. That is the desktop
+    grid's own proportion, not this bug, and changing it is his call — flagged, not taken.
+  - **Enforced by:** src/app.js `renderClassRows`'s three cell classes; src/styles.css's
+    `@media (max-width:480px)` class-row block. Measured at 320, 375, 480, 481 and 1280;
+    nothing clipped at or below 480 and the four-column row is byte-identical above it.
+    **Affects:** D196, D47, D147, D150(a).
