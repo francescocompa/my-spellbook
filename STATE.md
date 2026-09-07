@@ -7,13 +7,13 @@
 > |---|---|
 > | `CLAUDE.md` | What this project is, its conventions, build/run, the verify gate, versioning |
 > | `PLAN.md` | The queue — what is next, what is flagged for Francesco |
-> | `DECISIONS.md` | **Read first.** Binding rules, the phase in progress, superseded |
+> | `DECISIONS.md` | **Read first.** Binding rules (**D198**, the control scale, is one), the phase in progress, superseded |
 > | `DECISIONS-SETTLED.md` | The other 148 entries, D7–D197 — a reference, not a read |
 > | `GOTCHAS.md` | Traps that have already cost a session |
 > | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 > | `ARCHIVE.md` | Bodies of consumed phases, decisions and old rationale |
 
-## TL;DR (2026-09-07 · **v1.5.55** live, pushed and tagged · **Phase N · N2 DONE (D191) · creation is a MODE now (D192)** · eight releases on 2026-09-07, v1.5.48 → v1.5.55)
+## TL;DR (2026-09-08 · **v1.5.56** live, pushed and tagged · **Phase N · N2 DONE (D191) · creation is a MODE now (D192) · the app has a CONTROL SCALE now (D198)** · nine releases across 2026-09-07/08, v1.5.48 → v1.5.56)
 
 - **Where it stands.** **Character creation is a mode and Simplified is the default (v1.5.49,
   D192)** — his ask, raised mid-interview. Simplified is the app exactly as it stood before N1:
@@ -66,6 +66,16 @@
   made the real mismatch legible — the button was **28px tall next to the ⋯ menu's 34px** in
   the same header. Both modes are 34px now. The lesson, in GOTCHAS: **a shared row is the unit
   to measure, not the control.**
+- **…which he turned into a design system: v1.5.56, D198 — the control scale.** A census of
+  every button the app renders (nine surfaces, 40 class signatures, ~1,300 instances) found
+  **nine heights** for controls and four more for chips, and the same class changing size by
+  context. There are three now plus bare: **`--ctl-h:34px`** (anything you click or type in a
+  form or toolbar), **`--ctl-h-compact:28px`** (dense — a modal's closer, a tile),
+  **`--chip-h:22px`** (a tag you toggle), and **bare** (a glyph with no box). **A new control
+  picks one; it does not invent a height.** Deliberately outside the scale, in D198(d): list
+  rows, segmented/nav strips, and the parts inside a control. Held by two sweeps at 375 and
+  1280 — nothing clipped, and no row with two controls more than 1.5px apart. **D198 is
+  BINDING and lives in `DECISIONS.md`, not the settled file.**
 - **And the class row restacks on a phone (v1.5.54, D197).** Off the same measuring: the
   four-column row gave the CLASS select **26px of text room at 320px** (36px of its 64px goes
   to the field's own padding and drawn caret), so "Wizard" read `Wiza`; at 375px there were
@@ -103,6 +113,8 @@
   button (GOTCHAS).
 - **Read before wiring any delegated handler:** D190 — walk UP from `e.target`, never read its
   own class; every control here has an icon child.
+- **Read before adding or restyling ANY control:** **D198** and its GOTCHAS entry — the scale
+  is three tokens and "bare", and the three families it deliberately excludes.
 - **Read before touching the header, the class row or any icon-only button:** D196 and its
   three GOTCHAS entries — `header.top .menu` catches the build switch, `display:contents` makes
   a pair compete instead of wrapping as one, and a block button puts its icon on the text

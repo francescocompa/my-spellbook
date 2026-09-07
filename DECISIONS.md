@@ -341,6 +341,51 @@
   — but Francesco's call was one rule). → body: `ARCHIVE.md#d81-d96-bodies`
 
 
+- **D198 (2026-09-08) DECIDED — the control scale: 34 / 28 / 22, and bare.** His call, off the
+  filters row D196(f)'s sweep turned up: *"set a DS standard for buttons and apply it across
+  the whole app."* Censused first — every button the app renders across nine surfaces, 40 class
+  signatures, ~1,300 instances. Shipped as v1.5.56.
+  - **(a) What was there.** Controls that read as buttons stood at **nine heights**: tabs 26,
+    `.iconbtn` 27 in a card, `.x` 28, `.pickbtn` 30, `.btn` 32/32.8, fields and `.picksel`
+    33.5, the header family 34, a menu row 35.5. The same class changed size by context —
+    `.btn.iconbtn.ico` was **27px in a card and 34px in the header**, which is the funnel
+    beside a 33.5px field he was looking at. Chips stood at four more: 19, 20, 21.5, 21.8,
+    22.5, 27.3.
+  - **(b) Three sizes and bare.** `--ctl-h:34px` — anything you click or type in that sits in
+    a form or a toolbar (`.btn`, `.pickbtn`, `.picksel`, `.iconbtn`, `select`, `input`, the
+    stepper, `.bswitch`, `.lvlchip`, `.prepbtn`). `--ctl-h-compact:28px` — dense contexts (a
+    modal's closer, `.abtile`, `.gtchip`, `.helpbtn`). `--chip-h:22px` — a tag you toggle,
+    which is not a control (`.tk`, `.cbtn`, `.pgtile`, `.lvltools-btn`, `.prepstep`). And
+    **bare**: `.xsm`, `.rm`, `.fldinfo`, `.swk`, `.lvlfold`, `.gwalkbtn` have no box at all,
+    are sized by their glyph and align by the row. **A new control picks one. It does not
+    invent a height.** 34 was chosen because the whole family already sat within ~1.2px of
+    it, so this is a rounding-up, not a redesign. *Rejected:* two sizes only (it forces the
+    modal closers and inline row actions to 34, heavy in dense rows); a fourth 40px "primary"
+    (a size that exists nowhere today, so every use of it is a fresh judgement call).
+  - **(c) `min-height` for anything with a label, `height` for anything without.** A button
+    whose label wraps — the guide's "Next →" at 320px — must grow, never clip; a single-line
+    pill must be brought DOWN to the scale, which `min-height` cannot do. So `.btn`,
+    `.pickbtn` and `.picksel` take `min-height` and the chips take `height`. All of them take
+    `box-sizing:border-box` and flex centring, or a one-line label sits at the top of its box.
+  - **(d) What is deliberately NOT in the scale.** **List rows** — a `.menupop` item (35.5) and
+    the guide's `.gcstep` (36.3) are full-width rows in a list, not controls in a row; they
+    are self-consistent and sizing them as controls would be wrong. **Segmented and nav
+    strips** size their own track: the tabs are 26px buttons inside a 34px track, the phone
+    `.jumpbar` is five 31.3px buttons — the strip is the control, its segments are not.
+    And a control inside another control fills it, it does not take the scale: the stepper's
+    − and + are 32px inside its own 34px box.
+  - **(e) Enforced by measurement, not by eye.** Two sweeps run over nine surfaces at 375 and
+    1280 — build, table, timeline, builds, library, homebrew, custom spell, the settings menu,
+    the filter panel, the detail modal and the guide. One asserts **no control is clipped or
+    escapes its parent**; the other asserts **no row holds two controls more than 1.5px apart**.
+    Both are empty. Three rows the second one caught and this fixed: the filters row
+    (`#fChosen` is a control in a control row, so it takes 34 and keeps its pill shape — a
+    `.cbtn` in the filter PANEL is still a 22px tag), the Library modal's header (a 20px help
+    circle beside a 28px closer) and the guide's header (a 22px closer between two 34px
+    buttons).
+  - **Enforced by:** src/styles.css `:root`'s `--ctl-h` / `--ctl-h-compact` / `--chip-h` and
+    every rule that reads them. **→ Gotcha. Affects:** D196(f), D197, D47, D180, D182.
+
 ### Live — the phase in progress (Phase N, the creator ladder)
 
 The three entries a session picking up N3 has to have read. Everything else from Phase N —

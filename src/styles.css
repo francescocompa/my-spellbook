@@ -15,6 +15,13 @@
     --free:#57549c; --free-soft:#57549c1c; --bad:#ad2335; --bad-soft:#ad23351c;
     --accent-ink:#fff; /* B1-30: text on a solid --accent fill; measured ≥4.5:1 per theme */
     --radius:12px;
+    /* D198 — the control scale. Three sizes and "bare", replacing nine heights that had
+       grown one control at a time. `--ctl-h` is anything you click or type in that sits in
+       a form or a toolbar; `--ctl-h-compact` is the dense contexts (a modal's closer, an
+       action inside a row); `--chip-h` is a tag you toggle, which is not a control. A bare
+       icon (`.xsm`, `.fldinfo`, `.swk`) has no box at all and is sized by its glyph.
+       A NEW control picks one of these. It does not invent a height. */
+    --ctl-h:34px; --ctl-h-compact:28px; --chip-h:22px;
     --shadow:0 1px 2px #00000012,0 2px 6px #0000000d,0 10px 28px #00000012;
     --font:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
     --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
@@ -134,7 +141,11 @@
   header.top .bswitch{min-width:0;max-width:min(260px,100%)}
   header.top .sub{color:var(--muted);font-size:12.5px}
   header.top .spacer{flex:1}
-  .btn{font:inherit;font-size:12.5px;padding:6px 12px;border-radius:8px;cursor:pointer;border:1px solid var(--line-strong);background:var(--panel);color:var(--ink)}
+  /* D198: `min-height`, not `height` — a button whose label wraps (the guide's "Next →" at
+     320px) must grow, never clip. Centred so a one-line label sits in the middle of the
+     34px box rather than at the top of it. */
+  .btn{font:inherit;font-size:12.5px;padding:6px 12px;border-radius:8px;cursor:pointer;border:1px solid var(--line-strong);background:var(--panel);color:var(--ink);
+    min-height:var(--ctl-h);box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center}
   .btn:hover{border-color:var(--accent);color:var(--accent)}
   .btn.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
   /* V-B 5.1/B1-03/B2-12: one base :focus-visible ring, solid --accent (measured >=5.47:1
@@ -167,7 +178,8 @@
      and square corners. That is why the custom-spell builder's fields never looked like the
      rest of the app — `el("input")` sets no attribute. Fixed at the selector rather than at
      each call site, so forgetting it again cannot bring the mismatch back. */
-  select,input[type=number],input[type=search],input[type=text],input:not([type]){font:inherit;font-size:13px;padding:6px 8px;border-radius:8px;border:1px solid var(--line-strong);background:var(--bg);color:var(--ink);width:100%}
+  select,input[type=number],input[type=search],input[type=text],input:not([type]){font:inherit;font-size:13px;padding:6px 8px;border-radius:8px;border:1px solid var(--line-strong);background:var(--bg);color:var(--ink);width:100%;
+    height:var(--ctl-h);box-sizing:border-box}
   select{appearance:none;-webkit-appearance:none;padding-right:28px;
     background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);
     background-position:calc(100% - 15px) center,calc(100% - 10px) center;background-size:5px 5px,5px 5px;background-repeat:no-repeat}
@@ -258,8 +270,13 @@
   .filters{display:flex;flex-wrap:wrap;gap:7px;align-items:center}
   .filters input[type=search]{flex:1;min-width:130px;width:auto}
   .filters select{width:auto;min-width:96px}
+  /* D198: `#fChosen` is a `.cbtn`, but in THIS row it is a control — it toggles the list the
+     field and the funnel beside it are filtering, so it takes the control height and keeps
+     the pill shape. A `.cbtn` in the filter PANEL is still a 22px tag. */
+  .filters .cbtn{height:var(--ctl-h)}
   .cbrow{display:flex;flex-wrap:wrap;gap:5px}
-  .cbtn{font-size:11.5px;padding:3px 9px;border-radius:16px;border:1px solid var(--line-strong);background:var(--panel);cursor:pointer;color:var(--muted)}
+  .cbtn{font-size:11.5px;padding:3px 9px;border-radius:16px;border:1px solid var(--line-strong);background:var(--panel);cursor:pointer;color:var(--muted);
+    height:var(--chip-h);box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center}
   .cbtn.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
   .filterpanel{margin-top:10px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--panel-2);display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:11px}
   .filterpanel .full{grid-column:1/-1}
@@ -306,7 +323,11 @@
   .sp .meta{grid-column:1;color:var(--muted);font-size:11px;display:flex;gap:8px;flex-wrap:wrap}
   .sp .take{grid-row:1/3;grid-column:2;display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;max-width:180px}
   /* the take-chip is shared: pick chips in the build panel AND picker-row select buttons */
-  .tk{font:inherit;font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:14px;border:1px solid var(--line-strong);background:var(--panel);cursor:pointer;color:var(--muted);white-space:nowrap}
+  /* D198: the chip size. `.tk`, `.cbtn`, `.pgtile`, `.lvltools-btn` and `.prepstep` were
+     19, 20, 21.5, 21.8, 22.5 and 27.3px for one idea; they are all `--chip-h` now, centred
+     so the pill's own text sits in the middle of it. */
+  .tk{font:inherit;font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:14px;border:1px solid var(--line-strong);background:var(--panel);cursor:pointer;color:var(--muted);white-space:nowrap;
+    height:var(--chip-h);box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center}
   .tk:hover{border-color:var(--accent);color:var(--accent)}
   .tk:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
   /* picked reads on the BORDER and the ICON — never as a filled pill, which read as a
@@ -362,7 +383,8 @@
   /* the mask is fixed to the scroller, so the last chip needs trailing room to reach fully
      lit space (the D124 rule). Only while masked — see maskOverflow(). */
   .choicerow .pickfield.masked>*:last-child{margin-right:28px}
-  .pickbtn{font:inherit;font-size:12px;padding:5px 11px;border-radius:8px;border:1px solid var(--line-strong);background:var(--panel);cursor:pointer;color:var(--ink)}
+  .pickbtn{font:inherit;font-size:12px;padding:5px 11px;border-radius:8px;border:1px solid var(--line-strong);background:var(--panel);cursor:pointer;color:var(--ink);
+    min-height:var(--ctl-h);box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center}
   .pickbtn.done{border-color:var(--good);color:var(--good)} .pickbtn.needclr{border-color:var(--accent);color:var(--accent)}
   .tabs{display:flex;gap:4px;background:var(--panel-2);border:1px solid var(--line);border-radius:9px;padding:3px}
   .tabs button{font:inherit;font-size:12.5px;padding:5px 14px;border:none;background:none;border-radius:6px;cursor:pointer;color:var(--muted)}
@@ -395,7 +417,10 @@
 
 /* ── v4: overflow menu, left scroll, spell detail, table tweaks ── */
 .menu{position:relative}
-.iconbtn{font-size:17px;line-height:1;padding:5px 11px}
+/* D198: 27px beside a 34px field was the mismatch that started this. The header's copy of
+   this rule already said 34; it is one height now, wherever the button is. */
+.iconbtn{font-size:17px;line-height:1;padding:0 11px;
+  height:var(--ctl-h);box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center}
 .menupop{position:absolute;right:0;top:calc(100% + 6px);background:var(--panel);border:1px solid var(--line-strong);border-radius:10px;box-shadow:0 12px 34px #0005;padding:5px;min-width:180px;z-index:40;display:flex;flex-direction:column;gap:2px}
 .menupop button{font:inherit;font-size:13px;text-align:left;padding:8px 11px;border:none;background:none;color:var(--ink);border-radius:7px;cursor:pointer}
 .menupop button:hover{background:var(--panel-2)}
@@ -488,7 +513,9 @@
 
 /* D88 — a "?" in line with a header, disclosing its note below. A DISCLOSURE rather than a
    hover popover: these notes carry links and code the reader has to be able to reach. */
-.helpbtn{flex:0 0 auto;width:20px;height:20px;display:inline-flex;align-items:center;
+/* D198: the compact size — it shares a modal header with the × closer, and a 20px circle
+   beside a 28px box is the same mismatch Prepare daily had (D196(f)). */
+.helpbtn{flex:0 0 auto;width:var(--ctl-h-compact);height:var(--ctl-h-compact);display:inline-flex;align-items:center;
   justify-content:center;border:1px solid var(--line-strong);background:none;border-radius:50%;
   color:var(--muted);cursor:pointer;padding:0;transition:color .12s,border-color .12s,background .12s}
 .helpbtn svg{width:12px;height:12px}
@@ -835,13 +862,19 @@ input[type=checkbox]:disabled{opacity:.45;cursor:default}
 /* custom number steppers (hide native spinners) */
 input[type=number]{-moz-appearance:textfield;appearance:textfield}
 input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
-.stepper{display:flex;align-items:stretch;border:1px solid var(--line-strong);border-radius:8px;overflow:hidden;background:var(--bg)}
+/* D198: the stepper is ONE control, so it takes the control height and its parts fill it —
+   its inner input inherited `height:var(--ctl-h)` from the field rule and pushed the track
+   to 36px, 2px taller than the selects it sits beside in the class row. */
+.stepper{display:flex;align-items:stretch;border:1px solid var(--line-strong);border-radius:8px;overflow:hidden;background:var(--bg);
+  height:var(--ctl-h);box-sizing:border-box}
 .stepper button{border:none;background:var(--panel-2);color:var(--muted);cursor:pointer;font:inherit;font-size:15px;line-height:1;width:22px;flex:none;padding:0}
 .stepper button:hover{color:var(--accent);background:var(--accent-soft)}
-.stepper input[type=number]{border:none;border-radius:0;text-align:center;width:100%;min-width:0;background:transparent;padding:6px 0}
+.stepper input[type=number]{border:none;border-radius:0;text-align:center;width:100%;min-width:0;background:transparent;padding:6px 0;height:100%}
 .stepper input:focus{outline:none}
 /* unified × close button (spell + pick + sources modals) */
-.modal .mh .x,.spmodal .box>.x{width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;border:none;background:none;color:var(--muted);cursor:pointer;padding:0;transition:background .12s,color .12s}
+/* D198: the compact size, named rather than hard-coded — a modal's closer is the canonical
+   dense control and every other 28px box in the app should point at this token, not at 28. */
+.modal .mh .x,.spmodal .box>.x{width:var(--ctl-h-compact);height:var(--ctl-h-compact);display:inline-flex;align-items:center;justify-content:center;border-radius:8px;border:none;background:none;color:var(--muted);cursor:pointer;padding:0;transition:background .12s,color .12s}
 .modal .mh .x svg,.spmodal .box>.x svg{width:14px;height:14px}
 .modal .mh .x:hover,.spmodal .box>.x:hover{background:var(--panel-2);color:var(--accent)}
 .spmodal .box>.x{position:absolute;top:12px;right:14px}
@@ -936,8 +969,11 @@ table.spelltable td.cmp .l.iffy{color:var(--good);cursor:help;
    chosen: the selected tile is the only coloured thing in the row, so the answer is what
    the eye lands on rather than the six alternatives. */
 .abtiles{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}
+/* D198: a tile is a dense control — the compact size, not the 34px one it would swamp its
+   six-across grid with, and not the 22px chip its two-part label would not fit. */
 .abtile{font:inherit;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;
-  padding:5px 9px;border-radius:8px;border:1px solid var(--line-strong);background:var(--panel);
+  padding:0 9px;border-radius:8px;border:1px solid var(--line-strong);background:var(--panel);
+  height:var(--ctl-h-compact);box-sizing:border-box;
   transition:background .12s,border-color .12s,opacity .12s}
 /* the unselected veil is 0.85, not 0.6: this abbreviation is the tile's ONLY label
    (D142(b)), so it has to stay readable rather than merely present — at 0.6 it measured
@@ -986,7 +1022,8 @@ table.spelltable td.cmp .l.iffy{color:var(--good);cursor:help;
    dashed and dimmed, holding its place in the column without asking for anything. */
 .cnt.none{border-style:dashed;border-color:var(--line);background:transparent;color:var(--muted);opacity:.6}
 .picksel{display:flex;align-items:center;gap:8px;width:100%;text-align:left;font:inherit;font-size:13px;
-  padding:6px 10px;border-radius:8px;border:1px solid var(--line-strong);background:var(--bg);color:var(--ink);cursor:pointer;margin-bottom:7px}
+  padding:6px 10px;border-radius:8px;border:1px solid var(--line-strong);background:var(--bg);color:var(--ink);cursor:pointer;margin-bottom:7px;
+  min-height:var(--ctl-h);box-sizing:border-box}
 .picksel:hover{border-color:var(--accent)}
 .picksel.ph{color:var(--muted)}
 /* the caret is drawn, not typed: a "⌄" glyph sits wherever its font puts it, which is what
@@ -1255,7 +1292,8 @@ table.spelltable .pickcell.on:hover,table.spelltable .pickcell:hover{filter:brig
 .lvltools{display:inline-flex;align-items:center;gap:8px;margin-left:auto;transition:color .12s}
 .lvlgroup:hover .lvltools-n{color:var(--ink)}
 .lvltools-n{font-size:10.5px;color:var(--muted);text-transform:none;letter-spacing:0;font-weight:600}
-.lvltools-btn{font:inherit;font-size:10.5px;padding:2px 8px;border-radius:12px;border:1px solid var(--line-strong);background:var(--panel);color:var(--muted);cursor:pointer;text-transform:none;letter-spacing:0}
+.lvltools-btn{font:inherit;font-size:10.5px;padding:2px 8px;border-radius:12px;border:1px solid var(--line-strong);background:var(--panel);color:var(--muted);cursor:pointer;text-transform:none;letter-spacing:0;
+  height:var(--chip-h);box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center}
 .lvltools-btn:hover:not(:disabled){border-color:var(--bad);color:var(--bad)}
 .lvltools-btn.ico-only{padding:3px 6px;line-height:0}
 .lvltools-btn.ico-only .ico svg{width:11px;height:11px}
@@ -1280,7 +1318,8 @@ table.spelltable .pickcell{cursor:help}
 #prepDailyBtn{margin-left:8px}
 .prepsteps{display:flex;flex-wrap:wrap;gap:6px}
 .mh-stack #prepSub{margin-top:7px}
-.prepstep{font:inherit;font-size:11.5px;padding:4px 10px;border-radius:16px;border:1px solid var(--line-strong);background:var(--panel);color:var(--muted);cursor:pointer;transition:background .12s,color .12s,border-color .12s}
+.prepstep{font:inherit;font-size:11.5px;padding:4px 10px;border-radius:16px;border:1px solid var(--line-strong);background:var(--panel);color:var(--muted);cursor:pointer;transition:background .12s,color .12s,border-color .12s;
+  height:var(--chip-h);box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center}
 .prepstep:hover{border-color:var(--accent);color:var(--accent)}
 .prepstep.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:600}
 .prepbar{display:flex;gap:9px;align-items:center;flex-wrap:nowrap;margin-bottom:11px}
@@ -2151,7 +2190,10 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
   border:1px solid var(--line);overflow:hidden}
 .gh-bar i{display:block;height:100%;background:var(--accent)}
 .ghead .btn.tiny{flex:0 0 auto;font-size:11.5px;padding:5px 10px}
-.ghead .x{flex:0 0 auto;display:inline-flex;align-items:center;padding:4px;line-height:0;
+/* D198: it sits between two control-height buttons in the guide's own header, so it takes
+   their height — a square box, borderless as before. */
+.ghead .x{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;
+  width:var(--ctl-h);height:var(--ctl-h);box-sizing:border-box;padding:0;line-height:0;
   border:none;background:none;color:var(--muted);cursor:pointer}
 .ghead .x:hover{color:var(--accent)}
 .ghead .x svg{width:14px;height:14px}
@@ -2445,9 +2487,12 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
 /* D126(h): the trade card's losing side — the picks you may give up at this level-up,
    as chips you tap. Neutral until hovered: it is an OPTIONAL step, not a prompt. */
 .gtchips{display:flex;flex-wrap:wrap;gap:6px}
-.gtchip{font:inherit;font-size:12px;padding:4px 11px;border-radius:14px;cursor:pointer;
+/* D198: the guide's stage chip carries a label AND its count, so it is the compact control
+   size rather than the 22px chip — it already measured 28px, this only names it. */
+.gtchip{font:inherit;font-size:12px;padding:0 11px;border-radius:14px;cursor:pointer;
   background:var(--panel);border:1px solid var(--line-strong);color:var(--ink);
   display:inline-flex;gap:6px;align-items:center;
+  height:var(--ctl-h-compact);box-sizing:border-box;
   transition:border-color .12s,color .12s,background-color .12s}
 .gtchip .lv{color:var(--muted);font-size:10px;font-variant-numeric:tabular-nums}
 .gtchip:hover{border-color:var(--free);color:var(--free)}
@@ -2867,8 +2912,11 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
 .pgrp{min-width:0;max-width:100%;padding:4px 0;border-top:1px solid var(--line)}
 .pgh{display:flex;align-items:center;gap:8px;min-height:22px}
 .pgl{flex:1;min-width:0;font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+/* the one chip that keeps `align-items:baseline`: its count and its `/cap` sit on one
+   baseline by design (D180), which centring would break. It takes the height only. */
 .pgtile{font:inherit;font-size:11px;padding:2px 7px;border-radius:7px;border:1px solid var(--line-strong);background:var(--panel);color:inherit;
-  display:inline-flex;align-items:baseline;gap:5px;min-width:40px;justify-content:center;font-variant-numeric:tabular-nums}
+  display:inline-flex;align-items:baseline;gap:5px;min-width:40px;justify-content:center;font-variant-numeric:tabular-nums;
+  height:var(--chip-h);box-sizing:border-box}
 button.pgtile{cursor:pointer}
 .pgtile .dcap{color:var(--muted);font-size:9px;font-weight:400}
 .pgtile small{font-size:9px;color:var(--muted)}

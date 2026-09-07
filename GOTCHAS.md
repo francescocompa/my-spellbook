@@ -302,6 +302,19 @@
   tall next to the ⋯ menu's 34px in the same header, because `.btn`'s padding sizes it and
   `.menu .iconbtn{height:34px}` sizes its neighbour. An icon centred inside a box of the
   wrong size still reads wrong. **A shared row is the unit to measure, not the control.**
+- **There is a control scale now — pick from it, never invent a height (D198).**
+  `--ctl-h:34px` for anything you click or type in a form or toolbar; `--ctl-h-compact:28px`
+  for dense contexts (a modal's closer, a tile); `--chip-h:22px` for a tag you toggle; and
+  **bare** — `.xsm`, `.fldinfo`, `.swk`, `.lvlfold` have no box and are sized by their glyph.
+  Nine heights had grown one control at a time, and the same class changed size by context
+  (`.btn.iconbtn.ico` was 27px in a card, 34px in the header). Three things the scale does
+  NOT cover, on purpose: **list rows** (a `.menupop` item, the guide's `.gcstep`) are rows,
+  not controls; **segmented and nav strips** size their own track (the tabs are 26px segments
+  in a 34px track); and a part **inside** a control fills it (the stepper's − and + are 32px
+  inside its 34px box). **`min-height` when the label can wrap** (the guide's "Next →" at
+  320px), `height` only when it cannot — and `box-sizing:border-box` plus flex centring on
+  both, or the label sits at the top of the box. Two sweeps in D198(e) prove it: nothing
+  clipped, no row holding two controls more than 1.5px apart.
 - **Nothing may re-render from inside a render pass (D164).** `renderGuideStage` clears the
   stage and rebuilds it; anything it calls that itself calls `render()` — opening a picker,
   closing a stale one — runs a SECOND clear-and-rebuild inside the first, and which half
