@@ -27,7 +27,8 @@
 
 ## Shipped phases — bodies archived, models still binding
 
-The **model** for each phase lives in `DECISIONS.md` and still constrains any change to
+The **model** for each phase lives in `DECISIONS.md` (live) or `DECISIONS-SETTLED.md` (closed
+phases) and still constrains any change to
 these surfaces; cite the D-entry, don't restate it. The task bodies (done-when evidence,
 merge notes) are archived.
 

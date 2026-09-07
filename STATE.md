@@ -7,7 +7,8 @@
 > |---|---|
 > | `CLAUDE.md` | What this project is, its conventions, build/run, the verify gate, versioning |
 > | `PLAN.md` | The queue — what is next, what is flagged for Francesco |
-> | `DECISIONS.md` | Every decision D7–D196 and what was rejected |
+> | `DECISIONS.md` | **Read first.** Binding rules, the phase in progress, superseded |
+> | `DECISIONS-SETTLED.md` | The other 147 entries, D7–D196 — a reference, not a read |
 > | `GOTCHAS.md` | Traps that have already cost a session |
 > | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 > | `ARCHIVE.md` | Bodies of consumed phases, decisions and old rationale |
@@ -75,6 +76,9 @@
   floored** — Fighter 5 (EK) + Rogue 5 (AT) reads 3 where the table gives 2, a rules call;
   ⑧ print from Chrome or Safari (D108); ⑨ XMM on for Find Familiar's 2024 forms (D81);
   ⑩ L5.5's format (copy the build as a level plan).
+- **Where the D-entries are:** `DECISIONS.md` holds Binding + the live phase (D176, D191,
+  D192) + Superseded; **every other D-id below is in `DECISIONS-SETTLED.md`** —
+  `grep -n "D184" DECISIONS*.md` finds any of them in one step.
 - **Read before adding a digest ARRAY:** D191(f) and its GOTCHAS entry — `DIGEST_ARRAYS`,
   `ENT_KEY`, `emptyDigest`, `assembleData`'s own literal AND `_srd_subset` are five independent
   lists of the same fact, and three of five is silent.
@@ -124,12 +128,14 @@ D154–D156, D161–D194) still bind their surfaces; cite them. `audits/` is a p
 artifact: `/clean` archives it once L5 has consumed it, together with the three mockup rounds
 in `scratchpad/mockups/` (`scores.html`, `picks.html`, `fold.html`, each with its `mk*.py`).
 
-A full `/clean` ran 2026-09-05 (D158(q)/L5.11): D115–D175 bodies, Phase K/L/M task bodies,
-fifteen closed flags and the 1.0–1.4 changelog rows moved to `ARCHIVE.md`; stubs point.
-**DECISIONS.md has taken D176–D194 since** and is over ~2050 lines; `audits/copy-table.md` is
-at ~305 rows and is still waiting on his veto. **Both want the next `/clean`** — that read is
-paid on every session, and it is now the largest single cost of `/start` here. Not a
-close-of-session pass.
+Two `/clean` passes ran, the second completing **D158(q)/L5.11**. The cold read
+(`CLAUDE` + `STATE` + `PLAN` + `DECISIONS` + `CHANGELOG`) is **267k → ~95k chars, −64%**, with
+nothing deleted: D115–D175 and D177–D189 bodies, Phase K/L/M/N task bodies, fifteen closed
+flags and the 1.0 → 1.5.41 changelog rows are in `ARCHIVE.md` behind stubs, and **`DECISIONS.md`
+is split** — Binding + the live phase stay, 147 settled entries moved to `DECISIONS-SETTLED.md`.
+`audits/` was left where it is on purpose: it is not in the cold-read path, so moving it saves
+nothing per session and would churn every pointer into it — worth doing when L5 closes.
+`audits/copy-table.md` is at ~305 rows and still waits on his veto.
 
 The queue after N2 is **N3 (gated on its own entry)** and L5.5 onward — see `PLAN.md`.
 

@@ -1,7 +1,7 @@
 # GOTCHAS — My Spellbook
 
 > Traps that have already cost a session, and the rules that stop them recurring. This is
-> the copy to trust: where a decision in `DECISIONS.md` is marked **→ Gotcha**, the full
+> the copy to trust: where a decision in `DECISIONS.md` / `DECISIONS-SETTLED.md` is marked **→ Gotcha**, the full
 > rule is here.
 >
 > Read this before touching the extractors, the importer, the grants resolution or any

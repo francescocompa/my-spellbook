@@ -20,13 +20,14 @@ same thing, one of them is wrong:
 | `CLAUDE.md` (this) | What the project is, conventions, build/run, the verify gate, versioning |
 | `STATE.md` | Where things stand right now, and what is blocked on Francesco |
 | `PLAN.md` | The queue — what is next, what is gated |
-| `DECISIONS.md` | Every decision D7–D194 and the options rejected with them |
+| `DECISIONS.md` | **Read at start.** Binding rules, the phase in progress, superseded |
+| `DECISIONS-SETTLED.md` | **Reference, not a read.** The other 147 entries, D7–D196 — open it to cite, to check something was not already rejected, or before touching a surface it owns |
 | `GOTCHAS.md` | Traps that have already cost a session. **Read before touching the extractors, the importer, grants resolution or any DOM handler.** |
 | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 | `ARCHIVE.md` | Bodies of consumed phases and old rationale — stubs in the live docs point here |
 
-`DECISIONS.md` entries marked **→ Gotcha** have their real, enforced-in-code copy in
-`GOTCHAS.md`. Trust that one.
+Entries in either decisions file marked **→ Gotcha** have their real, enforced-in-code copy in
+`GOTCHAS.md`. Trust that one. `grep -n "D146" DECISIONS*.md` finds any entry in one step.
 
 ---
 
@@ -129,7 +130,8 @@ maintained by hand — touch either extractor and the fingerprint moves with it.
 - **Never mutate Francesco's saved builds to test something.** Derived state (`R`, `PREVIEW`) is
   rebuilt on the next render and is safe to poke; `state.*` is his data. If a test must write,
   capture the value first and restore it, then verify the restore.
-- **Log decisions as they are made** (`/decision` → `DECISIONS.md`), with the rejected options
+- **Log decisions as they are made** (`/decision` → `DECISIONS.md`, under **Live**; it moves to
+  `DECISIONS-SETTLED.md` at the `/clean` after its phase closes), with the rejected options
   and why. A rejected option that isn't written down gets re-proposed in three sessions.
 - **Both extractors or neither.** A hand-authored table, a predicate, a parse — if it lives in
   `extract.py` it lives in `src/extract.js` too, identically, and `cparity.js` proves it.
