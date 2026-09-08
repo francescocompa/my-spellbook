@@ -127,6 +127,14 @@ declined, **`table4.html` is what shipped**.
   what the build stores.
 - Not in scope, deliberately: a name search on the table (his call — the axes reach it), and
   a per-build filter (D199(e) rejected it — a view preference must not become his data).
+- **His four notes on v1.6.0 shipped as v1.6.1** (D199(h–j)): the switch's invisible ON state
+  fixed app-wide, the three-way **Any · Yes · No** strip on every axis reading a list or a
+  boolean, and the sort as a removable chip. Engine fixture 21.
+- [ ] ⚑ **The Build tab's `#filterPanel` still cannot say NOT.** Its five Properties chips
+  (ritual, concentration, attack roll, upcast, consumes material) are a `cbrow` of booleans;
+  its Save and Damage selects took **Any**/**None** in v1.6.1, but the chips would need the
+  three-way strip, which means converting that panel to the menu grammar D172 never brought
+  it into. Size M. ⚑ (owner: Francesco, 2026-09-08)
 
 ## Phase N — the character-creator ladder (D176, decided 2026-09-05) — ✅ N1 · ✅ N2 · 🔶 N3 onward gated
 

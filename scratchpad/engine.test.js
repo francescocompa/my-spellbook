@@ -752,5 +752,57 @@ const casterLevel = (slots) => {
     eq("20p · no sort is a comparator that decides nothing", SB.tblCmp(rows[0], rows[3]), 0); }
 }
 
+// ── 21 · a three-way axis says NO, and a stored boolean still reads (D199(i)) ──
+// "Empty means all" (D174(b)) can express ANY and YES and has never been able to express
+// NO — so "which of my spells force no save at all" was unaskable on every filter in the
+// app. The strip is one rule, `triOk`, and every axis reads it. What breaks silently here:
+// the migration (a v1.6.0 `true` must keep meaning "yes", not "any"), and a value ticked
+// under a "No" strip quietly widening the axis back open.
+{
+  eq("21a · '' is any", [SB.triOk("", true), SB.triOk("", false)], [true, true]);
+  eq("21b · 'y' keeps only what has one", [SB.triOk("y", true), SB.triOk("y", false)], [true, false]);
+  eq("21c · 'n' keeps only what has none", [SB.triOk("n", true), SB.triOk("n", false)], [false, true]);
+  eq("21d · a stored boolean still reads: true was 'yes', false was 'any'",
+    [SB.triNorm(true), SB.triNorm(false), SB.triNorm("n"), SB.triNorm(undefined)], ["y", "", "n", ""]);
+
+  const spell = (o) => Object.assign({ name: "x", source: "XPHB", level: 1, school: "Evocation",
+    time: "action", tcat: "action", comp: { v: true }, ritual: false, conc: false,
+    dmg: [], cond: [], save: [], atk: false, durTxt: "Instantaneous" }, o);
+  const rit = spell({ ritual: true }), plain = spell({}),
+        saved = spell({ save: ["wisdom"] }), noSave = spell({ atk: true });
+  const f = () => SB.spFiltNew();
+
+  { const x = f(); x.ritual = "n";
+    eq("21e · NOT ritual is a filter you can now set", [SB.spFiltOk(x, rit), SB.spFiltOk(x, plain)], [false, true]); }
+  { const x = f(); x.ritual = "y";
+    eq("21f · …and 'yes' is what the old switch meant", [SB.spFiltOk(x, rit), SB.spFiltOk(x, plain)], [true, false]); }
+  { const x = f(); x.conc = "n";
+    eq("21g · concentration reads the same way", SB.spFiltOk(x, spell({ conc: true })), false); }
+
+  { const x = f(); x.saveHas = "n";
+    eq("21h · 'no save at all' is askable", [SB.spFiltOk(x, saved), SB.spFiltOk(x, noSave)], [false, true]); }
+  { const x = f(); x.saveHas = "y";
+    eq("21i · 'any save' is askable", [SB.spFiltOk(x, saved), SB.spFiltOk(x, noSave)], [true, false]); }
+  // the trap: the strip is the axis and the chips only narrow inside it. A value ticked
+  // under "No" must never widen the axis back open.
+  { const x = f(); x.saveHas = "n"; x.save.add("wisdom");
+    eq("21j · a value under 'No' cannot widen it back", SB.spFiltOk(x, saved), false); }
+  { const x = f(); x.dmgHas = "n";
+    eq("21k · damage and condition read it too",
+      [SB.spFiltOk(x, spell({ dmg: ["fire"] })), SB.spFiltOk(x, plain)], [false, true]); }
+  { const x = f(); x.condHas = "y";
+    eq("21l · …including condition", SB.spFiltOk(x, spell({ cond: ["prone"] })), true); }
+
+  { const x = f(); eq("21m · a fresh filter narrows nothing", SB.spFiltNarrowed(x), false);
+    x.conc = "n"; eq("21n · a 'No' IS a narrowing — it must reach the chip row", SB.spFiltNarrowed(x), true); }
+
+  // the build tab's panel keeps a <select>, which already holds three answers
+  eq("21o · the select's Any / None / value", [
+    SB.optListOk("", []), SB.optListOk(SB.OPT_ANY, []), SB.optListOk(SB.OPT_ANY, ["fire"]),
+    SB.optListOk(SB.OPT_NONE, []), SB.optListOk(SB.OPT_NONE, ["fire"]),
+    SB.optListOk("fire", ["fire"]), SB.optListOk("fire", ["cold"]),
+  ], [true, false, true, true, false, true, false]);
+}
+
 console.log(`\n${pass} ok · ${fail} fail`);
 process.exit(fail ? 1 : 0);

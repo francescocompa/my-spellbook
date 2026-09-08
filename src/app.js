@@ -464,8 +464,10 @@ function activeFilterChips(){
       :"Levels "+ls.map(l=>l===0?"C":ROMAN[l]).join(", "));}
   if(f.school)out.push(f.school);
   if(f.cls)out.push(f.cls===ALL_SPELLS?"Every spell":f.cls);
-  if(f.save)out.push(cap1(f.save)+" save");
-  if(f.dmg)out.push(cap1(f.dmg)+" damage");
+  // the presence answers name themselves; a value names its own axis (D199(i))
+  const listChip=(v,noun)=>v===OPT_ANY?("Any "+noun):v===OPT_NONE?("No "+noun):(cap1(v)+" "+noun);
+  if(f.save)out.push(listChip(f.save,"save"));
+  if(f.dmg)out.push(listChip(f.dmg,"damage"));
   [[f.time,F_TIME],[f.comp,F_COMP],[f.tags,F_TAGS]].forEach(([set,map])=>{
     [...set].forEach(k=>out.push(map[k]||cap1(String(k))));});
   if(f.reprint!=="dedupe")out.push("Reprints");
@@ -4819,7 +4821,7 @@ function openEntityPicker(kind,category,at){
   // presence is what says "a step is asking this". Handed over by the CALL SITE, never read
   // off the walk here (D133(a)), so every other surface that opens this picker leaves it
   // null and keeps the plain add-and-flag behaviour D42 asks for.
-  ENT={kind,category,slot,lv,q:"",books:new Set(SRC),grantsOnly:false,
+  ENT={kind,category,slot,lv,q:"",books:new Set(SRC),grantsOnly:"",raiseHas:"",
        owns:(at&&at.owns)||null,
        cats:new Set(),catList,abils:new Set(),prq:new Set(),raise:new Set(),open:null};
   $("#entTitle").textContent = kind==="opt"?`Choose ${slot.name.replace(/s$/,"").toLowerCase()}`
@@ -4881,8 +4883,9 @@ function entFilterGroups(){
   if(ENT.kind==="class")g.push({key:"abil",head:"Main score",kind:"toggle",
     items:Object.keys(ABIL).map(a=>[a,ABIL_SHORT[a]]),set:ENT.abils,clsOf:a=>"abt "+a});
   if(ENT.kind!=="class"){
-    g.push({key:"grants",head:"Spellcasting",kind:"switch",
-      get:()=>ENT.grantsOnly,set:v=>{ENT.grantsOnly=v;}});
+    // D199(i): "grants spells" is a boolean, so it reads three ways like every other —
+    // "which feats grant me nothing" was unaskable while it was a switch
+    g.push({key:"grants",head:"Spellcasting",kind:"tri",tri:triOf(ENT,"grantsOnly")});
     // M3 (D172(d)): the prerequisite STATE the engine already computes, made a filter —
     // the three-way D31 keeps (met / not met / can't check) instead of the binary
     // "hide ones I can't take", which flattened "can't verify" into "no"
@@ -4891,8 +4894,10 @@ function entFilterGroups(){
   }
   // M3 (D172(d)): which score a feat can raise. A feat that lets you choose among several
   // matches any of them, and the ASI's either/or names all six — which is the truth of it.
+  // a feat's ability list can be empty, so it takes the strip too
   if(ENT.kind==="feat")g.push({key:"raise",head:"Ability bonus",kind:"toggle",
-    items:AB_KEYS.map(a=>[a,ABIL_SHORT[a]]),set:ENT.raise,clsOf:a=>"abt "+a});
+    items:AB_KEYS.map(a=>[a,ABIL_SHORT[a]]),set:ENT.raise,clsOf:a=>"abt "+a,
+    tri:triOf(ENT,"raiseHas")});
   g.push(entBooksGroup());
   return g;
 }
@@ -4906,8 +4911,9 @@ function renderEntityList(){
   renderEntBudget();
   const q=ENT.q.toLowerCase();
   let items=entItems(ENT.books)
-    .filter(i=>(!q||i.name.toLowerCase().includes(q))&&(!ENT.grantsOnly||grantsAny(i.grants))
+    .filter(i=>(!q||i.name.toLowerCase().includes(q))&&triOk(ENT.grantsOnly,grantsAny(i.grants))
       &&(!ENT.prq.size||ENT.prq.has(prereqState(i).state))
+      &&triOk(ENT.raiseHas,(i.ability||[]).some(g=>(g.abils||[]).length))
       &&(!ENT.raise.size||(i.ability||[]).some(g=>(g.abils||[]).some(a=>ENT.raise.has(a)))));
   // eligible first, then the ones whose prerequisites you don't meet, dimmed at the bottom
   const rank=it=>{const p=prereqState(it);return p.state==="no"?1:0;};
@@ -4933,7 +4939,8 @@ function renderEntityList(){
     +(ENT.note?` · ${esc(ENT.note)}`:"");
   // the ⋯ button says THAT the list is narrowed, not by how much — a count on an icon
   // button pushes the icon off centre and names a number nothing acts on
-  const nf=[ENT.kind!=="class"&&ENT.grantsOnly,!sameSet(ENT.books,SRC)].filter(Boolean).length
+  const nf=[ENT.kind!=="class"&&triNorm(ENT.grantsOnly),triNorm(ENT.raiseHas),
+    !sameSet(ENT.books,SRC)].filter(Boolean).length
     +(ENT.kind==="feat"&&ENT.cats.size?1:0)+(ENT.prq.size?1:0)+(ENT.raise.size?1:0)
     +(ENT.kind==="class"&&ENT.abils.size?1:0);
   $("#entMenuBtn").classList.toggle("on",!!nf);
@@ -7415,11 +7422,11 @@ function loadTableOpts(){ tableOpts.filt=tblFiltNew();
   // disappearing from the data: an unknown value simply never matches and the chip says so
   if(t.filt&&typeof t.filt==="object"){
     TFILT_SETS.forEach(k=>{ if(Array.isArray(t.filt[k]))t.filt[k].forEach(v=>tableOpts.filt[k].add(v)); });
-    tableOpts.filt.ritual=!!t.filt.ritual; tableOpts.filt.conc=!!t.filt.conc;}
+    TFILT_TRI.forEach(k=>{ tableOpts.filt[k]=triNorm(t.filt[k]); });}
  }catch(e){} }
 function saveTableOpts(){ const f=tableOpts.filt||{}, out={};
   TFILT_SETS.forEach(k=>{ if(f[k]&&f[k].size)out[k]=[...f[k]]; });
-  if(f.ritual)out.ritual=true; if(f.conc)out.conc=true;
+  TFILT_TRI.forEach(k=>{ const v=triNorm(f[k]); if(v)out[k]=v; });
   try{localStorage.setItem(LS_TABLE,JSON.stringify(
   {group:tableOpts.group,order:tableOpts.order,hidden:[...tableOpts.hidden],
    sort:tableOpts.sort,rev:tableOpts.rev,filt:out}));}catch(e){storageNotice(e);} }
@@ -7431,6 +7438,9 @@ function saveTableOpts(){ const f=tableOpts.filt||{}, out={};
 // OR-within/AND-across and components-are-AND hold here by construction.
 const TFILT_SETS=["prep","giver","abil","book","lvl",
                   "school","time","dur","comp","dmg","save","cond"];
+// the three-way axes (D199(i)) persist as ""|"y"|"n" beside them; a stored boolean from
+// v1.6.0 still reads through `triNorm`
+const TFILT_TRI=["ritual","conc","saveHas","dmgHas","condHas"];
 function tblFiltNew(){ const f=spFiltNew();
   f.prep=new Set(); f.giver=new Set(); f.abil=new Set(); f.book=new Set(); f.lvl=new Set();
   return f; }
@@ -7541,12 +7551,27 @@ function renderTableFilters(rows){
   // how much — a count on an icon button pushes the icon off centre
   if(btn)btn.classList.toggle("on",tblFiltNarrowed());
   host.innerHTML="";
+  // the sort is a chip like any other, because it was the one piece of state with no way
+  // back except a select nobody opens (D199(j), his note)
+  if(tableOpts.sort&&TABLE_SORTS[tableOpts.sort]){
+    const c=chipFor("Sorted by "+TABLE_SORTS[tableOpts.sort].label,
+      ()=>{tableOpts.sort="";tableOpts.rev=false;saveTableOpts();renderTable();});
+    c.classList.add("sortchip");
+    c.insertBefore(el("span","lvlcar"+(tableOpts.rev?"":" up")),c.lastChild);
+    host.append(c);
+  }
   groups.forEach(g=>{
-    if(g.kind==="switch"){ if(!g.get())return;
-      host.append(chipFor(g.head,()=>{g.set(false);redraw();})); return; }
-    if(!g.set||!g.set.size)return;
-    const sum=filterSum(g), n=g.set.size;
-    host.append(chipFor(n===1?sum:g.head+" ("+n+")",()=>{g.set.clear();redraw();}));
+    const tri=g.tri?g.tri.get():"";
+    const n=g.set?g.set.size:0;
+    if(!tri&&!n)return;
+    // one chip per AXIS: it names the strip and the values together, and dropping it
+    // clears both — two chips for one row would read as two filters
+    const clear=()=>{ if(g.tri)g.tri.set(""); if(g.set)g.set.clear(); redraw(); };
+    const text=(g.kind==="tri")
+      ? (tri==="y"?g.head:"Not "+g.head.toLowerCase())
+      : (n===1&&!tri) ? filterSum(g)
+      : g.head+": "+filterSum(g);
+    host.append(chipFor(text,clear));
   });
   box.classList.toggle("hidden",!host.children.length);
   maskOverflow(host);
@@ -7557,6 +7582,9 @@ function chipFor(text,onClear){
   c.append(xBtn("rm",onClear));
   return c; }
 function clearTableFilter(){ tableOpts.filt=tblFiltNew(); saveTableOpts(); renderTable(); }
+// the × on the chip field clears the ROW IT SITS IN, sort included — a control that says
+// clear-all and leaves a chip standing is what made him ask for the sort chip (D199(j))
+function clearTableView(){ tableOpts.sort=""; tableOpts.rev=false; clearTableFilter(); }
 // short recharge label. cantrips / always-known are effectively at-will.
 function rechargeShort(recharge,isCantrip){
   const r=String(recharge||"").toLowerCase();
@@ -9208,8 +9236,8 @@ function renderSpells(){
   syncOpt($("#fSchool"),[...new Set(items.map(i=>i.sp.school).filter(Boolean))].sort().map(s=>[s,s]),F.school,"All");
   const accessNames=[...new Set([].concat(...items.map(i=>i.takers.map(t=>t.name).concat([...i.srcs]))))].sort();
   syncOpt($("#fClass"),[[ALL_SPELLS,"Every spell"]].concat(accessNames.map(s=>[s,s])),F.cls,"All");
-  syncOpt($("#fSave"),[...new Set([].concat(...items.map(i=>i.sp.save)))].sort().map(s=>[s,cap1(s)]),F.save,"All");
-  syncOpt($("#fDmg"),[...new Set([].concat(...items.map(i=>i.sp.dmg)))].sort().map(s=>[s,cap1(s)]),F.dmg,"All");
+  syncOpt($("#fSave"),[...new Set([].concat(...items.map(i=>i.sp.save)))].sort().map(s=>[s,cap1(s)]),F.save,"All",true);
+  syncOpt($("#fDmg"),[...new Set([].concat(...items.map(i=>i.sp.dmg)))].sort().map(s=>[s,cap1(s)]),F.dmg,"All",true);
   renderFilterBooks(new Set(items.map(i=>i.sp.source)));
   buildToggleRow($("#fTime"),[["action","Action"],["bonus","Bonus"],["reaction","Reaction"],["long","Longer"]],F.time);
   buildToggleRow($("#fComp"),[["v","V"],["s","S"],["m","M"]],F.comp);
@@ -9228,8 +9256,8 @@ function renderSpells(){
   const passesSp=sp=>{
     if(F.levels.size&&!F.levels.has(sp.level))return false;
     if(F.school&&sp.school!==F.school)return false;
-    if(F.save&&!sp.save.includes(F.save))return false;
-    if(F.dmg&&!sp.dmg.includes(F.dmg))return false;
+    if(!optListOk(F.save,sp.save))return false;
+    if(!optListOk(F.dmg,sp.dmg))return false;
     if(F.books&&!F.books.has(sp.source))return false;
     if(F.time.size&&!F.time.has(sp.tcat))return false;
     if(F.comp.size&&![...F.comp].every(c=>sp.comp[c]))return false;
@@ -10524,11 +10552,26 @@ function mkSpell(i,chosenKeys){
 // the one display capitaliser (H6): first letter up, the rest untouched — never applied to a
 // stored value, only to what is about to be shown. Hoisted, so it serves the whole file.
 function cap1(s){s=s==null?"":String(s);return s?s[0].toUpperCase()+s.slice(1):s;}
-function syncOpt(sel,pairs,cur,allLabel){
-  const want=[["",allLabel]].concat(pairs);
+// D199(i): an axis reading a list that can be EMPTY has three answers before it has values,
+// and this panel's control is a `<select>` — which already holds three, so it takes the two
+// extra options rather than a strip. `__any` / `__none` cannot collide with a damage type
+// or an ability id.
+const OPT_ANY="__any", OPT_NONE="__none";
+function syncOpt(sel,pairs,cur,allLabel,presence){
+  const want=[["",allLabel]]
+    .concat(presence?[[OPT_ANY,"Any"],[OPT_NONE,"None"]]:[])
+    .concat(pairs);
   const same=sel.options.length===want.length&&[...sel.options].every((o,i)=>o.value===want[i][0]);
   if(!same){sel.innerHTML="";want.forEach(([v,t])=>sel.append(new Option(t,v)));}
-  sel.value=pairs.some(p=>p[0]===cur)?cur:"";
+  sel.value=want.some(p=>p[0]===cur&&p[0]!=="")?cur:"";
+}
+// what one of those selects means against a spell's list
+function optListOk(cur,list){
+  if(!cur)return true;
+  const n=(list||[]).length;
+  if(cur===OPT_ANY)return n>0;
+  if(cur===OPT_NONE)return n===0;
+  return (list||[]).includes(cur);
 }
 // ── the filter menu (M1b · D174) ───────────────────────────────────────────
 // ONE builder for every picker's filter surface. A menu is a list of GROUPS and only one is
@@ -10541,6 +10584,10 @@ function syncOpt(sel,pairs,cur,allLabel){
 //              which is the spell picker's own long-standing convention (`PICK.levelSet`) and
 //              the reason a resting menu has nothing selected and nothing outlined
 //   `switch` — `get()`/`set(v)`, drawn as a row with the Library's `.swk`
+//   `tri`    — `tri:{get,set}` reading ""|"y"|"n": the three-way strip D199(i) added,
+//              because "empty means all" can say ANY and YES but never NO. It rides ON a
+//              toggle group (the values stay under it) or stands alone where the axis is a
+//              boolean and has no values to offer.
 //   `custom` — `fill(body)`, for the one group that is not a toggle row: the book checklist
 // `summary` is what the closed row says; a group with none says "all".
 function filterMenu(host,groups,state,onChange){
@@ -10560,6 +10607,13 @@ function filterMenu(host,groups,state,onChange){
     }
     const open=state.open===g.key;
     const box=el("div","fgrp");
+    // a pure tri axis has nothing to open — the strip IS the row
+    if(g.kind==="tri"&&!(g.items&&g.items.length)){
+      const row=el("label","mopt");
+      row.append(el("span",null,g.head));
+      row.append(triStrip(g.tri,onChange));
+      host.append(row); return;
+    }
     const head=el("button","fghead"); head.type="button";
     head.setAttribute("aria-expanded",String(open));
     head.append(el("span","fgh",g.head));
@@ -10574,8 +10628,11 @@ function filterMenu(host,groups,state,onChange){
       const body=el("div","fgbody");
       if(g.kind==="custom")g.fill(body);
       else{
-        const row=el("div","cbrow");
+        if(g.tri)body.append(triStrip(g.tri,onChange));
+        const row=el("div","cbrow segvals");
         buildToggleRow(row,g.items,g.set,!!g.numeric,onChange,g.clsOf);
+        // "no" answers the axis by itself, so its values go inert rather than away
+        if(g.tri&&g.tri.get()==="n")row.classList.add("mute");
         body.append(row);
       }
       box.append(body);
@@ -10612,10 +10669,16 @@ function durCat(sp){
   if(/\bday/.test(t))return "day";
   return "other";
 }
+// `ritual`/`conc` and the three HAS-questions are ""|"y"|"n", never booleans (D199(i)):
+// "empty means all" can say ANY and YES, and nothing at all could say NO.
+const SP_TRI=["ritual","conc","saveHas","dmgHas","condHas"];
 const spFiltNew=()=>({school:new Set(),time:new Set(),dur:new Set(),comp:new Set(),
-  dmg:new Set(),save:new Set(),cond:new Set(),ritual:false,conc:false,open:null});
+  dmg:new Set(),save:new Set(),cond:new Set(),
+  ritual:"",conc:"",saveHas:"",dmgHas:"",condHas:"",open:null});
+// a stored `true`/`false` from before v1.6.1 still reads: true was "yes", false was "any"
+const triNorm=v=>v===true?"y":(v==="y"||v==="n")?v:"";
 const spFiltNarrowed=f=>!!(f&&(f.school.size||f.time.size||f.dur.size||f.comp.size
-  ||f.dmg.size||f.save.size||f.cond.size||f.ritual||f.conc));
+  ||f.dmg.size||f.save.size||f.cond.size||SP_TRI.some(k=>triNorm(f[k]))));
 function spFiltOk(f,sp){
   if(!f)return true;
   if(f.school.size&&!f.school.has(sp.school))return false;
@@ -10625,13 +10688,23 @@ function spFiltOk(f,sp){
     for(const k of f.comp){
       if(k==="mcost"?!(c.m&&c.cost):!c[k])return false;   // components are AND, see above
     }}
+  // a HAS-question is asked before the values: "no" is an answer on its own, and a value
+  // ticked under it can never widen it back (the strip is the axis, the chips narrow it)
+  if(!triOk(f.saveHas,(sp.save||[]).length>0))return false;
+  if(!triOk(f.dmgHas,(sp.dmg||[]).length>0))return false;
+  if(!triOk(f.condHas,(sp.cond||[]).length>0))return false;
   if(f.dmg.size&&!(sp.dmg||[]).some(d=>f.dmg.has(d)))return false;
   if(f.save.size&&!(sp.save||[]).some(d=>f.save.has(d)))return false;
   if(f.cond.size&&!(sp.cond||[]).some(d=>f.cond.has(d)))return false;
-  if(f.ritual&&!sp.ritual)return false;
-  if(f.conc&&!sp.conc)return false;
+  if(!triOk(f.ritual,!!sp.ritual))return false;
+  if(!triOk(f.conc,!!sp.conc))return false;
   return true;
 }
+// ""=any · "y"=it has one · "n"=it has none. The one rule every three-way axis reads.
+function triOk(state,has){ const t=triNorm(state);
+  return t==="y"?!!has:t==="n"?!has:true; }
+// the accessor a group hands `filterMenu`, so a strip never knows which field it drives
+const triOf=(o,k)=>({get:()=>triNorm(o[k]),set:v=>{o[k]=v;}});
 // the values a row offers come from the SPELLS IN FRONT OF YOU, not from a hand-written
 // list — a picker scoped to one class shows the schools that class has, and a book that
 // brings a damage type nobody has seen brings its own chip with it. Empty rows are dropped.
@@ -10661,31 +10734,59 @@ function spFiltItems(pool){
 function spFiltGroups(f,pool,onChange,opt){
   opt=opt||{};
   const it=spFiltItems(pool), g=[];
-  const add=(key,head,items,set,clsOf,numeric)=>{
-    if(items.length>1)g.push({key,head,kind:"toggle",items,set,clsOf,numeric});};
+  const add=(key,head,items,set,clsOf,numeric,tri)=>{
+    // a strip makes the axis worth showing even where the data offers one value or none:
+    // "no damage at all" is a question a one-type build can still ask
+    if(items.length>1||tri)g.push({key,head,kind:"toggle",items,set,clsOf,numeric,tri});};
   if(opt.levels)add("lvl","Level",it.lvl,opt.levels,null,true);
   add("school","School",it.school,f.school);
   add("time","Cast time",it.time,f.time);
   add("dur","Duration",it.dur,f.dur);
   add("comp","Components",it.comp,f.comp);
-  add("dmg","Damage",it.dmg,f.dmg);
+  // D199(i): these three read a list that can be EMPTY, so each takes the strip as well —
+  // "which of my spells force no save at all" was unaskable before it
+  add("dmg","Damage",it.dmg,f.dmg,null,false,triOf(f,"dmgHas"));
   // a save is an ability, so it wears the ability's own colour (D173(b))
-  add("save","Save",it.save,f.save,v=>"abt "+String(v).slice(0,3));
-  add("cond","Condition",it.cond,f.cond);
-  g.push({key:"ritual",head:"Ritual",kind:"switch",get:()=>f.ritual,set:v=>{f.ritual=v;}});
-  g.push({key:"conc",head:"Concentration",kind:"switch",get:()=>f.conc,set:v=>{f.conc=v;}});
+  add("save","Save",it.save,f.save,v=>"abt "+String(v).slice(0,3),false,triOf(f,"saveHas"));
+  add("cond","Condition",it.cond,f.cond,null,false,triOf(f,"condHas"));
+  // a boolean axis has no values to offer, so its strip IS the row
+  g.push({key:"ritual",head:"Ritual",kind:"tri",tri:triOf(f,"ritual")});
+  g.push({key:"conc",head:"Concentration",kind:"tri",tri:triOf(f,"conc")});
   return g;
 }
+// The three-way strip: any / yes / no, one shape for every axis that reads a list or a
+// boolean (D199(i)). The nouns live in the group's HEAD, so the segments never repeat them
+// — under "SAVE" these read "does it force one?", under "RITUAL" "is it one?".
+const TRI_SEGS=[["","Any"],["y","Yes"],["n","No"]];
+function triStrip(tri,onChange){
+  const box=el("div","seg3"); box.setAttribute("role","group");
+  const cur=tri.get()||"";
+  TRI_SEGS.forEach(([v,lbl])=>{
+    const b=el("button","segb"+(v==="n"?" no":"")+(cur===v?" on":""),lbl);
+    b.type="button";
+    b.setAttribute("aria-pressed",String(cur===v));
+    b.onclick=e=>{e.stopPropagation(); tri.set(v); onChange();};
+    box.append(b);});
+  return box;
+}
+const TRI_LABEL={y:"Yes",n:"No"};
 const FILTER_ALL="all";
 // what a closed group says. A single choice is worth naming — "Evocation" tells you more
 // than "1 of 8" and costs the same room; two or more is a count, because a list of names
 // truncates and a truncated list reads as the whole of it (the rule D130(a) settled).
 function filterSum(g){
+  const t=g.tri?(g.tri.get()||""):"";
   const n=g.set?g.set.size:0;
-  if(!n)return FILTER_ALL;
-  if(n===1){const only=[...g.set][0], hit=(g.items||[]).find(p=>String(p[0])===String(only));
-    return hit?hit[1]:String(only);}
+  // the strip and the values are one answer: "No" alone, "Wis" alone, or "Yes · 2 of 6"
+  if(t==="n")return TRI_LABEL.n;
+  if(!n)return t?TRI_LABEL[t]:FILTER_ALL;
+  if(t==="y"&&n)return TRI_LABEL.y+" · "+(n===1?filterSumVals(g):n+" of "+(g.items||[]).length);
+  if(n===1)return filterSumVals(g);
   return n+" of "+(g.items||[]).length;
+}
+function filterSumVals(g){
+  const only=[...g.set][0], hit=(g.items||[]).find(p=>String(p[0])===String(only));
+  return hit?hit[1]:String(only);
 }
 // `clsOf` adds per-item classes — D173(b)'s ability chips are the only caller, and they need
 // the item's own value to reach the `--ab-*` token that colours them.
@@ -11617,7 +11718,7 @@ $("#tSort").onchange=e=>{tableOpts.sort=e.target.value;if(!tableOpts.sort)tableO
   saveTableOpts();renderTable();};
 $("#tSortRev").onclick=e=>{e.stopPropagation();if(!tableOpts.sort)return;
   tableOpts.rev=!tableOpts.rev;saveTableOpts();renderTable();};
-$("#tAfClear").onclick=e=>{e.stopPropagation();clearTableFilter();};
+$("#tAfClear").onclick=e=>{e.stopPropagation();clearTableView();};
 $("#tColReset").onclick=e=>{e.preventDefault();tableOpts.order=[...COL_ORDER_DEFAULT];tableOpts.hidden=new Set();
   saveTableOpts();renderColMenu();renderTable();};
 $("#pickClear").onclick=()=>{ if(!PICK)return;
@@ -12379,6 +12480,8 @@ if(typeof module!=="undefined"&&module.exports){
     mergeDigests,filterDigest,digestSize,emptyDigest,verLt,
     // the table's filter and sort — a LENS over the rows, never a write (D199)
     tableOpts,tblFiltNew,tblFiltOk,tblFiltNarrowed,rowStatus,tblCmp,TABLE_SORTS,
+    // a three-way axis: "empty means all" can say ANY and YES, never NO (D199(i))
+    triOk,triNorm,optListOk,spFiltNew,spFiltOk,spFiltNarrowed,OPT_ANY,OPT_NONE,
     // let the fixture stand the module up
     // `state` and `PREVIEW` are const objects, so they are PATCHED, never replaced — the
     // same reason the app itself never reassigns them.

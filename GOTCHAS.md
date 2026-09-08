@@ -1054,3 +1054,14 @@
   nothing looked wrong. The cell gives its padding UP (`th.sortable{padding:0}`) and the
   button carries it. Check it the way the alignment rule says: compare the first and last
   child's insets against the `th` and assert they match within 1.5px, at 375 and 1280.
+
+- **`.menupop button` kills a `.swk`'s ON state — check any control you put in a popover
+  (D199(h)).** `.menupop button{background:none}` is (0,1,1) and a bare `.swk` is (0,1,0), so
+  from M2 until v1.6.1 every switch inside a popover drew its ON state at
+  `rgba(0,0,0,0)` — invisible — while `.swoff` (0,2,0) won and looked perfect. The failure
+  reads as "the switch is missing", never as "the colour is wrong", and it survived because
+  the two menus with scoped overrides (`.scoremenu`, `#menuPop .mswitch`) looked fine. The
+  fix is `.swk,.swk.swk`, not a fourth scoped copy. **The rule: `.menupop button` restyles
+  EVERY button inside a popover — before putting a styled control in one, measure its
+  computed background against the same control outside** (`getComputedStyle(el).backgroundColor`),
+  do not look at it. Same trap as D173(a), which caught `.cbtn`.

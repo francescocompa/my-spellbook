@@ -587,13 +587,56 @@ closed one-offs) — is settled and lives in `DECISIONS-SETTLED.md`.
     element is 0×0 and invisible**, and the open/closed groups have had no chevron since
     M1b shipped. ② `.afchip` measures 22.5px, a hair off `--chip-h`; it takes the token
     (D198). → **Gotcha** for ①.
+  - **(h) His note, 2026-09-08: the switch's ON state has been invisible app-wide.**
+    `.menupop button` (0,1,1) sets `background:none` and OUTRANKS a bare `.swk` (0,1,0), so
+    every switch inside a popover drew its ON state fully transparent — `rgba(0,0,0,0)`
+    measured against the accent's `rgb(217,145,95)` outside one. `.swoff` is (0,2,0) and won,
+    which is why only the ON state vanished and why it read as "off looks fine, on is
+    missing". The two menus with their own scoped rules (`.scoremenu`, `#menuPop .mswitch`)
+    escaped; the filter menus have been like this since M2 and the creature carousel's
+    **Marked** since D81. Fixed by doubling the class (`.swk,.swk.swk`) rather than by
+    scoping it again — one rule, every switch, whatever it sits in. A **disabled** switch
+    also styles itself now, because `#tSortRev` is dead while no sort is set and was
+    pixel-identical to a live one. *Rejected:* another per-surface override (a fourth copy
+    of the same fix, and the next popover starts the cycle again); `button.swk` (`#libSelSw`
+    is a span). → **Gotcha**.
+  - **(i) An axis reads THREE ways, not two — the segmented strip.** His note: filter by NOT
+    concentration, NOT ritual, and give Save, Damage and friends an "Any". Both are the same
+    hole: **"empty means all" (D174(b)) can say ANY and YES and can never say NO.** So every
+    axis reading a list that can be empty, or a boolean, takes a three-way strip —
+    **Any · Yes · No** — and the value chips narrow *inside* it. The strip is the control and
+    its segments are parts of it, which is how D198(d) already sizes the tabs; one notch down
+    for a dense panel (a 28px track holding 22px segments). It replaces the `.swk` switch in
+    every filter menu: Ritual, Concentration, and the entity picker's Spellcasting; and it
+    joins Save, Damage, Condition and the feat picker's Ability bonus above their values.
+    The nouns stay in the group's HEAD so the segments never repeat them. `triOk` is the one
+    rule all of them read, and a stored boolean still means what it meant (`true` → yes).
+    **The Build tab's own `#filterPanel` is a `<select>` grid, not a menu** — a select already
+    holds three answers, so its Save and Damage take **Any** and **None** options instead of a
+    strip. Its five Properties chips (ritual, concentration, attack roll, upcast, consumes)
+    still cannot say NOT: giving them the strip means converting that panel to the menu
+    grammar, which D172 never did. **Left open, flagged in PLAN.** *Rejected:* a second
+    "exclude" switch beside each one (two binaries that can contradict each other); cycling a
+    single chip through three states (no new height, but a third state you can only find by
+    clicking twice, and it is not the shape the rest of the app would then use).
+  - **(j) The sort is a chip, and the field's × clears the field.** His note: there was no way
+    to reset a sort. It joins the same chip field, in the panel's own tone rather than the
+    accent every narrowing wears — it states an ORDER, not a narrowing — carrying the drawn
+    caret and its own ×. The clear-all at the field's right now empties **the row it sits
+    in**, sort included ("Clear filters and sorting"); the popover's own footer button stays
+    scoped to filters, because it clears the panel it lives in. *Rejected:* leaving the × on
+    filters only (a control that says clear-all and leaves a chip standing is what he was
+    reporting).
   - **Enforced by:** src/app.js `tableOpts` (a `filter`/`sort` half beside `group`/`order`/
     `hidden`), `tableRows`'s narrowing, `renderTable`'s comparator and header buttons,
     `renderTableFilters`, and an engine fixture pinning that a filter changes what the table
     RETURNS and never what the build stores. **Affects:** D29 (the column registry), D142(c)
     (the active-filter line), D172–D174 and D182 (the filter standard, extended to a
     non-picker surface for the first time), D108 (print), D196 (the heading's one row),
-    D198 (every new control's height).
+    D198 (every new control's height, and the strip as a new entry on its scale). (h)–(j)
+    are his notes on v1.6.0, shipped as v1.6.1; `triOk`/`triNorm`/`optListOk` and engine
+    **fixture 21** enforce (i), and (h) is proved by measuring an ON `.swk` inside a
+    `.menupop`.
 
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
