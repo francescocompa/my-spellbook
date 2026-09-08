@@ -674,5 +674,83 @@ const casterLevel = (slots) => {
   SB.setCreatorMode("simple");
 }
 
+// ── 20 · the table's filter is a LENS, and a sort never dissolves the groups (D199) ──
+// The three ways this breaks silently: an axis stops narrowing (the chip says the table is
+// filtered and it is not); the spell half drifts from the pickers' own predicate, so the
+// same set of chips means two different things on two surfaces; and — the one that would
+// cost real data — a "filter" that writes to the build instead of reading past it.
+{
+  const sp = (name, o) => Object.assign({ name, source: "XPHB", level: 1, school: "Abjuration",
+    time: "action", tcat: "action", range: "60 feet", comp: { v: true }, ritual: false,
+    conc: false, dmg: [], cond: [], save: [], atk: false, durTxt: "Instantaneous",
+    book: "Player's Handbook (2024)" }, o || {});
+  const rows = [
+    { sp: sp("Shield"), src: "Wizard", ability: "int", sel: true, type: "prep", inBook: true, prepared: true },
+    { sp: sp("Aid", { level: 2, school: "Abjuration" }), src: "Cleric", ability: "wis", sel: true, type: "prep", inBook: false },
+    { sp: sp("Fireball", { level: 3, school: "Evocation", conc: false, dmg: ["fire"] }), src: "Wizard", ability: "int", sel: true, type: "prep", inBook: true, prepared: false },
+    { sp: sp("Fly", { level: 3, school: "Transmutation", conc: true }), src: "Staff of Fire", ability: "int", sel: true, type: "cast" },
+    { sp: sp("Bless", { level: 1, school: "Enchantment" }), src: "Cleric", ability: "wis", sel: true, type: "free" },
+  ];
+  const names = f => { SB.tableOpts.filt = f; return rows.filter(SB.tblFiltOk).map(r => r.sp.name); };
+  const fresh = () => SB.tblFiltNew();
+
+  eq("20a · an empty filter is 'all', on every axis at once", names(fresh()).length, rows.length);
+
+  // the five marks, read off the row the way the first column draws them
+  eq("20b · rowStatus reads each mark", rows.map(SB.rowStatus),
+    ["prepared", "prepared", "book", "cast", "always"]);
+
+  { const f = fresh(); f.prep.add("book"); f.prep.add("cast");
+    eq("20c · a status axis is OR within itself", names(f), ["Fireball", "Fly"]); }
+
+  { const f = fresh(); f.abil.add("wis");
+    eq("20d · casting ability narrows to the rows that cast on it", names(f), ["Aid", "Bless"]); }
+
+  { const f = fresh(); f.giver.add("Staff of Fire");
+    eq("20e · 'granted by' is the row's own giver, not the spell's book", names(f), ["Fly"]); }
+
+  // the spell half must stay the pickers' predicate, or the same chips mean two things
+  { const f = fresh(); f.school.add("Abjuration");
+    eq("20f · the spell half is spFiltOk, unchanged", names(f), ["Shield", "Aid"]); }
+
+  { const f = fresh(); f.abil.add("int"); f.school.add("Evocation");
+    eq("20g · axes are AND across each other", names(f), ["Fireball"]); }
+
+  { const f = fresh(); f.conc = true;
+    eq("20h · the switches ride along", names(f), ["Fly"]); }
+
+  { const f = fresh(); f.book.add("PHB");
+    eq("20i · an axis whose value nothing carries narrows to nothing, it does not fall back",
+      names(f), []); }
+
+  eq("20j · 'narrowed' is false for a fresh filter", (SB.tableOpts.filt = fresh(), SB.tblFiltNarrowed()), false);
+  { const f = fresh(); f.lvl.add(3); SB.tableOpts.filt = f;
+    eq("20k · …and true for any axis, table half included", SB.tblFiltNarrowed(), true); }
+
+  // THE one that would cost data: a filter reads past rows, it never writes to anything.
+  // Sets are expanded by hand — `JSON.stringify` renders every Set as `{}`, so a plain
+  // dump would call two different acquisition orders equal and pass on a real write.
+  { const dump = o => JSON.stringify(o, (k, v) => (v instanceof Set ? ["__set", ...v] : v));
+    const stateBefore = dump(SB.get.state()), rowsBefore = dump(rows);
+    const f = fresh(); f.prep.add("book"); f.abil.add("int"); f.school.add("Evocation"); f.conc = true;
+    SB.tableOpts.filt = f; rows.filter(SB.tblFiltOk); [...rows].sort(SB.tblCmp);
+    eq("20l · filtering and sorting leave the build byte-identical", dump(SB.get.state()), stateBefore);
+    eq("20l2 · …and never rewrite the rows they read", dump(rows), rowsBefore); }
+
+  // the sort: a comparator only, so the group order in renderTable still wins over it
+  { SB.tableOpts.filt = fresh(); SB.tableOpts.sort = "school"; SB.tableOpts.rev = false;
+    const by = [...rows].sort(SB.tblCmp).map(r => r.sp.school);
+    eq("20m · a sort orders by its column", by,
+      ["Abjuration", "Abjuration", "Enchantment", "Evocation", "Transmutation"]);
+    SB.tableOpts.rev = true;
+    eq("20n · reverse is the same order, backwards", [...rows].sort(SB.tblCmp).map(r => r.sp.school),
+      ["Transmutation", "Evocation", "Enchantment", "Abjuration", "Abjuration"]);
+    SB.tableOpts.rev = false;
+    eq("20o · equal values compare 0, so level-then-name still breaks the tie",
+      SB.tblCmp(rows[0], rows[1]), 0);
+    SB.tableOpts.sort = "";
+    eq("20p · no sort is a comparator that decides nothing", SB.tblCmp(rows[0], rows[3]), 0); }
+}
+
 console.log(`\n${pass} ok · ${fail} fail`);
 process.exit(fail ? 1 : 0);

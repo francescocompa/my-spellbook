@@ -525,6 +525,76 @@ closed one-offs) — is settled and lives in `DECISIONS-SETTLED.md`.
     round-trip through both modes restores byte-identical. **Affects:** D176, D191, D177–D181,
     D42, D31, D108's print.
 
+### Live — Phase O, the spell table's filter and sort
+
+- **D199 (2026-09-08) DECIDED — the spell table filters and sorts, from ONE button in its
+  heading.** His ask, opened 2026-09-08: *"add filtering and sorting tools to the spell
+  table."* Designed against four mockups (`python3 scratchpad/mktable.py` regenerates
+  `scratchpad/mockups/table{1,2,3,4}.html`); **table4 is his shape**, and it is none of the
+  three I offered.
+  - **(a) The filter narrows on BOTH sets, in one sectioned popover.** The axes only this
+    table knows come FIRST — **Prepared status · Granted by · Casting ability · Book** —
+    then the picker's own spell axes, reused verbatim from D174: level, school, cast time,
+    duration, components, damage, save, condition, plus the ritual and concentration
+    switches. `filterMenu` / `spFiltGroups` / `spFiltOk` are called, never re-implemented,
+    so "empty means all", OR-within / AND-across and components-are-AND all hold here by
+    construction. *Rejected:* the picker set only (no way to ask "what is prepared today",
+    the one question this surface exists for); the table-only axes alone (you would leave
+    the table to ask for your concentration spells).
+  - **(b) The surface: one button in the heading, and a chip field above the table.** The
+    card heading grows exactly one control — a filter `.iconbtn` between **Prepare daily**
+    and the **⋯**, wearing the accent and a dot while anything is set. What is set reads as
+    a **chip field above the table**, present only when narrowed, **each chip dropping its
+    own axis** with the clear-all `×` at the right (D142(c)'s line, made interactive).
+    **No search box** — his call, reversing the earlier yes: the table is your own spells
+    and the axes reach them. *Rejected:* a filters row like the eligible-spells card's
+    (table1 — a whole row of chrome for a surface that already has a heading with room in
+    it); everything inside the ⋯ menu (table2 — the menu becomes long and every setting is
+    behind a button); a visible toolbar (table3 — two full rows before you reach a spell at
+    375px).
+  - **(c) A sort orders rows INSIDE the groups, and "No grouping" is how you flatten
+    them.** Group by gains a fourth value, **No grouping**, which is the only way to read
+    the whole list as one ordered run — his amendment, taken in the interview. *Rejected:*
+    a sort that silently flattens the groups (two controls whose states contradict each
+    other); grouping and sorting as fully independent axes at once (more to hold in the
+    head than the table earns).
+  - **(d) The sort is invoked BOTH ways, one piece of state.** A **click on a column
+    header** sorts by it, a second click reverses, and the app's drawn caret marks the
+    active one; a **Sort by select + Reverse** sit in the ⋯ menu beside Group by. Each
+    reflects the other, and the select is what a **hidden** column falls back to. *Rejected:*
+    headers alone (a column you have hidden becomes unsortable, and the print sheet inherits
+    a sort with no visible cause); the select alone (ignores the control the reader's eye is
+    already on).
+  - **(e) Filter, sort and group all persist globally**, in `spellForge.table.v1` beside the
+    column order and hidden set — his call. One rule for every table preference. What keeps
+    it honest is (b)'s chip field and the button's dot, plus **(f)**. *Rejected:* a
+    session-only filter (recommended, and declined — it would forget the reading you set up
+    every reload); per-build persistence (it would make a view preference part of his data,
+    exported and travelling, which no other view preference does).
+  - **(f) The count chip reads "15 of 47" while narrowed**, and "47 spells" when it is not.
+    The heading says the table is narrowed before you look at anything else. *Rejected:*
+    leaving the chip alone; "15 of 47 shown" (the heading is the surface D196 just spent a
+    release keeping to one row).
+  - **(g) The print sheet takes a toggle, default OFF.** Print already renders exactly what
+    `tableRows()` returns, so a filtered sheet is one line of plumbing — but it is also how
+    you take half a spell list to the table by accident. It becomes an explicit print option
+    beside the page-break switch. *Rejected:* print always following the filter (the useful
+    default and the dangerous one); print always ignoring it (removes the best thing the
+    filter could do here).
+  - **Two defects this work closes, both found while mocking it up.** ① `filterMenu` appends
+    a `.lvlcar` chevron to every filter-group head, but `.lvlcar` is only ever dressed under
+    `.lvlgroup h3`, `.gclv` and `.scoremenu .mchev` — **so in every live filter menu that
+    element is 0×0 and invisible**, and the open/closed groups have had no chevron since
+    M1b shipped. ② `.afchip` measures 22.5px, a hair off `--chip-h`; it takes the token
+    (D198). → **Gotcha** for ①.
+  - **Enforced by:** src/app.js `tableOpts` (a `filter`/`sort` half beside `group`/`order`/
+    `hidden`), `tableRows`'s narrowing, `renderTable`'s comparator and header buttons,
+    `renderTableFilters`, and an engine fixture pinning that a filter changes what the table
+    RETURNS and never what the build stores. **Affects:** D29 (the column registry), D142(c)
+    (the active-filter line), D172–D174 and D182 (the filter standard, extended to a
+    non-picker surface for the first time), D108 (print), D196 (the heading's one row),
+    D198 (every new control's height).
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

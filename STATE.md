@@ -167,6 +167,3 @@ nothing per session and would churn every pointer into it — worth doing when L
 `audits/copy-table.md` is at ~305 rows and still waits on his veto.
 
 The queue after N2 is **N3 (gated on its own entry)** and L5.5 onward — see `PLAN.md`.
-
-⟳ Rename previous session → "The gap bar, the header, and the class row" · session: local_6720bd0e-1475-4245-b518-c719d0687d86
-⟳ Also still pending (left by an earlier session, apply if it has not been) → "The close button, creation modes, and backgrounds" · session: local_07fcd961-d67f-4447-aba7-2a2920dc7399

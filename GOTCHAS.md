@@ -1038,3 +1038,19 @@
   reached only through a subclass or a feat. It stayed hidden because every one of them
   still had *some* access, so `noAccess` never moved. When a lookup-shaped file grows a key,
   count the spells whose ONLY access sits under it before deciding it is metadata.
+
+- **A `.lvlcar` outside its three scopes is a 0×0 nothing (D199).** `filterMenu` appends a
+  `.lvlcar` chevron to every filter-group head, and `styles.css` dressed `.lvlcar` ONLY under
+  `.lvlgroup h3`, `.gclv` and `.scoremenu .mchev` — so from M1b until v1.6.0 every filter
+  menu in the app drew an element with no size, and a group's open/closed state had no mark
+  at all. The class name is not the style; the ANCESTOR is. **Before reusing `.lvlcar`
+  anywhere new, add a rule for the new scope in the same commit** — the table's sortable
+  header shares v1.6.0's, `.fghead .lvlcar,.spelltable .sortbtn .lvlcar`. Measure it
+  (`getBoundingClientRect()`), do not look for it: a 0×0 element is invisible in a
+  screenshot and in the accessibility tree alike.
+- **A header button sized `width:100%` inside a padded `th` is not centred (D199).** `width`
+  measures the CONTENT box, so reaching back over the cell's padding with negative margins
+  shifts the button instead of widening it — the sorted label sat 10px left of centre and
+  nothing looked wrong. The cell gives its padding UP (`th.sortable{padding:0}`) and the
+  button carries it. Check it the way the alignment rule says: compare the first and last
+  child's insets against the `th` and assert they match within 1.5px, at 375 and 1280.

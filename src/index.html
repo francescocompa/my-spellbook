@@ -238,11 +238,18 @@
   <div id="tableView" class="hidden">
     <div class="card"><h2><span class="ttl">Selected spells</span> <span class="count" id="tableChip"></span>
       <button class="btn prepbtn" id="prepDailyBtn" aria-label="Prepare daily"><span class="lbl">Prepare daily</span><span class="ico picoi" data-ico="moon" aria-hidden="true"></span></button>
+      <div class="menu tablefilt">
+        <button class="btn iconbtn ico" id="tFiltBtn" data-ico="filter" title="Filters" aria-label="Filters" aria-expanded="false"></button>
+        <div class="menupop hidden" id="tFiltPop"></div>
+      </div>
       <div class="menu tablemenu">
         <button class="btn iconbtn ico" id="tMenuBtn" data-ico="dots" title="Table options" aria-label="Table options"></button>
         <div class="menupop hidden" id="tMenuPop">
           <label class="mopt">Group by
-            <select id="tGroup"><option value="level">Level only</option><option value="ability">Casting ability</option><option value="source">Source</option></select></label>
+            <select id="tGroup"><option value="level">Level only</option><option value="ability">Casting ability</option><option value="source">Source</option><option value="none">No grouping</option></select></label>
+          <label class="mopt">Sort by <select id="tSort"></select></label>
+          <label class="mopt"><span>Reverse</span>
+            <button class="swk swoff" id="tSortRev" type="button" role="switch" aria-checked="false" aria-label="Reverse the sort" title="Reverse the sort"></button></label>
           <div class="sep"></div>
           <div class="mopt colhead">Columns <button class="btn tiny" id="tColReset">Reset</button></div>
           <div class="collist" id="tColList"></div>
@@ -250,6 +257,10 @@
       </div>
     </h2>
       <div class="body">
+        <div class="actfilt hidden" id="tActFilt">
+          <div class="afchips" id="tAfChips"></div>
+          <button class="afclear ico" id="tAfClear" data-ico="x" title="Clear all filters" aria-label="Clear all filters"></button>
+        </div>
         <div class="tablewrap"><table class="spelltable" id="spellTable"></table></div>
         <p class="note" id="tableEmpty"></p></div>
     </div>
@@ -546,6 +557,8 @@
       <span><b>Spell cards</b><em>Full rules text for every spell on the sheet, as an appendix. The table's spell names link to them.</em></span></label>
     <label class="propt"><input type="checkbox" id="prEligible">
       <span><b>All preparable spells, unticked</b><em>For classes that prepare from their whole list (Cleric, Druid, Paladin). Prints everything you could prepare with an empty box, so you can prepare on paper.</em></span></label>
+    <label class="propt"><input type="checkbox" id="prFilter">
+      <span><b>Only the filtered rows</b><em>Print what the table is showing rather than the whole book. Off, the sheet ignores the filter.</em></span></label>
     <label class="propt"><input type="checkbox" id="prBreak">
       <span><b>A page per spell level</b><em>Start each level group on a fresh page. Easier to flip through, more pages.</em></span></label>
     <label class="propt"><input type="checkbox" id="prNotes">

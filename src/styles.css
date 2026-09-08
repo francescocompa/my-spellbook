@@ -400,6 +400,18 @@
   table.spelltable .grouphdr td{text-align:left}
   /* the name is the row's label, not one of its values — it reads down the left edge */
   table.spelltable td.nm,table.spelltable th.nm{text-align:left}
+  /* the whole cell is the hit area, so the button carries the header's own padding; the
+     caret is the app's drawn one (D57), never a typed arrow */
+  /* the CELL gives up its padding to the button, rather than the button reaching back out
+     with negative margins: `width:100%` measures the content box, so margins shifted the
+     label 10px off centre instead of widening it */
+  table.spelltable th.sortable{padding:0}
+  table.spelltable th .sortbtn{display:flex;align-items:center;justify-content:center;gap:5px;
+    width:100%;box-sizing:border-box;padding:8px 10px;border:none;background:none;color:inherit;
+    font:inherit;letter-spacing:inherit;text-transform:inherit;cursor:pointer;border-radius:6px}
+  table.spelltable th.nm .sortbtn{justify-content:flex-start}
+  table.spelltable th .sortbtn:hover{color:var(--ink);background:var(--panel-2)}
+  table.spelltable th.sorted{color:var(--accent)}
   /* an abbreviated value: hovering restores the full one */
   table.spelltable td.abbr{cursor:help}
   table.spelltable tr:hover td{background:var(--accent-soft)}
@@ -477,6 +489,20 @@
 .fghead .fgv{margin-left:auto;font-size:11px;color:var(--muted);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fghead .fgv.narrowed{color:var(--accent);font-weight:600}
+/* the caret `filterMenu` appends to every group head. `.lvlcar` is dressed only under
+   `.lvlgroup h3`, `.gclv` and `.scoremenu .mchev`, so without this rule the element is
+   0x0 and the group's open/closed state has no mark at all (D199). Same chevron, drawn
+   the same way; the table's sortable header borrows it. */
+.fghead .lvlcar,.spelltable .sortbtn .lvlcar{flex:0 0 auto;position:relative;
+  width:12px;height:12px;font-size:0}
+.fghead .lvlcar::before,.spelltable .sortbtn .lvlcar::before{content:"";position:absolute;
+  left:50%;top:50%;width:5px;height:5px;border-right:1.5px solid currentColor;
+  border-bottom:1.5px solid currentColor;transform:translate(-50%,-50%) translateY(-1px) rotate(45deg)}
+.fghead .lvlcar.up::before,.spelltable .sortbtn .lvlcar.up::before{
+  transform:translate(-50%,-50%) translateY(1px) rotate(-135deg)}
+.tablefilt{margin-left:8px}
+.tablefilt .menupop{min-width:250px;max-height:min(70vh,560px);overflow-y:auto}
+.tablefilt .fclearrow{padding:2px;text-align:right}
 .fgbody{padding:2px 13px 11px}
 .fgbody .cbrow{gap:6px;display:flex;flex-wrap:wrap}
 /* a switch is a row, not a group: it has one state and nothing to open */
@@ -952,10 +978,13 @@ table.spelltable td.cmp .l.iffy{color:var(--good);cursor:help;
 .afchips.masked{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent);
   mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent)}
 .afchips.masked>*:last-child{margin-right:28px}
-/* the same chip the access row uses — a LABEL, not a control: the clear-all is the only
-   action here, so a per-chip ✕ would promise a removal this row doesn't do */
-.afchip{flex:0 0 auto;white-space:nowrap;font-size:11px;padding:2px 9px;border-radius:12px;
+/* the same chip the access row uses. On the TABLE it carries its own ✕ and drops that one
+   axis (D199(b)); on the Build tab it is still a label and the clear-all is the only action.
+   Height comes from the chip token, never a padding that lands near it (D198). */
+.afchip{flex:0 0 auto;white-space:nowrap;font-size:11px;padding:0 9px;border-radius:12px;
+  height:var(--chip-h);box-sizing:border-box;display:inline-flex;align-items:center;gap:5px;
   background:var(--accent-soft);border:1px solid transparent;color:var(--accent)}
+.afchip .rm.xsm{margin-right:-2px}
 .afclear{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;
   width:22px;height:22px;border:none;border-radius:6px;background:none;color:var(--muted);
   cursor:pointer;padding:0;transition:background .12s,color .12s}
@@ -1999,6 +2028,13 @@ label.fld .fldt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-wi
   .tablewrap{overflow:visible}
   table.spelltable{font-size:9px;width:100%;table-layout:auto}
   table.spelltable thead{display:table-header-group}
+  /* a header button prints as its own label — the buttons the print sheet hides are the
+     ones you act on, and this one IS the column name */
+  table.spelltable th .sortbtn{display:block!important;margin:0;padding:0;background:none}
+  table.spelltable th .sortbtn .lvlcar{display:none}
+  /* the chips say why the sheet is short — so they belong on paper only when it is */
+  #tActFilt{display:none!important}
+  body.pr-filt #tActFilt{display:flex!important}
   table.spelltable th{position:static;padding:4px 3px;border-bottom:.3mm solid var(--line-strong);
     background:none;font-size:7.5px}
   table.spelltable td{padding:3px 3px;border-bottom:.15mm solid var(--line)}

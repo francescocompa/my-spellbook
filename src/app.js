@@ -7397,16 +7397,166 @@ const TABLE_COLS={
   book:  {label:"Book"},   // the book the spell is printed in, vs `build` = who grants it
 };
 const COL_ORDER_DEFAULT=["mark","name","save","school","time","range","comp","dur","conc","casts","ability","build","book"];
-const tableOpts={group:"level",order:[...COL_ORDER_DEFAULT],hidden:new Set()};
-function loadTableOpts(){ try{const t=JSON.parse(localStorage.getItem(LS_TABLE)||"null");if(!t)return;
+// `filt` is null until boot: `tblFiltNew()` reads `spFiltNew()`, which is a `const` defined
+// with the rest of the filter machinery further down, so building it here would be a TDZ
+// error. `loadTableOpts()` runs after every definition and fills it.
+const tableOpts={group:"level",order:[...COL_ORDER_DEFAULT],hidden:new Set(),
+  sort:"",rev:false,filt:null};
+function loadTableOpts(){ tableOpts.filt=tblFiltNew();
+ try{const t=JSON.parse(localStorage.getItem(LS_TABLE)||"null");if(!t)return;
   if(t.group)tableOpts.group=t.group;
   if(Array.isArray(t.order)){ // keep only known keys, then append any column added since
     const seen=new Set(t.order.filter(k=>TABLE_COLS[k]));
     tableOpts.order=[...seen].concat(COL_ORDER_DEFAULT.filter(k=>!seen.has(k)));}
   if(Array.isArray(t.hidden))tableOpts.hidden=new Set(t.hidden.filter(k=>TABLE_COLS[k]&&!TABLE_COLS[k].fixed));
+  if(t.sort&&TABLE_SORTS[t.sort])tableOpts.sort=t.sort;
+  tableOpts.rev=!!t.rev;
+  // a filter that persists (D199(e)) has to survive a column being renamed or a value
+  // disappearing from the data: an unknown value simply never matches and the chip says so
+  if(t.filt&&typeof t.filt==="object"){
+    TFILT_SETS.forEach(k=>{ if(Array.isArray(t.filt[k]))t.filt[k].forEach(v=>tableOpts.filt[k].add(v)); });
+    tableOpts.filt.ritual=!!t.filt.ritual; tableOpts.filt.conc=!!t.filt.conc;}
  }catch(e){} }
-function saveTableOpts(){ try{localStorage.setItem(LS_TABLE,JSON.stringify(
-  {group:tableOpts.group,order:tableOpts.order,hidden:[...tableOpts.hidden]}));}catch(e){storageNotice(e);} }
+function saveTableOpts(){ const f=tableOpts.filt||{}, out={};
+  TFILT_SETS.forEach(k=>{ if(f[k]&&f[k].size)out[k]=[...f[k]]; });
+  if(f.ritual)out.ritual=true; if(f.conc)out.conc=true;
+  try{localStorage.setItem(LS_TABLE,JSON.stringify(
+  {group:tableOpts.group,order:tableOpts.order,hidden:[...tableOpts.hidden],
+   sort:tableOpts.sort,rev:tableOpts.rev,filt:out}));}catch(e){storageNotice(e);} }
+
+// ── the table's filter and sort (D199) ─────────────────────────────────────
+// The table asks two things no picker can: HOW a spell reaches you, and how it is prepared
+// right now. Those axes come first; the rest of the set is the picker's own (D174), reused
+// through `spFiltGroups`/`spFiltOk` rather than re-implemented, so "empty means all",
+// OR-within/AND-across and components-are-AND hold here by construction.
+const TFILT_SETS=["prep","giver","abil","book","lvl",
+                  "school","time","dur","comp","dmg","save","cond"];
+function tblFiltNew(){ const f=spFiltNew();
+  f.prep=new Set(); f.giver=new Set(); f.abil=new Set(); f.book=new Set(); f.lvl=new Set();
+  return f; }
+// the five marks the first column can draw, as one value per row. `sel` is false only for
+// a row the build no longer selects, so "Not selected" is a chip that appears when there
+// is one to appear for and never otherwise — the same rule `spFiltItems` follows.
+const STATUS_ORDER=["prepared","always","cast","book","unsel"];
+const STATUS_LABEL={prepared:"Prepared today",always:"Always prepared",
+  cast:"Free cast",book:"In your book",unsel:"Not selected"};
+function rowStatus(row){
+  if(!row.sel)return "unsel";
+  if(row.type==="free")return "always";
+  if(row.type==="cast")return "cast";
+  if(row.sp.level>0&&row.inBook&&!row.prepared)return "book";
+  return "prepared";
+}
+function tblFiltNarrowed(){ const f=tableOpts.filt;
+  return !!(f&&(f.prep.size||f.giver.size||f.abil.size||f.book.size||f.lvl.size
+    ||spFiltNarrowed(f))); }
+function tblFiltOk(row){ const f=tableOpts.filt; if(!f)return true;
+  if(f.prep.size&&!f.prep.has(rowStatus(row)))return false;
+  if(f.giver.size&&!f.giver.has(row.src))return false;
+  if(f.abil.size&&!f.abil.has(row.ability||""))return false;
+  if(f.book.size&&!f.book.has(row.sp.source))return false;
+  if(f.lvl.size&&!f.lvl.has(row.sp.level))return false;
+  return spFiltOk(f,row.sp); }
+// the values each table axis offers come from THE ROWS IN FRONT OF YOU, never a written
+// list — a build with no item grants has no "Staff of Fire" chip to tick
+function tblPairs(rows,keyOf,labelOf,order){
+  const m=new Map();
+  rows.forEach(r=>{const v=keyOf(r); if(v==null||v==="")return;
+    if(!m.has(v))m.set(v,labelOf?labelOf(v,r):cap1(String(v)));});
+  const out=[...m];
+  if(order)out.sort((a,b)=>order.indexOf(a[0])-order.indexOf(b[0]));
+  else out.sort((a,b)=>String(a[1]).localeCompare(String(b[1])));
+  return out; }
+function tblFiltGroups(rows,onChange){
+  const f=tableOpts.filt, g=[];
+  const add=(key,head,items,set,clsOf)=>{ if(items.length>1)g.push({key,head,kind:"toggle",items,set,clsOf}); };
+  add("prep","Prepared",tblPairs(rows,rowStatus,v=>STATUS_LABEL[v]||v,STATUS_ORDER),f.prep);
+  add("giver","Granted by",tblPairs(rows,r=>r.src,v=>v),f.giver);
+  // a casting ability wears its own signature colour, the rule D173(b) settled for saves
+  add("abil","Casting ability",tblPairs(rows,r=>r.ability,v=>ABIL[v]||cap1(v)),f.abil,
+      v=>"abt "+String(v).slice(0,3));
+  add("book","Book",tblPairs(rows,r=>r.sp.source,(v,r)=>r.sp.book||v),f.book);
+  // the spell half, exactly as both pickers draw it
+  return g.concat(spFiltGroups(f,rows.map(r=>r.sp),onChange,{levels:f.lvl}));
+}
+// what a sort orders by, keyed by COLUMN so a header click and the select are the same
+// state (D199(d)). `mark` is in the list but never gets a header button: its label is
+// empty, and an empty button is a control nobody can see or hit.
+const TIME_RANK={action:0,bonus:1,reaction:2,long:3};
+const DUR_RANK={inst:0,round:1,min:2,hour:3,day:4,disp:5,other:6};
+function rangeVal(sp){ const r=String(sp.range||"").toLowerCase();
+  if(/^self/.test(r))return -2;
+  if(/^touch/.test(r))return -1;
+  const m=r.match(/(\d+)/); return m?+m[1]:1e6; }
+const TABLE_SORTS={
+  mark:  {label:"Prepared",get:r=>STATUS_ORDER.indexOf(rowStatus(r))},
+  name:  {label:"Spell",   get:r=>r.sp.name.toLowerCase()},
+  level: {label:"Level",   get:r=>r.sp.level},
+  save:  {label:"Save",    get:r=>(r.sp.save&&r.sp.save.length)?r.sp.save.join("/"):(r.sp.atk?"zz atk":"zzz")},
+  school:{label:"School",  get:r=>r.sp.school||"zzz"},
+  time:  {label:"Time",    get:r=>TIME_RANK[r.sp.tcat]!=null?TIME_RANK[r.sp.tcat]:9},
+  range: {label:"Range",   get:r=>rangeVal(r.sp)},
+  comp:  {label:"Comp.",   get:r=>(r.sp.comp&&r.sp.comp.v?1:0)+(r.sp.comp&&r.sp.comp.s?2:0)+(r.sp.comp&&r.sp.comp.m?4:0)},
+  dur:   {label:"Duration",get:r=>{const d=DUR_RANK[durCat(r.sp)];return d==null?9:d;}},
+  conc:  {label:"Conc",    get:r=>r.sp.conc?0:1},
+  casts: {label:"Casts",   get:r=>rechargeShort(r.recharge,r.sp.level===0)},
+  ability:{label:"Ability",get:r=>r.ability||"zzz"},
+  build: {label:"Source",  get:r=>String(r.src||"").toLowerCase()},
+  book:  {label:"Book",    get:r=>String(r.sp.book||r.sp.source||"").toLowerCase()},
+};
+const SORT_ORDER=["mark","name","level","save","school","time","range","comp","dur","conc",
+                  "casts","ability","build","book"];
+function tblCmp(a,b){ const s=TABLE_SORTS[tableOpts.sort]; if(!s)return 0;
+  const x=s.get(a), y=s.get(b);
+  const d=typeof x==="number"?x-y:String(x).localeCompare(String(y));
+  return tableOpts.rev?-d:d; }
+// the ⋯ menu's two sort controls and the header carets are one state: whichever moved,
+// both are redrawn from `tableOpts`
+function syncTableSort(){
+  const sel=$("#tSort"); if(!sel)return;
+  if(!sel.options.length){
+    sel.append(Object.assign(el("option"),{value:"",textContent:"None"}));
+    SORT_ORDER.forEach(k=>sel.append(Object.assign(el("option"),
+      {value:k,textContent:TABLE_SORTS[k].label})));}
+  sel.value=tableOpts.sort||"";
+  const sw=$("#tSortRev"); if(!sw)return;
+  sw.classList.toggle("swoff",!tableOpts.rev);
+  sw.setAttribute("aria-checked",String(!!tableOpts.rev));
+  sw.disabled=!tableOpts.sort;
+}
+// the chip field above the table: what is set, one chip per axis, each dropping its own
+// (D199(b)). It reads the SAME group specs the popover draws, so a chip can never name an
+// axis the panel does not offer.
+function renderTableFilters(rows){
+  const pop=$("#tFiltPop"), box=$("#tActFilt"), host=$("#tAfChips"), btn=$("#tFiltBtn");
+  if(!pop||!box||!host)return;
+  const redraw=()=>{saveTableOpts();renderTable();};
+  const groups=tblFiltGroups(rows,redraw);
+  filterMenu(pop,groups,tableOpts.filt,redraw);
+  const foot=el("div","fclearrow");
+  const clr=el("button","btn",FILT_CLEAR_ALL); clr.type="button";
+  clr.onclick=e=>{e.stopPropagation();clearTableFilter();};
+  foot.append(clr); pop.append(el("div","sep")); pop.append(foot);
+  // D142(c) precedent (`#entMenuBtn`): the icon says THAT the table is narrowed, never by
+  // how much — a count on an icon button pushes the icon off centre
+  if(btn)btn.classList.toggle("on",tblFiltNarrowed());
+  host.innerHTML="";
+  groups.forEach(g=>{
+    if(g.kind==="switch"){ if(!g.get())return;
+      host.append(chipFor(g.head,()=>{g.set(false);redraw();})); return; }
+    if(!g.set||!g.set.size)return;
+    const sum=filterSum(g), n=g.set.size;
+    host.append(chipFor(n===1?sum:g.head+" ("+n+")",()=>{g.set.clear();redraw();}));
+  });
+  box.classList.toggle("hidden",!host.children.length);
+  maskOverflow(host);
+}
+const FILT_CLEAR_ALL="Clear all filters";
+function chipFor(text,onClear){
+  const c=el("span","afchip"); c.append(document.createTextNode(text));
+  c.append(xBtn("rm",onClear));
+  return c; }
+function clearTableFilter(){ tableOpts.filt=tblFiltNew(); saveTableOpts(); renderTable(); }
 // short recharge label. cantrips / always-known are effectively at-will.
 function rechargeShort(recharge,isCantrip){
   const r=String(recharge||"").toLowerCase();
@@ -7554,18 +7704,32 @@ function addPreparableRows(push,rows){
 }
 function renderTable(){
   renderTableCastMods();
-  const rows=tableRows();
+  const all=tableRows();
+  // The filter is a LENS: it narrows what the table shows and never what the build holds
+  // (D42's rule, as a view). Paper ignores it unless the print options say otherwise
+  // (D199(g)) — a sheet that quietly carries half a spell list is worse than no filter.
+  const narrowed=tblFiltNarrowed();
+  const rows=(narrowed&&(!PRINT_MODE||PRINT.filter))?all.filter(tblFiltOk):all;
   if(PRINT_MODE)PRINT_ROWS=rows;
+  // built from ALL the rows, never the filtered ones: narrowing to one book must not
+  // remove the chip that would let you get back (the rule `renderFam`'s book row follows)
+  renderTableFilters(all);
+  syncTableSort();
 
   const tbl=$("#spellTable");tbl.innerHTML="";
-  $("#tableChip").textContent=rows.length?rows.length+" spell"+(rows.length===1?"":"s"):"";
-  $("#tableEmpty").textContent=rows.length?"":"Nothing selected yet. Pick spells in the Build tab, or use Prepare daily; subclass, feat and species grants appear here too.";
+  $("#tableChip").textContent=!all.length?"":(rows.length===all.length
+    ? all.length+" spell"+(all.length===1?"":"s")
+    : rows.length+" of "+all.length);
+  $("#tableEmpty").textContent=rows.length?""
+    :all.length?"No spell here matches these filters."
+    :"Nothing selected yet. Pick spells in the Build tab, or use Prepare daily; subclass, feat and species grants appear here too.";
   const prepBtn=$("#prepDailyBtn");if(prepBtn)prepBtn.style.display=prepSteps().length?"":"none";
   if(!rows.length)return;
 
 
-  const g=tableOpts.group;                 // outer grouping; level is always the inner group
-  const outer=g==="ability"||g==="source";
+  const g=tableOpts.group;                 // outer grouping; level is the inner one unless
+  const outer=g==="ability"||g==="source"; // "No grouping" drops it (D199(c))
+  const flat=g==="none";
   // Grouping by source groups by WHERE IT CAME FROM, and a subclass, a class feature and
   // an invocation all came from the class — splitting Light Domain out of Cleric answers a
   // question nobody asked at the table. Only a genuinely separate source (a feat, an item,
@@ -7577,7 +7741,14 @@ function renderTable(){
     const o=ownerIdx(r); return o!=null?"c"+o:"s"+r.src; };
   const outerLabel=r=>{ if(g==="ability")return ABIL[r.ability]||"Other casting";
     const o=ownerIdx(r), c=o!=null&&casterOf(o); return c?classLabel(c):r.src; };
-  rows.sort((a,b)=> (outer?String(outerKey(a)).localeCompare(String(outerKey(b))):0) || a.sp.level-b.sp.level || a.sp.name.localeCompare(b.sp.name));
+  // group first, then LEVEL — a sort orders rows inside the groups it does not dissolve
+  // (D199(c)); "No grouping" is the one state where the sort reaches the whole list. Level
+  // and name are the tie-break under every sort, so the order is always fully determined.
+  rows.sort((a,b)=> (outer?String(outerKey(a)).localeCompare(String(outerKey(b))):0)
+    || (flat?0:a.sp.level-b.sp.level)
+    || tblCmp(a,b)
+    || a.sp.level-b.sp.level
+    || a.sp.name.localeCompare(b.sp.name));
 
   // grouping already carries a fact, so its column is suppressed on top of the hidden set
   // Grouping by source used to suppress the Source column, because the header said the
@@ -7588,7 +7759,26 @@ function renderTable(){
   // a real thead/tbody, not a bare header row: `display:table-header-group` is what
   // repeats the column names on every printed page, and a three-page spell list
   // without them is unreadable at the table.
-  const hrow=el("tr");cols.forEach(k=>hrow.append(el("th",k==="name"?"nm":null,TABLE_COLS[k].label)));
+  // A header is a BUTTON where the column can be sorted by, so the whole cell is the hit
+  // area and the caret is the app's drawn one, never a typed arrow (D57). The mark column
+  // is excluded on purpose: its label is empty, and an empty button is a control nobody
+  // can see or hit — the ⋯ menu's select is where "Prepared" is sorted from.
+  const hrow=el("tr");
+  cols.forEach(k=>{
+    const th=el("th",k==="name"?"nm":null);
+    const sortable=TABLE_SORTS[k]&&k!=="mark"&&!PRINT_MODE;
+    if(!sortable){th.textContent=TABLE_COLS[k].label;hrow.append(th);return;}
+    th.classList.add("sortable");
+    const on=tableOpts.sort===k;
+    if(on)th.classList.add("sorted");
+    const b=el("button","sortbtn");b.type="button";
+    b.append(el("span","sortlbl",TABLE_COLS[k].label));
+    if(on)b.append(el("span","lvlcar"+(tableOpts.rev?"":" up")));
+    b.setAttribute("aria-label",TABLE_COLS[k].label+(on?(tableOpts.rev?", sorted descending":", sorted ascending"):", sort by this"));
+    b.onclick=()=>{ if(tableOpts.sort===k)tableOpts.rev=!tableOpts.rev;
+      else {tableOpts.sort=k;tableOpts.rev=false;}
+      saveTableOpts();renderTable();};
+    th.append(b);hrow.append(th);});
   const thead=el("thead");thead.append(hrow);tbl.append(thead);
   const tbody=el("tbody");tbl.append(tbody);
   attachTip(hrow.firstChild,tipBlock("Preparation status","Each marker in this column says how the spell is prepared."));
@@ -7610,7 +7800,7 @@ function renderTable(){
         const abils=[...new Set(grp.map(x=>x.ability).filter(Boolean))];
         if(abils.length){const w=el("span","hdr-abils");w.innerHTML=abils.map(abChip).join("");td.append(w);}}
       gr.append(td);tbody.append(gr);}}
-    if(sp.level!==lastLevel){lastLevel=sp.level;
+    if(!flat&&sp.level!==lastLevel){lastLevel=sp.level;
       const brk=PRINT_MODE&&PRINT.brk&&groupN++>0;
       const gr=el("tr","grouphdr lvl"+(brk?" pgbrk":""));const td=el("td");td.colSpan=span;
       td.append(el("span",null,sp.level===0?"Cantrips":ROMAN[sp.level]+" level"));
@@ -11423,6 +11613,11 @@ $("#prepOnly").onclick=()=>{PREP.onlyPicked=!PREP.onlyPicked;renderPrepList();};
 $("#tabBuild").onclick=()=>switchTab("build");
 $("#tabTable").onclick=()=>switchTab("table");
 $("#tGroup").onchange=e=>{tableOpts.group=e.target.value;saveTableOpts();renderTable();};
+$("#tSort").onchange=e=>{tableOpts.sort=e.target.value;if(!tableOpts.sort)tableOpts.rev=false;
+  saveTableOpts();renderTable();};
+$("#tSortRev").onclick=e=>{e.stopPropagation();if(!tableOpts.sort)return;
+  tableOpts.rev=!tableOpts.rev;saveTableOpts();renderTable();};
+$("#tAfClear").onclick=e=>{e.stopPropagation();clearTableFilter();};
 $("#tColReset").onclick=e=>{e.preventDefault();tableOpts.order=[...COL_ORDER_DEFAULT];tableOpts.hidden=new Set();
   saveTableOpts();renderColMenu();renderTable();};
 $("#pickClear").onclick=()=>{ if(!PICK)return;
@@ -11721,6 +11916,7 @@ $("#bswPop").addEventListener("click",e=>{if(!e.target.closest(".bswmenu")&&!e.t
 $("#bswBtn").onclick=e=>{e.stopPropagation();renderBswPop();toggleMenu("#bswPop");
   $("#bswBtn").setAttribute("aria-expanded",String(!$("#bswPop").classList.contains("hidden")));};
 $("#tMenuBtn").onclick=e=>{e.stopPropagation();toggleMenu("#tMenuPop");};
+$("#tFiltBtn").onclick=e=>{e.stopPropagation();toggleMenu("#tFiltPop");};
 $("#pickLevelBtn").onclick=e=>{e.stopPropagation();toggleMenu("#pickLevelPop");};
 $("#gpMenuBtn").onclick=e=>{e.stopPropagation();toggleMenu("#gpMenuPop");};
 // A handler that re-renders DETACHES the click's target, so a closer asking
@@ -11740,7 +11936,8 @@ document.addEventListener("click",e=>{
 // to say whose it is. Everything below the summary is built fresh on `beforeprint` and
 // torn down on `afterprint`, so the screen never carries 30 spell cards around.
 const LS_PRINT="spellForge.print.v1";
-const PRINT={theme:"light",orient:"portrait",tracker:true,cards:true,eligible:false,brk:false,notes:false};
+const PRINT={theme:"light",orient:"portrait",tracker:true,cards:true,eligible:false,
+  filter:false,brk:false,notes:false};
 let PRINT_MODE=false;          // renderTable reads this: it prints more than it shows
 let TITLE_BEFORE=null;
 function loadPrintOpts(){ try{const t=JSON.parse(localStorage.getItem(LS_PRINT)||"null");
@@ -11753,6 +11950,7 @@ function savePrintOpts(){ try{localStorage.setItem(LS_PRINT,JSON.stringify(PRINT
 function applyPrintOpts(){
   document.documentElement.dataset.print=PRINT.theme;
   document.body.classList.toggle("pr-break",!!PRINT.brk);
+  document.body.classList.toggle("pr-filt",!!PRINT.filter);
   let st=$("#prPageRule");
   if(!st){st=el("style");st.id="prPageRule";document.head.append(st);}
   st.textContent=`@media print{@page{size:${PRINT.orient==="landscape"?"landscape":"portrait"};margin:14mm}}`;
@@ -11979,7 +12177,8 @@ addEventListener("beforeprint",printBuild);
 addEventListener("afterprint",printDone);
 
 // ── the settings modal ─────────────────────────────────────────────────────
-const PR_FIELDS={prTracker:"tracker",prCards:"cards",prEligible:"eligible",prBreak:"brk",prNotes:"notes"};
+const PR_FIELDS={prTracker:"tracker",prCards:"cards",prEligible:"eligible",
+  prFilter:"filter",prBreak:"brk",prNotes:"notes"};
 function openPrintModal(){
   $("#prTheme").value=PRINT.theme; $("#prOrient").value=PRINT.orient;
   Object.entries(PR_FIELDS).forEach(([id,k])=>{$("#"+id).checked=!!PRINT[k];});
@@ -12178,6 +12377,8 @@ if(typeof module!=="undefined"&&module.exports){
     abilityScores,featScoreGains,profBonus,castNums,scoreMod,setCreatorMode,fullCreator,featsAt,scoreParts,mainAbilities,saveProfs,fillOrder,fillScores,pointsSpent,originOptions,parseFormula,rollFormula,formulaRange,optimizeScores,
     // storage and digest integrity
     mergeDigests,filterDigest,digestSize,emptyDigest,verLt,
+    // the table's filter and sort — a LENS over the rows, never a write (D199)
+    tableOpts,tblFiltNew,tblFiltOk,tblFiltNarrowed,rowStatus,tblCmp,TABLE_SORTS,
     // let the fixture stand the module up
     // `state` and `PREVIEW` are const objects, so they are PATCHED, never replaced — the
     // same reason the app itself never reassigns them.

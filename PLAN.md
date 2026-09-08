@@ -10,6 +10,9 @@
 > ladder is also a MODE now (**D192**, v1.5.49): Complete or Simplified, app-wide, Simplified
 > by default, and every rung is absent in Simplified.**
 >
+> **Phase O (the spell table's filter and sort, D199) is DONE** — v1.6.0, 2026-09-08,
+> designed against four mockups and shipped the same day.
+>
 > **Out of phase, 2026-09-05 → 07: his guided-builder reports, D184–D189** (v1.5.42 → v1.5.47).
 > Nine closed — the skip loop, the vanishing spell pool, details on the character view, a feat
 > that could not be changed, the previewed-level pull-back, a granted spell unmarked, the
@@ -108,6 +111,22 @@ regenerates the mockups; `filters1.html` was chosen.
 - Not in scope, with his agreement (D172(e)): species size / speed / traits / creature type —
   we extract none of it, and it would mean both extractors, cparity and a data refresh.
 → archived 2026-09-05: M1a–M4 task bodies — `ARCHIVE.md#phase-m`
+
+## Phase O — the spell table's filter and sort (D199, decided 2026-09-08) — ✅ DONE (v1.6.0)
+
+His ask, opened and shipped 2026-09-08. **D199 owns every call**: the axis set (the four the
+table alone can ask, then D174's spell set reused verbatim), the surface (one filter button
+in the card heading, a removable chip field above the table, no search box), the sort (a
+column-header click AND the ⋯ menu's select, one piece of state; "No grouping" joins Group
+by), global persistence beside the columns, and the print toggle, off by default.
+`python3 scratchpad/mktable.py` regenerates the mockups — `table1/2/3.html` are the three he
+declined, **`table4.html` is what shipped**.
+- Two defects closed with it: `filterMenu`'s group chevron had been 0×0 since M1b, and
+  `.afchip` stood off `--chip-h` (D198). Both → `GOTCHAS.md`.
+- Engine **fixture 20** pins the lens rule: a filter changes what the table RETURNS and never
+  what the build stores.
+- Not in scope, deliberately: a name search on the table (his call — the axes reach it), and
+  a per-build filter (D199(e) rejected it — a view preference must not become his data).
 
 ## Phase N — the character-creator ladder (D176, decided 2026-09-05) — ✅ N1 · ✅ N2 · 🔶 N3 onward gated
 
