@@ -78,14 +78,25 @@
           <button class="swk swoff" type="button" id="creatorSw" role="switch" aria-checked="false" aria-label="Full character creation"></button>
         </div>
         <div class="sep"></div>
-        <button id="themeBtn"><span class="mi ico" data-ico="theme"></span>Toggle theme</button>
+        <!-- D200(g): the theme is a SWITCH (D182's rule: a binary is a switch, not a verb),
+             ON = dark. Until switched it reads the system's answer; a switch writes
+             data-theme and the row stays put, like Full character (D192). -->
+        <div class="mitem mswitch" id="themeRow">
+          <span class="mlab">Dark theme</span>
+          <span class="msub">system until switched</span>
+          <button class="swk swoff" type="button" id="themeSw" role="switch" aria-checked="false" aria-label="Dark theme"></button>
+        </div>
         <!-- D200: the palette is a preference beside the theme. Amethyst is the default; the
              rest are the variants Francesco kept from the color.bears round (Ember is the
-             palette the app wore from D124 to D200). Rendered by syncPaletteRow. -->
-        <div class="mitem" id="paletteRow">
+             palette the app wore from D124 to D200). ONE ROW: the current swatch sits where a
+             switch would, and a click on the row opens the six below it (D200(g)).
+             Rendered by syncPaletteRow. -->
+        <div class="mitem mswitch" id="paletteRow" role="button" tabindex="0" aria-expanded="false" aria-controls="paletteSw">
           <span class="mlab">Palette</span>
-          <div class="palrow" id="paletteSw" role="radiogroup" aria-label="Palette"></div>
+          <span class="msub" id="paletteName">Amethyst</span>
+          <button class="palsw palcur" type="button" id="paletteCur" tabindex="-1" aria-hidden="true"></button>
         </div>
+        <div class="palrow hidden" id="paletteSw" role="radiogroup" aria-label="Palette"></div>
         <div class="sep"></div>
         <button id="resetBtn" class="danger"><span class="mi ico" data-ico="reset"></span>Reset build</button>
       </div>

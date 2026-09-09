@@ -12009,12 +12009,26 @@ armConfirm($("#resetBtn"),null,()=>{
 function syncCreatorSw(){const sw=$("#creatorSw"); if(!sw)return;
   sw.classList.toggle("swoff",!fullCreator()); sw.setAttribute("aria-checked",String(fullCreator()));}
 $("#creatorSw").onclick=e=>{e.stopPropagation(); setCreatorMode(fullCreator()?"simple":"full"); syncCreatorSw();};
-// D200: the row is radios (one is always on); a click walks UP to the swatch (D190).
-function syncPaletteRow(){ const row=$("#paletteSw"); if(!row)return;
+// D200(g): ONE row — the current swatch where a switch would sit, the six below it on demand.
+// A click anywhere on the row opens or closes them; a pick closes them. Opening the ⋯ menu
+// always starts closed. Clicks walk UP to the swatch (D190).
+function paletteOpen(o){ const row=$("#paletteRow"),list=$("#paletteSw"); if(!row||!list)return;
+  list.classList.toggle("hidden",!o); row.classList.toggle("open",!!o); row.setAttribute("aria-expanded",String(!!o)); }
+function syncPaletteRow(){ const list=$("#paletteSw"); if(!list)return;
   const cur=document.documentElement.getAttribute("data-palette")||"";
-  row.innerHTML=PALETTES.map(p=>`<button type="button" class="palsw${p.key===cur?" on":""}" data-pal="${p.key}" role="radio" aria-checked="${p.key===cur}" aria-label="${p.name}" title="${p.name}" style="--pa:#${p.sw[0]};--pb:#${p.sw[1]}"></button>`).join(""); }
-$("#paletteSw").onclick=e=>{ e.stopPropagation(); const b=e.target.closest(".palsw"); if(!b)return; setPalette(b.dataset.pal); };
-$("#themeBtn").onclick=()=>{const r=document.documentElement,cur=r.getAttribute("data-theme");r.setAttribute("data-theme",cur==="dark"?"light":cur==="light"?"dark":(matchMedia("(prefers-color-scheme:dark)").matches?"light":"dark"));closeMenu();};
+  const sw=p=>`style="--pa:#${p.sw[0]};--pb:#${p.sw[1]}"`;
+  list.innerHTML=PALETTES.map(p=>`<button type="button" class="palsw${p.key===cur?" on":""}" data-pal="${p.key}" role="radio" aria-checked="${p.key===cur}" aria-label="${p.name}" title="${p.name}" ${sw(p)}></button>`).join("");
+  const now=PALETTES.find(p=>p.key===cur)||PALETTES[0];
+  $("#paletteCur").setAttribute("style",`--pa:#${now.sw[0]};--pb:#${now.sw[1]}`); $("#paletteName").textContent=now.name; }
+$("#paletteRow").onclick=e=>{ e.stopPropagation(); paletteOpen($("#paletteSw").classList.contains("hidden")); };
+$("#paletteRow").onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){e.preventDefault();$("#paletteRow").click();} };
+$("#paletteSw").onclick=e=>{ e.stopPropagation(); const b=e.target.closest(".palsw"); if(!b)return; setPalette(b.dataset.pal); paletteOpen(false); };
+// D200(g): the theme is a switch, ON = dark. No data-theme yet means "what the system says",
+// so the switch reads the system until the first click writes an answer.
+const isDark=()=>{ const t=document.documentElement.getAttribute("data-theme"); return t?t==="dark":matchMedia("(prefers-color-scheme:dark)").matches; };
+function syncThemeSw(){ const sw=$("#themeSw"); if(!sw)return; sw.classList.toggle("swoff",!isDark()); sw.setAttribute("aria-checked",String(isDark())); }
+$("#themeSw").onclick=e=>{ e.stopPropagation(); document.documentElement.setAttribute("data-theme",isDark()?"light":"dark"); syncThemeSw(); };
+matchMedia("(prefers-color-scheme:dark)").addEventListener("change",syncThemeSw);
 // overflow settings menu
 function closeMenu(except){document.querySelectorAll(".menupop").forEach(p=>{if(p!==except)p.classList.add("hidden");});
   closeBswMenus();syncMenuAria();}   // the row menus are fixed-position, so they outlive their popover unless told
@@ -12031,7 +12045,7 @@ function syncMenuAria(){
 // opened a menu could never close it.
 function toggleMenu(pop){const el2=$(pop);const open=!el2.classList.contains("hidden");
   closeMenu(); if(!open)el2.classList.remove("hidden"); syncMenuAria();}
-$("#menuBtn").onclick=e=>{e.stopPropagation();toggleMenu("#menuPop");};
+$("#menuBtn").onclick=e=>{e.stopPropagation();paletteOpen(false);syncThemeSw();toggleMenu("#menuPop");};   // D200(g): the palette list opens closed
 // a fixed-position row menu does not travel with the list under it — close it instead
 $("#bswPop").addEventListener("scroll",closeBswMenus,true);   // capture: the scroller is .bswlist
 $("#bswPop").addEventListener("click",e=>{if(!e.target.closest(".bswmenu")&&!e.target.closest(".bswdots"))closeBswMenus();});
@@ -12463,7 +12477,7 @@ if(!globalThis.__SB_HEADLESS__)(async()=>{
   loadTableOpts(); $("#tGroup").value=tableOpts.group; renderColMenu();
   loadPrintOpts();
   loadCreatorMode(); syncCreatorSw();   // D192 — before the first paint, never after
-  loadPalette(); syncPaletteRow();      // D200 — the head script already painted it; this owns the row
+  loadPalette(); syncPaletteRow(); syncThemeSw();   // D200 — the head script already painted it; this owns the rows
   maybeOnboard();
   fillIcons(); wireHelpNotes();
   refreshAll();render();

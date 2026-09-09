@@ -13,7 +13,7 @@
 > | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 > | `ARCHIVE.md` | Bodies of consumed phases, decisions and old rationale |
 
-## TL;DR (2026-09-08 · **v1.6.2** built and tagged, **push pending his OK** · **Phase O DONE (D199, v1.6.0–1.6.1) · the PALETTE is Amethyst with five variants (D200, v1.6.2)** · Phase N at N2 (D191), creation is a MODE (D192), the control scale binds (D198))
+## TL;DR (2026-09-09 · **v1.6.3** live, pushed and tagged · **Phase O DONE (D199, v1.6.0–1.6.1) · the PALETTE is Amethyst with five variants (D200, v1.6.2)** · Phase N at N2 (D191), creation is a MODE (D192), the control scale binds (D198))
 
 - **The palette round (D200, v1.6.2).** His ask: variations on the palette from
   @color.bears. Two agents scraped 33 palettes; `scratchpad/mockups/mkpalette.py` rendered
@@ -26,8 +26,8 @@
   paints first. The rules that came out of it — every ink derived at the shipped steps, dark
   derived desaturated, semantics chosen for hue distance, **alerts always red** — are D200(c–d).
   **Open from it, D200(f) → PLAN ⚑:** the light modes are papery and short of colour, a
-  design-system task he scoped as separate. **Pending his call: minor bump (variants are a
-  feature) and the push.**
+  design-system task he scoped as separate. **He tried v1.6.2 and asked for two things, shipped as v1.6.3 (D200(g)): the theme is a
+  SWITCH, and the palette is ONE ROW that opens on click. Patch, not minor — his call.**
 - **Phase O shipped (v1.6.0, D199; v1.6.1, D199(h–j))** — the spell table filters and sorts
   from one heading button; a filter can say NO, the sort is a chip, and the switch's ON state
   is visible again app-wide. Bodies in `DECISIONS.md` (live) and `CHANGELOG.md`.

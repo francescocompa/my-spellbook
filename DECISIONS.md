@@ -702,11 +702,21 @@ closed one-offs) — is settled and lives in `DECISIONS-SETTLED.md`.
     words, and his scoping: *"this is a DS wide issue, not about these specific palettes"*.
     A separate task, on Amethyst, in `PLAN.md`. Not folded into this round (his call, over
     my offer to tint panel-2 and the section headers now).
+  - **(g) His notes on v1.6.2, 2026-09-09: the theme is a SWITCH and the palette is ONE ROW.**
+    "Toggle theme" (a verb) becomes **Dark theme**, a switch beside Full character (D182's
+    rule); until the first click it reads the system's answer and a click writes `data-theme`
+    the other way, the row staying put. The six swatches collapse to a single row — label,
+    the current palette's name as its note, and the CURRENT swatch flush right where a switch
+    would sit (D179's line); a click anywhere on the row opens the six beneath it, a pick
+    closes them, and opening the ⋯ menu always starts closed. Measured: swatch 22×22 at the
+    row's 11px, −0.5/−0.5 on the label line; the switch 3/3; the open list 5/5 at 1280.
+    *Rejected:* a sub-menu or popover for the six (a second surface for one pick);
+    remembering the theme (not asked — it still follows the system until switched).
   Enforced by: `src/styles.css` (`:root` blocks + the `[data-palette]` blocks, the
-  `#menuPop .palsw` rules), `src/app.js` (`LS_PALETTE`, `PALETTES`, `loadPalette`,
+  `#menuPop .palsw` / `.palrow` rules), `src/app.js` (`LS_PALETTE`, `PALETTES`, `loadPalette`,
   `setPalette`, `syncPaletteRow`), `src/index.html` (the head script, `#paletteRow`),
   `scratchpad/mockups/mkpalette.py` (`python3 mkpalette.py round2 emit` regenerates the CSS).
-  → shipped v1.6.2.
+  → shipped v1.6.2; (g) v1.6.3.
 
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for

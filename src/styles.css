@@ -561,7 +561,10 @@
    you type in), paper on one half and accent on the other, and the chosen one wears the
    accent ring. `#menuPop .palsw` outranks `.menupop button` (GOTCHAS), which would
    otherwise hand it a text button's padding and no background. */
-#menuPop .palrow{display:flex;gap:7px;padding:3px 0}
+#menuPop .palrow{display:flex;gap:7px;padding:5px 11px}
+#menuPop .mswitch .palsw{grid-column:2;grid-row:1;align-self:center}   /* the current swatch sits where the switch sits (D179) */
+#menuPop .mswitch.open .palcur,#menuPop #paletteRow:hover .palcur{border-color:var(--accent)}
+#menuPop #paletteRow{cursor:pointer}
 #menuPop .palsw{width:var(--chip-h);height:var(--chip-h);padding:0;margin:0;border-radius:50%;border:1px solid var(--line-strong);
   background:linear-gradient(135deg,var(--pa) 50%,var(--pb) 50%);cursor:pointer;display:block;flex:0 0 auto}
 #menuPop .palsw:hover{border-color:var(--accent);background:linear-gradient(135deg,var(--pa) 50%,var(--pb) 50%)}
