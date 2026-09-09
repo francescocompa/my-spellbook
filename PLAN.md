@@ -13,7 +13,7 @@
 > **Phase O (the spell table's filter and sort, D199) is DONE** — v1.6.0, 2026-09-08,
 > designed against four mockups and shipped the same day.
 >
-> **The palette round (D200) is DONE** — v1.6.2, 2026-09-08: Amethyst is the main palette,
+> **The palette round (D200) is DONE** — v1.6.2 → v1.6.3, 2026-09-08/09: Amethyst is the main palette,
 > five variants sit in the settings menu, and the generator that derived them is
 > `scratchpad/mockups/mkpalette.py`. One ⚑ came out of it (papery light modes, below).
 >

@@ -115,9 +115,9 @@
   floored** — Fighter 5 (EK) + Rogue 5 (AT) reads 3 where the table gives 2, a rules call;
   ⑧ print from Chrome or Safari (D108); ⑨ XMM on for Find Familiar's 2024 forms (D81);
   ⑩ L5.5's format (copy the build as a level plan); ⑪ **should the class row widen on the
-  desktop sidebar too?** (D197's measured-and-left, 74.5px per select at 1280).
-- **Where the D-entries are:** `DECISIONS.md` holds Binding + the live phase (D176, D191,
-  D192) + Superseded; **every other D-id below is in `DECISIONS-SETTLED.md`** —
+  desktop sidebar too?** (D197's measured-and-left, 74.5px per select at 1280); ⑫ **direction for the papery light modes** (D200(f), PLAN ⚑) — how much colour, and on which surfaces, before that pass is scoped.
+- **Where the D-entries are:** `DECISIONS.md` holds Binding + the live entries (D176, D191,
+  D192, D199, D200) + Superseded; **every other D-id below is in `DECISIONS-SETTLED.md`** —
   `grep -n "D184" DECISIONS*.md` finds any of them in one step.
 - **Read before adding a digest ARRAY:** D191(f) and its GOTCHAS entry — `DIGEST_ARRAYS`,
   `ENT_KEY`, `emptyDigest`, `assembleData`'s own literal AND `_srd_subset` are five independent
@@ -146,6 +146,8 @@
   **Before the level-up trade:** D188 and its two GOTCHAS entries.
   **Before the guide's picker hosting:** D185. **Before the extractors:** GOTCHAS' lookup
   entries (D91, D183) — the lookup has two class keys.
+
+⟳ Rename previous session → "Palette from color.bears: Amethyst and five variants" · session: local_8eccfcbb-7f71-48ff-b6e0-6a9f652a17f0
 
 ## What this is
 
