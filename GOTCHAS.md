@@ -1025,6 +1025,9 @@
   never by two comment markers**, and after any stylesheet surgery re-count the selectors the
   session added (`grep -c -F` per selector) before trusting the page. Recovery was `git show
   HEAD:src/styles.css` plus the session's two edits re-applied.
+- **The ids sweep reads any `"#rrggbb"` string literal in app.js as an id lookup.** A table
+  of hex swatches (`PALETTES`, D200) failed the gate with six ids "defined nowhere". Keep
+  hex literals in app.js WITHOUT the hash and prefix it where they are used (`#${p.sw[0]}`).
 - **`.menupop button` restyles EVERY button inside a popover** — it bit three times in one day
   (D173's chips, D177's pills, D181's Optimize switch stripped to its knob: transparent track,
   7px radius, 8px padding). Any control that lives inside a `.menupop` needs its own scoped

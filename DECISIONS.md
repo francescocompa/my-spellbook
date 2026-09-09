@@ -638,6 +638,76 @@ closed one-offs) — is settled and lives in `DECISIONS-SETTLED.md`.
     **fixture 21** enforce (i), and (h) is proved by measuring an ON `.swk` inside a
     `.menupop`.
 
+### Live — the palette (D200)
+
+- **D200 (2026-09-08) DECIDED — the palette is AMETHYST, and the palette is a PREFERENCE
+  with variants.** His ask, opened 2026-09-08: *"try a few variations on the current app
+  palette"*, sourced from the Threads account **@color.bears** — two agents read 33 palettes
+  off 14 posts (the logged-out profile shows four; the replies tab and indexed old posts gave
+  the rest; the account recycles a fixed dictionary, so the yield is near its ceiling).
+  Mechanism: two mockup rounds ON THE REAL APP — `python3 scratchpad/mockups/mkpalette.py`
+  writes `palette.html` (30 candidates, every scraped palette auto-mapped) and
+  `mkpalette.py round2` writes `palette2.html` (his shortlist) — each an iframe of
+  `src/index.html` with a per-candidate variable override, light and dark, phone and desktop,
+  with the measured contrast pairs beside it; three AskUserQuestion rounds. Sources beside the
+  generator: `palettes-scraped-{1,2}.json`, `palette-candidates.json`, `palette-round2.json`.
+  - **(a) The main palette is P2 Amethyst** — neutral grey paper `#e6e6e6`, ink `#141414`,
+    accent `#7443a5` / `#b494d4`; **the swap/pact violet moves to teal** (`#1d726e` /
+    `#5fc4bf`) to stay 90° from the accent — the cost that sank Lapis in D124, this time
+    shown in the mockup and accepted; **gold is hand-set to a real ochre** (`#8a6a1a` /
+    `#d4ad5a`), the generated analogous secondary having been a plum that muddied the accent.
+    *Rejected:* **P4 Heraldic** (ruby on parchment gold — my recommendation, twice), P22
+    Deep Anchor, P16 Bloodwood, P3 Orchid-on-sky as the MAIN (kept as a variant), and the
+    other 25 in `palette.html`. His round-1 note, verbatim: *"in dark mode, the background and
+    panel colors are too light or too saturated and make everything too heavy on the eyes.
+    Light modes all look very similar, there's very little use of color and it all looks too
+    papery (but this is a DS wide issue, not about these specific palettes)"* — the first
+    half is (c), the second is (f).
+  - **(b) The rest of his shortlist ships as VARIANTS in the settings menu, beside the theme:**
+    **Ember** (the D124 palette, as it was), **Velvet** (wine on almond), **Sky** (orchid on
+    a full-chroma sky-blue paper — the one that is not papery), **Petal** (raspberry on
+    ivory), **Cinder** (plum on pale blue — *plum, not indigo*: P5's indigo would have moved
+    the swap violet again for no gain). `data-palette` on the root; `spellForge.palette.v1`
+    in localStorage like the mode (D192 — a preference, never a build property); a one-line
+    head script in `index.html` applies a stored key before the first paint. Each variant
+    restates the full token set in the three shapes the base uses (light, system-dark, forced
+    dark) so its dark blocks (0,3,0) always outrank the base dark block. Print keeps its own
+    palette (D152) and takes only the main accent, gold and swap hues. The row is six
+    22px swatches (`--chip-h`, D198 — a tag you pick), paper on one half and accent on the
+    other, the chosen one in the accent ring; measured 22×22, 3px/3px in the row at 1280 and
+    375. *Rejected:* a select (six named colours are quicker to SEE than to read); dropping
+    Ember (it is one block, and it is the record).
+  - **(c) Every ink is derived, at the shipped STEPS — D145(b) restated as numbers.** A
+    candidate gives paper, ink and accent; the generator reproduces the Ember palette's
+    measured ratios: panel over page **1.20 / 1.09**, panel-2 **1.04 / 1.21**, line on panel
+    **2.22 / 1.33**, line-strong **3.63 / 3.5**, muted **6.5 / 6.4**, ink **16 / 13.3**,
+    accent and gold **6.5** as text on the panel, semantics **5.5 / 5.3** (light / dark). Re-
+    deriving Ember from its own three colours lands within two hex points of what shipped —
+    that is the generator's self-test. **Dark derives desaturated:** page at 7% lightness
+    with chroma capped at 0.2, lifts toward a paper capped at 0.25, ink capped at 0.35 — his
+    round-1 note. *Rejected:* a 4.5:1 floor for accent text (the first round's mistake: the
+    shipped accent reads 6.5:1, and every candidate looked weak beside it); lifting the dark
+    surfaces toward white (loses the hue, and read as grey in the self-test).
+  - **(d) Semantics keep apart from the accent AND each other; alerts are RED.** Good, swap
+    and alert are chosen per palette from a small hue set (green / teal-green; violet / teal /
+    plum; crimson / raspberry) by the smallest hue distance to the accent and to each other,
+    and the mockup flags any pair under 40° in red. **Orange alerts are rejected** — his
+    call, *"let's use reds and not oranges for bad colors"* — so a red-family accent (Velvet
+    8°, Petal 11°) separates by LIGHTNESS instead: the wine accent reads 12:1, the alert 6:1.
+    Gold is not semantic and is exempt.
+  - **(e) Not re-proposed:** four palettes led by a teal or blue were skipped on the record
+    (Verdigris and Lapis, D124); four more with a teal or blue MID were rescued by letting
+    their dark colour lead and the teal take the gold role.
+  - **(f) ⚑ OPEN — the light modes are all alike, papery, and use too little colour.** His
+    words, and his scoping: *"this is a DS wide issue, not about these specific palettes"*.
+    A separate task, on Amethyst, in `PLAN.md`. Not folded into this round (his call, over
+    my offer to tint panel-2 and the section headers now).
+  Enforced by: `src/styles.css` (`:root` blocks + the `[data-palette]` blocks, the
+  `#menuPop .palsw` rules), `src/app.js` (`LS_PALETTE`, `PALETTES`, `loadPalette`,
+  `setPalette`, `syncPaletteRow`), `src/index.html` (the head script, `#paletteRow`),
+  `scratchpad/mockups/mkpalette.py` (`python3 mkpalette.py round2 emit` regenerates the CSS).
+  → shipped v1.6.2.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

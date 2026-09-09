@@ -9,10 +9,14 @@
      pushing the surfaces apart buys separation at the direct cost of the text contrast on
      them, which is the trade that made the first attempt worse. */
   :root{
-    --bg:#eee8da; --panel:#fffdf8; --panel-2:#f2ecdf; --ink:#241f1a; --muted:#635b53;
-    --line:#b2aca1; --line-strong:#8c8478; --hairline:#8c8478; --accent:#8d4a2a; --accent-soft:#8d4a2a1c;
-    --gold:#725921; --gold-soft:#7259211c; --good:#3b6546; --good-soft:#3b65461c;
-    --free:#57549c; --free-soft:#57549c1c; --bad:#ad2335; --bad-soft:#ad23351c;
+    /* D200 (2026-09-08): Amethyst — neutral grey paper, an amethyst accent; the swap/pact
+       violet moves to teal to stay 90° from it, gold is a real ochre. Every ink is derived
+       from three colours at the SAME measured steps the Ember palette had (D145b), by
+       scratchpad/mockups/mkpalette.py; the variants below come off the same generator. */
+    --bg:#e6e6e6; --panel:#fbfbfb; --panel-2:#ebebeb; --ink:#141414; --muted:#5b5b5b;
+    --line:#aaaaaa; --line-strong:#838383; --hairline:#838383; --accent:#7443a5; --accent-soft:#7443a51c;
+    --gold:#705615; --gold-soft:#7056151c; --good:#3b6546; --good-soft:#3b65461c;
+    --free:#1d726e; --free-soft:#1d726e1c; --bad:#ad2335; --bad-soft:#ad23351c;
     --accent-ink:#fff; /* B1-30: text on a solid --accent fill; measured ≥4.5:1 per theme */
     --radius:12px;
     /* D198 — the control scale. Three sizes and "bare", replacing nine heights that had
@@ -36,22 +40,123 @@
      own palette and is untouched by construction (D152). */
   @media (prefers-color-scheme:dark){ :root:not([data-theme=light]){
     color-scheme:dark;
-    --bg:#17140f; --panel:#211d16; --panel-2:#2a251c; --ink:#ece4d6; --muted:#a99e8d;
-    --line:#3a3225; --line-strong:#827052; --hairline:#4c4130; --accent:#d9915f; --accent-soft:#d9915f1f;
+    --bg:#121212; --panel:#1c1c1c; --panel-2:#252525; --ink:#e4e4e4; --muted:#9f9f9f;
+    --line:#333333; --line-strong:#727272; --hairline:#424242; --accent:#b494d4; --accent-soft:#b494d41f;
     --gold:#d4ad5a; --gold-soft:#d4ad5a1c; --good:#7fbb8c; --good-soft:#7fbb8c18;
-    --free:#a6a1e6; --free-soft:#a6a1e618; --bad:#f0616e; --bad-soft:#f0616e1c;
-    --accent-ink:#17140f;
+    --free:#5fc4bf; --free-soft:#5fc4bf18; --bad:#f0616e; --bad-soft:#f0616e1c;
+    --accent-ink:#121212;
     --shadow:0 1px 2px #0000002f,0 8px 24px #00000024;
   }}
   :root[data-theme=dark]{
     color-scheme:dark;
-    --bg:#17140f; --panel:#211d16; --panel-2:#2a251c; --ink:#ece4d6; --muted:#a99e8d;
-    --line:#3a3225; --line-strong:#827052; --hairline:#4c4130; --accent:#d9915f; --accent-soft:#d9915f1f;
+    --bg:#121212; --panel:#1c1c1c; --panel-2:#252525; --ink:#e4e4e4; --muted:#9f9f9f;
+    --line:#333333; --line-strong:#727272; --hairline:#424242; --accent:#b494d4; --accent-soft:#b494d41f;
     --gold:#d4ad5a; --gold-soft:#d4ad5a1c; --good:#7fbb8c; --good-soft:#7fbb8c18;
-    --free:#a6a1e6; --free-soft:#a6a1e618; --bad:#f0616e; --bad-soft:#f0616e1c;
-    --accent-ink:#17140f;
+    --free:#5fc4bf; --free-soft:#5fc4bf18; --bad:#f0616e; --bad-soft:#f0616e1c;
+    --accent-ink:#121212;
     --shadow:0 1px 2px #0000002f,0 8px 24px #00000024;
   }
+  /* D200: the PALETTE VARIANTS — `data-palette` on the root, a preference beside the theme
+     (settings menu), stored outside the build like the creation mode. Each restates the
+     full token set in the three shapes the base palette uses (light, system-dark, forced
+     dark), so a variant's light block (0,2,0) can never outrank the base dark block: its own
+     dark blocks are (0,3,0) and come last. Print restates its own palette and ignores these
+     (D152). Ember is the palette this app wore from D124 to D200. */
+  /* variant ember — Ember (as shipped, D124(d)) */
+  :root[data-palette=ember]{
+      --bg:#eee8da; --panel:#fffdf8; --panel-2:#f2ecdf; --ink:#241f1a; --muted:#635b53;
+      --line:#b2aca1; --line-strong:#8c8478; --hairline:#8c8478; --accent:#8d4a2a; --accent-soft:#8d4a2a1c;
+      --gold:#725921; --gold-soft:#7259211c; --good:#3b6546; --good-soft:#3b65461c;
+      --free:#57549c; --free-soft:#57549c1c; --bad:#ad2335; --bad-soft:#ad23351c;
+      --accent-ink:#ffffff; }
+  @media (prefers-color-scheme:dark){ :root[data-palette=ember]:not([data-theme=light]){
+      --bg:#17140f; --panel:#211d16; --panel-2:#2a251c; --ink:#ece4d6; --muted:#a99e8d;
+      --line:#3a3225; --line-strong:#827052; --hairline:#4c4130; --accent:#d9915f; --accent-soft:#d9915f1f;
+      --gold:#d4ad5a; --gold-soft:#d4ad5a1c; --good:#7fbb8c; --good-soft:#7fbb8c18;
+      --free:#a6a1e6; --free-soft:#a6a1e618; --bad:#f0616e; --bad-soft:#f0616e1c;
+      --accent-ink:#17140f; } }
+  :root[data-palette=ember][data-theme=dark]{
+      --bg:#17140f; --panel:#211d16; --panel-2:#2a251c; --ink:#ece4d6; --muted:#a99e8d;
+      --line:#3a3225; --line-strong:#827052; --hairline:#4c4130; --accent:#d9915f; --accent-soft:#d9915f1f;
+      --gold:#d4ad5a; --gold-soft:#d4ad5a1c; --good:#7fbb8c; --good-soft:#7fbb8c18;
+      --free:#a6a1e6; --free-soft:#a6a1e618; --bad:#f0616e; --bad-soft:#f0616e1c;
+      --accent-ink:#17140f; }
+  /* variant velvet — Velvet — wine on almond (DZFZuNODSMS · Obsidian Ink / Velvet Curfew / Almond Hearth) */
+  :root[data-palette=velvet]{
+      --bg:#f1dfcb; --panel:#fbf5f0; --panel-2:#f3e4d3; --ink:#151311; --muted:#5f574f;
+      --line:#b3a596; --line-strong:#897f73; --hairline:#897f73; --accent:#4B262F; --accent-soft:#4B262F1c;
+      --gold:#745137; --gold-soft:#7451371c; --good:#226e5d; --good-soft:#226e5d1c;
+      --free:#57549c; --free-soft:#57549c1c; --bad:#b01650; --bad-soft:#b016501c;
+      --accent-ink:#ffffff; }
+  @media (prefers-color-scheme:dark){ :root[data-palette=velvet]:not([data-theme=light]){
+      --bg:#141210; --panel:#1e1c1a; --panel-2:#272523; --ink:#ede4d9; --muted:#a49e98;
+      --line:#353230; --line-strong:#75716c; --hairline:#45423f; --accent:#cc91a0; --accent-soft:#cc91a01f;
+      --gold:#c7a48a; --gold-soft:#c7a48a1c; --good:#5fc3ad; --good-soft:#5fc3ad18;
+      --free:#a6a1e6; --free-soft:#a6a1e618; --bad:#f06a9a; --bad-soft:#f06a9a1c;
+      --accent-ink:#141210; } }
+  :root[data-palette=velvet][data-theme=dark]{
+      --bg:#141210; --panel:#1e1c1a; --panel-2:#272523; --ink:#ede4d9; --muted:#a49e98;
+      --line:#353230; --line-strong:#75716c; --hairline:#45423f; --accent:#cc91a0; --accent-soft:#cc91a01f;
+      --gold:#c7a48a; --gold-soft:#c7a48a1c; --good:#5fc3ad; --good-soft:#5fc3ad18;
+      --free:#a6a1e6; --free-soft:#a6a1e618; --bad:#f06a9a; --bad-soft:#f06a9a1c;
+      --accent-ink:#141210; }
+  /* variant sky — Orchid on sky (DdBUMMVEptb · Obsidian Core / Orchid Velvet / Arctic Sky) */
+  :root[data-palette=sky]{
+      --bg:#8fd0f8; --panel:#bae0fa; --panel-2:#9ad4f8; --ink:#000000; --muted:#324c5d;
+      --line:#6898b6; --line-strong:#4e738b; --hairline:#4e738b; --accent:#722386; --accent-soft:#7223861c;
+      --gold:#822255; --gold-soft:#8222551c; --good:#355b3f; --good-soft:#355b3f1c;
+      --free:#4f4c8d; --free-soft:#4f4c8d1c; --bad:#a02031; --bad-soft:#a020311c;
+      --accent-ink:#ffffff; }
+  @media (prefers-color-scheme:dark){ :root[data-palette=sky]:not([data-theme=light]){
+      --bg:#121212; --panel:#1a1c1d; --panel-2:#222527; --ink:#d8e5ed; --muted:#92a1a9;
+      --line:#2e3335; --line-strong:#687379; --hairline:#3d4347; --accent:#d38ae0; --accent-soft:#d38ae01f;
+      --gold:#df83b5; --gold-soft:#df83b51c; --good:#7fbb8c; --good-soft:#7fbb8c18;
+      --free:#a6a1e6; --free-soft:#a6a1e618; --bad:#f0616e; --bad-soft:#f0616e1c;
+      --accent-ink:#121212; } }
+  :root[data-palette=sky][data-theme=dark]{
+      --bg:#121212; --panel:#1a1c1d; --panel-2:#222527; --ink:#d8e5ed; --muted:#92a1a9;
+      --line:#2e3335; --line-strong:#687379; --hairline:#3d4347; --accent:#d38ae0; --accent-soft:#d38ae01f;
+      --gold:#df83b5; --gold-soft:#df83b51c; --good:#7fbb8c; --good-soft:#7fbb8c18;
+      --free:#a6a1e6; --free-soft:#a6a1e618; --bad:#f0616e; --bad-soft:#f0616e1c;
+      --accent-ink:#121212; }
+  /* variant petal — Petal on ivory (DdABSI-iKFY · Deep Espresso / Petal Reverie / Ivory Hearth) */
+  :root[data-palette=petal]{
+      --bg:#f5f0e6; --panel:#ffffff; --panel-2:#f8f5ee; --ink:#2e1d1a; --muted:#635c58;
+      --line:#b3ada6; --line-strong:#8b857f; --hairline:#8b857f; --accent:#aa2c53; --accent-soft:#aa2c531c;
+      --gold:#904b25; --gold-soft:#904b251c; --good:#23705f; --good-soft:#23705f1c;
+      --free:#57549c; --free-soft:#57549c1c; --bad:#ad2335; --bad-soft:#ad23351c;
+      --accent-ink:#ffffff; }
+  @media (prefers-color-scheme:dark){ :root[data-palette=petal]:not([data-theme=light]){
+      --bg:#160f0e; --panel:#201b1a; --panel-2:#272322; --ink:#ebe4d6; --muted:#a19f9a;
+      --line:#353230; --line-strong:#73716e; --hairline:#44413f; --accent:#ee8fae; --accent-soft:#ee8fae1f;
+      --gold:#db9975; --gold-soft:#db99751c; --good:#5fc3ad; --good-soft:#5fc3ad18;
+      --free:#a6a1e6; --free-soft:#a6a1e618; --bad:#f0616e; --bad-soft:#f0616e1c;
+      --accent-ink:#160f0e; } }
+  :root[data-palette=petal][data-theme=dark]{
+      --bg:#160f0e; --panel:#201b1a; --panel-2:#272322; --ink:#ebe4d6; --muted:#a19f9a;
+      --line:#353230; --line-strong:#73716e; --hairline:#44413f; --accent:#ee8fae; --accent-soft:#ee8fae1f;
+      --gold:#db9975; --gold-soft:#db99751c; --good:#5fc3ad; --good-soft:#5fc3ad18;
+      --free:#a6a1e6; --free-soft:#a6a1e618; --bad:#f0616e; --bad-soft:#f0616e1c;
+      --accent-ink:#160f0e; }
+  /* variant cinder — Cinder on sky — plum accent (DdBmY-yiNlI · Cinder Earth / Signal Crimson / Sky Ether) */
+  :root[data-palette=cinder]{
+      --bg:#dbe5ff; --panel:#f8faff; --panel-2:#e1eaff; --ink:#291918; --muted:#5b5a64;
+      --line:#a3aabd; --line-strong:#7f8291; --hairline:#7f8291; --accent:#7b2f6e; --accent-soft:#7b2f6e1c;
+      --gold:#943847; --gold-soft:#9438471c; --good:#3b6546; --good-soft:#3b65461c;
+      --free:#57549c; --free-soft:#57549c1c; --bad:#ad2335; --bad-soft:#ad23351c;
+      --accent-ink:#ffffff; }
+  @media (prefers-color-scheme:dark){ :root[data-palette=cinder]:not([data-theme=light]){
+      --bg:#150f0e; --panel:#1e1a1a; --panel-2:#262324; --ink:#dfe3ef; --muted:#9d9ea2;
+      --line:#333132; --line-strong:#707174; --hairline:#424143; --accent:#d78ac4; --accent-soft:#d78ac41f;
+      --gold:#d38c98; --gold-soft:#d38c981c; --good:#7fbb8c; --good-soft:#7fbb8c18;
+      --free:#a6a1e6; --free-soft:#a6a1e618; --bad:#f0616e; --bad-soft:#f0616e1c;
+      --accent-ink:#150f0e; } }
+  :root[data-palette=cinder][data-theme=dark]{
+      --bg:#150f0e; --panel:#1e1a1a; --panel-2:#262324; --ink:#dfe3ef; --muted:#9d9ea2;
+      --line:#333132; --line-strong:#707174; --hairline:#424143; --accent:#d78ac4; --accent-soft:#d78ac41f;
+      --gold:#d38c98; --gold-soft:#d38c981c; --good:#7fbb8c; --good-soft:#7fbb8c18;
+      --free:#a6a1e6; --free-soft:#a6a1e618; --bad:#f0616e; --bad-soft:#f0616e1c;
+      --accent-ink:#150f0e; }
   *{box-sizing:border-box}
   /* ── icons: real SVGs, sized by their context (never font glyphs) ──────────
      Default 14px; each container that needs another size scales `.ico svg`. */
@@ -452,6 +557,15 @@
   border:1px solid transparent;background:var(--panel-2);color:var(--ink)}
 .menupop .cbtn:hover{border-color:var(--accent);color:var(--accent)}
 .menupop .cbtn.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+/* D200: the palette row. A swatch is a CHIP (--chip-h, D198 — a tag you pick, not a control
+   you type in), paper on one half and accent on the other, and the chosen one wears the
+   accent ring. `#menuPop .palsw` outranks `.menupop button` (GOTCHAS), which would
+   otherwise hand it a text button's padding and no background. */
+#menuPop .palrow{display:flex;gap:7px;padding:3px 0}
+#menuPop .palsw{width:var(--chip-h);height:var(--chip-h);padding:0;margin:0;border-radius:50%;border:1px solid var(--line-strong);
+  background:linear-gradient(135deg,var(--pa) 50%,var(--pb) 50%);cursor:pointer;display:block;flex:0 0 auto}
+#menuPop .palsw:hover{border-color:var(--accent);background:linear-gradient(135deg,var(--pa) 50%,var(--pb) 50%)}
+#menuPop .palsw.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--panel),0 0 0 4px var(--accent)}
 
 /* ── the filter menu (M1b · D174) ─────────────────────────────────────────
    Every picker's filters, as GROUPS that open one at a time. Nine groups is nine lines
@@ -1929,9 +2043,9 @@ label.fld .fldt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-wi
   :root[data-theme="dark"]:not([data-print="dark"]),
   :root[data-theme="light"]:not([data-print="dark"]){
     --bg:#fff; --panel:#fff; --panel-2:#fff; --ink:#1a1613; --muted:#5f574e;
-    --line:#ccc4b6; --line-strong:#a9a091; --accent:#8f4b2b; --accent-soft:transparent;
-    --gold:#7d5f1c; --gold-soft:transparent; --good:#2f5a3a; --good-soft:transparent;
-    --free:#4a469a; --free-soft:transparent; --bad:#9c1f30; --bad-soft:transparent;
+    --line:#c9c9c9; --line-strong:#a3a3a3; --accent:#7443a5; --accent-soft:transparent;
+    --gold:#705615; --gold-soft:transparent; --good:#2f5a3a; --good-soft:transparent;
+    --free:#1d726e; --free-soft:transparent; --bad:#9c1f30; --bad-soft:transparent;
     --shadow:none;
     /* B2-08: --ab-*/--cc-* were never restated here though printCardHTML and the stat-block
        table both consume them; copied from the screen light palette (styles.css:1076-1092). */
@@ -1942,10 +2056,10 @@ label.fld .fldt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-wi
      than inherited so it prints dark from a light screen too, and `print-color-adjust`
      is the only way to stop the browser helpfully dropping every background. */
   :root[data-print="dark"]{
-    --bg:#17140f; --panel:#211d16; --panel-2:#2a251c; --ink:#ece4d6; --muted:#a99e8d;
-    --line:#3a3225; --line-strong:#4c4130; --accent:#d9915f; --accent-soft:#d9915f1f;
+    --bg:#121212; --panel:#1c1c1c; --panel-2:#252525; --ink:#e4e4e4; --muted:#9f9f9f;
+    --line:#333333; --line-strong:#424242; --accent:#b494d4; --accent-soft:#b494d41f;
     --gold:#d4ad5a; --gold-soft:#d4ad5a1c; --good:#7fbb8c; --good-soft:#7fbb8c18;
-    --free:#a6a1e6; --free-soft:#a6a1e618; --bad:#f0616e; --bad-soft:#f0616e1c;
+    --free:#5fc4bf; --free-soft:#5fc4bf18; --bad:#f0616e; --bad-soft:#f0616e1c;
     --shadow:none;
     -webkit-print-color-adjust:exact; print-color-adjust:exact;
     /* B2-08: copied from the screen dark palette (styles.css:1076-1092), unchanged. */

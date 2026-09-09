@@ -13,6 +13,10 @@
 > **Phase O (the spell table's filter and sort, D199) is DONE** — v1.6.0, 2026-09-08,
 > designed against four mockups and shipped the same day.
 >
+> **The palette round (D200) is DONE** — v1.6.2, 2026-09-08: Amethyst is the main palette,
+> five variants sit in the settings menu, and the generator that derived them is
+> `scratchpad/mockups/mkpalette.py`. One ⚑ came out of it (papery light modes, below).
+>
 > **Out of phase, 2026-09-05 → 07: his guided-builder reports, D184–D189** (v1.5.42 → v1.5.47).
 > Nine closed — the skip loop, the vanishing spell pool, details on the character view, a feat
 > that could not be changed, the previewed-level pull-back, a granted spell unmarked, the
@@ -165,6 +169,14 @@ his call: N1 first, then M3/M4 (settled 2026-09-05).
   character-forge chassis) land whenever their inputs exist.
 
 ## Open ⚑ — calls for Francesco
+
+- [ ] ⚑ **The light modes are papery and use too little colour — design-system wide.** His
+  note on the palette round (D200(f)): every light candidate looked alike because the app's
+  light theme spends its colour on text only — paper, panel and panel-2 are three greys of one
+  hue and nothing else carries chroma. A separate pass on Amethyst: where colour can live on a
+  SURFACE (a tinted panel-2, section headers, the level bands, the card heading) without
+  breaking D145's contrast rules. Needs his direction first (/interview: how much colour, and
+  where). Size M. ⚑ (owner: Francesco, 2026-09-08)
 
 → archived 2026-09-05: 12 closed items — `ARCHIVE.md#flags-closed-by-2026-09-05`
 

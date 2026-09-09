@@ -1380,6 +1380,22 @@ function featsAt(){ if(PREVIEW.level==null)return hasHole(state.feats)?noHoles(s
 // like the other `spellForge.*` preferences, never a build property — one switch changes
 // every character, which is what he asked for.
 const LS_MODE="spellForge.mode.v1";
+// D200: the palette, the same shape as the mode. Swatches carry no "#": the ids sweep would
+// read "#e6e6e6" as a lookup of an id defined nowhere. — an app-wide `spellForge.*` preference,
+// never a build property. "" is the default (Amethyst, the :root blocks); any other key is
+// a `data-palette` variant block in styles.css. index.html's head applies a stored key
+// before the first paint; this side owns the row and the writes.
+const LS_PALETTE="spellForge.palette.v1";
+const PALETTES=[{key:"",name:"Amethyst",sw:["e6e6e6","7443a5"]},{key:"ember",name:"Ember",sw:["eee8da","8d4a2a"]},
+  {key:"velvet",name:"Velvet",sw:["f1dfcb","4b262f"]},{key:"sky",name:"Sky",sw:["8fd0f8","722386"]},
+  {key:"petal",name:"Petal",sw:["f5f0e6","aa2c53"]},{key:"cinder",name:"Cinder",sw:["dbe5ff","7b2f6e"]}];
+function loadPalette(){ try{const p=localStorage.getItem(LS_PALETTE)||"";
+  if(p&&PALETTES.some(x=>x.key===p))document.documentElement.setAttribute("data-palette",p);
+  else document.documentElement.removeAttribute("data-palette");}catch(e){} }
+function setPalette(k){ const r=document.documentElement; k=PALETTES.some(x=>x.key===k)?k:"";
+  if(k)r.setAttribute("data-palette",k); else r.removeAttribute("data-palette");
+  try{ if(k)localStorage.setItem(LS_PALETTE,k); else localStorage.removeItem(LS_PALETTE); }catch(e){storageNotice(e);}
+  syncPaletteRow(); }
 let CREATOR="simple";                       // "simple" | "full"
 const fullCreator=()=>CREATOR==="full";
 function loadCreatorMode(){ try{const t=localStorage.getItem(LS_MODE);
@@ -11993,6 +12009,11 @@ armConfirm($("#resetBtn"),null,()=>{
 function syncCreatorSw(){const sw=$("#creatorSw"); if(!sw)return;
   sw.classList.toggle("swoff",!fullCreator()); sw.setAttribute("aria-checked",String(fullCreator()));}
 $("#creatorSw").onclick=e=>{e.stopPropagation(); setCreatorMode(fullCreator()?"simple":"full"); syncCreatorSw();};
+// D200: the row is radios (one is always on); a click walks UP to the swatch (D190).
+function syncPaletteRow(){ const row=$("#paletteSw"); if(!row)return;
+  const cur=document.documentElement.getAttribute("data-palette")||"";
+  row.innerHTML=PALETTES.map(p=>`<button type="button" class="palsw${p.key===cur?" on":""}" data-pal="${p.key}" role="radio" aria-checked="${p.key===cur}" aria-label="${p.name}" title="${p.name}" style="--pa:#${p.sw[0]};--pb:#${p.sw[1]}"></button>`).join(""); }
+$("#paletteSw").onclick=e=>{ e.stopPropagation(); const b=e.target.closest(".palsw"); if(!b)return; setPalette(b.dataset.pal); };
 $("#themeBtn").onclick=()=>{const r=document.documentElement,cur=r.getAttribute("data-theme");r.setAttribute("data-theme",cur==="dark"?"light":cur==="light"?"dark":(matchMedia("(prefers-color-scheme:dark)").matches?"light":"dark"));closeMenu();};
 // overflow settings menu
 function closeMenu(except){document.querySelectorAll(".menupop").forEach(p=>{if(p!==except)p.classList.add("hidden");});
@@ -12442,6 +12463,7 @@ if(!globalThis.__SB_HEADLESS__)(async()=>{
   loadTableOpts(); $("#tGroup").value=tableOpts.group; renderColMenu();
   loadPrintOpts();
   loadCreatorMode(); syncCreatorSw();   // D192 — before the first paint, never after
+  loadPalette(); syncPaletteRow();      // D200 — the head script already painted it; this owns the row
   maybeOnboard();
   fillIcons(); wireHelpNotes();
   refreshAll();render();
