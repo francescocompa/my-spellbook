@@ -871,6 +871,61 @@ closed one-offs) — is settled and lives in `DECISIONS-SETTLED.md`.
   pre-D203 digest degrades until re-read), D202(d) (the UA catalogue is what made this
   reachable at all). → shipped v1.6.8.
 
+### Live — the trade, compressed (D204)
+
+- **D204 (2026-09-12) DECIDED — the level-up trade is ONE surface on the step, closed at
+  rest, with no header and no note line over it.** His note, verbatim: *"this screen takes up
+  way too much vertical space, it should be reorganized and compressed, make a mockup to fix
+  and ask feedback"*, on an L2 Warlock where nothing had been traded. Mockup
+  `scratchpad/mockups/swapc.html` (`python3 scratchpad/mkswap2.py`) drew the baseline and four
+  candidates at the card's real 640px, each measuring its own height: today **448px**, halves
+  on one line 246, one section per kind 210, **closed at rest 163**, a bare footer line 131.
+  He took **3, amended** — and the amendments are the entry.
+  - **(a) D188 is untouched.** Still two halves per kind, either settable first, neither
+    binding the other, and a half-made trade still says so in its own words rather than being
+    marked an error (D188(b)'s hints are the only prose left on the surface). What was cut is
+    the FRAME: six `.gsec` frames and four uppercase labels to offer two dashed chips, with
+    **GIVING UP · not yet** sitting directly above a chip reading **− Trade one away**. The
+    label said what the chip said. *Not re-proposed, and must not be:* D188 already rejected
+    the one-slot shape (`swap1`) and the list-of-your-spells shape (`swap2`).
+  - **(b) One surface for the whole step, drawn once.** The MODEL keeps two sections
+    (`swap-spell`, `swap-cantrip`) — the rail reads their `value` and `offRail` per kind, and
+    D188(e) still governs it — but the RENDER groups them: `guideSecBlock` draws on the first
+    swap section of the step and returns null for the rest. The kind becomes an inline row
+    label (`.gtrl`, `.gsecl`'s own type in a new position), not a section header.
+  - **(c) No header row, no Optional tag, no note line.** His call, both states.
+    `guideSecWrap` is bypassed, so `SWAP A SPELL · Optional` is gone; the "Warlock trades into
+    level 1 here" line is gone with it and its content survives where it is actually needed —
+    the tip on **+ Learn one instead**, which already named the level range. "Optional" moves
+    into the closed row's own copy, which is the only state where it means anything: once you
+    have traded, whether you had to is not a question any more.
+  - **(d) Closed at rest, and it never re-closes over an answer.** At rest the whole trade is
+    one dashed full-row opener — the score popover's Add (`#addClass`, D177/D193), on D198's
+    34px `--ctl-h` — reading *"Trade a spell or a cantrip — optional"*. It opens when any half
+    of any kind is set, or by hand: `GSWAPOPEN`, a Set of step keys, **per walk and never
+    stored** (GUNFOLD's own rule — what is closed at rest is a display default, not a fact
+    about the build). Clearing a half adds the step to it, so the surface cannot be yanked
+    away mid-edit. *Rejected:* re-closing when the last half is cleared (consistent, and it
+    pulls the surface out from under the click that cleared it).
+  - **(e) The spell you gave up is STRUCK THROUGH.** His call. `.cartchip.gout .gtnm` only —
+    the level badge and the ✕ that undoes it are live controls and striking them would say
+    they are not. The chip still opens the spell's own details (D188's ask).
+  - **(f) The phone stack is deliberate.** Below 480px the kind takes its own line and the two
+    halves share the next, off the row's own cells — D197's lesson, not an incidental wrap.
+  - **Measured, not eyeballed** (the standing rule): at 1280 the row label's centre is 0.00px
+    off its chips', every chip's text is 3/3 vertical and 10/10 horizontal, and the closed
+    opener is 34.00px with its label 8/8 and 349.59/349.59. At 375 nothing is clipped and the
+    page does not scroll sideways. Card heights on a real Bard: **313px open, 291px closed**
+    where the same step carried 448px of trade alone.
+  - **Left open, his to call:** the step counter still reads *"0 of 3 answered"* while two of
+    the three are the optional trades — counting a question nobody has to answer as unanswered
+    work. Flagged, not taken. → `PLAN.md`.
+  Enforced by: `src/app.js` `guideSecBlock`'s `swap` branch, `GSWAPOPEN` (declared beside
+  `GUNFOLD`, cleared in `openGuide`/`closeGuide`); `src/styles.css` `.gswap` / `.gtrow` /
+  `.gtrl` / `.gtopen` / `.cartchip.gout`. **Affects:** D188 (its shape, kept; its frame, gone),
+  D162 (a section that draws no header), D198 (the opener takes `--ctl-h`), D197 (the phone
+  stack), D177/D193 (the dashed full-row control it borrows). → shipped v1.6.9.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

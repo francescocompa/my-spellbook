@@ -2089,6 +2089,11 @@ const guideKey=s=>(s&&s.key)||"";
 // `GUNFOLD` holds the steps the reader has opened back up — per walk, never stored: a fold
 // is a way of reading the chain, not a fact about the build.
 let GUNFOLD=new Set();
+// D204: the steps whose optional trade the reader has opened by hand. Per walk, never
+// stored — the same rule GUNFOLD follows: what is closed at rest is a display default, not
+// a thing about the build. A step whose trade has a half set is open whether or not it is
+// in here, and clearing that half adds it, so the surface never shuts over an answer.
+let GSWAPOPEN=new Set();
 const guideFolded=step=>(!step||GUNFOLD.has(step.key))?[]
   :(step.sections||[]).filter(x=>x.foldedInto);
 const guideFoldText=step=>{const f=guideFolded(step);
@@ -2103,11 +2108,11 @@ function openGuide(desc,reverse){ GUIDE.on=true; GUIDE.aside=false; GUIDE.pane="
   GAUTO=null;   // D163: a fresh walk opens its first step's picker again
   GUIDE.desc=!!desc; GUIDE.reverse=!!reverse;
   GUIDE.cur=null; GUIDE.curSec=null; GUIDE.place={}; GUIDE.passed.clear();
-  GUNFOLD.clear(); GC.open=null;
+  GUNFOLD.clear(); GSWAPOPEN.clear(); GC.open=null;
   closeGpick(); stagePickDrop(); render(); }
 function closeGuide(){ if(!GUIDE.on)return; GUIDE.on=false; GUIDE.aside=false;
   GUIDE.reverse=false; GUIDE.cur=null; GUIDE.curSec=null; GUIDE.place={}; GUIDE.passed.clear();
-  GUNFOLD.clear(); GC.open=null;
+  GUNFOLD.clear(); GSWAPOPEN.clear(); GC.open=null;
   // D163: `closeGpick` only releases the SPELL picker (it returns early with no GPICK), so
   // leaving the guide with the entity picker hosted stranded the detail surface inside a
   // detached pane — and every later detail modal in the app opened into it, unstyled and
@@ -3217,69 +3222,95 @@ function guideSecBlock(step,sec,rowOf,inline){
     return guideSecWrap(step,sec,b);
   }
   if(sec.kind==="swap"){
-    // D188 — THE TRADE IS TWO HALVES, and neither binds the other (his shape, swap3).
-    // The spell you give up is a CHIP, so clicking it opens its details like every other
-    // spell in the build; the replacement is an ordinary spell choice beside it. Set either
-    // first, change either alone. A half-made trade is a decision in progress and says so
-    // in its own words — it is never marked as an error (his call).
-    const kind=sec.swkind==="cantrip"?"cantrip":"spell";
-    const row=rowOf.get(sec.row), sched=row&&rowSched(row); if(!sched)return null;
-    const c=row&&CLS_BY[row.clsKey], ev=swapAt(sec.lv,sec.swkind)||{};
-    const cm=guideSwapMax(row,sec.lv);
-    const ch=state.chosen[sec.row]||{};
-    const lvls=charLevelMap().get(sec.row)||[];
-    const sa=kind==="cantrip"?sched.cant:sched.spells;
+    // D204 (his note, 2026-09-12): "this screen takes up way too much vertical space".
+    // The trade was SIX section frames and four uppercase labels to offer two dashed chips
+    // — 448px on a level where nothing had been traded, which is nearly every level, and
+    // "GIVING UP · not yet" sat directly above a chip reading "− Trade one away".
+    // It is ONE surface now, drawn once for the whole step: closed to a single dashed row
+    // at rest, a row per kind once open, with no section header, no Optional tag and no
+    // note line over it (the level range it carried lives in the replacement's own tip).
+    // D188 IS UNTOUCHED — still two halves per kind, either settable first, neither
+    // binding the other, and a half-made trade still says so in its own words.
+    const swaps=(step.sections||[]).filter(x=>x.kind==="swap");
+    if(swaps[0]!==sec)return null;   // the group draws once, on the first of them
+    // what each kind has to offer, and whether it can offer anything at all
+    const info=[];
+    swaps.forEach(sc=>{
+      const kind=sc.swkind==="cantrip"?"cantrip":"spell";
+      const srow=rowOf.get(sc.row), sched=srow&&rowSched(srow); if(!sched)return;
+      const ev=swapAt(sc.lv,sc.swkind)||{};
+      const ch=state.chosen[sc.row]||{};
+      const lvls=charLevelMap().get(sc.row)||[];
+      const sa=kind==="cantrip"?sched.cant:sched.spells;
+      // what there is to give up: everything learned BEFORE this level, as it stood then
+      let n=0;
+      ((kind==="cantrip"?ch.cantrips:ch.spells)||[]).forEach((k2,i)=>{
+        if(isHole(k2))return;
+        if(acqAt(sa,i,lvls)<sc.lv)n++;});
+      if(!ev.out&&!ev.in&&!n)return;
+      info.push({sc,kind,ev,c:CLS_BY[srow.clsKey],cm:guideSwapMax(srow,sc.lv)});});
+    const box=el("div","gsec gswap");
+    if(!info.length){
+      b.append(hint("Nothing was learned before this level, so there is nothing to trade "
+        +"away yet."));
+      box.append(b); return box;}
     const name=k2=>{const sp=SPELL_BY[k2];return sp?sp.name:String(k2).split("|")[0];};
-    // what there is to give up: everything learned BEFORE this level, as it stood then
-    const opts=[];
-    ((kind==="cantrip"?ch.cantrips:ch.spells)||[]).forEach((k2,i)=>{
-      if(isHole(k2))return;
-      if(acqAt(sa,i,lvls)<sec.lv)opts.push(unswap([k2],sec.row,kind,sec.lv-1)[0]);});
-    if(!ev.out&&!ev.in&&!opts.length){
-      b.append(hint("No "+kind+" was learned before this level, so there is nothing to "
-        +"trade away yet."));
-      return guideSecWrap(step,sec,b);}
-    if(kind==="spell")b.append(hint((c?c.name:"This class")+" trades into "
-      +(cm===1?"level 1":"level 1–"+cm)+" here."));
-    // each half in the app's own section frame, so the two read as one question with two
-    // parts rather than two unrelated controls
-    const half=(label,tag,body2)=>{
-      const box=el("div","gsec"), h=el("div","gsech");
-      h.append(el("span","gsecl",label)); h.append(el("span","gcnt"+(tag==="1 of 1"?" full":""),tag));
-      box.append(h); const bb=el("div","gsecb"); bb.append(body2); box.append(bb); return box;};
-    const wrap=n=>{const d=el("div","gchips"); d.append(n); return d;};
-    const spChip=(k2,onX,tip)=>{const sp=SPELL_BY[k2], chip=el("span","cartchip");
+    // the given-up spell is STRUCK THROUGH (his call): a chip you can still open and still
+    // undo, reading as the thing it now is — gone from the build.
+    const spChip=(k2,out,onX,tip)=>{const sp=SPELL_BY[k2], chip=el("span","cartchip"+(out?" gout":""));
       chip.append(el("span","lv",sp?(sp.level===0?"C":String(sp.level)):"?"));
-      const nm=el("span",null,name(k2));
+      const nm=el("span","gtnm",name(k2));
       if(sp)attachSpell(nm,sp);      // his ask: the chip opens the spell's own details
       chip.append(nm);
       const x=xBtn(null,onX); attachTip(x,tip); chip.append(x); return chip;};
     const slot=(label,glyph,onClick,tip)=>{const btn=el("button","cartchip gslot");
       btn.append(el("span","lv",glyph)); btn.append(el("span",null,label));
       btn.onclick=onClick; attachTip(btn,tip); return btn;};
-    b.append(half("Giving up",ev.out?"1 of 1":"not yet",wrap(ev.out
-      ? spChip(ev.out,()=>guideTradeClear(sec.row,sec.swkind,sec.lv,"out"),
-          tipBlock("Keep "+name(ev.out)+" after all",
-            "Puts it back in the slot it came from. Anything you have already chosen to "
-            +"learn instead stays where it is."))
-      : slot("Trade one away","\u2212",()=>openGpickTrade(step,sec,"out"),
-          tipBlock("The "+kind+" you are giving up",
-            "It leaves the slot it sits in standing open, so nothing else is re-dated. You "
-            +"can choose what to learn instead first if you would rather.")))));
-    b.append(half("Learning instead",ev.in?"1 of 1":"not yet",wrap(ev.in
-      ? spChip(ev.in,()=>guideTradeClear(sec.row,sec.swkind,sec.lv,"in"),
-          tipBlock("Drop "+name(ev.in),
-            "Takes it back out. Whatever you gave up stays given up until you undo that half "
-            +"too."))
-      : slot("Learn one instead","+",()=>openGpickTrade(step,sec,"in"),
-          tipBlock("Its replacement",
-            (c?c.name:"This class")+" may learn "+(kind==="cantrip"?"any cantrip it can take"
-              :(cm===1?"a level 1 spell":"a spell of level 1 to "+cm))+" here.")))));
-    if(ev.out&&!ev.in)b.append(hint("You are one "+kind+" short until you learn one instead. "
-      +"The slot it left is standing open, marked as traded away."));
-    if(ev.in&&!ev.out)b.append(hint("You are one "+kind+" over until you say which one you "
-      +"gave up for it."));
-    return guideSecWrap(step,sec,b);
+    // CLOSED AT REST. A trade nobody has started costs one row, and opening it is a walk
+    // decision, not build data — `GSWAPOPEN` is per walk and never stored (GUNFOLD's rule).
+    // It never re-closes over an answer: clearing a half keeps the step open (below).
+    const anySet=info.some(x=>x.ev.out||x.ev.in);
+    if(!anySet&&!GSWAPOPEN.has(step.key)){
+      const kinds=info.map(x=>x.kind);
+      const what=kinds.length>1?"a spell or a cantrip":"a "+kinds[0];
+      const btn=el("button","gtopen");
+      btn.append(el("span","gtg","⇄"));
+      btn.append(el("span",null,"Trade "+what+" — optional"));
+      btn.onclick=()=>{GSWAPOPEN.add(step.key);render();};
+      attachTip(btn,tipBlock("An optional trade",
+        "Give up one you already know for another. Passing on it is an answer."));
+      b.append(btn); box.append(b); return box;}
+    const keepOpen=()=>GSWAPOPEN.add(step.key);
+    info.forEach(x=>{
+      const {sc,kind,ev,c,cm}=x;
+      const r=el("div","gtrow");
+      r.append(el("span","gtrl",kind==="cantrip"?"Cantrip":"Spell"));
+      const chips=el("div","gchips");
+      chips.append(ev.out
+        ? spChip(ev.out,true,()=>{keepOpen();guideTradeClear(sc.row,sc.swkind,sc.lv,"out");},
+            tipBlock("Keep "+name(ev.out)+" after all",
+              "Puts it back in the slot it came from. Anything you have already chosen to "
+              +"learn instead stays where it is."))
+        : slot("Trade one away","−",()=>openGpickTrade(step,sc,"out"),
+            tipBlock("The "+kind+" you are giving up",
+              "It leaves the slot it sits in standing open, so nothing else is re-dated. You "
+              +"can choose what to learn instead first if you would rather.")));
+      chips.append(ev.in
+        ? spChip(ev.in,false,()=>{keepOpen();guideTradeClear(sc.row,sc.swkind,sc.lv,"in");},
+            tipBlock("Drop "+name(ev.in),
+              "Takes it back out. Whatever you gave up stays given up until you undo that half "
+              +"too."))
+        : slot("Learn one instead","+",()=>openGpickTrade(step,sc,"in"),
+            tipBlock("Its replacement",
+              (c?c.name:"This class")+" may learn "+(kind==="cantrip"?"any cantrip it can take"
+                :(cm===1?"a level 1 spell":"a spell of level 1 to "+cm))+" here.")));
+      r.append(chips); b.append(r);
+      // D188(b): a half-made trade is a decision in progress and says so — never an error
+      if(ev.out&&!ev.in)b.append(hint("You are one "+kind+" short until you learn one instead. "
+        +"The slot it left is standing open, marked as traded away."));
+      if(ev.in&&!ev.out)b.append(hint("You are one "+kind+" over until you say which one you "
+        +"gave up for it."));});
+    box.append(b); return box;
   }
   return null;
 }

@@ -2692,6 +2692,36 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
 /* D188: a slot a trade vacated. It reads as a fact, not a question — no dashed "fill me"
    border, no hover, and the muted ink the guide uses for something already accounted for. */
 .cartchip.gtraded{border-style:dashed;color:var(--muted);opacity:.8}
+/* D204 — the level-up trade as ONE surface on the step, closed at rest.
+   No section header, no Optional tag, no note line: the row label says which kind, the
+   chips say what each half is for, and the replacement's own tip carries the level range
+   the note used to. D188's two halves are unchanged. */
+.gswap{gap:8px}
+/* a row per kind: the kind's name BESIDE its two halves, not a section header above them.
+   Same type as `.gsecl` — a new position for a label the card already has, not a new style. */
+.gswap .gtrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.gswap .gtrl{flex:0 0 52px;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;
+  color:var(--muted)}
+/* the closed state: the score popover's dashed full-row Add (`#addClass`, D177/D193), on
+   D198's 34px scale like every other control that sits in a form row. */
+.gswap .gtopen{width:100%;min-height:var(--ctl-h);box-sizing:border-box;padding:6px 10px;
+  display:flex;align-items:center;justify-content:center;gap:7px;
+  border:1px dashed var(--line-strong);border-radius:8px;background:transparent;
+  color:var(--muted);font:inherit;font-size:12px;cursor:pointer;
+  transition:color .12s,border-color .12s}
+.gswap .gtopen:hover{color:var(--ink);border-color:var(--accent)}
+/* his call: the spell you gave up is STRUCK THROUGH. Only the name — the level badge and
+   the ✕ that undoes it are still live controls, and striking them would say they are not. */
+.cartchip.gout .gtnm{text-decoration:line-through;text-decoration-thickness:1px;
+  text-decoration-color:var(--muted)}
+.cartchip.gout .lv{color:var(--muted)}
+/* D197's lesson: a stack on a phone is DELIBERATE, off a named cell, never an
+   incidental wrap. Below 480px the kind takes its own line and the two halves share the
+   next — the row's own shape, not a flex accident. */
+@media (max-width:480px){
+  .gswap .gtrow{align-items:flex-start;gap:4px}
+  .gswap .gtrl{flex:1 0 100%}
+}
 .gpsech{display:flex;align-items:baseline;gap:10px;margin:18px 0 6px}
 .gpsech:first-child{margin-top:4px}
 .gpsech .gpfilt{color:var(--muted);display:inline-flex;align-items:center}
