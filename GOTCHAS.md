@@ -7,6 +7,25 @@
 > Read this before touching the extractors, the importer, the grants resolution or any
 > DOM handler. Moved out of `STATE.md` on 2026-08-27 (v1.1); nothing was dropped.
 
+- **A record can be present in `DATA`, emitted by both extractors, counted in the digest — and
+  invisible, because something DECIDED it was an older printing** (D203, v1.6.8). Underdark
+  Options 2 ships five species; the picker showed four. Nothing was lost: `collapseEditions`
+  folds same-named records and `SHADOWED` the UA 2026 Kuo-Toa behind the **2014 DMG** one,
+  because the rank was a hand-kept table of six core codes that scored every other book 10.
+  **When a record is missing from a surface, check `SHADOWED.has(rec)` before you look at the
+  extractor** — flipping the reprint filter to "all" is the one-second test, and if the record
+  comes back, the data was never the problem. Three rules now hold it:
+  **(1)** the rank is the book's own `released` date, which both extractors carry (5etools
+  `published`, brew `dateReleased`) — never a table of codes, because the next book published
+  is always missing from a table;
+  **(2)** the contest is only between the books that are **ON**, re-run on every source change
+  (`buildShadows`) — otherwise turning the newer book off hides the older one too, shadowed by
+  a winner that is not even in play;
+  **(3)** nothing is hidden without evidence — a flagged reprint, or two known dates. An
+  undated book is unknown, not old (D31).
+  And the boot-order trap it came with: **`typeof x` does NOT save you from a `let`'s temporal
+  dead zone.** `typeof SRC === "undefined"` throws where `var` would have answered, and the
+  first `assembleData()` runs before `SRC` is seeded. Declare it above what reads it.
 - **"Already have" has TWO definitions in the import path, and the wrong one turns a no-op
   into "Added 44 books"** (D202(b), v1.6.6). `PLAN.fresh` is measured in `planFromStage`
   against **stored data alone**; `trayBooks()` is measured against **stored ⊕ the bundle**,

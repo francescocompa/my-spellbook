@@ -279,10 +279,32 @@ let CLS_BY={},SUB_BY={},SUBS_OF={},FEAT_BY={},RACE_BY={},OPT_BY={},SPELL_BY={},S
 // so we collapse by name too and the two rules back each other up. Homebrew (HB) is never
 // shadowed and never shadows official.
 let SHADOWED=new WeakSet();
+// D203(b): the enabled-books set is DECLARED here, ahead of the collapse that reads it, and
+// seeded further down once `DATA.sources` exists — `typeof` does not save you from a `let`'s
+// temporal dead zone, and the collapse runs during the first assembleData(). `null` means
+// "not seeded yet", which is the same answer as the seed itself: every book on.
+let SRC=null;
+// D203, his call: a printing is ranked by its BOOK'S OWN PUBLICATION DATE, which both
+// extractors now carry as `sources[code].released` (5etools states it as `published`, a brew
+// as `dateReleased`). It replaces a hand-kept table of six core codes that scored every other
+// book 10 — so the 2014 DMG outranked a 2026 UA book and silently swallowed its Kuo-Toa. His
+// rule: the newest printing wins, wherever it was printed. The cost he accepted, said once:
+// a playtest book published after the 2024 core now outranks it for a name they share.
 const EDITION_RANK={XPHB:100,XDMG:99,XMM:98,PHB:50,DMG:49,MM:48};
-const srcRank=s=>EDITION_RANK[s]!=null?EDITION_RANK[s]:10;
-// higher = preferred winner: real (non-reprint) always beats a reprint, then newest edition
-const dedupeScore=o=>(o.reprinted?0:1000)+srcRank(o.source);
+// the book's date as one sortable number (2024-09-17 → 20240917); 0 = the registry has none,
+// which means UNKNOWN and never "old" — see `collapseEditions`, which refuses to hide one.
+function srcDate(code){
+  const d=((DATA.sources||{})[code]||{}).released;
+  const m=d&&/^(\d{4})-?(\d{2})?-?(\d{2})?/.exec(String(d));
+  if(!m)return 0;
+  return (+m[1])*10000+(+(m[2]||1))*100+(+(m[3]||1));
+}
+// a digest read by a pre-D203 parser carries no dates at all; the six core codes keep their
+// old ordering until it is re-read, so a stale library degrades to the behaviour it had
+const srcRank=s=>srcDate(s)||(EDITION_RANK[s]!=null?EDITION_RANK[s]:10);
+// higher = preferred winner: real (non-reprint) always beats a reprint, then the newer book.
+// The reprint term has to clear the widest date (2 × 10⁷), not 1000.
+const dedupeScore=o=>(o.reprinted?0:100000000)+srcRank(o.source);
 // A lineage can be RENAMED between editions ("Elf (High)" -> "Elf — High Elf"), so a
 // name match misses it and the picker lists Drow and High Elf twice. Collapse species on
 // base + lineage instead, with the base word stripped back off the lineage.
@@ -296,25 +318,49 @@ function raceDedupeId(r){
 // The collapse key for SPELLS, named once: `buildIndexes` folds printings on it, and the
 // D109 forms match (activeFormGrants) asks the same question of a grant's own spell ref.
 const spellDedupeId=s=>String(s.name).toLowerCase();
+// D203(b), his second note: *"if a later book is not included in the filter selection, the
+// entity from older books should appear"*. The collapse used to run over the WHOLE library,
+// once, at assembly — so turning the newer book OFF hid both records: the winner by its
+// source, the loser by a shadow cast from a book that is not even in play. The contest is
+// between the printings you actually HAVE ON, and it is re-run whenever that set changes
+// (`buildShadows`). This is `supersededLive`'s rule, one level down: a successor that is not
+// here cannot supersede anything.
+//
+// D203(c): a record is hidden only when we can TELL it is the older one. An undated book is
+// unknown, not old, and unknown never reads as excluded (D31) — so an undated printing is
+// left visible rather than swallowed by a dated one. Two undated printings of the same thing
+// both show; that is the honest answer, and the reprint FLAG still collapses them when the
+// data says so.
 function collapseEditions(list,idOf){
   const best={};
-  list.forEach(o=>{ if(o.source===HB_SRC)return; const id=idOf(o);
+  // `SRC` is built AFTER the first assembleData() (it is seeded from DATA.sources), so the
+  // boot pass runs with every book on — which is that seed exactly. `loadSources` re-runs the
+  // pass once a stored selection has replaced it.
+  const live=o=>o.source!==HB_SRC&&(!SRC||SRC.has(o.source));
+  list.forEach(o=>{ if(!live(o))return; const id=idOf(o);
     if(!best[id]||dedupeScore(o)>dedupeScore(best[id]))best[id]=o; });
-  list.forEach(o=>{ if(o.source===HB_SRC)return; if(best[idOf(o)]!==o)SHADOWED.add(o); });
+  list.forEach(o=>{ if(!live(o))return; const w=best[idOf(o)];
+    if(w===o)return;
+    // the loser is hidden only on evidence: it is a flagged reprint, or both dates are known
+    if(o.reprinted||(srcDate(o.source)&&srcDate(w.source)))SHADOWED.add(o);
+  });
 }
-function buildIndexes(){
+// the collapse depends on which books are ON, so it is its own pass — `assembleData` runs it
+// with the rest of the indexes, and every source toggle re-runs just this one
+function buildShadows(){
   SHADOWED=new WeakSet();
   collapseEditions(DATA.classes, c=>c.name.toLowerCase());
-  // D127: the identity carries classSource. 5etools re-attaches every classic subclass to
-  // the 2024 class as a second record, so "Cleric|Life" names TWO different offerings —
-  // Life on Cleric|PHB and Life on Cleric|XPHB. Collapsing them together shadowed 67
-  // classic subclasses out of the 2024 pickers entirely. Scoped to the class, duplicate
-  // PRINTINGS of the same subclass on the same class still collapse, which is the job.
   collapseEditions(DATA.subclasses, s=>(s.className+"|"+(s.classSource||"")+"|"+(s.shortName||s.name)).toLowerCase());
   collapseEditions(DATA.feats, f=>f.name.toLowerCase());
   collapseEditions(DATA.races, raceDedupeId);
   collapseEditions(DATA.spells, spellDedupeId);
   collapseEditions(DATA.optfeats, o=>o.name.toLowerCase());
+}
+function buildIndexes(){
+  // D127 lives in `buildShadows` with the rest of the collapse: the identity carries
+  // classSource, because 5etools re-attaches every classic subclass to the 2024 class as a
+  // second record, and collapsing "Cleric|Life" across both chassis hid 67 classic subclasses.
+  buildShadows();
   CLS_BY={}; DATA.classes.forEach(c=>CLS_BY[key(c.name,c.source)]=c);
   // SUB_BY is keyed name|source and 124 subclass records SHARE that key with their
   // 2024-chassis twin (D127) — whichever is indexed last wins, which is how every 2014
@@ -434,7 +480,7 @@ assembleData();
 const LS="spellForge.v2";                      // legacy single-build blob (kept for rollback)
 // Sources are a GLOBAL preference, not part of a build (D33) — hoisted out of `state` so a
 // build can never carry them by accident. Each build only records the list it was seen under.
-let SRC=new Set(Object.keys(DATA.sources));    // all on by default
+SRC=new Set(Object.keys(DATA.sources));        // all on by default (declared at D203(b))
 const state={
   classes:[], speciesKey:"", feats:[], optFeats:[], featSlots:{}, sbFav:{}, sbFavSkip:[],
   filters:{q:"",levels:new Set(),school:"",cls:"",time:new Set(),comp:new Set(),tags:new Set(),save:"",dmg:"",books:null,reprint:"dedupe",chosen:false},
@@ -643,9 +689,12 @@ const legacyState=s=>({classes:s.classes||[],speciesKey:s.speciesKey||"",feats:s
 // for an existing session
 function loadSources(){
   const g=loadJSON(LS_SOURCES);
-  if(g&&g.length){SRC=new Set(g);return;}
+  // D203(b): the collapse is decided among the books that are ON, and the boot pass ran
+  // before this selection existed — so a stored selection re-runs it before anything renders
+  if(g&&g.length){SRC=new Set(g);buildShadows();return;}
   const legacy=loadJSON(LS);
   SRC=legacy&&legacy.enabledSources?new Set(legacy.enabledSources):new Set(Object.keys(DATA.sources));
+  buildShadows();
   saveSources();
 }
 // "loaded" | "migrated" | "fresh". The legacy key is left untouched as a one-release rollback.
@@ -11749,6 +11798,9 @@ function afterSourceChange(){
   // Only refs to content that has ceased to exist are dropped, and that is `pruneState`.
   // a newly enabled book must not stay invisible behind a stale filter override
   if(state.filters.books)SRC.forEach(c=>state.filters.books.add(c));
+  // D203(b): which printing wins is decided among the books that are ON, so the shadow pass
+  // is part of changing them — without this, turning the newer book off hid the older one too
+  buildShadows();
   saveSources(); save();               // sources are global; the build records what it saw
   refreshAll();renderLibList();render();
 }
@@ -12746,6 +12798,9 @@ if(typeof module!=="undefined"&&module.exports){
     swapNorm,swapsNorm,unswap,
     // the picker's row filters run only where the menu offers them (D201)
     entRowOk,
+    // which printing wins: the book's own date, among the books that are ON (D203)
+    srcDate,collapseEditions,buildShadows,visible,
+    shadowed:o=>SHADOWED.has(o),
     // ability scores + proficiency bonus (D176)
     abilityScores,featScoreGains,profBonus,castNums,scoreMod,setCreatorMode,fullCreator,featsAt,scoreParts,mainAbilities,saveProfs,fillOrder,fillScores,pointsSpent,originOptions,parseFormula,rollFormula,formulaRange,optimizeScores,
     // storage and digest integrity

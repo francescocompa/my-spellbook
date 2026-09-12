@@ -841,5 +841,59 @@ const casterLevel = (slots) => {
     [true,false]);
 }
 
+// ── 23 · which printing wins, and when nothing may be hidden (D203) ────────
+// The collapse decides, silently, which of two same-named records a picker shows. What
+// breaks silently here, and did: a hand-kept rank table that knew six book codes scored
+// every other book the same, so the 2014 DMG outranked a 2026 UA book and swallowed its
+// Kuo-Toa (a species the extractor had emitted, the digest held, and no surface showed).
+// Two more rules keep it honest: the contest is between the books that are ON — a winner
+// you have switched off must not shadow the record you DO have — and a book with no known
+// date is UNKNOWN, never old, so it is never the one hidden (D31).
+{
+  const race=(name,source)=>({name,source,base:name,lineage:"",reprinted:false});
+  const setSources=m=>SB.set.data({sources:m,spells:[],classes:[],subclasses:[],feats:[],
+    races:[],optfeats:[],backgrounds:[]});
+  const dated=(code,d)=>[code,{name:code,group:"core",counts:{},released:d}];
+
+  setSources(Object.fromEntries([dated("DMG","2014-12-09"),dated("XPHB","2024-09-17"),
+    dated("UA26","2026-08-20"),["NODATE",{name:"NODATE",group:"other",counts:{}}]]));
+  eq("23a · a book's date is one sortable number",
+    [SB.srcDate("DMG"),SB.srcDate("XPHB"),SB.srcDate("NODATE"),SB.srcDate("nope")],
+    [20141209,20240917,0,0]);
+
+  const run=(recs,on)=>{ SB.set.src(on); const list=recs.slice();
+    SB.collapseEditions(list,r=>(r.base||r.name).toLowerCase()+"|"+(r.lineage||"").toLowerCase());
+    return list.map(r=>r.source+(SB.shadowed(r)?":hidden":":shown")); };
+
+  // the bug itself: the NEWER book wins, wherever it was printed
+  eq("23b · the newest printing wins, not the most core one",
+    run([race("Kuo-Toa","DMG"),race("Kuo-Toa","UA26")],["DMG","UA26"]),
+    ["DMG:hidden","UA26:shown"]);
+  eq("23c · …and the 2024 core still beats the 2014 core",
+    run([race("Elf","DMG"),race("Elf","XPHB")],["DMG","XPHB"]),
+    ["DMG:hidden","XPHB:shown"]);
+
+  // his note: a winner you switched OFF must not shadow the one you have
+  eq("23d · the contest is between the books that are ON",
+    run([race("Kuo-Toa","DMG"),race("Kuo-Toa","UA26")],["DMG"]),
+    ["DMG:shown","UA26:shown"]);
+
+  // D31: unknown never reads as excluded
+  eq("23e · an undated printing is never the one hidden",
+    run([race("Thing","NODATE"),race("Thing","XPHB")],["NODATE","XPHB"]),
+    ["NODATE:shown","XPHB:shown"]);
+  const rp=race("Thing","NODATE"); rp.reprinted=true;
+  eq("23f · …unless the data itself flags it a reprint",
+    run([rp,race("Thing","XPHB")],["NODATE","XPHB"]),
+    ["NODATE:hidden","XPHB:shown"]);
+
+  // a reprint loses to a non-reprint whatever the dates say — the reprint term has to clear
+  // the widest date, and 1000 did not
+  const newRp=race("Thing","UA26"); newRp.reprinted=true;
+  eq("23g · a reprint loses to a real record even when it is newer",
+    run([newRp,race("Thing","DMG")],["UA26","DMG"]),
+    ["UA26:hidden","DMG:shown"]);
+}
+
 console.log(`\n${pass} ok · ${fail} fail`);
 process.exit(fail ? 1 : 0);

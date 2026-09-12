@@ -170,6 +170,24 @@ his call: N1 first, then M3/M4 (settled 2026-09-05).
 
 ## Open ⚑ — calls for Francesco
 
+- [ ] ⚑ **A command on an entity to see and switch to an older printing.** His ask alongside
+  D203 (2026-09-12): the collapse now shows the newest printing and hides the older one on
+  evidence, but there is no way to look at what was folded away, or to take it instead. Needs
+  its own round before any code — **where the control lives** (the detail modal, the row, or
+  the picker's count line, which is also the fix D203(a) rejected for the silence); **whether
+  switching REWRITES the build's stored key**, which is a D42 question, not a display one; and
+  **what happens to a pick already made** from the printing you switch away from. Size M.
+  ⚑ (owner: Francesco, 2026-09-12)
+- [ ] ⚑ **Hideous Laughter still appears twice** (his report, 2026-09-12, with a screenshot:
+  "Hideous Laughter" and "Tasha's Hideous Laughter" both in the same 1st-level list). He
+  believed D187(b) closed this. **Untouched by today's work** — `spellDedupeId` is the spell's
+  NAME, so the two never meet in `collapseEditions`; the licensed-name twin is `dropSrdTwins`'s
+  job and only its job. First thing to check: that function matches `key(alt, sp.source)`, so
+  it collapses a pair only when **both records carry the same source code** — and it only ever
+  filters the BASE list against the IMPORTED one (`assembleData`), so two records that are both
+  imported, or both baked, never meet it at all. Reproduce with his library, not a clean one.
+  Size S–M. ⚑ (owner: Claude, next session)
+
 - [ ] ⚑ **The light modes are papery and use too little colour — design-system wide.** His
   note on the palette round (D200(f)): every light candidate looked alike because the app's
   light theme spends its colour on text only — paper, panel and panel-2 are three greys of one

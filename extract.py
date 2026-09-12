@@ -157,12 +157,17 @@ try:
     for b in load(os.path.join(MIRROR, "books.json")).get("book", []):
         if b.get("source"):
             books[b["source"]] = {"name": b.get("name", b["source"]),
-                                  "group": b.get("group", "other")}
+                                  "group": b.get("group", "other"),
+                                  # D203: the book's own publication date. It is what decides
+                                  # which of two same-named printings the app shows, so it is
+                                  # DATA, not a hand-kept table of six core codes.
+                                  "released": b.get("published") or None}
 except FileNotFoundError:
     pass
 # also pull adventure/source names if present
 def bname(src): return books.get(src, {}).get("name", src)
 def bgroup(src): return books.get(src, {}).get("group", "other")
+def breleased(src): return books.get(src, {}).get("released") or None
 
 # ---- spells ----------------------------------------------------------------
 SCHOOL = {"A": "Abjuration", "C": "Conjuration", "D": "Divination",
@@ -1860,7 +1865,8 @@ for f_ in feats: src_counter[f_["source"]]["feats"] += 1
 for r in races: src_counter[r["source"]]["species"] += 1
 sources = {}
 for src, cnt in src_counter.items():
-    sources[src] = {"name": bname(src), "group": bgroup(src), "counts": cnt}
+    sources[src] = {"name": bname(src), "group": bgroup(src), "counts": cnt,
+                    "released": breleased(src)}
 
 # ---- multiclass + pact slot tables (2024 = 2014) ---------------------------
 FULL_MC = [
@@ -1918,7 +1924,8 @@ def _srd_subset():
     for f_ in sf: cnt[f_["source"]]["feats"] += 1
     for r in sr: cnt[r["source"]]["species"] += 1
     for o in so: cnt[o["source"]]["species"] += 0   # optional features share their book's row
-    srdsrc = {src: {"name": bname(src), "group": bgroup(src), "counts": c} for src, c in cnt.items()}
+    srdsrc = {src: {"name": bname(src), "group": bgroup(src), "counts": c,
+                    "released": breleased(src)} for src, c in cnt.items()}
     return {"meta": {"srd": True, "spellCount": len(ss)}, "sources": srdsrc,
             "spells": ss, "classes": sc, "subclasses": ssub, "feats": sf, "races": sr,
             "optfeats": so, "backgrounds": sbg, "monsters": smon, "fullMc": FULL_MC, "pact": PACT,

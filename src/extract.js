@@ -954,8 +954,13 @@ function buildDigest(files){
     // "D&D Beyond Drops—Sewer Maps" in group "other" — off the "Homebrew & UA" shelf entirely
     // and effectively unfindable. A brew's own name wins, and its group stays "brew".
     const metaSrc=j._meta&&Array.isArray(j._meta.sources)?j._meta.sources:[];
-    metaSrc.forEach(m=>{if(m&&m.json){books[m.json]={name:m.full||m.abbreviation||m.json,group:"brew"};brewSrc.add(m.json);}});
-    if(Array.isArray(j.book)){j.book.forEach(b=>{if(b.source&&!brewSrc.has(b.source))books[b.source]={name:b.name||b.source,group:b.group||"other"};});report.books+=j.book.length;}
+    // D203: `released` is the book's own publication date, and it is what decides which of
+    // two same-named printings the app shows. A brew states it as `dateReleased`, a 5etools
+    // book as `published`; both are ISO, both are optional, and an absent one means "unknown",
+    // never "old" — the app refuses to hide a record whose age it cannot tell.
+    metaSrc.forEach(m=>{if(m&&m.json){books[m.json]={name:m.full||m.abbreviation||m.json,group:"brew",
+      released:m.dateReleased||null};brewSrc.add(m.json);}});
+    if(Array.isArray(j.book)){j.book.forEach(b=>{if(b.source&&!brewSrc.has(b.source))books[b.source]={name:b.name||b.source,group:b.group||"other",released:b.published||null};});report.books+=j.book.length;}
     // TWO files in a 5etools export are lookup-SHAPED: generated/gendata-spell-source-lookup.json
     // (keys folded to lowercase — the one extract.py reads) and spells/sources.json (keys in
     // ORIGINAL case). Whichever arrived last used to win, and when that was sources.json every
@@ -968,6 +973,7 @@ function buildDigest(files){
   });
   const bname=src=>(books[src]&&books[src].name)||src;
   const bgroup=src=>(books[src]&&books[src].group)||"other";
+  const breleased=src=>(books[src]&&books[src].released)||null;
 
   files.forEach(f=>{const j=f.json;if(!j||typeof j!=="object")return;report.files++;
     try{
@@ -1137,7 +1143,7 @@ function buildDigest(files){
   subclasses.forEach(s=>cnt(s.source,"subclasses",counter));
   feats.forEach(f=>cnt(f.source,"feats",counter));
   races.forEach(r=>cnt(r.source,"species",counter));
-  const sources={};Object.entries(counter).forEach(([src,c])=>{sources[src]={name:bname(src),group:bgroup(src),counts:c};});
+  const sources={};Object.entries(counter).forEach(([src,c])=>{sources[src]={name:bname(src),group:bgroup(src),counts:c,released:breleased(src)};});
 
   const monPool={},monByName={};
   files.forEach(f=>{const j=f.json;if(!j||!Array.isArray(j.monster))return;

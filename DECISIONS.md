@@ -824,6 +824,53 @@ closed one-offs) — is settled and lives in `DECISIONS-SETTLED.md`.
   ticking one downloads one file, and Underdark Options lands as 3 subclasses + 5 feats.
   → shipped v1.6.6.
 
+### Live — which printing wins (D203)
+
+- **D203 (2026-09-12) DECIDED — a printing is ranked by its BOOK'S OWN PUBLICATION DATE, the
+  contest is between the books you have ON, and nothing is hidden without evidence.** His bug:
+  *"for some reason underdark 2 only shows 4 species rather than 5"*, then *"if a later book is
+  not included in the filter selection, the entity from older books should appear"*. Mechanism:
+  the file ships five races and the extractor emitted all five; `DATA.races` held all five;
+  `entItems`' own gate dropped one. Traced to `collapseEditions`.
+  - **(a) The rank is the book's date, not a table of six codes.** `EDITION_RANK` knew
+    XPHB/XDMG/XMM and PHB/DMG/MM and scored **every other book 10** — so the 2014 DMG (49)
+    outranked a 2026 UA book (10) and its Kuo-Toa was `SHADOWED` out of the picker without a
+    word. Both extractors now carry `sources[code].released` (5etools states it as `published`,
+    a brew as `dateReleased`; **65/65 books in `books.json` have one**), and `srcDate` turns it
+    into one sortable number. **His call, over my recommendation:** a book published after the
+    2024 core now outranks it for a name they share — the cost of "newest wins, wherever it was
+    printed", stated once and accepted. `EDITION_RANK` survives only as the fallback for a
+    digest read by a pre-D203 parser, so a stale library degrades to the behaviour it had until
+    it is re-read (the parser fingerprint moved, so it will be). *Rejected:* only collapsing
+    within a known edition (my recommendation — smaller and can only reveal, but leaves the
+    rank a hand-kept table); a count line naming what it folded away (fixes the silence, not
+    the wrong answer — still worth doing, and it is the open half of (d)).
+  - **(b) The contest is between the books that are ON.** The collapse ran once, at assembly,
+    over the WHOLE library — so turning the newer book OFF hid both records: the winner by its
+    source, the loser by a shadow cast from a book not in play. It is `buildShadows()` now, run
+    from `assembleData`, from `loadSources` (the boot pass runs before a stored selection
+    exists) and from `afterSourceChange`. This is `supersededLive`'s own rule one level down:
+    a successor that is not here cannot supersede anything. It cost one boot-order fix —
+    `SRC` is declared above the collapse that reads it, because **`typeof` does not save you
+    from a `let`'s temporal dead zone** and the first `assembleData()` runs before the seed.
+  - **(c) A record is hidden only on evidence.** It is a flagged reprint, or BOTH dates are
+    known and one is older. An undated book is unknown, not old, and unknown never reads as
+    excluded (D31). Measured on the real 44-book library: **zero visible duplicates** in
+    spells, species, feats, classes or optional features — the guard costs nothing and closes
+    the failure mode where a book with no date is swallowed by a dated one.
+  - **(d) ⚑ OPEN — "a command on an entity should let me see and switch to an older version."**
+    His ask in the same message, not built: it needs its own round (where the control lives —
+    the detail modal, the row, or the picker's count line; whether switching REWRITES the
+    build's stored key, which is a D42 question; and what it does to a pick already made).
+    → `PLAN.md`.
+  Enforced by: `extract.py` (`books[…].released`, `breleased`, both `sources` emitters),
+  `src/extract.js` (the same, plus a brew's `dateReleased`), `src/app.js` (`srcDate`,
+  `srcRank`, `dedupeScore`, `collapseEditions`, `buildShadows`, the hoisted `SRC`), and engine
+  **fixture 23** — which fails on the old rank table. **Affects:** D31 (unknown is not
+  excluded, now also of a date), D127 (the subclass identity, unchanged), D137/D159(b) (a
+  pre-D203 digest degrades until re-read), D202(d) (the UA catalogue is what made this
+  reachable at all). → shipped v1.6.8.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives
