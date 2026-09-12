@@ -12837,6 +12837,15 @@ if(typeof module!=="undefined"&&module.exports){
     buildGaps,
     // a trade is two halves and either may stand alone (D188)
     swapNorm,swapsNorm,unswap,
+    // the acquisition-order model, end to end (D146) — the slot primitives, the
+    // position→level arithmetic, and EVERY writer that can move a pick between slots, so
+    // `scratchpad/slotaudit.js` can hold the one invariant that matters: touching one pick
+    // never re-dates another.
+    dropSlot,dropWhere,holeFor,nFilled,hasHole,acqIdx,acqAt,acqLevelOf,
+    rowSched,charLevelMap,sliceChosen,sliceInsertAt,
+    removeChosen,markTake,guidePickDrop,guidePlace,dropChipOnLevel,
+    guideTradeOut,guideTradeIn,guideTradeClear,swapAt,recordSwap,clearSwap,
+    guideSteps,guideSwapMax,
     // the picker's row filters run only where the menu offers them (D201)
     entRowOk,
     // which printing wins: the book's own date, among the books that are ON (D203)
@@ -12865,6 +12874,7 @@ if(typeof module!=="undefined"&&module.exports){
       ent:v=>{ENT=v;},
       optBy:v=>{OPT_BY=v;},
       bgBy:v=>{BG_BY=v;},                 // D191 · N2
+      spellBy:v=>{SPELL_BY=v;},         // D146: holeFor asks a spell its LEVEL
       src:v=>{SRC=new Set(v);},           // D195: "the book is on" is half the gap test
       preview:v=>{Object.assign(PREVIEW,v);},
     },
