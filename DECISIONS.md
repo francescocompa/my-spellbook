@@ -1036,14 +1036,30 @@ closed one-offs) — is settled and lives in `DECISIONS-SETTLED.md`.
     writing, because D134(a) settled "never placeable into a low slot" in the PICKER's cap
     alone and the writer would still take one handed to it. The audit holds each to its own
     rule: the drag to one bystander, the placement to later-only and legal.
+  - **(i) A spell the build RECORDS as given up is a trade that did not finish, and it is
+    named at the level of that trade.** His export settled the last of it. *Fervent Kuo-Toa*,
+    Warlock 10, 15/10: **four** of the five extras are spells his own `swaps` record says he
+    traded away — Arms of Hadar (L3), Battle Familiar (L4), Comprehend Languages (L5), Armor
+    of Agathys (L6) — sitting at positions 11–14, past the schedule, re-appended after they
+    were correctly removed. The fifth, Cloud of Daggers, is genuinely one over. The chain
+    itself is INTACT: positions 0/1/2/4 resolve exactly as D188/D115(g) intend, and
+    `buildHealth` was right not to flag them. What it got wrong was the sentence — all five
+    read *"is one spell more than Warlock 10 learns"* at **L10**, five levels from anything he
+    did, which is (g)'s complaint answered at the cause rather than at the flag. A give-up
+    still in the list now says so, at its trade's level, and says what to do about it. **Only
+    off-schedule**: a spell given up and later learned AGAIN occupies a real slot and is an
+    ordinary pick, which the sweep must never accuse (fixture M4). *Rejected:* removing the
+    ghost automatically (D42 — the app flags, it never silently rewrites his picks; and a
+    determinate-looking inconsistency is still his data); widening it to every position (it
+    would accuse a legitimate re-learn).
   Enforced by: src/app.js `toggle` (both branches), `markTake`, `slotTakes`, `holeFor`,
   `guideTradeOut` (+`GPICK.outPos` and the tradeout pool), `guideTradeClear`, `dropChipOnLevel`,
-  `guidePlace`; the export shim
-  carries the slot model and every such writer. **`scratchpad/slotaudit.js` — 43 assertions,
+  `guidePlace`, `buildHealth` (`swOut`, the `ghost` finding); the export shim
+  carries the slot model and every such writer. **`scratchpad/slotaudit.js` — 47 assertions,
   all green, 12 of them red before this.** **Affects:** D146 (its rule, finally total), D186(a)
   (its "nothing moves" made true), D184 (the sectioned take is capped), D188(c,d) (the trade's
   array truth), D115(d,g), D115(g) via `buildHealth`, D118(f,g)/D134(a) (the drift kept, the cap moved into
-  the writer). → shipped v1.6.12, extended in **v1.6.13**.
+  the writer). → shipped v1.6.12, extended in **v1.6.13** and **v1.6.14**.
 
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for

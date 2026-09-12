@@ -420,5 +420,37 @@ console.log("\n── L · the writers that MOVE a pick on purpose ────�
   }
 }
 
+console.log("\n── M · a spell recorded as GIVEN UP, still in the list ────────");
+// From his real build (Fervent Kuo-Toa, Warlock 10): four spells the `swaps` record says he
+// traded away were still in the array, past the schedule, and the sweep called all four
+// "one spell more than Warlock 10 learns" at L10 — five levels from anything he did, and the
+// wrong sentence about the wrong thing. A trade that did not finish is named at the level of
+// that trade. The other half of the rule matters just as much: a spell you gave up and later
+// learned AGAIN sits in a real slot and is an ordinary pick, which this must never accuse.
+{
+  const base = legalFill();
+  const chosen = { r0: { cantrips: [], spells: base.slice() } };
+  stand(WARLOCK(), chosen);
+  // the shape his build was in: the give-up recorded, the spell back at the tail
+  chosen.r0.spells.push(sp(1, 11));
+  SB.recordSwap(4, "spell", { row: "r0", out: sp(1, 11), in: sp(2, 10), pos: 1 });
+  const f = SB.buildHealth().findings;
+  const ghost = f.filter((x) => x.kind === "ghost");
+  eq("M1 · it is named as a trade that did not finish, not as a budget choice",
+    ghost.length, 1);
+  eq("M2 · …and at the level of the TRADE, not at the top of the build",
+    ghost.map((x) => x.level), [4]);
+  eq("M3 · …and the sweep no longer calls it over budget instead",
+    f.filter((x) => x.kind === "over" && x.text.indexOf("L1s11") >= 0).length, 0);
+
+  // a give-up learned AGAIN, in a real slot: an ordinary pick, accused of nothing
+  const chosen2 = { r0: { cantrips: [], spells: base.slice() } };
+  stand(WARLOCK(), chosen2);
+  chosen2.r0.spells[6] = sp(1, 11);
+  SB.recordSwap(4, "spell", { row: "r0", out: sp(1, 11), in: sp(2, 10), pos: 1 });
+  eq("M4 · a spell given up and later re-learned into a real slot is not accused",
+    SB.buildHealth().findings.filter((x) => x.kind === "ghost").length, 0);
+}
+
 console.log(`\n${pass} ok · ${fail} fail`);
 process.exit(fail ? 1 : 0);

@@ -1647,8 +1647,18 @@ function buildHealth(){
   const spName=k=>{const sp=SPELL_BY[k];return sp?sp.name:String(k).split("|")[0];};
   // a swapped-IN pick was acquired at the swap, not at its position's schedule slot (D115(g))
   const swIn=new Map();
+  // D206(i): …and the other half. A spell the build RECORDS as given up should not still be
+  // in the list, and when it is, "over budget" is the wrong sentence in the wrong place —
+  // his report: the warning landed on L10, five levels from anything he did, and named
+  // spells he had already traded away. `swOut` lets the sweep say what actually happened,
+  // at the level it happened.
+  const swOut=new Map();
   swapEvents().forEach(e=>{
-    const m=swIn.get(e.row)||new Map(); m.set(e.in,e.lvl); swIn.set(e.row,m);});
+    const m=swIn.get(e.row)||new Map(); m.set(e.in,e.lvl); swIn.set(e.row,m);
+    if(e.out){const o=swOut.get(e.row)||new Map();
+      // the EARLIEST give-up is the honest one to name: a chain gives the same spell up once
+      if(!o.has(e.out)||o.get(e.out)>e.lvl)o.set(e.out,e.lvl);
+      swOut.set(e.row,o);}});
 
   state.classes.forEach(row=>{
     const c=CLS_BY[row.clsKey]; if(!c)return;
@@ -1659,6 +1669,7 @@ function buildHealth(){
       add(lvls[subL-1],"subclass",`${c.name} chooses a subclass at class level ${subL}, and none is set.`);
     const sched=rowSched(row); if(!sched)return;      // non-caster: nothing sticky to check
     const ch=state.chosen[row.id]||{}, sw=swIn.get(row.id)||new Map();
+    const gone=swOut.get(row.id)||new Map();
     // cantrips are never "copied" — past the schedule is past the budget
     (ch.cantrips||[]).forEach((k,i)=>{ if(isHole(k)||acqIdx(sched.cant,i,lvls)>=0)return;   // D146
       add(rowTop,"over",`${spName(k)} is one cantrip more than ${c.name} ${row.level} grants.`);});
@@ -1670,8 +1681,17 @@ function buildHealth(){
       if(l<0){
         // the wizard's own legal move: copying into the spellbook beyond the free
         // allowance. Not an error, and never was (the level-budget gotcha).
-        if(!sched.book)
-          add(rowTop,"over",`${sp.name} is one spell more than ${c.name} ${row.level} learns.`);
+        if(sched.book)return;
+        // D206(i): a spell the build records as GIVEN UP, sitting past the schedule, is not
+        // a budget choice — it is a trade that did not finish, and it is named at the level
+        // of that trade. Only off-schedule: a give-up you later learned AGAIN occupies a real
+        // slot and is an ordinary pick, which this must not accuse.
+        if(gone.has(k)){
+          add(gone.get(k),"ghost",`${sp.name} was traded away at level ${gone.get(k)}, and is `
+            +`still in ${c.name}'s list — one spell more than ${c.name} ${row.level} learns. `
+            +`Drop it, or undo that trade.`);
+          return;}
+        add(rowTop,"over",`${sp.name} is one spell more than ${c.name} ${row.level} learns.`);
         return;}
       // where it really arrived, and the class level it arrived at
       const at=sw.has(k)?sw.get(k):lvls[l];
