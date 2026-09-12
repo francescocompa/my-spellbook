@@ -168,7 +168,36 @@ his call: N1 first, then M3/M4 (settled 2026-09-05).
 - Exports are part of the horizon, not a rung: A-03 (level plan as text, L5.5) and A-09 (the
   character-forge chassis) land whenever their inputs exist.
 
+## Next up — export/import on dndpaste formatting (Fable, next session)
+
+- [ ] **Convert the export/import system to dndpaste formatting.** His call, 2026-09-12, for
+  the next session, on **Fable 5.1** — a format conversion is exactly the surgical-edit,
+  token-disciplined shape that model policy points there (`~/.claude/docs/model-policy.md`;
+  CLAUDE.md's minimise-tokens-per-edit rule is a **must** for Fable).
+  - **Needs the spec first.** Nobody has written down which dndpaste shape is meant, how it
+    maps onto `serializeState()`'s v7 build (classes ⊕ chosen ⊕ choices ⊕ swaps ⊕ feats ⊕
+    optFeats ⊕ customSources ⊕ abilities ⊕ meta.sources), or whether it REPLACES today's
+    `.spellbook.json` or sits beside it. Ask before writing code.
+  - **What it must not break, all binding:** **D36** — export is a FILE, never a URL, and
+    sharing a build as a page stays a non-goal; **D33** — a build records the source list it
+    was made with (`meta.sources`) and activating one whose list differs prompts rather than
+    prunes; **D146** — a pick array's POSITION is its acquisition slot, so an **EMPTY SLOT
+    (`∅|`) is content and must survive a round trip**, and a format that drops or reorders it
+    silently re-dates the whole build; **D188** — `swaps` carries `pos`, and a field the
+    format forgets is invisible to `unswap`; **D42** — import ADDS, it never replaces.
+  - **Done when** a round trip (export → import) leaves the stored build **byte-identical**,
+    proven the way D192's mode test is: snapshot, round-trip, `JSON.stringify` equality, and
+    a key-set diff. That fixture belongs in `engine.test.js`, and any new writer it introduces
+    belongs in `scratchpad/slotaudit.js` (D206). Size M/L.
+
 ## Open ⚑ — calls for Francesco
+
+- [ ] ⚑ **Should the app offer to drop a spell it knows you traded away?** D206(i) names one
+  — *"X was traded away at level N, and is still in your list"* — but removes nothing (D42).
+  His *Fervent Kuo-Toa* carried four; a repaired export was handed over instead. The question
+  is whether a determinate, self-contradicting entry earns a one-click removal on the flag, or
+  whether flag-and-let-him-act stays the rule for everything. Size S. ⚑ (owner: Francesco,
+  2026-09-12)
 
 - [ ] ⚑ **Where should a genuinely over-budget pick be reported?** Left open by D206(g)
   (2026-09-12). His 15/10 was not a real over-budget — it was five unregistered give-ups, and

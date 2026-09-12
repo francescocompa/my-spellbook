@@ -13,45 +13,49 @@
 > | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 > | `ARCHIVE.md` | Bodies of consumed phases, decisions and old rationale |
 
-## TL;DR (2026-09-12 · fd7d691 · **v1.6.8 built and tagged; v1.6.4–1.6.6 are PUSHED, v1.6.7–1.6.8 are NOT** · **his four bugs closed: D201, D202, D203** · Phase O done (D199), palette Amethyst (D200), Phase N at N2 (D191), creation is a MODE (D192), the control scale binds (D198))
+## TL;DR (2026-09-12 · 7bed7df · **v1.6.15 — main is PUSHED, the 8 tags v1.6.7–v1.6.15 are NOT** · **the level-slot bug family closed: D204–D207** · Phase O done (D199), palette Amethyst (D200), Phase N at N2 (D191), creation is a MODE (D192), the control scale binds (D198))
 
-- **Next action: push v1.6.7 + v1.6.8** (`git push origin main && git push origin v1.6.7 v1.6.8`)
-  — he approved v1.6.7's push, then v1.6.8 landed on top of it, so main carries both and the
-  push was left for him. **Then: D203(d)**, the ⚑ he asked for in the same breath as D203 —
-  *a command on an entity to see and switch to an older printing* — which needs its own
-  decision entry before code (`PLAN.md` names the three questions). **Also open, his report,
-  untouched by this session: Hideous Laughter still appears twice** — PLAN ⚑ carries the lead.
-- **This session (2026-09-12), four of his bugs, v1.6.4 → v1.6.8.** All four had the same
-  shape: the app knew the answer and no surface said it.
-  - **D201 (v1.6.4) — the class picker had been dead since v1.6.1.** `ability` is an ARRAY of
-    raise-groups on a feat and the spellcasting SCORE (the bare string `"int"`) on a class;
-    D199(i) made that filter a three-way, and `triOk(state,has)` evaluates its `has` as an
-    ARGUMENT before deciding the axis is resting — so every class row threw, on every open.
-    `renderEntityList` empties its list first and writes its count last, so the dead list sat
-    under the PREVIOUS picker's count: a Class step reading "70 backgrounds". `entRowOk` runs
-    a filter only where `entFilterGroups` offers it. **Fixture 22.**
-  - **v1.6.5 — the mirror moved.** `extract.py`, `cparity.js` and `jsimport.js` all defaulted
-    to `5etools-v2.33.3/data`, gone from disk; the parity gate had been unrunnable. Repointed
-    to `5etools-src-main` (**v2.35.1**), re-extracted, rebuilt. One real content change came
-    with it — *Warrior of the Mystic Arts* (AU) is a 1/3-caster Monk casting from the Sorcerer
-    list, so cparity's pinned caster census is 6 → 7, checked record by record.
-  - **D202 (v1.6.6–1.6.7) — the import panel.** One outcome sentence where "Nothing is stored
-    yet" sat; the duplicate "nothing new" and the 260px empty acre gone; **Re-read demoted out
-    of the accent**; Apply leaves a **receipt** instead of hiding the tray; and the panel names
-    the shelf it read and what that shelf does NOT carry. **Unearthed Arcana is a second
-    source, shaped as a CATALOGUE** (Actions → Unearthed Arcana catalogue): its repo has no
-    releases and holds 105 books, so one 8 KB index names them, the tray offers what you lack,
-    and only a ticked book downloads — D112's mechanism, unchanged staging. (e) is his note on
-    it: the top row's two texts now share a **baseline**, measured 0.00px.
-  - **D203 (v1.6.8) — which printing wins.** His *"underdark 2 only shows 4 species"*: the
-    rank was a table of six core codes scoring every other book 10, so the 2014 DMG swallowed
-    a 2026 UA Kuo-Toa. The rank is the book's **own publication date** now (both extractors
-    carry `sources[code].released`); the contest is between the books that are **ON**
-    (`buildShadows`, re-run on every source change — his second note); and nothing is hidden
-    without evidence, a flagged reprint or two known dates (D31). **Fixture 23.**
-- **His call to know about:** date-ranking means a book published after the 2024 core outranks
-  it for a name they share. I flagged it; he took it anyway. If it bites, D203(a) names the
-  rejected alternative.
+- **Next action: the export/import conversion to dndpaste formatting** — his call, for
+  **Fable** (`PLAN.md` names the spec gap and the four decisions it must not break; the
+  done-when is a byte-identical round trip). **First, one line: `git push --tags`** — main is
+  at v1.6.15 on origin, eight tags are behind.
+  **Then: his call on the repair surface** — his *Fervent Kuo-Toa* still holds four spells its
+  own `swaps` record says he gave up, and D206(i) only FLAGS them (D42). A repaired export is
+  in his Downloads; whether the app should offer a one-click "drop it" is a ⚑ in `PLAN.md`,
+  with two more from this session (the step counter, and where a genuine over-budget is
+  reported).
+- **This session (2026-09-12, part 2), seven releases, v1.6.9 → v1.6.15.** Two of his asks and
+  one bug family that took four passes to find the bottom of.
+  - **D204 (v1.6.9) — the level-up trade is ONE surface, closed at rest.** His note: the step
+    stood **448px** on a level where nothing had been traded, which is nearly every level.
+    Four candidates measured at the card's real width (`scratchpad/mkswap2.py` →
+    `mockups/swapc.html`); he took the closed-at-rest one, amended: no section header, no
+    Optional tag, no note line, and the given-up spell **struck through**. **291px closed.**
+    D188 untouched.
+  - **D205 (v1.6.10) — a card drops the opener for its OWN list, not for any list.** His
+    *"I don't see how to actually set a spell for agonizing blast"*: `noOpener` was step-wide,
+    so an `optfeat`'s picker suppressed a sibling `cpick`'s button, and with no chips yet the
+    section deleted itself. Per-section predicate now.
+  - **D206 (v1.6.11–14) — nothing re-dates a pick you did not name.** The audit came first and
+    is the durable part: `scratchpad/slotaudit.js`, **gate line nine**, states D146 as ONE
+    invariant and drives the real writers at every position of a real Warlock 8. **12 red.**
+    Root cause: a take made while VIEWING a level **spliced into the middle** (`toggle`,
+    `markTake`) — and the guide previews on every step, so it fired constantly. Six picks
+    re-dated per click. Plus: `slotTakes` is now the one owner of the cap test; the trade's
+    give-up carries the POSITION, not a name to look up again (the silent no-op behind his
+    **15/10**, and the ⚑ open since 2026-09-05); undoing one trade half no longer evicts the
+    other; a drag is a swap, not a cascade; and a spell recorded as given up is named as such
+    **at the level of its trade**, not as "over budget" at the top.
+  - **D207 (v1.6.15) — and the one he was ACTUALLY reporting all along.** *"Higher level
+    spells drifted to lower level slots (ex. grave ground at level 1)"*, on the build I had
+    just repaired. **Nothing had drifted.** `gpickSec` sliced the RAW array, so a traded slot
+    drew its FINAL occupant on every card — his L1 card showed Banishment (lv4) in a slot
+    capped at 1. It is also why the chip was never red: `guideSecIll` unswaps, so the flag and
+    the chip meant different spells and each was self-consistent. The section carries **both**
+    keys now, as the timeline has since D115(j). **Fixture N5 is the one that matters.**
+- **A correction worth carrying:** D206's writer defects were real, but they were not his bug.
+  Three sessions of reports were D207. **When a per-level surface looks wrong, compare the
+  CHIP against `sliceChosen` before auditing the writers.**
 
 - **The palette is Amethyst with five variants (D200, v1.6.2–1.6.3)** and **Phase O shipped
   (D199, v1.6.0–1.6.1)** — the spell table filters and sorts, a filter can say NO, the theme is
@@ -165,6 +169,21 @@
   report:** D203 and its GOTCHAS entry — check `SHADOWED.has(rec)` before you look at the
   extractor; the rank is the book's `released` date, the contest is between the books that
   are ON, and nothing is hidden without evidence.
+- **Read before touching ANY per-level surface — the card, the rail line, the timeline:**
+  **D207.** A traded SLOT has two occupants (D115(g)): the unswapped identity at that level
+  for the eye, the raw array entry for the writers. `gpickSec` carries both (`keys`/`raw`);
+  the timeline has since D115(j) (`shown`/`key`). **The tell that a surface has this wrong:
+  a chip above its own card's cap that is NOT flagged red** — the flag unswaps and the chip
+  does not, so each is self-consistent about a different spell. Fixture N5.
+- **Read before adding or changing ANY writer that can move a pick between slots:** **D206**
+  and its three GOTCHAS entries — `scratchpad/slotaudit.js` is gate line nine and the new
+  writer belongs in it before it ships. An ADD can re-date as hard as a drop; `slotTakes` is
+  the one owner of the cap test; a picker that shows a DISPLAY name hands the writer a
+  POSITION; and no writer may `return` bare.
+- **Read before touching the level-up trade's surface:** **D204** — two sections in the model,
+  ONE rendered block, no header, `GSWAPOPEN` per walk and never re-closing over an answer.
+- **Read before suppressing a control because "a picker is open":** **D205** — ask it per
+  SECTION; `inline` alone only says something is hosted.
 - **Read before wiring any delegated handler:** D190 — walk UP from `e.target`, never read its
   own class; every control here has an icon child.
 - **Read before adding or restyling ANY control:** **D198** and its GOTCHAS entry — the scale
@@ -184,7 +203,7 @@
   **Before the guide's picker hosting:** D185. **Before the extractors:** GOTCHAS' lookup
   entries (D91, D183) — the lookup has two class keys.
 
-⟳ Rename previous session → "The class picker, the import panel, and which printing wins" · session: local_8fa05709-869b-4d35-a556-cae0683fc5f0
+⟳ Rename previous session → "The trade compressed, and the level-slot bug family" · session: local_fad3a36c-402d-4db6-bffb-e2ffce745de9
 
 ## What this is
 
@@ -213,11 +232,10 @@ D154–D156, D161–D194) still bind their surfaces; cite them. `audits/` is a p
 artifact: `/clean` archives it once L5 has consumed it, together with the three mockup rounds
 in `scratchpad/mockups/` (`scores.html`, `picks.html`, `fold.html`, each with its `mk*.py`).
 
-**Since the last `/clean` this file gained the D201–D203 block and three read-before pointers;
-`DECISIONS.md` gained three live entries and `GOTCHAS.md` three traps** — the close-of-session
-archive found nothing consumed to move out against them, so the cold read grew. It is still
-inside budget (below), but the next `/clean` has D199–D200 to settle now that their phases have
-shipped.
+**This session added D204–D207 to `DECISIONS.md`, four traps to `GOTCHAS.md`, five read-before
+pointers here and three ⚑ to `PLAN.md`, and archived nothing** — the cold read is **186k**,
+past the 150k line. **`/clean` before the next substantial task**: D199–D203 have all shipped
+and can settle, and this file's pre-D204 body is the bulk of it.
 
 Two `/clean` passes ran, the second completing **D158(q)/L5.11**. The cold read
 (`CLAUDE` + `STATE` + `PLAN` + `DECISIONS` + `CHANGELOG`) is **267k → ~95k chars, −64%**, with
