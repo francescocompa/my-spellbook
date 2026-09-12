@@ -805,6 +805,14 @@ closed one-offs) — is settled and lives in `DECISIONS-SETTLED.md`.
     the whole UA repository like the core one (105 books, 7 MB, and a keep-set defaulting to
     all of them); teaching "Update data" two repositories (one button, two version models, and
     a stale-check that cannot speak for the half with no versions).
+  - **(e) His note on v1.6.6: the top row's spacing.** The tray's heading carries two TEXTS
+    of different size — the 15px serif title and the 11.5px outcome line — and `.trayh` was
+    `align-items:center`, which aligns two different line-height BOXES and therefore not
+    their ink: the outcome floated **3.9px above the title's baseline**. `align-items:baseline`,
+    with the icon-only help button keeping `align-self:center` because it has no baseline to
+    share. Measured with a zero-height baseline strut in each: **0.00px**. The same lesson as
+    D196's block button, one row up — and the reason the box measurement said everything was
+    fine is that the boxes WERE aligned. → v1.6.7.
   Enforced by: `src/app.js` (`UA_REPO_DEFAULT`, `CAT`, `uaRepo`, `catBooks`, `uaFetch`,
   `stageCatBooks`, `STAGE_FROM`, `trayReceipt`, `trayReceiptClear`, and the kind-aware
   `libAvail`/`trayName`/`trayCounts`/`applyImport`), `src/index.html` (`#trayState`,

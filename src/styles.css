@@ -2928,7 +2928,13 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
 .libtray{border:1px solid var(--accent);border-radius:10px;padding:11px;margin:0 0 12px;
   background:var(--accent-soft)}
 .libtray.hidden{display:none}
-.libtray .trayh{display:flex;align-items:center;gap:9px;margin-bottom:2px}
+/* D202(e): the top row carries two TEXTS of different size — the 15px serif title and the
+   11.5px outcome line — and `align-items:center` floated the small one 3.9px ABOVE the
+   title's baseline, because centring two different line-heights aligns their boxes and not
+   their ink. Text sits on the baseline; the icon-only help button, which has no baseline to
+   share, keeps centring. Same lesson as D196's block button, one row up. */
+.libtray .trayh{display:flex;align-items:baseline;gap:9px;margin-bottom:2px}
+.libtray .trayh .helpbtn{align-self:center}
 .libtray .trayh b{font-family:var(--font);font-size:15px}
 .libtray .traysub{font-size:11.5px;color:var(--muted)}
 .libtray .importstaged{margin-top:8px}
