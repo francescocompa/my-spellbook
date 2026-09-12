@@ -393,7 +393,7 @@
          both have to show when there is no tray at all. -->
     <div id="importReport" class="note"></div>
     <div class="libtray hidden" id="libTray">
-      <div class="trayh"><b>Pending import</b><span class="traysub">Nothing is stored yet</span>
+      <div class="trayh"><b id="trayHead">Pending import</b><span class="traysub" id="trayState">Nothing is stored yet</span>
         <button class="helpbtn" data-help="planHelp" aria-expanded="false" aria-label="About this list"></button></div>
       <div class="helpbody hidden" id="planHelp">
         <p>The files you just added and the books they hold. A tick means <b>add this book
@@ -403,16 +403,30 @@
         <p>Nothing is written until you press Add. Your builds are never touched.</p>
       </div>
       <div id="importStaged" class="importstaged"></div>
+      <!-- D202(c): where these files CAME FROM, and what that source does not carry. The
+           panel knew it read 177 files and found no new book, and never said which shelf
+           it had read — so "why is Unearthed Arcana not here" had no answer on screen. -->
+      <p class="note hidden" id="trayFrom" style="margin:8px 0 0"></p>
       <p class="note hidden" id="importPlanNote" style="margin:8px 0 0;color:var(--gold)">Nothing
         imported yet. Adding these puts the app's built-in books behind them.</p>
       <p class="note hidden" id="trayUpd" style="margin:8px 0 0"></p>
       <div class="quick hidden" id="importPlanQuick"></div>
       <div id="importPlanList" class="traybooks"></div>
-      <div class="prepnav" style="border:none;padding:8px 0 0">
+      <div class="prepnav" id="trayNav" style="border:none;padding:8px 0 0">
         <span class="sub" id="importPlanSub"></span>
         <span class="prepnav-sp"></span>
         <button class="btn" id="importClear">Discard</button>
         <button class="btn on" id="importApply">Add books</button>
+      </div>
+      <!-- D202(b): the RESOLVED state. Applying used to empty the tray and hide it, leaving
+           a fading toast as the only word that anything had happened — so "is it done?" had
+           no answer either. The tray stays, says what changed, and waits to be closed. -->
+      <div class="traydone hidden" id="trayDone">
+        <p id="trayDoneMsg"></p>
+        <div class="prepnav" style="border:none;padding:8px 0 0">
+          <span class="prepnav-sp"></span>
+          <button class="btn on" id="trayDoneClose">Close</button>
+        </div>
       </div>
     </div>
 
@@ -443,6 +457,8 @@
           <div class="sep"></div>
           <button id="srcSelAll">Select all</button>
           <button id="srcSelShown">Select shown</button>
+          <div class="sep"></div>
+          <button id="uaFetchBtn">Unearthed Arcana catalogue</button>
           <div class="sep"></div>
           <button id="webSrcTog">5etools address</button>
         </div></div>

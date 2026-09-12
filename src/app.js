@@ -6576,6 +6576,11 @@ function openHb(){closeMenu();$("#hbSearch").value="";
 
 // ── 5etools importer: parse raw files in-browser via SB_extract ─────────────
 let IMPORT_STAGE=[];
+// D202(c): where the staged files came from, so the tray can SAY it. The panel knew it had
+// read 177 files and found no new book, and never named the shelf it read — which is why
+// "why is Unearthed Arcana not in here" had no answer on screen. `{kind,label}`; set by the
+// four doors in (D154(f)), cleared with the stage.
+let STAGE_FROM=null;
 // D159(a): every staging path builds its entry here — the SLIMMED json the parser reads,
 // plus, for a brew only, the raw file it came from. `slimJson` copies rather than mutates,
 // so the raw reference stays whole. A core 5etools file carries nothing extra: it is not
@@ -6642,6 +6647,7 @@ async function stageZip(file){const rep=$("#importReport");
     const entries=await window.SB_extract.unzipJsonFiles(buf,(name,i,total)=>{
       rep.textContent="Unpacking "+file.name+" · "+i+"/"+total+": "+name;});
     if(!entries.length){rep.textContent="No recognised 5etools files in "+file.name+".";return;}
+    STAGE_FROM={kind:"file",label:file.name};
     entries.forEach(e=>IMPORT_STAGE.push(e));rep.textContent="";renderImportStage();scheduleBuild();}
   catch(e){rep.innerHTML="Couldn’t read <b>"+esc(file.name)+"</b>: "+esc(e.message||String(e))
       +(file.size>64*1024*1024?ZIP_TOOBIG:"");}}
@@ -6663,6 +6669,8 @@ function stageFiles(fileList){
   // carried monster before a bestiary file is slimmed — reading files in parallel and slimming
   // each independently (the old shape) raced on I/O completion order and silently dropped
   // dependent monster records when a bestiary's onload won (C3-01/C2-04).
+  STAGE_FROM={kind:"file",label:jsonFiles.length===1?jsonFiles[0].name
+    :jsonFiles.length+" files you added"};
   Promise.all(jsonFiles.map(readOne)).then(results=>{
     results.sort((a,b)=>SX.readOrder(a.name)-SX.readOrder(b.name));
     if(SX&&SX.resetFormRefs)SX.resetFormRefs();
@@ -6750,6 +6758,87 @@ async function webFetchAll(repo,ver,ref,paths,onFile){
   await Promise.all(Array.from({length:6},async()=>{  // queue index so staging is deterministic
     for(;;){const k=i++; if(k>=q.length||dead)return; take(k,await grab(q[k]));}}));
   return out.filter(Boolean);}
+// ── the Unearthed Arcana catalogue: a SECOND fetch source (D202(d)) ────────
+// A different shape of source, for two reasons the 5etools fetch does not have to face.
+// (1) This repository has **no releases** — jsDelivr resolves `latest` to null on it — so
+// there is no version to pin, nothing for the boot update-check to compare, and `master` is
+// the only address there is. (2) It is 105 books of playtest material: fetching all of them
+// to reach one is rude to the CDN and hands you a tray with 105 ticks you did not ask for.
+// So this source is a CATALOGUE. One 8 KB index names every book it holds; the tray lists
+// the ones you do not have as AVAILABLE — D112's own word and D112's own mechanism, the one
+// the folder scan already uses — and a book's file is fetched only when you tick it. The
+// staging, the plan, the keep-set and Apply are all the ones that were already here.
+const UA_REPO_DEFAULT="TheGiddyLimit/unearthed-arcana", UA_REF="master";
+const LS_UA_REPO="spellForge.uaRepo.v1";
+let CAT=null;   // {repo, ref, books:{code:{code,name,path}}}
+function uaRepo(){try{return (localStorage.getItem(LS_UA_REPO)||"").trim()||UA_REPO_DEFAULT;}
+  catch(_){return UA_REPO_DEFAULT;}}
+// the books the catalogue offers that you do not already have — the same "already have"
+// rule as trayBooks (D158(d)): the bundle counts, because it is merged in at assembly
+function catBooks(){
+  if(!CAT)return [];
+  const had=new Set([...Object.keys((IMPORTED&&IMPORTED.sources)||{}),
+                     ...Object.keys((DATA&&DATA.sources)||{})]);
+  return Object.values(CAT.books).filter(b=>!had.has(b.code));
+}
+async function uaFetch(){
+  if(WEB_BUSY||SCAN_BUSY)return;
+  const rep=$("#importReport"); const repo=uaRepo();
+  WEB_BUSY=true;
+  try{
+    if(navigator.onLine===false)throw new Error("you’re offline. Everything already imported keeps working.");
+    rep.textContent="Reading the Unearthed Arcana catalogue…";
+    const base="https://cdn.jsdelivr.net/gh/"+repo+"@"+UA_REF+"/_generated/";
+    // index-sources maps a book's CODE to its file — and that code is the `json` field the
+    // digest keys a source by, so the two agree without a translation table. index-meta
+    // carries the printed name; a book missing from it falls back to its code.
+    const [src,meta]=await Promise.all([webJson(base+"index-sources.json",true),
+                                        webJson(base+"index-meta.json",true).catch(()=>({}))]);
+    const books={};
+    Object.entries(src||{}).forEach(([code,path])=>{
+      const m=(meta||{})[String(path).split("/").pop()]||{};
+      books[code]={code,path:String(path),name:(m.n&&m.n[0])||code};});
+    if(!Object.keys(books).length)throw new Error("that catalogue lists no books.");
+    CAT={repo,ref:UA_REF,books};
+    STAGE_FROM={kind:"ua",label:"the Unearthed Arcana repository ("+repo+")"};
+    const avail=catBooks().length;
+    rep.innerHTML=`Unearthed Arcana: <b>${Object.keys(books).length}</b> books, `
+      +(avail?`<b>${avail}</b> you don’t have. Tick what you want below, then Apply — only a `
+             +`ticked book is downloaded.`
+             :"and you already have all of them.");
+    planFromStage(null,(PLAN&&PLAN.report)||null);
+    renderImportPlan();
+  }catch(e){rep.textContent="Couldn’t read the Unearthed Arcana catalogue: "+(e.message||e);}
+  finally{WEB_BUSY=false;}
+}
+// Fetch the files backing `codes` and stage them, exactly as stageScanBooks reads a folder's.
+// A brew file is self-contained — it declares its own source in `_meta` — so unlike the
+// 5etools path there are no unclaimed files to carry along.
+async function stageCatBooks(codes){
+  if(!CAT)return 0;
+  const SX=window.SB_extract;
+  const base="https://cdn.jsdelivr.net/gh/"+CAT.repo+"@"+CAT.ref+"/";
+  const raw="https://raw.githubusercontent.com/"+CAT.repo+"/"+CAT.ref+"/";
+  const want=codes.map(c=>CAT.books[c]).filter(Boolean);
+  if(!want.length)return 0;
+  const rep=$("#importReport");
+  SX.resetFormRefs();
+  let staged=0,i=0;
+  for(const b of want){
+    i++; rep.textContent=`Downloading ${i}/${want.length}: ${b.name}…`;
+    let j=null;
+    for(let a=0;a<2&&!j;a++){
+      try{const r=await fetch((a?raw:base)+b.path.split("/").map(encodeURIComponent).join("/"));
+        if(r.ok)j=await r.json();}catch(_){}
+    }
+    if(!j){rep.textContent="Couldn’t download "+b.name+".";return staged;}
+    j=SX.dropFoundryStubs(j);
+    if(j&&SX.usefulJson(j)){IMPORT_STAGE.push(stageEntry(b.path.split("/").pop(),j));staged++;}
+  }
+  rep.textContent="";
+  renderImportStage();
+  return staged;
+}
 async function webSync(){
   if(WEB_BUSY||SCAN_BUSY)return;
   const rep=$("#importReport"), btn=$("#webSyncBtn");
@@ -6767,6 +6856,7 @@ async function webSync(){
     if(!entries.length)throw new Error("nothing usable came back. Your data is unchanged.");
     entries.forEach(e=>IMPORT_STAGE.push(e));
     WEB_PENDING={repo,version:ver};
+    STAGE_FROM={kind:"web",label:"the 5etools repository ("+repo+"), v"+ver};
     rep.textContent=""; renderImportStage(); scheduleBuild();
   }catch(e){rep.innerHTML="Couldn’t fetch from 5etools online: "+esc(e.message||String(e));}
   finally{WEB_BUSY=false; if(btn){btn.disabled=false;btn.classList.remove("busy");} webSyncSub();}
@@ -6902,7 +6992,8 @@ function planFromStage(incoming,report,only){
 }
 // D112: a book the scanned folder offers that neither your data nor the staged files hold —
 // ticking it in the tray is what reads it.
-function libAvail(code){return !(PLAN&&(PLAN.merged.sources||{})[code])&&SCAN&&SCAN.books[code];}
+function libAvail(code){return !(PLAN&&(PLAN.merged.sources||{})[code])
+  &&!!((SCAN&&SCAN.books[code])||(CAT&&CAT.books[code]));}
 let PLAN_Q="";   // the tray's own filter, when a fetch stages more new books than fit
 // ── the pending-import tray (D154(h)) ──────────────────────────────────────
 // What you just added, what is new in it, and one commit. It replaces the standing keep-plan,
@@ -6918,15 +7009,24 @@ function trayBooks(){
   const had=new Set([...Object.keys(PLAN.stored.sources||{}),...Object.keys((DATA&&DATA.sources)||{})]);
   const inc=Object.keys(PLAN.incoming.sources||{});
   const fresh=inc.filter(c=>!had.has(c));
-  // the folder offers books no staged file carries; ticking one is what reads it (D112)
+  // the folder offers books no staged file carries; ticking one is what reads it (D112).
+  // D202(d): the Unearthed Arcana catalogue offers its books on exactly the same terms —
+  // named here, downloaded only when ticked.
   scanBooks().forEach(b=>{if(!had.has(b.code)&&fresh.indexOf(b.code)<0)fresh.push(b.code);});
+  catBooks().forEach(b=>{if(fresh.indexOf(b.code)<0)fresh.push(b.code);});
   return {fresh,upd:inc.filter(c=>had.has(c))};
 }
 function trayName(code){
-  const s=(PLAN&&(PLAN.merged.sources||{})[code])||(SCAN&&SCAN.books[code]);
+  const s=(PLAN&&(PLAN.merged.sources||{})[code])||(SCAN&&SCAN.books[code])||(CAT&&CAT.books[code]);
   return (s&&s.name)||code;
 }
 function trayCounts(code){
+  // a catalogue book has not been read yet — its counts are inside a file nothing has
+  // downloaded, and inventing one would be the D129 false-success shape in miniature. It
+  // says NOTHING rather than "tick to download": that sentence is true of every row in a
+  // 104-row list, so it is the list's fact, not the row's — the report line above says it
+  // once — and at 375px it was eating the half of the row the book's NAME needed.
+  if(CAT&&CAT.books[code]&&!(SCAN&&SCAN.books[code]))return "";
   if(libAvail(code))return scanTotal(SCAN.books[code])+" in folder";
   const c=(((PLAN.merged.sources||{})[code])||{}).counts||{}, bits=[];
   const add=(n,one,many)=>{if(n)bits.push(n+" "+(n===1?one:many));};
@@ -6937,8 +7037,12 @@ function trayCounts(code){
 }
 function renderImportPlan(){
   const box=$("#libTray"); if(!box)return;
+  // D202(b): a receipt is a finished state — nothing may quietly rebuild the working parts
+  // underneath it. It is dismissed by its Close and by nothing else.
+  const done=$("#trayDone"); if(done&&!done.classList.contains("hidden"))return;
   if(!PLAN)planFromStage(null,null);
-  const staged=IMPORT_STAGE.length||(SCAN&&Object.keys(SCAN.books||{}).length);
+  const staged=IMPORT_STAGE.length||(SCAN&&Object.keys(SCAN.books||{}).length)
+    ||(CAT&&catBooks().length);
   if(!staged){box.classList.add("hidden");renderImportPlanFoot();return;}
   // B1-02: the tray renders at the TOP of the Library's scroller, so a staged import
   // (paste, drop, or the file picker) that had scrolled down to reach the paste box was
@@ -6948,19 +7052,64 @@ function renderImportPlan(){
   box.classList.remove("hidden");
   if(wasHidden)box.scrollIntoView({block:"start"});
   const {fresh,upd}=trayBooks();
+  // D202(a): ONE sentence for the whole outcome, in the panel's own subtitle, where
+  // "Nothing is stored yet" used to sit saying nothing about what had just happened. The
+  // old panel said "nothing new" TWICE — an empty box in the list and a foot note 400px
+  // below it — and said what it had READ nowhere at all.
+  const st=$("#trayState");
+  if(st){
+    const nf=IMPORT_STAGE.length;
+    const bits=[];
+    if(nf)bits.push(nf+" file"+(nf===1?"":"s"));
+    const known=fresh.length+upd.length;
+    if(known)bits.push(nBooks(known));
+    bits.push(fresh.length?fresh.length+" new"
+      :upd.length?"none of them new"
+      :"nothing the planner can use");
+    st.textContent=bits.join(" · ");
+    st.classList.toggle("allnew",!!fresh.length);
+  }
+  // D202(c): which shelf this was read off, and — the part that sent him looking — what
+  // that shelf does NOT carry. Only the 5etools repository needs the second half: it is the
+  // one a reader reasonably expects to hold everything 5etools shows.
+  const fr=$("#trayFrom");
+  if(fr){
+    const from=STAGE_FROM;
+    fr.classList.toggle("hidden",!from);
+    if(from){
+      fr.innerHTML="Read from "+esc(from.label)+"."
+        +(from.kind==="web"&&!fresh.length
+          ? " Unearthed Arcana and other homebrew are <b>not in it</b> — they live in their own"
+            +" repositories. <b>Actions → Unearthed Arcana catalogue</b> lists those, or drop a"
+            +" brew file here."
+          :"");
+    }
+  }
   // a re-read is not a decision, so it is one sentence, not 44 rows of untickable ticks
   const un=$("#trayUpd");
   if(un){un.classList.toggle("hidden",!upd.length);
     if(upd.length)un.textContent=`${nBooks(upd.length)} you already have will be re-read with `
-      +`parser v${window.__VERSION__||"dev"}. Only identical entries are replaced.`;}
+      +`parser v${window.__VERSION__||"dev"}. Only identical entries are replaced`
+      // D202(a): with nothing to tick, this ONE line is the whole of what is on offer, so it
+      // says the part that decides whether to press the button — that the re-read is optional
+      +(fresh.length?"."
+        :" — nothing here is new, so it is optional.");}
   const q=PLAN_Q.trim().toLowerCase();
   const shown=q?fresh.filter(c=>c.toLowerCase().includes(q)
     ||trayName(c).toLowerCase().includes(q)):fresh;
   const list=$("#importPlanList");
   list.innerHTML="";
-  if(!fresh.length)list.append(el("div","empty",upd.length
-    ?"No book here that you don’t already have."
-    :"Nothing in these files the planner can use."));
+  // D202(a): the subtitle above now states the outcome, so this box no longer repeats it —
+  // it says what there is to DO instead, and it is a line rather than an empty acre.
+  if(!fresh.length)list.classList.add("nofresh");
+  else list.classList.remove("nofresh");
+  // with re-reads, the line above IS the answer — repeating it here is the redundancy this
+  // pass exists to remove. The box speaks only when there is genuinely nothing at all.
+  if(!fresh.length){
+    // nothing to tick: with re-reads the line above IS the answer and repeating it here is
+    // the redundancy this pass removes; with nothing at all, the box says so once.
+    if(!upd.length)list.append(el("div","empty","Nothing in here the planner can use."));
+  }
   else if(!shown.length)list.append(el("div","empty","No book matches that."));
   else shown.forEach(code=>{
     const lab=el("label","trayrow"+(libAvail(code)?" avail":""));
@@ -6968,7 +7117,8 @@ function renderImportPlan(){
     cb.onchange=()=>{cb.checked?PLAN.keep.add(code):PLAN.keep.delete(code);renderImportPlanFoot();};
     lab.append(cb);
     lab.append(el("span","traynm",trayName(code)));
-    lab.append(el("small",null,trayCounts(code)));
+    const cnt=trayCounts(code);
+    if(cnt)lab.append(el("small",null,cnt));
     list.append(lab);});
   // the filter and All/None earn their place at a full-repository fetch, not at a brew
   const qb=$("#importPlanQuick"); qb.innerHTML="";
@@ -6994,13 +7144,19 @@ function renderImportPlanFoot(){
     note.classList.toggle("hidden",!bare);}
   const {fresh,upd}=trayBooks();
   const add=fresh.filter(c=>PLAN.keep.has(c)).length;
+  // D202(a): the subtitle owns the outcome now, so this says only what the TICKS say —
+  // and nothing at all when there is nothing to tick, where it used to repeat "nothing new"
+  // a second time in a second voice.
   const sub=$("#importPlanSub");
-  if(sub)sub.textContent=fresh.length?`${add} of ${nBooks(fresh.length)} new ticked`
-    :upd.length?"nothing new here":"";
+  if(sub)sub.textContent=fresh.length?`${add} of ${nBooks(fresh.length)} new ticked`:"";
   const btn=$("#importApply");
   if(btn){btn.disabled=!add&&!upd.length;
     btn.textContent=add?`Add ${nBooks(add)}`
       :upd.length?`Re-read ${nBooks(upd.length)}`:"Add books";
+    // D202(a): a re-read is maintenance, not the point of the panel. It keeps the accent
+    // only while there is something to ADD; on its own it is an ordinary button, so a tray
+    // that found nothing new stops presenting a no-op as the thing to press.
+    btn.classList.toggle("on",!!add);
     btn.classList.remove("danger");}   // the tray can no longer remove anything
 }
 // ── folder scan: index a local library BY BOOK (D92) ───────────────────────────
@@ -7092,6 +7248,7 @@ async function scanEntries(entries,label){
     SCAN=await runScan(entries);
     SCAN.entries=entries;   // kept so Apply re-reads only the ticked books' files
     const n=Object.keys(SCAN.books).length, withC=scanBooks().length;
+    STAGE_FROM={kind:"folder",label:"the folder "+(label||"you chose")};
     prog.innerHTML=`Scanned <b>${esc(label||"folder")}</b> · ${SCAN.read} file${SCAN.read===1?"":"s"}, `
       +`${Math.round(SCAN.bytes/1048576)} MB, <b>${withC}</b> book${withC===1?"":"s"} with content`
       +(n>withC?` (${n-withC} more declare nothing this app uses)`:"")
@@ -7169,11 +7326,14 @@ async function applyImport(){
   // only there. (The tray's ticks only ever govern books you do not yet have.)
   Object.keys(PLAN.stored.sources||{}).forEach(c=>PLAN.keep.add(c));
   const keepBefore=new Set(PLAN.keep);
-  const need=[...keepBefore].filter(c=>!(PLAN.merged.sources||{})[c]&&SCAN&&SCAN.books[c]);
-  if(need.length){
-    if(SCAN_BUSY)return;
+  const unread=[...keepBefore].filter(c=>!(PLAN.merged.sources||{})[c]);
+  const need=unread.filter(c=>SCAN&&SCAN.books[c]);
+  const web=unread.filter(c=>!(SCAN&&SCAN.books[c])&&CAT&&CAT.books[c]);
+  if(need.length||web.length){
+    if(SCAN_BUSY||WEB_BUSY)return;
     SCAN_BUSY=true;
-    try{await stageScanBooks(need);}finally{SCAN_BUSY=false;}
+    try{ if(need.length)await stageScanBooks(need);
+         if(web.length)await stageCatBooks(web); }finally{SCAN_BUSY=false;}
     buildImport(null,true);
     if(!PLAN)return;
     // the re-parse defaults the keep-set; what you had ticked (and unticked) is the truth
@@ -7184,6 +7344,11 @@ async function applyImport(){
 // Returns null on success or the failure sentence, the same null-or-a-sentence contract
 // importSave uses — the refresh needs the outcome to report it somewhere other than `rep`.
 async function applyPlan(rep,refreshed){
+  // D202(b): what the TRAY called new, captured before the write moves the ground. `PLAN.fresh`
+  // is the wrong list to receipt from: it is measured against stored data alone, while the tray
+  // measures against stored ⊕ bundle (D158(d)) — so a first import of 44 books the bundle
+  // already carries reads "44 books · none of them new" and would have receipted "Added 44".
+  const wasNew=new Set(trayBooks().fresh);
   const out=filterDigest(PLAN.merged,PLAN.keep);
   if(!digestSize(out)){const m="That would leave no content at all. Keep at least one book.";
     rep.textContent=m;return m;}
@@ -7229,7 +7394,10 @@ async function applyPlan(rep,refreshed){
   [...SRC].forEach(c=>{if(c!==HB_SRC&&!codes.has(c)&&!(BAKED&&BAKED.sources&&BAKED.sources[c]))SRC.delete(c);});
   SRC.add(HB_SRC); saveSources();
   assembleData();pruneState();
-  IMPORT_STAGE=[];renderImportStage();
+  // D202(b): what actually ARRIVED, named before the stage is emptied — `PLAN.fresh` is the
+  // only record of it, and planFromStage is about to rebuild the plan out from under us.
+  const arrived=[...wasNew].filter(c=>codes.has(c));
+  IMPORT_STAGE=[];STAGE_FROM=null;CAT=null;renderImportStage();
   planFromStage(null,PLAN.report); renderImportPlan();
   refreshAll();render();renderLibStatus();renderLibList();
   const nb=Object.keys(out.sources).length;
@@ -7242,7 +7410,47 @@ async function applyPlan(rep,refreshed){
   rep.innerHTML=(refreshed?`<b style="color:var(--good)">${head}</b> `:head+" ")
     +`${nSp} spell${nSp===1?"":"s"} · ${nCl} class${nCl===1?"":"es"} · ${nSc} subclass${nSc===1?"":"es"} · `
     +`${nFt} feat${nFt===1?"":"s"} · ${nRc} species.`+(refreshed?"":" It is in the list below.");
+  trayReceipt(arrived,nb);
   return null;
+}
+// D202(b): the RESOLVED state. Applying used to empty the tray and hide it, so the only word
+// that anything had happened was a report line above a surface that had just vanished — and
+// his question was precisely *"it isn't clear when it's resolved"*. The tray stays and turns
+// into a receipt: what arrived, by name, and a Close that is the only thing that dismisses it.
+function trayReceipt(arrived,total){
+  const box=$("#libTray"), done=$("#trayDone"), msg=$("#trayDoneMsg");
+  if(!box||!done||!msg)return;
+  const names=(arrived||[]).map(c=>bookName(c)||c);
+  msg.innerHTML=(names.length
+    ? `<b style="color:var(--good)">Added ${nBooks(names.length)}.</b> `
+      +names.slice(0,6).map(esc).join(", ")+(names.length>6?`, and ${names.length-6} more`:"")
+      +(names.length===1?". It is":". They are")+" switched on and in the list below."
+    : `<b style="color:var(--good)">Done.</b> Nothing new was added — the books you already `
+      +`had were re-read with parser v${window.__VERSION__||"dev"}.`)
+    + ` Your imported data now holds ${nBooks(total)}.`;
+  // the receipt REPLACES the tray's working parts; nothing is pending any more
+  ["importStaged","trayFrom","trayUpd","importPlanQuick","importPlanList","trayNav"]
+    .forEach(id=>{const n=$("#"+id); if(n)n.classList.add("hidden");});
+  // the help explains the TICK LIST; over a finished import it explains nothing on screen
+  const hb=$(".libtray .helpbtn"); if(hb)hb.classList.add("hidden");
+  const hp=$("#planHelp"); if(hp)hp.classList.add("hidden");
+  const head=$("#trayHead"), st=$("#trayState");
+  if(head)head.textContent="Import finished";
+  if(st)st.textContent="";
+  done.classList.remove("hidden");
+  box.classList.remove("hidden");
+  box.scrollIntoView({block:"start"});
+}
+// Close puts the tray back the way an empty one starts, so the next import finds it clean
+function trayReceiptClear(){
+  const box=$("#libTray"), done=$("#trayDone");
+  if(done)done.classList.add("hidden");
+  ["importStaged","trayFrom","trayUpd","importPlanQuick","importPlanList","trayNav"]
+    .forEach(id=>{const n=$("#"+id); if(n)n.classList.remove("hidden");});
+  const hb=$(".libtray .helpbtn"); if(hb)hb.classList.remove("hidden");
+  const head=$("#trayHead"); if(head)head.textContent="Pending import";
+  if(box)box.classList.add("hidden");
+  renderImportPlan();
 }
 // K4 (D154(g)): "Refresh imported data" is GONE, and with it the busy flag, the progress
 // painter, the four terminal states and the permission dance that kept a directory handle
@@ -11862,13 +12070,18 @@ $("#importFiles").onchange=e=>{stageFiles(e.target.files);e.target.value="";};
 $("#importPasteAdd").onclick=()=>{const t=$("#importPaste").value.trim();if(!t)return;
   try{IMPORT_STAGE.push(stageEntry("pasted "+(IMPORT_STAGE.length+1),JSON.parse(t)));
     $("#importPaste").value="";$("#importReport").textContent="";
+    STAGE_FROM={kind:"file",label:"text you pasted"};
     $("#pasteBox").classList.add("hidden");   // it landed in the tray; the box has done its job
     renderImportStage();scheduleBuild();}
   catch(e){$("#importReport").textContent="Pasted text isn’t valid JSON.";}};
 // the staged tray's Discard (K2 restyles it; the verb is the same one "Clear staged" was)
-armConfirm($("#importClear"),null,()=>{IMPORT_STAGE=[];cancelBuild();WEB_PENDING=null;renderImportStage();
+armConfirm($("#importClear"),null,()=>{IMPORT_STAGE=[];cancelBuild();WEB_PENDING=null;STAGE_FROM=null;CAT=null;renderImportStage();
   planFromStage(null,null);renderImportPlan();$("#importReport").textContent="";});
 $("#importApply").onclick=applyImport;
+$("#trayDoneClose").onclick=trayReceiptClear;   // D202(b)
+// D202(d): the Unearthed Arcana catalogue — a listing, not a download. Fetching it names
+// every UA book; only the ones you tick are ever pulled.
+$("#uaFetchBtn").onclick=e=>{e.stopPropagation();closeMenu();trayReceiptClear();uaFetch();};
 // D153: the online fetch and its editable repository address
 $("#webSyncBtn").onclick=()=>webSync();
 // D153's editable address is a rare setting, so it lives in Actions rather than beside a

@@ -755,6 +755,67 @@ closed one-offs) — is settled and lives in `DECISIONS-SETTLED.md`.
   picker predicate over a class record, which fails on the pre-fix expression).
   → shipped v1.6.4.
 
+### Live — the import panel and the second source (D202)
+
+- **D202 (2026-09-12) DECIDED — the import panel states an OUTCOME, keeps a RECEIPT, and says
+  which shelf it read; and Unearthed Arcana is a second source, fetched as a CATALOGUE.**
+  His bug, with a screenshot: *"This panel isn't very clear and isn't clear when it's resolved.
+  Also, currently I don't understand why it doesn't add a new source (Underdark Options 2),
+  which is available on 5etools."* Two complaints, one root: the panel knew the answer and
+  said none of it.
+  - **(a) One outcome sentence, and nothing said twice.** The panel said *nothing new* in two
+    registers 400px apart — an `.empty` box in the tick list and "nothing new here" in the
+    foot — with a 260px empty acre between them, and led with 177 file chips, which answer
+    *what did I drop* and never *what books were in it*. The subtitle where "Nothing is stored
+    yet" sat is now the outcome: **`59 files · 44 books · none of them new`**, in the accent
+    only when something IS new. The foot speaks only for the ticks; the empty box is gone
+    where there are re-reads (the re-read line already says it, and now says the part that
+    decides the button: *nothing here is new, so it is optional*); and **Re-read loses the
+    accent** — a re-read is maintenance, and a panel that found nothing must not present a
+    no-op as the thing to press. *Rejected:* dropping the file chips (they are the only place
+    an unreadable file is visible); a count badge on the ⋯ (D196's own rule).
+  - **(b) The resolved state is a RECEIPT, not a toast.** Apply emptied the stage and HID the
+    tray, so the only word that anything had happened was a report line above a surface that
+    had just vanished. The tray stays: heading "Import finished", what arrived by name, what
+    the library now holds, and a **Close** that is the only thing that dismisses it —
+    `renderImportPlan` refuses to paint underneath one. The trap it caught on the way:
+    **`PLAN.fresh` is the wrong list to receipt from.** It is measured against stored data
+    alone; the tray measures against stored ⊕ bundle (D158(d)). A first fetch of 44 books the
+    bundle already carries reads "44 books · none of them new" and receipted *"Added 44"*.
+    `trayBooks().fresh`, captured before the write, is the only honest source. **→ Gotcha.**
+  - **(c) Provenance — and what the shelf does NOT hold.** `STAGE_FROM` is set by all four
+    doors in (D154(f)) and the tray prints *"Read from the 5etools repository
+    (5etools-mirror-3/5etools-src), v2.35.1."* On the web source with nothing new it adds the
+    sentence that answers his actual question: Unearthed Arcana and other homebrew **are not
+    in that repository** — they live in their own — and names where to get them.
+  - **(d) Unearthed Arcana is a CATALOGUE, not a fetch.** Verified first, before any code:
+    *"Update data" reads `5etools-mirror-3/5etools-src` `data/**`, and that tree contains no
+    `XUA2*` source at all* — the app was right and unhelpful. UA lives in
+    `TheGiddyLimit/unearthed-arcana`, which is **a different shape of source**: no releases at
+    all (jsDelivr resolves `latest` to null), so `master` is the only address and there is no
+    version for the boot update-check to compare; and 105 books of playtest material, so
+    fetching the repository to reach one book is both rude to the CDN and a tray with 105
+    unwanted ticks. So: **one 8 KB index (`_generated/index-sources.json`, whose keys are the
+    very codes the digest keys a source by) names every book, the tray lists the ones you do
+    not have as AVAILABLE, and only a ticked book's file is ever downloaded** — D112's
+    mechanism and D112's word, the ones the folder scan already uses, so the staging, the
+    plan, the keep-set and Apply are all the ones that were already there. A catalogue row
+    shows no count, because nothing has read it yet (inventing one is D129's shape in
+    miniature) — which also gives a long UA title the whole row at 375px. *Rejected:* fetching
+    the whole UA repository like the core one (105 books, 7 MB, and a keep-set defaulting to
+    all of them); teaching "Update data" two repositories (one button, two version models, and
+    a stale-check that cannot speak for the half with no versions).
+  Enforced by: `src/app.js` (`UA_REPO_DEFAULT`, `CAT`, `uaRepo`, `catBooks`, `uaFetch`,
+  `stageCatBooks`, `STAGE_FROM`, `trayReceipt`, `trayReceiptClear`, and the kind-aware
+  `libAvail`/`trayName`/`trayCounts`/`applyImport`), `src/index.html` (`#trayState`,
+  `#trayFrom`, `#trayDone`, `#uaFetchBtn`), `src/styles.css` (`.traysub.allnew`,
+  `.traybooks.nofresh`, `.traydone`). **Affects:** D112 (available-tick-to-read, extended from
+  a folder to a repository), D153 (the web fetch is no longer the only one), D154(f,h,i) (the
+  tray's anatomy), D158(d) (the "already have" rule, now also the receipt's), D198 (every new
+  control is 34px). Verified end to end in a clean profile: the catalogue lists 106 books,
+  ticking one downloads one file, and Underdark Options lands as 3 subclasses + 5 feats.
+  → shipped v1.6.6.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

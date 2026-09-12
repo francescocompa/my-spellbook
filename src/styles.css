@@ -2946,6 +2946,17 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
 /* a book only the scanned folder offers: ticking it is what reads it */
 .trayrow.avail{opacity:.62} .trayrow.avail:hover{opacity:.9}
 .libtray .prepnav .sub{font-size:11.5px;color:var(--muted)}
+/* D202(a): the outcome sentence. It is the panel's subtitle, and it leads with the ACCENT
+   only when there is something new — a tray that found nothing must not look like an event. */
+.libtray .traysub.allnew{color:var(--accent)}
+/* D202(a): with nothing to tick there is nothing to scroll, and a 260px acre of empty box
+   under a heading that already said so was most of what made the panel unreadable. */
+.traybooks.nofresh{max-height:none;overflow:visible}
+.traybooks.nofresh .empty{padding:8px 2px;font-size:12.5px;color:var(--muted)}
+/* D202(b): the receipt. Same box, finished state — it says what arrived and waits. */
+.traydone{margin-top:4px}
+.traydone.hidden{display:none}
+.traydone p{margin:0;font-size:13px;line-height:1.45}
 
 /* the box is a column so its footer is PINNED and the list scrolls under it — 44 books in
    one column is a 3,000px page otherwise, with "＋ Add files" at the bottom of it */

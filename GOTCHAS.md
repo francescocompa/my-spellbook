@@ -7,6 +7,21 @@
 > Read this before touching the extractors, the importer, the grants resolution or any
 > DOM handler. Moved out of `STATE.md` on 2026-08-27 (v1.1); nothing was dropped.
 
+- **"Already have" has TWO definitions in the import path, and the wrong one turns a no-op
+  into "Added 44 books"** (D202(b), v1.6.6). `PLAN.fresh` is measured in `planFromStage`
+  against **stored data alone**; `trayBooks()` is measured against **stored ⊕ the bundle**,
+  because the bundle is merged in at assembly (D158(d)) — a book you can already SEE is a
+  re-read, never an arrival. Both are correct for their own job: `PLAN.fresh` drives
+  `SRC.add`, which is about the selection, and the tray drives what a human is told. Read the
+  wrong one and the panel says *"44 books · none of them new"* and its receipt says *"Added 44
+  books"* in the same breath. **Anything that REPORTS to a human takes `trayBooks()`, and it
+  takes it before `applyPlan` writes** — `assembleData()` moves `DATA` underneath, so a
+  reading taken afterwards answers a different question than the one on screen.
+  The same file holds a third near-miss worth knowing: **a source's code is the `json` field
+  of its `_meta.sources` entry, not its `abbreviation`.** "Underdark Options" is
+  `XUA2026UnderdarkOptions`, never `XUA26UO`; the UA repository's own
+  `_generated/index-sources.json` is keyed the first way, which is the only reason the
+  catalogue needs no translation table. Matching on the abbreviation finds nothing, silently.
 - **A three-way filter axis EVALUATES its `has` even at rest — converting a short-circuited
   `!size||` filter into one reads fields the old guard was hiding** (D201, v1.6.4). The class
   picker threw on every open from v1.6.1 to v1.6.4, in the guided builder's class step and in
