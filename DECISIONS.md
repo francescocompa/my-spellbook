@@ -926,6 +926,44 @@ closed one-offs) — is settled and lives in `DECISIONS-SETTLED.md`.
   D162 (a section that draws no header), D198 (the opener takes `--ctl-h`), D197 (the phone
   stack), D177/D193 (the dashed full-row control it borrows). → shipped v1.6.9.
 
+### Live — a list is redundant only with its own button (D205)
+
+- **D205 (2026-09-12) DECIDED — the opener a card drops is the one that opens the list in
+  front of it, section by section, never step-wide.** His report: *"here I don't see how to
+  actually set a spell for agonizing blast"*, with the card headed **Agonizing Blast**, reading
+  **1 of 2 answered**, the rail carrying *"choose one of your known Warlock cantrips that deals
+  damage · skipped, still open"* — and the card drawing nothing for it. The app knew the answer
+  and no surface said it, the same shape as D201–D203.
+  - **(a) The mechanism.** `renderGuideStage` had `const noOpener=inline||chipped`, and
+    `inline` is `!!STAGE_PICK` — *something* is hosted in the stage, not *this section's
+    something*. The step's other section is an **`optfeat`**, which `guideSecOpen` deliberately
+    leaves out of the openers (D162's comment says its chooser "is not hosted" — that stopped
+    being true when it became `openEntityPicker("opt", …)`, which is). So clicking **Change it**
+    hosted the invocation picker, `inline` went true, `chipped` stayed false for want of a
+    second opener, and the cantrip group lost its button to a list that was never its own. With
+    no chips either (`state.choices` is empty until answered) it hit `if(inline&&!b.children
+    .length)return null` and deleted itself. **The chip row D165 added to keep a second section
+    reachable never drew, because the section it would have paired with is not an opener.**
+    Closing the invocation picker does not bring it back: `GAUTO` has already fired for the step.
+  - **(b) The rule.** `noOpener` is a function of the section:
+    `chipped||(inline&&stagePickIsFor(sec))`. A button is redundant beside a chip that opens the
+    same picker, or beside **that section's own** open list — never beside somebody else's.
+    The step-wide question survives only where it is genuinely step-wide: the "Nothing to answer
+    here" line, which now asks `!chipped&&!inline` directly.
+    *Rejected:* making `optfeat` an opener so the chip row appears (it would also make its
+    picker AUTO-OPEN with the step through `guideSecAuto`, which is a behaviour change nobody
+    asked for, and it leaves the general rule just as wrong for the next non-opener kind);
+    dropping the `!b.children.length` guard (it is D162 working correctly — a section really
+    can draw nothing when its own list is open).
+  - **(c) Verified on the real app**, not reasoned: a Warlock 1 with Agonizing Blast, the
+    invocation picker hosted. Before: the card drew one section and said 1 of 2. After: both
+    sections draw, the cantrip group carries **Choose a cantrip**, and clicking it swaps the
+    hosted list to the cantrip pool.
+  Enforced by: src/app.js `renderGuideStage` (`noOpener` as a per-section predicate, and the
+  step-wide test spelled out where it belongs). **Affects:** D162 (its rule, corrected to what
+  it always meant), D165 (the chip row is no longer the only thing keeping a second section
+  reachable), D126(g), D190's family of "the app knew and no surface said it". → shipped v1.6.10.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

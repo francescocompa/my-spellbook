@@ -2719,14 +2719,24 @@ function renderGuideStage(steps,cur,rowOf){
     card.append(row);
   }
   // an opener BUTTON is redundant beside an open list, and beside a chip that opens the same
-  // picker — so it draws only when neither is there
-  const noOpener=inline||chipped;
+  // picker — so it draws only when neither is there. **Per SECTION, not per step (D205):**
+  // `inline` alone says only that SOMETHING is hosted in the stage. His report — the invocation
+  // step's "choose one of your known Warlock cantrips that deals damage" with no way to answer
+  // it — was a step whose OTHER section is an `optfeat`, which `guideSecOpen` deliberately
+  // leaves out of the openers (its chooser is the entity picker, reached from its own button).
+  // So the invocation picker set `inline`, `chipped` stayed false for want of a second opener,
+  // and the cantrip group lost its button to a list that was never its own — then drew nothing
+  // and deleted itself on the `!b.children.length` guard below. A list is only redundant with
+  // the button that opens THAT list.
+  const noOpener=sec=>chipped||(inline&&stagePickIsFor(sec));
   let any=false;
-  cur.sections.forEach(sec=>{const bl=guideSecBlock(cur,sec,rowOf,noOpener);
+  cur.sections.forEach(sec=>{const bl=guideSecBlock(cur,sec,rowOf,noOpener(sec));
     if(bl){card.append(bl);any=true;}});
-  // D162: with the list inline, every section can legitimately draw nothing — its chip and
-  // the list below carry it. Saying "nothing to answer here" over an open picker is a lie.
-  if(!any&&!noOpener)card.append(el("div","grhint","Nothing to answer here. Skip or Next moves the walk along."));
+  // D162: with a list inline, every section can legitimately draw nothing — its chip and the
+  // list below carry it. Saying "nothing to answer here" over an open picker is a lie.
+  // `noOpener` is a function now (D205), so ask the same question of the step: is ANY
+  // section carried by a chip or by its own open list?
+  if(!any&&!chipped&&!inline)card.append(el("div","grhint","Nothing to answer here. Skip or Next moves the walk along."));
   st.append(card);
   // Back · Skip · Next walk the chain; Next seeks the next open decision. Back is
   // HIDDEN where there is nowhere to go back to (D126(i)) — a dead control is worse
