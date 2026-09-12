@@ -9,7 +9,7 @@ import json, glob, os, re, sys
 from collections import Counter, defaultdict
 
 MIRROR = sys.argv[1] if len(sys.argv) > 1 else \
-    "/Users/francescocompagnoni/Documents/D&D/5etool_mirror/5etools-v2.33.3/data"
+    "/Users/francescocompagnoni/Documents/D&D/5etool_mirror/5etools-src-main/data"
 
 # ---- helpers ---------------------------------------------------------------
 # Which pipe segment of a {@tag …} carries the text 5etools RENDERS. Segment 0 is the

@@ -147,8 +147,6 @@
   **Before the guide's picker hosting:** D185. **Before the extractors:** GOTCHAS' lookup
   entries (D91, D183) — the lookup has two class keys.
 
-⟳ Rename previous session → "Palette from color.bears: Amethyst and five variants" · session: local_8eccfcbb-7f71-48ff-b6e0-6a9f652a17f0
-
 ## What this is
 
 Offline single-page D&D 2024 spell planner. Two builds from one source:

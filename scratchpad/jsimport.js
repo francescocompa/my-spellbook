@@ -1,7 +1,7 @@
 // Drive the IN-BROWSER importer (src/extract.js) over the real mirror, exactly as an
 // import does, and assert on the records Francesco says are still wrong.
 const fs=require("fs"),path=require("path");
-const MIRROR="/Users/francescocompagnoni/Documents/D&D/5etool_mirror/5etools-v2.33.3/data";
+const MIRROR="/Users/francescocompagnoni/Documents/D&D/5etool_mirror/5etools-src-main/data";
 global.window={};
 new Function(fs.readFileSync("src/extract.js","utf8"))();
 const {buildDigest,slimJson,zipWanted,dropFoundryStubs,readOrder,resetFormRefs}=window.SB_extract;

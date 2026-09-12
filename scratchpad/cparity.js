@@ -2,7 +2,7 @@
 // The earlier harness hand-rolled its own file filter and was STRICTER than
 // zipWanted(), which is exactly how the spells/foundry.json bug hid for so long.
 const fs=require("fs"),path=require("path");
-const MIRROR=process.argv[2]||"/Users/francescocompagnoni/Documents/D&D/5etool_mirror/5etools-v2.33.3/data";
+const MIRROR=process.argv[2]||"/Users/francescocompagnoni/Documents/D&D/5etool_mirror/5etools-src-main/data";
 global.window={};
 new Function(fs.readFileSync("src/extract.js","utf8"))();
 const {buildDigest,slimJson,zipWanted,dropFoundryStubs,readOrder,resetFormRefs}=window.SB_extract;
@@ -218,13 +218,17 @@ const gkey={classes:e=>e.name+"|"+e.source,
     .sort().join("; ");
   const jc=census(digest), pc=census(py);
   cmp("subclass spell lists (js vs py)",jc,pc);
-  // 5etools v2.33.3: Eldritch Knight + Arcane Trickster, 2014 + 2024, 6 records after
-  // `_copy` resolution, all Wizard. Update this literal ONLY with the census extract.py
-  // prints, and only after checking the new record really does cast from that list.
+  // 5etools v2.35.1: Eldritch Knight + Arcane Trickster, 2014 + 2024, all Wizard, plus
+  // Warrior of the Mystic Arts (Arcana Unleashed) — a 1/3-caster Monk subclass that casts
+  // from the Sorcerer XPHB list, checked record-by-record when the mirror moved off 2.33.3
+  // (2026-09-12). 7 records after `_copy` resolution. Update this literal ONLY with the
+  // census extract.py prints, and only after checking the new record really does cast from
+  // the list it names.
   const PINNED=[
     "Fighter|PHB::Eldritch Knight|PHB=Wizard|PHB",
     "Fighter|XPHB::Eldritch Knight|PHB=Wizard|XPHB",
     "Fighter|XPHB::Eldritch Knight|XPHB=Wizard|XPHB",
+    "Monk|XPHB::Mystic Arts|AU=Sorcerer|XPHB",
     "Rogue|PHB::Arcane Trickster|PHB=Wizard|PHB",
     "Rogue|XPHB::Arcane Trickster|PHB=Wizard|XPHB",
     "Rogue|XPHB::Arcane Trickster|XPHB=Wizard|XPHB",
@@ -242,7 +246,7 @@ const gkey={classes:e=>e.name+"|"+e.source,
   const fielded=d=>(d.subclasses||[]).filter(s=>"spellList"in s).length;
   cmp("caster subclasses carry a spellList field",casters(digest)+"/"+fielded(digest),
       casters(py)+"/"+fielded(py));
-  cmp("caster subclasses (pinned count)",casters(digest),6);
+  cmp("caster subclasses (pinned count)",casters(digest),7);
 }
 // ── digest.sources: the book registry (D33/D92/D113), folded in from cparity-sources.js
 // (D158(k)) — never diffed above. extract.js's digest carries NO parser/parsedAt/origin
