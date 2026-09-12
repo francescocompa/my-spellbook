@@ -13,24 +13,50 @@
 > | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 > | `ARCHIVE.md` | Bodies of consumed phases, decisions and old rationale |
 
-## TL;DR (2026-09-09 · **v1.6.3** live, pushed and tagged · **Phase O DONE (D199, v1.6.0–1.6.1) · the PALETTE is Amethyst with five variants (D200, v1.6.2)** · Phase N at N2 (D191), creation is a MODE (D192), the control scale binds (D198))
+## TL;DR (2026-09-12 · fd7d691 · **v1.6.8 built and tagged; v1.6.4–1.6.6 are PUSHED, v1.6.7–1.6.8 are NOT** · **his four bugs closed: D201, D202, D203** · Phase O done (D199), palette Amethyst (D200), Phase N at N2 (D191), creation is a MODE (D192), the control scale binds (D198))
 
-- **The palette round (D200, v1.6.2).** His ask: variations on the palette from
-  @color.bears. Two agents scraped 33 palettes; `scratchpad/mockups/mkpalette.py` rendered
-  30 of them ON THE REAL APP (`palette.html`, an iframe with a per-candidate override, light
-  and dark) and then his shortlist (`palette2.html`). **His pick: P2 Amethyst as the main
-  palette** — grey paper, amethyst accent, swap violet moved to teal, gold hand-set to ochre
-  — over my recommendation (Heraldic, twice). **The rest of his shortlist ships as variants in
-  the settings menu** (Ember = the old palette, Velvet, Sky, Petal, Cinder-plum): `data-palette`
-  on the root, `spellForge.palette.v1` in localStorage, a head script so a stored variant
-  paints first. The rules that came out of it — every ink derived at the shipped steps, dark
-  derived desaturated, semantics chosen for hue distance, **alerts always red** — are D200(c–d).
-  **Open from it, D200(f) → PLAN ⚑:** the light modes are papery and short of colour, a
-  design-system task he scoped as separate. **He tried v1.6.2 and asked for two things, shipped as v1.6.3 (D200(g)): the theme is a
-  SWITCH, and the palette is ONE ROW that opens on click. Patch, not minor — his call.**
-- **Phase O shipped (v1.6.0, D199; v1.6.1, D199(h–j))** — the spell table filters and sorts
-  from one heading button; a filter can say NO, the sort is a chip, and the switch's ON state
-  is visible again app-wide. Bodies in `DECISIONS.md` (live) and `CHANGELOG.md`.
+- **Next action: push v1.6.7 + v1.6.8** (`git push origin main && git push origin v1.6.7 v1.6.8`)
+  — he approved v1.6.7's push, then v1.6.8 landed on top of it, so main carries both and the
+  push was left for him. **Then: D203(d)**, the ⚑ he asked for in the same breath as D203 —
+  *a command on an entity to see and switch to an older printing* — which needs its own
+  decision entry before code (`PLAN.md` names the three questions). **Also open, his report,
+  untouched by this session: Hideous Laughter still appears twice** — PLAN ⚑ carries the lead.
+- **This session (2026-09-12), four of his bugs, v1.6.4 → v1.6.8.** All four had the same
+  shape: the app knew the answer and no surface said it.
+  - **D201 (v1.6.4) — the class picker had been dead since v1.6.1.** `ability` is an ARRAY of
+    raise-groups on a feat and the spellcasting SCORE (the bare string `"int"`) on a class;
+    D199(i) made that filter a three-way, and `triOk(state,has)` evaluates its `has` as an
+    ARGUMENT before deciding the axis is resting — so every class row threw, on every open.
+    `renderEntityList` empties its list first and writes its count last, so the dead list sat
+    under the PREVIOUS picker's count: a Class step reading "70 backgrounds". `entRowOk` runs
+    a filter only where `entFilterGroups` offers it. **Fixture 22.**
+  - **v1.6.5 — the mirror moved.** `extract.py`, `cparity.js` and `jsimport.js` all defaulted
+    to `5etools-v2.33.3/data`, gone from disk; the parity gate had been unrunnable. Repointed
+    to `5etools-src-main` (**v2.35.1**), re-extracted, rebuilt. One real content change came
+    with it — *Warrior of the Mystic Arts* (AU) is a 1/3-caster Monk casting from the Sorcerer
+    list, so cparity's pinned caster census is 6 → 7, checked record by record.
+  - **D202 (v1.6.6–1.6.7) — the import panel.** One outcome sentence where "Nothing is stored
+    yet" sat; the duplicate "nothing new" and the 260px empty acre gone; **Re-read demoted out
+    of the accent**; Apply leaves a **receipt** instead of hiding the tray; and the panel names
+    the shelf it read and what that shelf does NOT carry. **Unearthed Arcana is a second
+    source, shaped as a CATALOGUE** (Actions → Unearthed Arcana catalogue): its repo has no
+    releases and holds 105 books, so one 8 KB index names them, the tray offers what you lack,
+    and only a ticked book downloads — D112's mechanism, unchanged staging. (e) is his note on
+    it: the top row's two texts now share a **baseline**, measured 0.00px.
+  - **D203 (v1.6.8) — which printing wins.** His *"underdark 2 only shows 4 species"*: the
+    rank was a table of six core codes scoring every other book 10, so the 2014 DMG swallowed
+    a 2026 UA Kuo-Toa. The rank is the book's **own publication date** now (both extractors
+    carry `sources[code].released`); the contest is between the books that are **ON**
+    (`buildShadows`, re-run on every source change — his second note); and nothing is hidden
+    without evidence, a flagged reprint or two known dates (D31). **Fixture 23.**
+- **His call to know about:** date-ranking means a book published after the 2024 core outranks
+  it for a name they share. I flagged it; he took it anyway. If it bites, D203(a) names the
+  rejected alternative.
+
+- **The palette is Amethyst with five variants (D200, v1.6.2–1.6.3)** and **Phase O shipped
+  (D199, v1.6.0–1.6.1)** — the spell table filters and sorts, a filter can say NO, the theme is
+  a switch and the palette one row. Bodies in `DECISIONS.md` (live) and `CHANGELOG.md`. Open
+  from the palette round, **D200(f) → PLAN ⚑:** the light modes are papery and short of colour.
 
 - **Where it stands.** **Character creation is a mode and Simplified is the default (v1.5.49,
   D192)** — his ask, raised mid-interview. Simplified is the app exactly as it stood before N1:
@@ -61,9 +87,9 @@
 - **His note on the add-class row shipped with D192 (D193):** it takes the score popover's
   dashed full-row Add — the select's drawn caret dropped so the label can centre, measured
   symmetric to 0.00px at 845px and 375px. Its neighbours stay field-shaped on purpose.
-- **Next action: N3 (proficiencies, HP, hit dice, AC) needs its own decision entry** (D176(c))
-  — /interview him on the rung, then build. **But L5.5 (copy the build as a level plan) is the
-  cheaper next thing and only needs his format call.**
+- **After the ⚑s above, the queue is unchanged:** **N3** (proficiencies, HP, hit dice, AC)
+  needs its own decision entry first (D176(c)) — /interview him on the rung, then build; **L5.5**
+  (copy the build as a level plan) is cheaper and needs only his format call.
 - **The "0 picks" unclearable gap bar is CLOSED (v1.5.52, D195)** — the task_2f797cfd work,
   landed. D189's family one condition along: a pick whose book is present AND on is not a book
   problem at all, so nothing about it reaches the bar (the rejected third flavour, and why
@@ -108,16 +134,17 @@
   ② **try Simplified vs Full** on a real build and say whether Simplified is the right default;
   ③ **the guide's background step is SECOND, not first** — after the class step, which every
   other step hangs off, and before species and every score question (D191(f)); say if you want
-  it moved; ④ **send the build** that still offers a swapped-away spell, and **confirm the
-  licensed-name twins collapsed** (Hideous Laughter / Arcane Hand / Resilient Sphere once each);
+  it moved; ④ **send the build** that still offers a swapped-away spell — the licensed-name twins
+  are **NOT** collapsed after all (his report, 2026-09-12: Hideous Laughter still appears twice),
+  now a PLAN ⚑ with the lead, not a thing to confirm;
   ⑤ **try the reworked trade** (v1.5.46) and the guided builder's Skip on a real build;
   ⑥ **PWA install check** on your phone (L5.6); ⑦ **third-casters are still pooled then
   floored** — Fighter 5 (EK) + Rogue 5 (AT) reads 3 where the table gives 2, a rules call;
   ⑧ print from Chrome or Safari (D108); ⑨ XMM on for Find Familiar's 2024 forms (D81);
   ⑩ L5.5's format (copy the build as a level plan); ⑪ **should the class row widen on the
-  desktop sidebar too?** (D197's measured-and-left, 74.5px per select at 1280); ⑫ **direction for the papery light modes** (D200(f), PLAN ⚑) — how much colour, and on which surfaces, before that pass is scoped.
+  desktop sidebar too?** (D197's measured-and-left, 74.5px per select at 1280); ⑫ **direction for the papery light modes** (D200(f), PLAN ⚑) — how much colour, and on which surfaces, before that pass is scoped; ⑬ **push v1.6.7 + v1.6.8** (the only shipped work not yet live); ⑭ **the three questions behind D203(d)** — where a "switch to an older printing" control lives, whether switching rewrites the build's stored key, and what happens to a pick already made (PLAN ⚑).
 - **Where the D-entries are:** `DECISIONS.md` holds Binding + the live entries (D176, D191,
-  D192, D199, D200) + Superseded; **every other D-id below is in `DECISIONS-SETTLED.md`** —
+  D192, D199, D200, **D201, D202, D203**) + Superseded; **every other D-id below is in `DECISIONS-SETTLED.md`** —
   `grep -n "D184" DECISIONS*.md` finds any of them in one step.
 - **Read before adding a digest ARRAY:** D191(f) and its GOTCHAS entry — `DIGEST_ARRAYS`,
   `ENT_KEY`, `emptyDigest`, `assembleData`'s own literal AND `_srd_subset` are five independent
@@ -128,6 +155,16 @@
   (a background narrows the pills, the holder always keeps its own) and **D192** (none of it
   renders in Simplified). The CSS is inside `.menupop`, where `.menupop button` restyles every
   button (GOTCHAS).
+- **Read before touching a picker's row filter or `renderEntityList`:** D201 and its GOTCHAS
+  entry — a three-way axis EVALUATES its `has` even at rest, and a filter with no GROUP for a
+  kind must not RUN for that kind. `ability` means two different things.
+- **Read before touching the import tray or anything that reports what an import did:** D202
+  and its GOTCHAS entry — "already have" has TWO definitions (`PLAN.fresh` vs `trayBooks()`),
+  and only the second one may be shown to a human.
+- **Read before touching `collapseEditions`, `SHADOWED` or a "why is this record missing"
+  report:** D203 and its GOTCHAS entry — check `SHADOWED.has(rec)` before you look at the
+  extractor; the rank is the book's `released` date, the contest is between the books that
+  are ON, and nothing is hidden without evidence.
 - **Read before wiring any delegated handler:** D190 — walk UP from `e.target`, never read its
   own class; every control here has an icon child.
 - **Read before adding or restyling ANY control:** **D198** and its GOTCHAS entry — the scale
@@ -146,6 +183,8 @@
   **Before the level-up trade:** D188 and its two GOTCHAS entries.
   **Before the guide's picker hosting:** D185. **Before the extractors:** GOTCHAS' lookup
   entries (D91, D183) — the lookup has two class keys.
+
+⟳ Rename previous session → "The class picker, the import panel, and which printing wins" · session: local_8fa05709-869b-4d35-a556-cae0683fc5f0
 
 ## What this is
 
@@ -173,6 +212,12 @@ one of them is absent in Simplified. Phases E–N models (D115, D118, D126, D130
 D154–D156, D161–D194) still bind their surfaces; cite them. `audits/` is a point-in-time
 artifact: `/clean` archives it once L5 has consumed it, together with the three mockup rounds
 in `scratchpad/mockups/` (`scores.html`, `picks.html`, `fold.html`, each with its `mk*.py`).
+
+**Since the last `/clean` this file gained the D201–D203 block and three read-before pointers;
+`DECISIONS.md` gained three live entries and `GOTCHAS.md` three traps** — the close-of-session
+archive found nothing consumed to move out against them, so the cold read grew. It is still
+inside budget (below), but the next `/clean` has D199–D200 to settle now that their phases have
+shipped.
 
 Two `/clean` passes ran, the second completing **D158(q)/L5.11**. The cold read
 (`CLAUDE` + `STATE` + `PLAN` + `DECISIONS` + `CHANGELOG`) is **267k → ~95k chars, −64%**, with

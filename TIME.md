@@ -1,5 +1,10 @@
 # Time log
 
+## 2026-09-12
+- 12:44–15:24 (2h40m) — The class picker, the import panel, and which printing wins (D201–D203; v1.6.4 → v1.6.8)
+
+**Day total: 2h40m**
+
 ## 2026-09-08
 - 21:48–10:34 (Sep 9) — Palette from color.bears: Amethyst and five variants (D200; v1.6.2 → v1.6.3) ⚑ spans Sep 9, not counted in day total (two waits on Francesco inside it — calendar time, not work time)
 
