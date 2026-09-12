@@ -359,5 +359,66 @@ console.log("\n── J · a multiclass row, same invariant ──────�
   noRedate("J1 · dropping a Bard pick in a multiclass build re-dates nothing", before, after);
 }
 
+console.log("\n── L · the writers that MOVE a pick on purpose ────────────────");
+// `guidePlace` (reverse-walk placement) and `dropChipOnLevel` (dragging a chip onto a level)
+// re-date the pick they are given — that is what they are for. The invariant is narrower for
+// them and no weaker: the pick you NAMED may move; nothing else may.
+{
+  const base = legalFill();
+
+  // dragging a chip onto a level it can reach
+  for (const [from, to] of [[8, 5], [3, 6], [5, 2]]) {
+    const chosen = { r0: { cantrips: [], spells: base.slice() } };
+    stand(WARLOCK(), chosen);
+    const victim = base[from];
+    const before = levelMap("r0", "spells");
+    const moved = SB.dropChipOnLevel({ kind: "sp", rowId: "r0", key: victim }, to);
+    const after = levelMap("r0", "spells");
+    // a drag is a SWAP (D206(h)): the pick you named moves, and exactly ONE bystander —
+    // whoever held the slot it took — moves to the level it vacated. Nothing else may.
+    delete before[victim]; delete after[victim];
+    const swapped = Object.keys(before).filter((k) => k in after && before[k] !== after[k]);
+    if (swapped.length > 1) bad(`L · dropChipOnLevel: dragging position ${from} to level ${to}`,
+      `${swapped.length} bystanders moved, not one: ` +
+      swapped.map((k) => `${k} L${before[k]}->L${after[k]}`).join(", "));
+    else ok(`L · dropChipOnLevel: dragging position ${from} to level ${to}` +
+      (moved ? "" : " (refused)") + " moves at most one bystander");
+  }
+
+  // reverse-walk placement into a section's target slot
+  {
+    const chosen = { r0: { cantrips: [], spells: base.slice() } };
+    stand(WARLOCK(), chosen);
+    const victim = base[7];
+    const before = levelMap("r0", "spells");
+    SB.guidePlace({ pick: "spell", row: "r0", from: 4, to: 5, id: "s", step: "k" }, victim, 4);
+    const after = levelMap("r0", "spells");
+    delete before[victim]; delete after[victim];
+    // NOT the same rule, deliberately. The reverse walk's model IS the drift: D118(g), in
+    // Francesco's own gate answer, "the repair is placing a legal pick and letting the
+    // offender drift LATER". So the assertion is that everything it moves moves DOWN a
+    // level and none of it lands somewhere it could not have been learned.
+    const up = Object.keys(before).filter((k) => k in after && after[k] < before[k]);
+    if (up.length) bad("L · guidePlace: the drift only ever goes later (D118(g))",
+      up.map((k) => `${k} L${before[k]}->L${after[k]}`).join(", "));
+    else ok("L · guidePlace: placing a pick drifts the rest LATER and never earlier (D118(g))");
+    eq("L · guidePlace: …and drifts nothing into an illegal slot", illegal("r0", "spells"), []);
+  }
+
+  // the bulk clear behind "Unpick all Nth-level picks"
+  {
+    const chosen = { r0: { cantrips: [], spells: base.slice() } };
+    stand(WARLOCK(), chosen);
+    const before = levelMap("r0", "spells");
+    const hit = (k) => (SPELLS[k] || {}).level === 2;
+    const gone = base.filter(hit);
+    SB.dropWhere(chosen.r0.spells, hit);
+    const after = levelMap("r0", "spells");
+    gone.forEach((k) => delete before[k]);
+    noRedate("L · dropWhere: clearing every level-2 pick re-dates none of the survivors",
+      before, after);
+  }
+}
+
 console.log(`\n${pass} ok · ${fail} fail`);
 process.exit(fail ? 1 : 0);

@@ -2174,9 +2174,15 @@ const guideTarget=sec=>{const t=GUIDE.place[guideSecKey(sec)];
 function guidePlace(sec,k,at){
   const arr=sec.pick==="cantrip"?"cantrips":"spells";
   const ch=state.chosen[sec.row]; if(!ch||!ch[arr])return;
+  const row=state.classes.find(r=>r.id===sec.row);
   const i=ch[arr].indexOf(k); if(i<0)return;
   const pos=at==null?guideTarget(sec):at;
   if(pos>=ch[arr].length)return;      // no slot to place into — never a delete (D118(g))
+  // D206(h): and never INTO a slot the pick could not have been learned in. D134(a) settled
+  // that — "a too-high pick is never placeable into a low slot; the repair is placing a legal
+  // pick and letting the offender drift later" — but it was settled in the PICKER's cap
+  // alone, so the writer would still take one handed to it. `slotTakes` is the one owner.
+  if(!slotTakes(row,arr,pos,k))return;
   // placing INTO an empty slot is a swap, not a shift (D146): the pick answers that slot
   // and leaves its own standing open, so nothing between the two moves
   if(i!==pos&&isHole(ch[arr][pos])){ch[arr][pos]=k;dropSlot(ch[arr],i);}
@@ -8942,7 +8948,14 @@ function dropChipOnLevel(chip,L){
       if(j<0)j=k; if(isHole(ch[arr][k])){h=k;break;} }
     if(h>=0){ ch[arr][h]=chip.key; dropSlot(ch[arr],i); save(); return true; }
     if(j<0)return false;
-    ch[arr].splice(i,1); ch[arr].splice(j,0,chip.key);
+    // D206(h): a drag is a SWAP, never a cascade. The splice this replaces re-dated every
+    // pick BETWEEN the two positions — dragging the L8 pick onto L5 moved L5→L6, L6→L7 and
+    // L7→L8, three picks the drag never named, which is D146's harm with a different
+    // gesture in front of it. Exchanging the two positions moves exactly two: the one you
+    // dragged, and the one whose slot it takes. The hole branch above is already a swap
+    // (fill the hole, leave one behind); this makes the dense case agree with it.
+    const displaced=ch[arr][j];
+    ch[arr][j]=chip.key; ch[arr][i]=displaced;
     save(); return true;
   }
   const arrName=chip.kind==="ft"?"feats":"optFeats";

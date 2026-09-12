@@ -1021,12 +1021,29 @@ closed one-offs) — is settled and lives in `DECISIONS-SETTLED.md`.
     over-budget pick should be reported: `buildHealth` attributes it to the row's top level,
     because an off-schedule position has no level of its own (`acqAt` says the same). Left as
     a ⚑ in `PLAN.md` rather than guessed at.
+  - **(h) …and then the two writers that MOVE a pick on purpose, which the audit had not yet
+    driven.** He came back with *"I still see the issue even after pushing the change"*, which
+    has two answers and both are true. **① The fix is preventive, never curative** — an array
+    already re-dated stays re-dated, because nothing here rewrites his stored picks (D42), so
+    a build damaged before v1.6.12 still reads wrong. **② There were still live paths.**
+    `dropChipOnLevel` (dragging a chip onto a level) fell back to `splice(i,1);splice(j,0,k)`
+    whenever the target level held no empty slot — so dragging the L8 pick onto L5 moved L5→L6,
+    L6→L7 and L7→L8, three picks the drag never named. **A drag is a SWAP now**: exactly two
+    positions exchange, the one you dragged and the one whose slot it takes, which is what the
+    function's own hole branch already did. `guidePlace`'s drift is NOT the same and was left
+    alone — D118(g), in his own gate answer at D134(a), is that "the repair is placing a legal
+    pick and letting the offender drift later" — but it too now asks `slotTakes` before
+    writing, because D134(a) settled "never placeable into a low slot" in the PICKER's cap
+    alone and the writer would still take one handed to it. The audit holds each to its own
+    rule: the drag to one bystander, the placement to later-only and legal.
   Enforced by: src/app.js `toggle` (both branches), `markTake`, `slotTakes`, `holeFor`,
-  `guideTradeOut` (+`GPICK.outPos` and the tradeout pool), `guideTradeClear`; the export shim
-  carries the slot model and every such writer. **`scratchpad/slotaudit.js` — 37 assertions,
-  all green, 8 of them red before this.** **Affects:** D146 (its rule, finally total), D186(a)
+  `guideTradeOut` (+`GPICK.outPos` and the tradeout pool), `guideTradeClear`, `dropChipOnLevel`,
+  `guidePlace`; the export shim
+  carries the slot model and every such writer. **`scratchpad/slotaudit.js` — 43 assertions,
+  all green, 12 of them red before this.** **Affects:** D146 (its rule, finally total), D186(a)
   (its "nothing moves" made true), D184 (the sectioned take is capped), D188(c,d) (the trade's
-  array truth), D115(d,g), D115(g) via `buildHealth`. → shipped v1.6.12.
+  array truth), D115(d,g), D115(g) via `buildHealth`, D118(f,g)/D134(a) (the drift kept, the cap moved into
+  the writer). → shipped v1.6.12, extended in **v1.6.13**.
 
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
