@@ -4920,17 +4920,38 @@ function entFilterGroups(){
 function renderEntBooks(){
   filterMenu($("#entMenuPop"),entFilterGroups(),ENT,()=>renderEntityList());
 }
+// D201: which of the picker's row filters apply to which KIND — the same list
+// `entFilterGroups` builds its menu from, said once so the two cannot drift. A filter with
+// no group for a kind must not RUN for that kind either (D171(a)), and here that is not
+// tidiness: `ability` is an ARRAY of raise-groups on a feat and the spellcasting SCORE — a
+// bare string, "int" — on a class. The raise axis always read it, harmlessly, because
+// `!ENT.raise.size` short-circuited while no score was ticked. D199(i) made the axis a
+// three-way, and `triOk(state,has)` takes `has` as an ARGUMENT: it is evaluated before
+// triOk can decide the axis is resting, so `"int".some` threw on every class row, on every
+// open. renderEntityList empties its list first and writes the count last, so the class
+// picker drew nothing under the count the PREVIOUS picker had left in the bar.
+function entRowOk(ent,it,q){
+  if(q&&!it.name.toLowerCase().includes(q))return false;
+  // a class has no Spellcasting group and no Prerequisites group
+  if(ent.kind!=="class"){
+    if(!triOk(ent.grantsOnly,grantsAny(it.grants)))return false;
+    if(ent.prq.size&&!ent.prq.has(prereqState(it).state))return false;
+  }
+  // only a feat has the ability-bonus strip
+  if(ent.kind==="feat"){
+    const raises=Array.isArray(it.ability)?it.ability:[];
+    if(!triOk(ent.raiseHas,raises.some(g=>(g.abils||[]).length)))return false;
+    if(ent.raise.size&&!raises.some(g=>(g.abils||[]).some(a=>ent.raise.has(a))))return false;
+  }
+  return true;
+}
 function renderEntityList(){
   if(!ENT)return;
   const list=$("#entList"); list.innerHTML="";
   renderEntBooks();   // D174: builds the whole menu, groups and all
   renderEntBudget();
   const q=ENT.q.toLowerCase();
-  let items=entItems(ENT.books)
-    .filter(i=>(!q||i.name.toLowerCase().includes(q))&&triOk(ENT.grantsOnly,grantsAny(i.grants))
-      &&(!ENT.prq.size||ENT.prq.has(prereqState(i).state))
-      &&triOk(ENT.raiseHas,(i.ability||[]).some(g=>(g.abils||[]).length))
-      &&(!ENT.raise.size||(i.ability||[]).some(g=>(g.abils||[]).some(a=>ENT.raise.has(a)))));
+  let items=entItems(ENT.books).filter(i=>entRowOk(ENT,i,q));
   // eligible first, then the ones whose prerequisites you don't meet, dimmed at the bottom
   const rank=it=>{const p=prereqState(it);return p.state==="no"?1:0;};
   items.sort((a,b)=>rank(a)-rank(b)||a.name.localeCompare(b.name)||a.source.localeCompare(b.source));
@@ -12510,6 +12531,8 @@ if(typeof module!=="undefined"&&module.exports){
     buildGaps,
     // a trade is two halves and either may stand alone (D188)
     swapNorm,swapsNorm,unswap,
+    // the picker's row filters run only where the menu offers them (D201)
+    entRowOk,
     // ability scores + proficiency bonus (D176)
     abilityScores,featScoreGains,profBonus,castNums,scoreMod,setCreatorMode,fullCreator,featsAt,scoreParts,mainAbilities,saveProfs,fillOrder,fillScores,pointsSpent,originOptions,parseFormula,rollFormula,formulaRange,optimizeScores,
     // storage and digest integrity

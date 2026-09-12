@@ -718,6 +718,43 @@ closed one-offs) — is settled and lives in `DECISIONS-SETTLED.md`.
   `scratchpad/mockups/mkpalette.py` (`python3 mkpalette.py round2 emit` regenerates the CSS).
   → shipped v1.6.2; (g) v1.6.3.
 
+### Live — the class picker crash (D201)
+
+- **D201 (2026-09-12) DECIDED — a filter that has no GROUP for a kind does not RUN for that
+  kind.** His bug, reported at the top of the session: *"on guided builder, when selecting a
+  class, the picker shows nothing and seems to refer to backgrounds instead"*. Mechanism:
+  reproduced on a clean profile (`127.0.0.1:8000` is a different origin from `localhost`, so
+  it carries its own empty storage and never touches his builds), Complete mode, guided
+  builder, first step — `TypeError: (i.ability || []).some is not a function` at the row
+  filter in `renderEntityList`.
+  - **(a) What broke.** `ability` means two different things: an ARRAY of raise-groups on a
+    feat, the spellcasting SCORE — a bare string, `"int"` — on a class. The raise filter
+    always read it, but until v1.6.1 it was guarded by `!ENT.raise.size`, which is empty
+    unless you tick a score, so the string was never touched. **D199(i) made that axis a
+    three-way**, and `triOk(state, has)` takes its `has` as an ARGUMENT: JavaScript evaluates
+    it before `triOk` can decide the axis is resting. So every class row threw, on every
+    open, since v1.6.1 — the guided builder's class step and the character card's
+    "Change the class at level N" alike.
+  - **(b) Why it looked like backgrounds.** `renderEntityList` empties `#entList` on its
+    first line and writes `#entSub` two thirds of the way down. Throwing in between leaves an
+    empty list under **the previous picker's count** — his screenshot says "70 backgrounds"
+    over the Class step because the background picker was the last one that finished.
+  - **(c) The fix is the rule, not a type guard.** `entFilterGroups` already omits
+    Spellcasting and Prerequisites for a class and offers the ability-bonus strip only for a
+    feat (D171(a): a filter that cannot mean anything for a kind is absent, not disabled).
+    The row filter now says the same thing — `fGrants`/`fRaise` gate the two blocks — so the
+    menu and the predicate read one list instead of two that drifted. A `raises()` helper
+    keeps the array coercion honest besides. *Rejected:* `Array.isArray(i.ability)` alone
+    (silences this crash and leaves the predicate running filters the menu never offers, so
+    the next kind-specific field does it again); making `triOk` take a thunk (it is called
+    from eleven sites on uniform spell records, and a lazy signature there buys nothing).
+  - **(d) The class of trap, → Gotcha:** a three-way axis EVALUATES its `has` even at rest,
+    so converting a short-circuited `!size||` filter into one is a behaviour change for every
+    record shape the old guard was hiding.
+  Enforced by: `src/app.js` `renderEntityList`'s filter, and engine **fixture 22** (the
+  picker predicate over a class record, which fails on the pre-fix expression).
+  → shipped v1.6.4.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

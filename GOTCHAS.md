@@ -7,6 +7,26 @@
 > Read this before touching the extractors, the importer, the grants resolution or any
 > DOM handler. Moved out of `STATE.md` on 2026-08-27 (v1.1); nothing was dropped.
 
+- **A three-way filter axis EVALUATES its `has` even at rest — converting a short-circuited
+  `!size||` filter into one reads fields the old guard was hiding** (D201, v1.6.4). The class
+  picker threw on every open from v1.6.1 to v1.6.4, in the guided builder's class step and in
+  "Change the class at level N" alike. `triOk(state,has)` is a function call, so JavaScript
+  evaluates `has` *before* `triOk` can decide the axis is resting — `(i.ability||[]).some(…)`
+  ran on every row. **`ability` is an ARRAY of raise-groups on a feat and the spellcasting
+  SCORE — the bare string `"int"` — on a class.** D182's version was `!ENT.raise.size||…`,
+  which short-circuited while no score was ticked, so the string was never touched and the
+  mismatch sat there invisible for four months. Two rules come out of it:
+  **(1)** a filter that `entFilterGroups` does not OFFER for a kind must not RUN for that
+  kind — the menu and the predicate are one list (`entRowOk`), not two that drift, and
+  D171(a) already said so about the menu alone;
+  **(2)** when you turn a guarded filter into a tri, check every RECORD SHAPE the guard was
+  keeping it away from — a picker serving five kinds has five.
+  The symptom is worth knowing on its own: **`renderEntityList` empties `#entList` on its
+  first line and writes `#entSub` two thirds down**, so anything that throws between them
+  leaves an empty list under the PREVIOUS picker's count. His report was *"selecting a class
+  shows nothing and seems to refer to backgrounds"* — one crash, reading as two bugs in a
+  surface that was never involved. **A render that clears before it computes must not be
+  read as a data bug; check the console first.** Engine fixture 22 pins it.
 - **A `{@tag …}`'s display text is NOT always segment 0, and the wrong one is a wrong NUMBER**
   (D175, v1.5.32). `rich_strip` kept the first pipe segment of every tag. In
   `{@scaledamage 8d8;4d8|5-9|1d8}` segment 0 is the BASE damage and segment 2 the per-slot

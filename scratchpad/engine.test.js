@@ -804,5 +804,42 @@ const casterLevel = (slots) => {
   ], [true, false, true, true, false, true, false]);
 }
 
+// ── 22 · the picker's row filters run only where the menu offers them (D201) ──
+// `ability` is an ARRAY of raise-groups on a feat and the spellcasting SCORE — a bare
+// string — on a class. What breaks SILENTLY (it broke loudly, and looked silent): a
+// three-way axis EVALUATES its `has` even at rest, so a filter the menu never offers for a
+// kind still reads that kind's fields. The class picker threw on every open from v1.6.1
+// until D201, and because renderEntityList empties its list first and writes its count
+// last, it read as "the class step shows an empty background list".
+{
+  const ent=(o={})=>Object.assign({kind:"feat",grantsOnly:"",raiseHas:"",
+    prq:new Set(),raise:new Set(),cats:new Set(),books:new Set()},o);
+  const cls={name:"Wizard",source:"XPHB",ability:"int",grants:null};
+  const feat={name:"Alert",source:"XPHB",ability:[],grants:null};
+  const asi={name:"Ability Score Improvement",source:"XPHB",
+    ability:[{abils:["str","dex"]}],grants:null};
+
+  // the crash itself: a resting axis must not touch a field this kind shapes differently
+  eq("22a · a class row survives a resting raise axis", SB.entRowOk(ent({kind:"class"}),cls,""), true);
+  eq("22b · …and a raise axis that is NARROWED, which the class menu never offers",
+    SB.entRowOk(ent({kind:"class",raiseHas:"n",raise:new Set(["str"])}),cls,""), true);
+  eq("22c · …and a prerequisite filter the class menu never offers",
+    SB.entRowOk(ent({kind:"class",prq:new Set(["no"])}),cls,""), true);
+
+  // the feat axis still narrows — gating it off for other kinds must not blunt it here
+  eq("22d · a feat that raises nothing answers the three ways",
+    [SB.entRowOk(ent(),feat,""), SB.entRowOk(ent({raiseHas:"y"}),feat,""),
+     SB.entRowOk(ent({raiseHas:"n"}),feat,"")], [true,false,true]);
+  eq("22e · …and one that does",
+    [SB.entRowOk(ent({raiseHas:"y"}),asi,""), SB.entRowOk(ent({raiseHas:"n"}),asi,""),
+     SB.entRowOk(ent({raise:new Set(["str"])}),asi,""),
+     SB.entRowOk(ent({raise:new Set(["wis"])}),asi,"")], [true,false,true,false]);
+
+  // the name filter is the one rule every kind shares
+  eq("22f · the search box narrows every kind",
+    [SB.entRowOk(ent({kind:"class"}),cls,"wiz"), SB.entRowOk(ent({kind:"class"}),cls,"bard")],
+    [true,false]);
+}
+
 console.log(`\n${pass} ok · ${fail} fail`);
 process.exit(fail ? 1 : 0);
