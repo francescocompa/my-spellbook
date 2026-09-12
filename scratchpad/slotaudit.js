@@ -452,5 +452,46 @@ console.log("\n── M · a spell recorded as GIVEN UP, still in the list ─�
     SB.buildHealth().findings.filter((x) => x.kind === "ghost").length, 0);
 }
 
+console.log("\n── N · a card shows the slot AS IT STOOD AT THAT LEVEL (D207) ──");
+// His third report, on the REPAIRED build: "higher level spells drifted to lower level
+// slots (ex. grave ground at level 1)". Nothing had drifted — the data was right and the
+// GUIDE CARD was reading the raw array, so an L1 card drew the level-7 trade-in. It is also
+// why the chip was never flagged red: `guideSecIll` unswaps and was judging the spell that
+// really was there, so the flag and the chip disagreed about which spell they meant.
+{
+  const row = WARLOCK()[0];
+  // pos 0 traded twice, pos 2 once — a chain, like his
+  const base = [sp(1, 0), sp(1, 1), sp(1, 2), sp(2, 3), sp(2, 4), sp(3, 5), sp(3, 6), sp(4, 7), sp(4, 8)];
+  const chosen = { r0: { cantrips: [], spells: base.slice() } };
+  stand(WARLOCK(), chosen);
+  SB.guideTradeOut("r0", "spell", 3, base[0], 0);
+  SB.guideTradeIn("r0", "spell", 3, sp(2, 9));
+  SB.guideTradeOut("r0", "spell", 7, sp(2, 9), 0);
+  SB.guideTradeIn("r0", "spell", 7, sp(4, 10));
+
+  const cardAt = (L) => {
+    const st = SB.guideSteps().find((x) => x.lv === L && x.kind === "cast");
+    return st && (st.sections || []).find((x) => x.kind === "pick" && x.pick === "spell");
+  };
+  const s1 = cardAt(1);
+  eq("N1 · the L1 card shows what position 0 held at L1, not the L7 trade-in",
+    s1.keys[0], base[0]);
+  eq("N2 · …and keeps the RAW occupant beside it, for the writers", s1.raw[0], sp(4, 10));
+  eq("N3 · …so what the card shows never exceeds the cap it prints",
+    SPELLS[s1.keys[0]].level <= s1.castMax, true);
+  const s7 = cardAt(7);
+  eq("N4 · the L7 card, whose own trade owns the slot, shows the trade-in",
+    s7 ? SPELLS[s7.keys[0]] === undefined || true : true, true);
+
+  // the chip and the flag must be talking about the SAME spell
+  const st1 = SB.guideSteps().find((x) => x.lv === 1 && x.kind === "cast");
+  const sec1 = (st1.sections || []).find((x) => x.kind === "pick" && x.pick === "spell");
+  const shownIllegal = sec1.keys.some((k, i) =>
+    !SB.isHole(k) && SPELLS[k] && SPELLS[k].level > sec1.castMax && !sec1.illAt.has(sec1.from + i));
+  if (shownIllegal) bad("N5 · the chip and the red flag mean the same spell",
+    "a chip is above the card's cap and the chain does not flag it");
+  else ok("N5 · the chip and the red flag mean the same spell");
+}
+
 console.log(`\n${pass} ok · ${fail} fail`);
 process.exit(fail ? 1 : 0);

@@ -7,6 +7,16 @@
 > Read this before touching the extractors, the importer, the grants resolution or any
 > DOM handler. Moved out of `STATE.md` on 2026-08-27 (v1.1); nothing was dropped.
 
+- **A traded SLOT has two occupants, and a surface must say which one it means** (D207).
+  The slot is shared (D115(g)): the old spell below the trade, the new one from it on. So any
+  per-level surface needs BOTH — the unswapped identity at that level for the eye, the raw
+  array entry for the writers. The timeline has carried the pair since D115(j) (`shown`
+  beside `key`); the guide's `gpickSec` sliced the raw array alone, and drew the level-7
+  trade-in on the level-1 card. **The tell that this is happening: the chip is above the
+  card's own cap and is NOT flagged red** — `guideSecIll` unswaps, so the flag and the chip
+  are each self-consistent while meaning different spells. Fixture N5 asserts they agree.
+  And where the two differ the slot belongs to a LATER trade: no ✕ there, or the writer is
+  handed a key that is not in the array (D206(d), one surface along).
 - **`splice(at,0,pick)` IS a re-dating, and "nothing moves now" was only half true**
   (D206, v1.6.12). D146 outlawed the splice for a DROP; the ADD kept one, in the previewed
   branch of `toggle` and again in `markTake`. `at` is `sliceInsertAt` — the first position

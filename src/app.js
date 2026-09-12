@@ -1755,15 +1755,25 @@ function gsec(o){ return Object.assign({kind:"self",optional:false,need:1,have:0
   value:null,keys:null,label:""},o); }
 // a class row's pick group for ONE character level: the array positions [from,to) that
 // level opens, and what sits in them right now
-function gpickSec(pick,row,from,to,arr,castMax,label){
+function gpickSec(pick,row,from,to,arr,castMax,label,lv){
   const need=to-from;
-  // `keys` keeps the EMPTY SLOTS (D146) — they are positions in this range and the card
+  // `raw` keeps the EMPTY SLOTS (D146) — they are positions in this range and the card
   // draws them — while `have` counts only what is actually answered, so a section with a
-  // slot standing open is not done and the walk does not step over it
-  const keys=(arr||[]).slice(from,Math.min(to,(arr||[]).length));
+  // slot standing open is not done and the walk does not step over it.
+  const raw=(arr||[]).slice(from,Math.min(to,(arr||[]).length));
+  // D207: THE CHIP SHOWS WHAT THE SLOT HELD AT THIS LEVEL, not what sits there now.
+  // A traded slot is shared (D115(g)): the old spell below the trade, the new one from it
+  // on. This sliced the RAW array, so an L1 card drew the L7 trade-in — his report,
+  // *"higher level spells drifted to lower level slots (ex. grave ground at level 1)"*.
+  // Nothing had drifted: the data was right and the card was reading the wrong end of the
+  // chain, which is also why the chip was never flagged — `guideSecIll` unswaps and was
+  // judging the spell that really was there. The timeline has carried both keys since
+  // D115(j) (`shown` beside `key`); this is the same pair, from the same `unswap`.
+  const kind=pick==="cantrip"?"cantrip":"spell";
+  const keys=lv==null?raw:raw.map(k=>isHole(k)?k:unswap([k],row,kind,lv)[0]);
   const have=Math.max(0,Math.min(nFilled(keys),need));
   return gsec({id:pick+"@"+from+"-"+to,kind:"pick",pick,row,from,to,castMax,label,need,have,
-    done:have>=need,keys,
+    done:have>=need,keys,raw,
     value:noHoles(keys).map(k=>(SPELL_BY[k]||{}).name||String(k).split("|")[0]).join(", ")||null});
 }
 // a choice the build carries (D126(g)), as a section of its GIVER's step
@@ -1856,11 +1866,11 @@ function guideSteps(){
     const secs=[];
     const cf=cum(sched.cant,cl-1), ct=cum(sched.cant,cl);
     if(ct>cf)secs.push(gpickSec("cantrip",id,cf,ct,ch.cantrips||[],0,
-      ct-cf>1?"Cantrips":"Cantrip"));
+      ct-cf>1?"Cantrips":"Cantrip",lv));
     const sf=cum(sched.spells,cl-1), stp=cum(sched.spells,cl);
     if(sched.spells&&stp>sf)secs.push(gpickSec("spell",id,sf,stp,ch.spells||[],
       Math.max(1,maxLvlAt(sched.caster,cl,c)),
-      sched.book?(stp-sf>1?"Spellbook spells":"Spellbook spell"):(stp-sf>1?"Spells":"Spell")));
+      sched.book?(stp-sf>1?"Spellbook spells":"Spellbook spell"):(stp-sf>1?"Spells":"Spell"),lv));
     // the level-up swap questions (D115(g)/D119(b)): the class taking this level may
     // trade one earlier LEVELED spell and one earlier CANTRIP, each only where its own
     // rules grant it (SWAP_RULES). Still two independent decisions, answered or passed —
@@ -3118,12 +3128,27 @@ function guideSecBlock(step,sec,rowOf,inline){
       }
       const sp=SPELL_BY[k];
       const bad=sec.illAt&&sec.illAt.has(pos);
-      const chip=el("span","cartchip"+(bad?" gbad":""));
+      // D207: `k` is what the slot HELD at this level; `real` is what sits there now. They
+      // differ exactly when a LATER trade owns this slot, and then this card cannot edit it
+      // — a ✕ here would ask a writer to drop a spell that is not in the array, which is the
+      // same display-name-vs-position trap D206(d) closed on the trade's give-up. The chip
+      // says whose question it is instead, in the vocabulary `.gtraded` already uses.
+      const real=(sec.raw||sec.keys)[j], later=real!==k;
+      const chip=el("span","cartchip"+(bad?" gbad":"")+(later?" gtraded":""));
       chip.append(el("span","lv",sp?(sp.level===0?"C":String(sp.level)):"?"));
       const nm=el("span",null,sp?sp.name:String(k).split("|")[0]);
       if(sp)attachSpell(nm,sp);
       chip.append(nm);
-      const x=xBtn(null,()=>guideDrop(sec,k));
+      if(later){
+        const ev=swapEvents().filter(e=>e.row===sec.row&&e.kind===(sec.pick==="cantrip"?"cantrip":"spell")
+          &&e.lvl>sec.lv&&e.out===k).sort((a,b)=>a.lvl-b.lvl)[0];
+        attachTip(chip,tipBlock("Traded away at level "+(ev?ev.lvl:"a later level"),
+          (sp?sp.name:"This pick")+" filled this slot until then"
+          +(ev&&ev.in?", and "+((SPELL_BY[ev.in]||{}).name||"its replacement")+" holds it now":"")
+          +". Undo that trade to change what sits here."));
+        chips.append(chip); return;
+      }
+      const x=xBtn(null,()=>guideDrop(sec,real));
       attachTip(x,tipBlock("Drop "+(sp?sp.name:"this pick"),
         "Takes it back out and leaves the slot standing here, still yours to fill. "
         +"Nothing else moves."));

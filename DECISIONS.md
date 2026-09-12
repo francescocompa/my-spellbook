@@ -1061,6 +1061,42 @@ closed one-offs) — is settled and lives in `DECISIONS-SETTLED.md`.
   array truth), D115(d,g), D115(g) via `buildHealth`, D118(f,g)/D134(a) (the drift kept, the cap moved into
   the writer). → shipped v1.6.12, extended in **v1.6.13** and **v1.6.14**.
 
+### Live — a card shows the slot as it stood at that level (D207)
+
+- **D207 (2026-09-12) DECIDED — a level's card shows what its slot HELD AT THAT LEVEL, and
+  carries the raw occupant beside it for the writers.** His third report, on the build I had
+  just repaired: *"higher level spells drifted to lower level slots (ex. grave ground at level
+  1)"*. **Nothing had drifted.** The data was correct — his export's trade chain resolves
+  exactly as D188/D115(g) intend — and the GUIDE CARD was reading the wrong end of it.
+  - **(a) The mechanism.** `gpickSec` sliced the RAW array (`arr.slice(from,to)`), so a
+    traded slot showed its FINAL occupant on every card, including the ones for levels before
+    the trade. On *Fervent Kuo-Toa*: the **L1** card drew **Banishment (lv4)** and **Dispel
+    Magic (lv3)** in a slot capped at 1, and the **L2** card drew **Grave Ground (lv5)** —
+    the level-7 and level-9 trade-ins. What he actually held at L1 was Arms of Hadar and
+    Armor of Agathys. **And it is why the chip was never marked red:** `guideSecIll` unswaps
+    and was judging Arms of Hadar, so the flag and the chip disagreed about which spell they
+    meant, and each was individually consistent. **This, not the writers, is what he had been
+    reporting since the first screenshot** — the level-3 spell on an L2 Warlock card was the
+    same read. D206's writer defects were real and are fixed; they were not this.
+  - **(b) The section carries BOTH keys, the way the timeline always has.** `keys` is the
+    unswapped identity at `sec.lv` — one `unswap` per position, the same call `shown` makes
+    in the timeline (D115(j)) — and `raw` is what sits there now. The chip, the rail's value
+    line and the cap comparison read `keys`; every writer reads `raw`. *Rejected:* unswapping
+    inside `guideSecBlock` at render time (the rail's `value` is built in the derivation and
+    would still lie); making `sliceChosen` the source (it strips holes, and a section is
+    positional).
+  - **(c) A slot a LATER trade owns is not this card's to edit.** Where `raw` differs from
+    `keys` the chip drops its ✕ and takes `.gtraded`, with a tip naming the level that owns
+    it and what replaced it. A ✕ there would hand a writer a spell that is not in the array
+    — the display-name-vs-position trap D206(d) closed on the give-up, one surface along.
+    *Rejected:* leaving the ✕ and resolving it to `raw` (it would silently drop the LATER
+    trade's spell from a card that never named it).
+  - **Enforced by:** src/app.js `gpickSec` (`lv` parameter, `keys`/`raw`) and the chip loop in
+    `guideSecBlock`; **fixtures N1–N5**, of which N5 is the one that matters — the chip and
+    the red flag must mean the same spell. **Affects:** D115(g) (its display rule, now applied
+    where it was missing), D115(j) (the timeline's `shown`/`key` pair, copied), D188, D146,
+    D206(d). → shipped v1.6.15.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives
