@@ -7,6 +7,35 @@
 > Read this before touching the extractors, the importer, the grants resolution or any
 > DOM handler. Moved out of `STATE.md` on 2026-08-27 (v1.1); nothing was dropped.
 
+- **A card that drops its opener because "a picker is open" drops it for the WRONG picker, and
+  the section can then delete itself** (D205, v1.6.10). His report: an Agonizing Blast step
+  reading *1 of 2 answered* whose second question — *choose one of your known Warlock cantrips
+  that deals damage* — had no control anywhere on the card. `renderGuideStage` computed
+  `noOpener = inline || chipped` **once for the whole step**, and `inline` is `!!STAGE_PICK`,
+  which only says that SOMETHING is hosted in the stage. Three things then lined up:
+  **(1)** `guideSecOpen` returns null for **`optfeat`**, so an invocation section is not an
+  "opener" — which means `chipped` stays false and the chip row D165 added *precisely* to keep
+  a second section reachable never draws;
+  **(2)** clicking that section's own **Change it** hosts the entity picker anyway, so `inline`
+  goes true for every OTHER section on the step;
+  **(3)** a `cpick` with nothing chosen yet has no chips, so once its button is suppressed it
+  hits `if(inline&&!b.children.length)return null` and vanishes — and closing the picker does
+  not bring it back, because `GAUTO` has already fired for that step key.
+  **The rule: a button is redundant beside a chip that opens the same picker, or beside THAT
+  SECTION'S OWN open list — never beside somebody else's.** `noOpener` is a per-section
+  predicate (`chipped||(inline&&stagePickIsFor(sec))`). Keep the step-wide test only where the
+  question really is step-wide (the "Nothing to answer here" line). And note the stale comment
+  this hid behind: D162 said optfeat's chooser "is not hosted", which stopped being true when
+  it became `openEntityPicker("opt", …)`.
+- **The trade is ONE surface on the step, and its two sections are a MODEL fact, not a render
+  one** (D204, v1.6.9). `swap-spell` and `swap-cantrip` are still two `gsec` entries — the rail
+  reads their `value` and `offRail` per kind (D188(e)) — but `guideSecBlock` draws the group on
+  the FIRST swap section of the step and returns null for the rest. **Adding a third tradeable
+  kind means adding a row to that loop, not a section frame**, and anything that keys off
+  "the swap section" must not assume one section per rendered block. It is also the one section
+  that bypasses `guideSecWrap`: no header, no Optional tag, by decision. Its open/closed state
+  is `GSWAPOPEN`, **per walk and never stored** — a display default is not a fact about the
+  build, and it must never re-close over an answer (clearing a half adds the step key back).
 - **A record can be present in `DATA`, emitted by both extractors, counted in the digest — and
   invisible, because something DECIDED it was an older printing** (D203, v1.6.8). Underdark
   Options 2 ships five species; the picker showed four. Nothing was lost: `collapseEditions`

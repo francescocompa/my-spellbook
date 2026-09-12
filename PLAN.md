@@ -170,6 +170,15 @@ his call: N1 first, then M3/M4 (settled 2026-09-05).
 
 ## Open ⚑ — calls for Francesco
 
+- [ ] ⚑ **The step counter counts the optional trades as unanswered work.** Left open by D204
+  (2026-09-12): a Spellcasting step whose only other questions are the two optional trades
+  reads *"0 of 3 answered"* on arrival, so a card you have nothing to do on looks like three
+  jobs. `guideStepCount` counts `sections.length` flat and only credits an optional section
+  once it holds a value. Options are to count only the required sections (and say "· 2
+  optional" beside it), or to credit an untouched optional as answered. His call — it changes
+  what "answered" means on every step, not just this one. Size S. ⚑ (owner: Francesco,
+  2026-09-12)
+
 - [ ] ⚑ **A command on an entity to see and switch to an older printing.** His ask alongside
   D203 (2026-09-12): the collapse now shows the newest printing and hides the older one on
   evidence, but there is no way to look at what was folded away, or to take it instead. Needs
