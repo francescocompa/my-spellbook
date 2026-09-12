@@ -170,6 +170,15 @@ his call: N1 first, then M3/M4 (settled 2026-09-05).
 
 ## Open ⚑ — calls for Francesco
 
+- [ ] ⚑ **Where should a genuinely over-budget pick be reported?** Left open by D206(g)
+  (2026-09-12). His 15/10 was not a real over-budget — it was five unregistered give-ups, and
+  D206(d) closes that — but the question it raised stands: `buildHealth` attributes an
+  off-schedule pick to the ROW'S TOP level, which is why the ⚠ landed on L10 rather than
+  anywhere near the picks. The model has no better answer on its own (`acqAt` says the same:
+  a position the schedule never admits has no level), so the options are to report it at the
+  top and say so in words, or to attribute it to the level of the pick it displaced. Needs
+  his call. Size S/M. ⚑ (owner: Francesco, 2026-09-12)
+
 - [ ] ⚑ **The step counter counts the optional trades as unanswered work.** Left open by D204
   (2026-09-12): a Spellcasting step whose only other questions are the two optional trades
   reads *"0 of 3 answered"* on arrival, so a card you have nothing to do on looks like three

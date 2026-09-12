@@ -76,8 +76,13 @@ const illegal = (rowId, arr) => {
   const lvls = SB.charLevelMap().get(rowId) || [];
   const list = (st.chosen[rowId] || {})[arr] || [];
   const out = [];
+  // D115(g): a pick SWAPPED IN arrives at the trade's level, not at its position's — the
+  // slot is shared, old spell below the trade and new one from it on — so its position's
+  // cap is the wrong question. `buildHealth` is the app's own answer for those and is
+  // asserted separately; this probe stays independent for the ordinary case.
+  const swappedIn = new Set(SB.swapEvents(SB.get.state().swaps).map((e) => e.in).filter(Boolean));
   list.forEach((k, i) => {
-    if (SB.isHole(k)) return;
+    if (SB.isHole(k) || swappedIn.has(k)) return;
     const s = SPELLS[k]; if (!s || !s.level) return;
     const cl = SB.acqIdx(sa, i, lvls) + 1;
     if (!cl) return;                                   // off-schedule: over-budget, not illegal
@@ -190,6 +195,8 @@ console.log("\n── D · the trade, both halves (D188) ───────�
   const afterClear = levelMap("r0", "spells");
   noRedate("D3 · undoing the give-up re-dates nothing else", afterIn, afterClear);
   eq("D4 · …and the trade's own slot legality", illegal("r0", "spells"), []);
+  eq("D5 · the app's own health sweep sees no illegal slot either (D115(g): a swapped-in\n       pick is judged at the TRADE's level, not its position's)",
+    SB.buildHealth().findings.filter((f) => f.kind === "spelllevel").map((f) => f.text), []);
 }
 
 console.log("\n── E · dropping the LAST position, and consecutive drops ───────");

@@ -7,6 +7,35 @@
 > Read this before touching the extractors, the importer, the grants resolution or any
 > DOM handler. Moved out of `STATE.md` on 2026-08-27 (v1.1); nothing was dropped.
 
+- **`splice(at,0,pick)` IS a re-dating, and "nothing moves now" was only half true**
+  (D206, v1.6.12). D146 outlawed the splice for a DROP; the ADD kept one, in the previewed
+  branch of `toggle` and again in `markTake`. `at` is `sliceInsertAt` — the first position
+  ABOVE the level you are viewing — and **the guide sets the preview level on every step you
+  stand on** (`guideGo` → `setPreview(s.lv)`), so this is the ordinary state of a walk, not an
+  edge case. On a full book one click re-dated six picks, pushed the last off the schedule,
+  and put the new pick in a slot it could not legally have been learned in: viewing L1, `at`
+  IS the L2 slot. **The rule: an add may APPEND (`at >= length`, displaces nothing) or fill a
+  legal standing hole (`holeFor`); anything else is refused and says why.** And read the
+  comment above D186(a)'s refusal with suspicion — it says "Nothing moves now" and meant only
+  the pull-back it had just removed.
+- **A landing must ask `slotTakes` — one owner, every path** (D206). Can position `i` hold this
+  pick at all, judged by the class level that position arrives at (D146's fourth rule).
+  `holeFor` has had that test since D146; `toggle`'s **sectioned** write (D184) never did, and
+  only the guide picker's own cap stood in for it. Any new way to land a pick asks the one
+  function, or it is the next illegal slot.
+- **A picker that shows a DISPLAY name must hand the writer a POSITION, not the name** (D206).
+  The trade's give-up pool offers each slot as it stood before this level (`unswap`), so where
+  a LATER trade replaced that slot's occupant the offered name is not in the raw array at all.
+  `guideTradeOut` looked it up with `indexOf`, got -1, and **returned doing nothing** — no
+  removal, no event, no word — and the replacement then appended: one spell over budget, five
+  times over, reported as "15 / 10" with no cause anywhere on screen. Three rules: the pool
+  carries the position (`GPICK.outPos`); a slot a trade at this level **or above** already owns
+  is not offered; and a writer that still cannot resolve its target **says so**. Never `return`
+  bare from a writer — a silent no-op is indistinguishable from a dead control, and it drifts
+  the data.
+- **Only two `appNotice` kinds are real.** `ok` is green with a check, `ask` is gold with a
+  warning; **anything else renders with NO icon and NO border colour** (`kind?"":"warn"`).
+  A refusal is `ask` — D186(a)'s wore a green check until D206.
 - **A card that drops its opener because "a picker is open" drops it for the WRONG picker, and
   the section can then delete itself** (D205, v1.6.10). His report: an Agonizing Blast step
   reading *1 of 2 answered* whose second question — *choose one of your known Warlock cantrips

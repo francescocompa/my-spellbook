@@ -73,7 +73,15 @@ node scratchpad/sweeps/deadfns.js # dead functions — MUST exit 0 (K4 spent the
 node scratchpad/sweeps/ids.js     # a lookup for an id defined nowhere — MUST exit 0
 npx eslint src/app.js src/extract.js docs/sw.js   # D158(k) rules — MUST exit 0 (npm install once)
 node scratchpad/engine.test.js    # the engine's rules, headless (D158(j)) — MUST exit 0
+node scratchpad/slotaudit.js      # D146's one invariant, over every writer (D206) — MUST exit 0
 ```
+
+`slotaudit.js` states D146 as ONE invariant — **touching one pick never re-dates another** —
+and drives the real writers at every position of a real Warlock 8 to break it: the three drop
+paths, the sectioned take, both trade halves, the previewed take, `unswap`'s position
+integrity, the guide's own view and a multiclass row. **A new writer that can move a pick
+between slots belongs in it before it ships** (D206). Both runners boot `scratchpad/sbload.js`
+— one copy of the node harness, never a second.
 
 `engine.test.js` loads `app.js` in node behind its boot guard (`__SB_HEADLESS__`) and calls
 the engine through the export shim at the foot of that file. It asserts the rules that break

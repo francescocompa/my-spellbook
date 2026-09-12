@@ -1310,23 +1310,32 @@ function sliceInsertAt(row,arr,L){
 // manufacture exactly the illegal slot the chain flags, so those are stepped over and
 // the pick lands at the insert point instead. Cantrips have no such test; they are all
 // level 0. -1 = no slot to fill, take the ordinary path.
+// D206: can position `i` of this row's array hold this pick at all? The cap is the class
+// level that position arrives at (D146's fourth rule). ONE owner — `holeFor` and `toggle`'s
+// sectioned write both ask it, so they cannot drift apart the way they had.
+function slotTakes(row,arr,i,key){
+  if(!row||arr==="cantrips")return true;            // a cantrip has no level to be over
+  const sp=SPELL_BY[key]; if(!sp||!sp.level)return true;
+  const sched=rowSched(row)||{cant:null,spells:null};
+  if(!sched.spells)return true;                     // a preparer's list has no slots
+  const lvls=charLevelMap().get(row.id)||[];
+  const cl=acqIdx(sched.spells,i,lvls)+1;
+  if(!cl)return true;                               // off-schedule: over-budget, not illegal
+  return sp.level<=maxLvlAt(sched.caster,Math.max(1,cl),CLS_BY[row.clsKey]);
+}
 function holeFor(row,arr,key,L){
   const ch=state.chosen[row.id]; if(!ch||!ch[arr]||!hasHole(ch[arr]))return -1;
   const sched=rowSched(row)||{cant:null,spells:null};
   const sa=arr==="cantrips"?sched.cant:sched.spells;
   if(arr==="spells"&&!sa)return -1;               // preparer list: daily, no slots to hold
   const lvls=charLevelMap().get(row.id)||[];
-  const sp=SPELL_BY[key], c=CLS_BY[row.clsKey];
   for(let i=0;i<ch[arr].length;i++){
     if(!isHole(ch[arr][i]))continue;
     if(holeTag(ch[arr][i])==="trade")continue;   // D188: the trade's own half fills this one
     // the schedule is cumulative, so acquisition level is monotone in position: the first
     // slot above the view ends the search rather than skipping it
     if(L!=null&&acqAt(sa,i,lvls)>L)break;
-    if(arr==="spells"&&sp&&sp.level>0){
-      const cl=acqIdx(sa,i,lvls)+1;
-      if(!cl||sp.level>maxLvlAt(sched.caster,Math.max(1,cl),c))continue;
-    }
+    if(!slotTakes(row,arr,i,key))continue;          // D206: one owner for the cap test
     return i;
   }
   return -1;
@@ -3730,10 +3739,24 @@ function renderGpick(){
     const sched=row&&rowSched(row), lvls=charLevelMap().get(g.row)||[];
     const sa=g.kind==="cantrip"?(sched&&sched.cant):(sched&&sched.spells);
     const ch=state.chosen[g.row]||{};
-    const keys=[];
+    // D206: the pool carries the POSITION each option came from, and `GPICK.outPos` hands
+    // it to the writer. It used to offer only the DISPLAY name — the spell as it stood
+    // before this level — and `guideTradeOut` looked that name up in the raw array again.
+    // Where a later trade had already replaced that slot's occupant the name was not in
+    // the array at all, so the writer returned doing nothing: no removal, no event, no
+    // word. You then picked the replacement, which appended, and the build was one spell
+    // over with nothing saying why (his 15/10 Warlock 10; the ⚑ open since 2026-09-05).
+    // A slot a trade at THIS level or above already owns is not offered at all — taking
+    // it would rewrite that trade's own half from underneath it.
+    const later=new Set(swapEvents().filter(e=>e.row===g.row&&e.kind===g.kind&&e.lvl>=g.lv&&e.in)
+      .map(e=>e.in));
+    const keys=[]; GPICK.outPos=new Map();
     ((g.kind==="cantrip"?ch.cantrips:ch.spells)||[]).forEach((k2,i)=>{
-      if(isHole(k2))return;
-      if(acqAt(sa,i,lvls)<g.lv)keys.push(unswap([k2],g.row,g.kind,g.lv-1)[0]);});
+      if(isHole(k2)||later.has(k2))return;
+      if(acqAt(sa,i,lvls)<g.lv){
+        const disp=unswap([k2],g.row,g.kind,g.lv-1)[0];
+        if(GPICK.outPos.has(disp))return;      // one row per spell; the earliest slot wins
+        GPICK.outPos.set(disp,i); keys.push(disp);}});
     $("#gpTitle").textContent="Which "+(g.kind==="cantrip"?"cantrip":"spell")+" are you giving up?";
     $("#gpSub").textContent=["L"+g.lv,c?c.name:null].filter(Boolean).join(" · ");
     let items=keys.map(k2=>SPELL_BY[k2]).filter(Boolean);
@@ -3910,7 +3933,8 @@ function gpickRow(sp,held,sec,mode){
 // A TRADE is the exception: it is one pick by definition, and its card shows the result.
 function gpickCommit(sec,k){
   const g=GPICK; if(!g)return;
-  if(g.mode==="tradeout"){ guideTradeOut(g.row,g.kind,g.lv,k); closeGpick(); return; }
+  if(g.mode==="tradeout"){ guideTradeOut(g.row,g.kind,g.lv,k,
+    g.outPos?g.outPos.get(k):null); closeGpick(); return; }   // D206: the POSITION, not the name
   if(g.mode==="trade"){
     // D188: the half writer, when the picker was opened from a trade SECTION; the old
     // arm-then-take path (the timeline's bar) still has its own `g.out` and keeps `guideTrade`
@@ -3975,10 +3999,20 @@ function openGpickTrade(step,sec,half){
     castMax:kind==="cantrip"?0:guideSwapMax(row,sec.lv),
     stepKey:step.key,secId:sec.id,half});
 }
-function guideTradeOut(row,kind,lv,outKey){
+function guideTradeOut(row,kind,lv,outKey,atPos){
   const arr=kind==="cantrip"?"cantrips":"spells";
   const ch=state.chosen[row]||{}; const list=ch[arr]||[];
-  const p=list.indexOf(outKey); if(p<0)return;
+  // D206: the caller's POSITION first — the picker knows which slot it offered, and the
+  // display name it showed may be the slot's pre-swap identity rather than what sits there
+  // now. `indexOf` stays as the fallback for callers that have no position.
+  let p=(atPos!=null&&atPos>=0&&atPos<list.length&&!isHole(list[atPos]))?atPos:list.indexOf(outKey);
+  if(p<0){
+    // NEVER SILENTLY (his call). A writer that cannot do what it was asked says so — this
+    // returning bare is what let five unregistered trades add up to "15 / 10".
+    const nm=(SPELL_BY[outKey]||{}).name||"That "+kind;
+    appNotice("Could not give up "+nm+": it is no longer in this class's list at level "+lv
+      +". Undo any later trade that replaced it first.","ask",7000);
+    return;}
   const ev=swapAt(lv,kind)||{};
   const inKey=ev.in&&ev.in!==outKey?ev.in:"";
   dropSlot(list,p,"trade");   // the slot stands (D146), TAGGED: it is the trade's, not a pick's
@@ -4013,7 +4047,12 @@ function guideTradeClear(row,kind,lv,half){
   const arr=kind==="cantrip"?"cantrips":"spells";
   const list=(state.chosen[row]||{})[arr]||[];
   if(half==="out"&&ev.out){
-    if(ev.in){const q=list.indexOf(ev.in); if(q>=0){ if(q===list.length-1)list.pop(); else list[q]=hole(); list.push(ev.in); }}
+    // D206: the REPLACEMENT KEEPS ITS SLOT (his call). This used to evict it to the end of
+    // the array so the restored give-up could have its slot back — which re-dated a pick
+    // the click never named (L1 → L8 in the audit), and D188's "neither half binds the
+    // other" reads the other way: undoing one half may move that half and nothing else.
+    // The slot is one position, so when the replacement is still in it the give-up comes
+    // back appended, exactly as any other re-take would.
     const p=ev.pos;
     if(p!=null&&p>=0&&p<list.length&&isHole(list[p]))list[p]=ev.out; else list.push(ev.out);
     if(ev.in)recordSwap(lv,kind,{row,in:ev.in}); else clearSwap(lv,kind);
@@ -4445,7 +4484,12 @@ function toggle(idx,spellKey,cantrip,which,slots){
     // every slot the section owns is filled.
     if(slots){
       const p=secOpenSlot(slots,ch[arr]);
-      if(p>=0){
+      // D206: …but never into a slot the pick could not legally have been learned in. This
+      // was the last landing path with no cap test — `holeFor` below has had one since
+      // D146 — and it is only the guide picker's own cap that has been standing in for it.
+      // A pick that cannot sit here steps over and lands over-budget, where the sweep says
+      // so, rather than manufacturing the illegal slot the chain then flags.
+      if(p>=0&&slotTakes(row,arr,p,spellKey)){
         while(ch[arr].length<p)ch[arr].push(hole());
         ch[arr][p]=spellKey; save(); render(); return;
       }
@@ -4484,10 +4528,27 @@ function toggle(idx,spellKey,cantrip,which,slots){
         ? nm+" arrives at level "+lv+", above the level you are viewing. Go to level "+lv
           +", or clear the level view, to change it."
         : nm+" arrives above the level you are viewing. Clear the level view to change it.",
-        "ok",7000);
+        "ask",7000);   // D206: a refusal is `ask` (gold, warn) — `ok` put a green CHECK on it
       return;
     }
-    if(i<0){ ch[arr].splice(at,0,spellKey); save(); render(); return; }
+    if(i<0){
+      // D206: AN INSERT INTO THE MIDDLE IS A RE-DATING (D146), and this was the last one
+      // left. D186(a) removed the pull-back splice from this same block and its note above
+      // says "Nothing moves now" — true of the pull-back, false of the plain take, which
+      // kept `splice(at,0,…)`. `at` is the first position ABOVE the level you are viewing,
+      // so on a full book one click re-dated every pick above it, pushed the last one off
+      // the schedule, AND dropped the new pick into a slot it could not legally have been
+      // learned in (his report: a level-3 spell on an L2 Warlock card — `at` for a view of
+      // L1 IS the L2 slot). `holeFor` above checks that cap; this path never did.
+      // Appending displaces nothing, so it still stands. Anything else is refused and says
+      // why — his call, and the same answer D186(a) gives to the mirror gesture.
+      if(at>=ch[arr].length){ ch[arr].push(spellKey); save(); render(); return; }
+      const nm=(SPELL_BY[spellKey]||{}).name||"That spell";
+      appNotice(nm+" cannot be added at level "+L+": every "
+        +(arr==="cantrips"?"cantrip":"spell")+" slot up to here is already filled, and taking "
+        +"it would move every later pick up a level. Clear the level view to add it.","ask",7000);
+      return;
+    }
   } else if(i<0){ ch[arr].push(spellKey); save(); render(); return; }
   // i>=0 within the visible slice (or not previewing): a drop, at every level. It leaves
   // the SLOT (D146) — `prep` is the one array with no slots to leave, being a daily
@@ -4518,7 +4579,14 @@ function markTake(c,k){
   const h=row?holeFor(row,arr,k,PREVIEW.level):-1;   // a standing slot is answered first (D146)
   if(h>=0){ch[arr][h]=k;return;}
   const at=(PREVIEW.level!=null&&row)?sliceInsertAt(row,arr,PREVIEW.level):ch[arr].length;
-  ch[arr].splice(at,0,k);
+  // D206: the designation shortcut carried the same middle-insert as `toggle` and re-dated
+  // just as hard. Append where that displaces nothing; otherwise say so — a designation is
+  // a shortcut to a take, so it answers the way a take does.
+  if(at>=ch[arr].length){ ch[arr].push(k); return; }
+  const nm=(SPELL_BY[k]||{}).name||"That spell";
+  appNotice(nm+" cannot be added at level "+PREVIEW.level+": every "
+    +(arr==="cantrips"?"cantrip":"spell")+" slot up to here is already filled. Clear the level "
+    +"view to add it.","ask",7000);
 }
 function removeChosen(idx,spellKey){ const ch=state.chosen[idx];if(!ch)return;
   ["cantrips","spells","prep"].forEach(a=>{if(!ch[a])return;const i=ch[a].indexOf(spellKey);
@@ -12836,12 +12904,12 @@ if(typeof module!=="undefined"&&module.exports){
     // a book that is here and ON is not a gap either, and a subclass's book is last (D195)
     buildGaps,
     // a trade is two halves and either may stand alone (D188)
-    swapNorm,swapsNorm,unswap,
+    swapNorm,swapsNorm,swapEvents,unswap,
     // the acquisition-order model, end to end (D146) — the slot primitives, the
     // position→level arithmetic, and EVERY writer that can move a pick between slots, so
     // `scratchpad/slotaudit.js` can hold the one invariant that matters: touching one pick
     // never re-dates another.
-    dropSlot,dropWhere,holeFor,nFilled,hasHole,acqIdx,acqAt,acqLevelOf,
+    dropSlot,dropWhere,holeFor,slotTakes,buildHealth,nFilled,hasHole,acqIdx,acqAt,acqLevelOf,
     rowSched,charLevelMap,sliceChosen,sliceInsertAt,
     removeChosen,markTake,guidePickDrop,guidePlace,dropChipOnLevel,
     guideTradeOut,guideTradeIn,guideTradeClear,swapAt,recordSwap,clearSwap,

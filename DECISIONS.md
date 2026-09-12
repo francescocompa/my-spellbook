@@ -964,6 +964,70 @@ closed one-offs) — is settled and lives in `DECISIONS-SETTLED.md`.
   it always meant), D165 (the chip row is no longer the only thing keeping a second section
   reachable), D126(g), D190's family of "the app knew and no surface said it". → shipped v1.6.10.
 
+### Live — nothing re-dates a pick you did not name (D206)
+
+- **D206 (2026-09-12) DECIDED — the last three writers that could move a pick between slots,
+  closed; a landing is legality-checked from ONE owner; and no writer fails silently.** His
+  report: *"the bug of misplaced spells when one is removed keeps occurring, audit it fully and
+  investigate the root cause"*, with a level-3 spell on an **L2 · Warlock** card, and then a
+  Warlock 10 reading **15 / 10 prepared** with an unexplained red ⚠ at L10.
+  - **(a) The audit came first, and it is the deliverable.** `scratchpad/slotaudit.js` states
+    D146 as ONE invariant — **touching one pick never re-dates another** — and drives the REAL
+    writers at every position of a real Warlock 8 to break it: the three drop paths, the
+    sectioned take, both trade halves, the previewed take, `unswap`'s position integrity, the
+    guide's own view, a multiclass row. **8 of 37 failed.** `scratchpad/sbload.js` is the node
+    harness extracted out of `engine.test.js` so both runners boot one copy of it. It is gate
+    line nine; a new writer that can move a pick between slots belongs in it before it ships.
+  - **(b) The root cause: a take at a previewed level SPLICED into the middle.** `toggle`'s
+    `ch[arr].splice(at,0,spellKey)` — and `markTake`'s twin. `at` is the first position ABOVE
+    the level you are viewing, and **the guide sets the preview level on every step you stand
+    on** (`guideGo` → `setPreview(s.lv)`), so this is the ordinary state of a walk. On a full
+    book one click re-dated **six** picks, pushed the last one off the schedule, and dropped the
+    new pick into a slot it could not legally have been learned in — viewing L1, `at` IS the L2
+    slot, which is his screenshot exactly. D186(a) removed the pull-back splice from this same
+    block and its comment says *"Nothing moves now"*; it was true of the pull-back only.
+    **A take that displaces nothing still appends; anything else is REFUSED and says why** —
+    his call, and the answer D186(a) already gives to the mirror gesture. *Rejected:* appending
+    it over budget (nothing moves, but the spell you just took does not appear on the level you
+    are looking at, which reads as a dead click); appending and jumping the view to it (honest,
+    and it yanks you out of the level you were working on mid-edit).
+  - **(c) One owner for the cap test.** `slotTakes(row,arr,i,key)` — can position `i` hold this
+    pick at all, judged by the class level that position arrives at (D146's fourth rule).
+    `holeFor` had this check; `toggle`'s **sectioned** write (D184) never did, and only the
+    guide picker's own cap has been standing in for it. Both ask the one function now.
+  - **(d) The 15/10 was a SILENT NO-OP, and that is now impossible.** The give-up picker offered
+    a slot's **display** name — the spell as it stood before this level (`unswap`) — and
+    `guideTradeOut` looked that name up in the raw array again. Where a later trade had already
+    replaced that slot's occupant the name was not in the array at all, so the writer **returned
+    doing nothing**: no removal, no event, no word. The replacement then appended and the build
+    was one spell over, five times over. Three changes: the pool carries the **position** it
+    offered (`GPICK.outPos`) and the writer uses it; a slot a trade at this level **or above**
+    already owns is not offered at all, so a chain cannot be rewritten from underneath; and a
+    give-up that still cannot be resolved **says so in the notice bar**. Closes the ⚑ open since
+    2026-09-05 — it never reproduced on a clean build because it needs a LATER trade to exist.
+  - **(e) Undoing one half of a trade moves that half and nothing else.** `guideTradeClear`'s
+    out-branch evicted the surviving replacement to the end of the array so the restored give-up
+    could have its slot back — a pick the click never named, moved L1 → L8 in the audit. The
+    replacement keeps its slot; the give-up comes back appended, as any re-take would. His call.
+    D188's *"neither half binds the other"*, read strictly.
+  - **(f) A refusal is `ask`, not `ok`.** Only two notice kinds are real (`ok` green + check,
+    `ask` gold + warn); anything else renders iconless and unbordered. D186(a)'s refusal wore a
+    green CHECK. All four refusals are gold now.
+  - **(g) His L10 ⚠, answered at the cause.** He redirected the question: *"the issue here is
+    not the error itself, but both the fact that it's not an actual error and the fact that it
+    lands at lv10 rather than at the levels where there is a supposed extra pick."* Both follow
+    from (d) — the five extra picks are the unregistered give-ups, so with (d) the build is
+    10/10 and there is no flag to place. **What (d) does NOT settle** is where a GENUINE
+    over-budget pick should be reported: `buildHealth` attributes it to the row's top level,
+    because an off-schedule position has no level of its own (`acqAt` says the same). Left as
+    a ⚑ in `PLAN.md` rather than guessed at.
+  Enforced by: src/app.js `toggle` (both branches), `markTake`, `slotTakes`, `holeFor`,
+  `guideTradeOut` (+`GPICK.outPos` and the tradeout pool), `guideTradeClear`; the export shim
+  carries the slot model and every such writer. **`scratchpad/slotaudit.js` — 37 assertions,
+  all green, 8 of them red before this.** **Affects:** D146 (its rule, finally total), D186(a)
+  (its "nothing moves" made true), D184 (the sectioned take is capped), D188(c,d) (the trade's
+  array truth), D115(d,g), D115(g) via `buildHealth`. → shipped v1.6.12.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives
