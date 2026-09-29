@@ -13,12 +13,11 @@
 > | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 > | `ARCHIVE.md` | Bodies of consumed phases, decisions and old rationale |
 
-## TL;DR (2026-09-29 · 5569754 + working tree · **v1.6.16 built, NOT committed** — main on origin is v1.6.15, the 8 tags v1.6.7–v1.6.15 are NOT pushed · **a build survives its own export: D208** · the level-slot bug family closed: D204–D207 · Phase O done (D199), palette Amethyst (D200), Phase N at N2 (D191), creation is a MODE (D192), the control scale binds (D198))
+## TL;DR (2026-09-29 · 49a3e69 · **v1.6.16 committed and pushed; tags v1.6.7–v1.6.16 all pushed** · **a build survives its own export: D208** · the level-slot bug family closed: D204–D207 · Phase O done (D199), palette Amethyst (D200), Phase N at N2 (D191), creation is a MODE (D192), the control scale binds (D198))
 
 - **Next action: the export/import conversion to dndpaste formatting** — his call, for
   **Fable** (`PLAN.md` names the spec gap and the four decisions it must not break; the
-  done-when is a byte-identical round trip). **First, one line: `git push --tags`** — main is
-  at v1.6.15 on origin, eight tags are behind.
+  done-when is a byte-identical round trip).
   **Then: his call on the repair surface** — his *Fervent Kuo-Toa* still holds four spells its
   own `swaps` record says he gave up, and D206(i) only FLAGS them (D42). A repaired export is
   in his Downloads; whether the app should offer a one-click "drop it" is a ⚑ in `PLAN.md`,
