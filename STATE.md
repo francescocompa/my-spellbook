@@ -13,7 +13,7 @@
 > | `CHANGELOG.md` | Versions, and the tag map for the pre-1.0 line |
 > | `ARCHIVE.md` | Bodies of consumed phases, decisions and old rationale |
 
-## TL;DR (2026-09-12 · 7bed7df · **v1.6.15 — main is PUSHED, the 8 tags v1.6.7–v1.6.15 are NOT** · **the level-slot bug family closed: D204–D207** · Phase O done (D199), palette Amethyst (D200), Phase N at N2 (D191), creation is a MODE (D192), the control scale binds (D198))
+## TL;DR (2026-09-29 · 5569754 + working tree · **v1.6.16 built, NOT committed** — main on origin is v1.6.15, the 8 tags v1.6.7–v1.6.15 are NOT pushed · **a build survives its own export: D208** · the level-slot bug family closed: D204–D207 · Phase O done (D199), palette Amethyst (D200), Phase N at N2 (D191), creation is a MODE (D192), the control scale binds (D198))
 
 - **Next action: the export/import conversion to dndpaste formatting** — his call, for
   **Fable** (`PLAN.md` names the spec gap and the four decisions it must not break; the
@@ -24,6 +24,17 @@
   in his Downloads; whether the app should offer a one-click "drop it" is a ⚑ in `PLAN.md`,
   with two more from this session (the step counter, and where a genuine over-budget is
   reported).
+- **2026-09-29, v1.6.16 — D208: export → import no longer drops the character's numbers.**
+  A panel reviewer caught `applyImportedState` never copying N1's six score fields
+  (`abilities`, `originBonus`, `scoreBonus`, `scoreMethod`, `scoreOptimize`, `rollFormula`),
+  broken since v1.5.34. The new round-trip fixture found a seventh, a trade's `pos` (D188,
+  since v1.5.46). All seven are copied, each validated the importer's way (the bounds are in
+  D208(b)). The format and `BUILD_FILE_VERSION` did not move. **Engine fixture 24** is the
+  gate: it compares every field `serializeState` writes and refuses a fixture that leaves one
+  at its default. That is the harness the dndpaste conversion's byte-identical done-when can
+  extend. **Any build he exported and re-imported between v1.5.34 and v1.6.15 lost its
+  scores in the copy. The original is intact wherever it was exported from** — worth one line
+  to him.
 - **This session (2026-09-12, part 2), seven releases, v1.6.9 → v1.6.15.** Two of his asks and
   one bug family that took four passes to find the bottom of.
   - **D204 (v1.6.9) — the level-up trade is ONE surface, closed at rest.** His note: the step
@@ -147,8 +158,11 @@
   ⑧ print from Chrome or Safari (D108); ⑨ XMM on for Find Familiar's 2024 forms (D81);
   ⑩ L5.5's format (copy the build as a level plan); ⑪ **should the class row widen on the
   desktop sidebar too?** (D197's measured-and-left, 74.5px per select at 1280); ⑫ **direction for the papery light modes** (D200(f), PLAN ⚑) — how much colour, and on which surfaces, before that pass is scoped; ⑬ **push v1.6.7 + v1.6.8** (the only shipped work not yet live); ⑭ **the three questions behind D203(d)** — where a "switch to an older printing" control lives, whether switching rewrites the build's stored key, and what happens to a pick already made (PLAN ⚑).
+- **Read before adding a field to `serializeState` or touching `applyImportedState`:**
+  **D208** and its GOTCHAS entry. The importer REBUILDS, so the new field goes in it and in
+  engine fixture 24 in the same commit.
 - **Where the D-entries are:** `DECISIONS.md` holds Binding + the live entries (D176, D191,
-  D192, D199, D200, **D201, D202, D203**) + Superseded; **every other D-id below is in `DECISIONS-SETTLED.md`** —
+  D192, D199, D200, **D201–D208**) + Superseded; **every other D-id below is in `DECISIONS-SETTLED.md`** —
   `grep -n "D184" DECISIONS*.md` finds any of them in one step.
 - **Read before adding a digest ARRAY:** D191(f) and its GOTCHAS entry — `DIGEST_ARRAYS`,
   `ENT_KEY`, `emptyDigest`, `assembleData`'s own literal AND `_srd_subset` are five independent

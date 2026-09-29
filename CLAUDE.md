@@ -88,7 +88,9 @@ the engine through the export shim at the foot of that file. It asserts the rule
 SILENTLY — a slot table off by one, an empty slot spliced out of an acquisition order, a
 per-book stamp lost in a digest rebuild. **Adding a per-book field means adding it to fixture 8
 and to `filterDigest`'s carry-forward list in the same commit** (that hole has opened three
-times). A fixture that cannot fail is worse than none: change the rule, watch it go red, put it
+times). **Adding a field to `serializeState` means copying it in `applyImportedState` and
+setting it off its default in fixture 24, in the same commit** (D208): 24a goes red until
+the fixture carries it, 24b until the importer does. A fixture that cannot fail is worse than none: change the rule, watch it go red, put it
 back.
 
 Adding a whole digest **array** is the same trap one level up (**D191**): `DIGEST_ARRAYS`,

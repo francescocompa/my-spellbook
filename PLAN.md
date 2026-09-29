@@ -188,7 +188,10 @@ his call: N1 first, then M3/M4 (settled 2026-09-05).
   - **Done when** a round trip (export → import) leaves the stored build **byte-identical**,
     proven the way D192's mode test is: snapshot, round-trip, `JSON.stringify` equality, and
     a key-set diff. That fixture belongs in `engine.test.js`, and any new writer it introduces
-    belongs in `scratchpad/slotaudit.js` (D206). Size M/L.
+    belongs in `scratchpad/slotaudit.js` (D206). Size M/L. **Start from fixture 24 (D208)**:
+    it already runs today's `.spellbook.json` round trip over every serialized field. It
+    compares CONTENT, not bytes, because the importer rebuilds a class row as
+    `{id,clsKey,subKey,level}`. Byte-identity means fixing that key order too.
 
 ## Open ⚑ — calls for Francesco
 

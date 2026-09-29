@@ -835,5 +835,85 @@ const casterLevel = (slots) => {
     ["UA26:hidden","DMG:shown"]);
 }
 
+// ── 24 · a build survives its own export, field for field (D208) ─────────────
+// The importer rebuilds a file's state field by field from `blankBuildState()`, so a field
+// `serializeState` writes and the importer never copies falls back to its default without a
+// sound: N1/N2's scores, origin bonus, score bonuses and method all did, and a trade's `pos`
+// (D188) with them. The fixture therefore sets EVERY serialized field off its default (24a
+// names the one it missed), and the round trip is the real one: serializeState → the file
+// `exportBuild` writes → parseBuildFile → applyImportedState → applyState → serializeState.
+// A field added to serializeState goes red in 24a until the fixture carries it, then in 24b
+// until the importer does.
+{
+  // content, not key order: the importer rebuilds a class row as {id,clsKey,subKey,level}
+  const canon = (v) => JSON.stringify(v, (_k, x) => x && typeof x === "object" && !Array.isArray(x)
+    ? Object.fromEntries(Object.keys(x).sort().map((q) => [q, x[q]])) : x);
+  const same = (a, b) => Object.keys(a).filter((k) => canon(a[k]) === canon(b[k]));
+  const lost = (a, b) => Object.keys(a).filter((k) => canon(a[k]) !== canon(b[k]));
+
+  SB.applyState(null);
+  const blank = JSON.parse(JSON.stringify(SB.serializeState()));
+
+  SB.applyState({
+    classes: [{ clsKey: "Wizard|XPHB", subKey: "Evoker|Wizard|XPHB|XPHB", level: 5, id: 1 },
+              { clsKey: "Fighter|XPHB", subKey: null, level: 3, id: 2 }],
+    speciesKey: "Elf|XPHB", feats: ["Magic Initiate|XPHB", "Alert|XPHB"], optFeats: ["Archery|XPHB"],
+    featSlots: { "Magic Initiate|XPHB": "origin", "Alert|XPHB": "general" },
+    nextRowId: 3,
+    chosen: { 1: { cantrips: ["Fire Bolt|XPHB", "Light|XPHB"], spells: ["Shield|XPHB", SB.hole(), "Sleep|XPHB"],
+                   prep: ["Shield|XPHB"] } },
+    choices: { "c1:pk0": ["Detect Magic|XPHB"], "fMagic Initiate|XPHB:ab0": ["int"] },
+    levelOrder: [1, 1, 2, 1, 2, 1, 2, 1],
+    customSources: [{ id: "cs1", name: "Staff of Fire", kind: "item", spells: [{ key: "Burning Hands|XPHB", pay: "pool" }] }],
+    sbFav: { "Find Familiar|XPHB": ["Owl|XMM"] },
+    filters: { q: "fire", levels: [1, 2], school: "V", chosen: true },
+    currentLevel: 6,
+    swaps: { 4: { cantrip: { row: 1, out: "Mage Hand|XPHB", pos: 1 } },
+             5: { spell: { row: 1, out: "Magic Missile|XPHB", in: "Sleep|XPHB", pos: 2 } } },
+    sbFavSkip: ["Find Familiar|XPHB|Cat|XMM"],
+    abilities: { int: 15, con: 14, dex: 13, wis: 12, str: 10, cha: 8 },
+    originBonus: { int: 2, con: 1 },
+    scoreBonus: [{ name: "Headband of Intellect", ab: "int", set: 19 }, { name: "Blessing", ab: "wis", add: -1 }],
+    scoreMethod: "array", scoreOptimize: true, rollFormula: "4d6kh3",
+    backgroundKey: "Sage|XPHB",
+  });
+  const before = JSON.parse(JSON.stringify(SB.serializeState()));
+  eq("24a · the fixture holds every serialized field off its default", same(before, blank), []);
+
+  const file = JSON.stringify(SB.buildExportObj({ meta: { character: "Rt", name: "v1", sources: ["XPHB"] }, state: before }), null, 1);
+  SB.applyState(SB.applyImportedState(SB.parseBuildFile(file).state));
+  eq("24b · every serialized field survives export → import", lost(before, SB.serializeState()), []);
+
+  // nothing from the file is trusted: each field keeps what the app itself could have
+  // written, and anything else is dropped, never guessed at
+  const imp = (st) => SB.applyImportedState({ classes: [], ...st });
+  eq("24c · abilities: the six codes, whole numbers 1–30, in the file's own order",
+    imp({ abilities: { cha: 8, str: 15, dex: "14", con: 31, int: 0, wis: 12.5, luck: 10 } }).abilities,
+    { cha: 8, str: 15 });
+  eq("24d · the origin bonus: the six codes, +1 or +2 only",
+    imp({ originBonus: { wis: 2, str: 1, dex: 3, con: "1", int: 0, luck: 1 } }).originBonus,
+    { wis: 2, str: 1 });
+  eq("24e · a score bonus is {name,ab,add} or {name,ab,set} and nothing else",
+    imp({ scoreBonus: [
+      { name: "Headband", ab: "int", set: 19 }, { name: "Tome", ab: "wis", add: 2, extra: "x" },
+      { name: "Curse", ab: "cha", add: -2 }, { name: "both", ab: "str", add: 1, set: 19 },
+      { ab: "dex", add: 1 }, { name: "far", ab: "con", add: 99 }, { name: "zero", ab: "con", set: 0 },
+      { name: "luck", ab: "luck", add: 1 }, { name: "frac", ab: "str", add: 0.5 }, null, "str"] }).scoreBonus,
+    [{ name: "Headband", ab: "int", set: 19 }, { name: "Tome", ab: "wis", add: 2 }, { name: "Curse", ab: "cha", add: -2 }]);
+  eq("24f · a score method is one of the four, else the default",
+    [imp({ scoreMethod: "point" }).scoreMethod, imp({ scoreMethod: "cheat" }).scoreMethod], ["point", "type"]);
+  eq("24g · Optimize is on only for a real true",
+    [true, "false", 1, null].map((v) => imp({ scoreOptimize: v }).scoreOptimize), [true, false, false, false]);
+  eq("24h · a roll formula is what parseFormula reads, stored the way the app stores one",
+    [" 3D6 + 2 ", "4d6kh3", "1d1", "4d6dl1;x", ["4d6kh3"], 7].map((v) => imp({ rollFormula: v }).rollFormula),
+    ["3d6+2", "4d6kh3", "4d6dl1", "4d6dl1", "4d6dl1", "4d6dl1"]);
+  eq("24i · a trade keeps the slot its given-up spell left (D188's pos)",
+    imp({ classes: [{ id: 7, clsKey: "Wizard|XPHB", level: 5 }],
+      swaps: { 5: { spell: { row: 7, out: "Magic Missile|XPHB", pos: 2 } } } }).swaps,
+    { 5: { spell: { row: 1, out: "Magic Missile|XPHB", pos: 2 } } });
+
+  SB.set.preview({ level: null });   // applyState pointed PREVIEW at 6; leave the harness at top
+}
+
 console.log(`\n${pass} ok · ${fail} fail`);
 process.exit(fail ? 1 : 0);

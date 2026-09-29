@@ -1097,6 +1097,67 @@ closed one-offs) — is settled and lives in `DECISIONS-SETTLED.md`.
     where it was missing), D115(j) (the timeline's `shown`/`key` pair, copied), D188, D146,
     D206(d). → shipped v1.6.15.
 
+### Live — a build survives its own export (D208)
+
+- **D208 (2026-09-29) DECIDED — the importer copies every field `serializeState` writes, and
+  the gate proves it field by field.** Found by a panel reviewer, reproduced in a temp copy.
+  His brief, verbatim: *"Copy those fields in `applyImportedState`, using the same 'nothing
+  from the file is trusted' validation style the function already uses"* … *"Do not change
+  the `.spellbook.json` format or BUILD_FILE_VERSION unless the project's rules require it
+  for this fix."* The bounds in (b) were delegated to Claude.
+  - **(a) The mechanism.** `applyImportedState` rebuilds a file's state from
+    `blankBuildState()`, one field at a time. N1 (v1.5.34, D176–D178) added `abilities`,
+    `originBonus`, `scoreBonus`, `scoreMethod`, `scoreOptimize` and `rollFormula` to
+    `serializeState` and `applyState`, and to the importer none of them. Every export →
+    import since then came back with blank scores, no origin bonus, no named bonuses and the
+    method reset to "type". `backgroundKey` (D191) was copied. **The round-trip fixture found
+    a seventh:** the swap remap rebuilt each trade as `{row,out,in}` and dropped D188's `pos`
+    (since v1.5.46), so an imported trade could no longer put its given-up spell back in its
+    slot when an earlier level is reconstructed. That is D206's re-dating, reached through
+    the import path. Nothing threw, and D192(c)'s "no export loses a field" was true of the
+    writer and false of the reader.
+  - **(b) Each field keeps only what the app's own writers can put there; anything else is
+    DROPPED, never clamped or guessed** (the swap map's rule, not the class level's).
+    `abilities`: the six codes, whole numbers 1–30 (the typed field's bounds and the rules'
+    cap), in the file's own key order so an untouched build compares equal. `originBonus`:
+    the six codes, 1 or 2. `scoreBonus`: `{name,ab,add}` or `{name,ab,set}`, rebuilt from
+    those keys alone — `name` a string, `ab` a code, exactly one of `add` (whole, ±30) or
+    `set` (whole, 1–30). `scoreMethod`: one of the four, else "type". `scoreOptimize`: only
+    a real `true`. `rollFormula`: a string `parseFormula` reads, stored the way the formula
+    field stores one (no spaces, lower case), else the default. **Two things the app CAN
+    write that an import now drops, knowingly:** a set of 0 (an inert row, since
+    `abilityScores` ignores a set ≤ 0) and a base score outside 1–30 rolled with a custom
+    formula like `40d100`. Neither is a score. *Rejected:* clamping out-of-range numbers (a
+    45 becomes a 30 nobody entered; blank is D176's honest fallback); passing the blobs
+    through the way `applyState` does (it checks only that each is an object, so a string
+    score or a stray key rides in); enforcing D178's +2/+1 budget or D191(b)'s background
+    narrowing on import (the app never refuses them, since the holder always keeps its own
+    pill, so an import would be stricter than the build it came from); a shared
+    `SCORE_METHODS` constant with `applyState` (fixture 24 now catches drift between the
+    two, and the list stays where D177(e) put it).
+  - **(c) The file does not change.** The exporter already wrote all seven fields; only the
+    reader was wrong. `BUILD_FILE_VERSION` stays 1 under its own rule, *bump only for a
+    reshaping change*, and a file without a field still gets the default. *Rejected:*
+    bumping it (an older copy of the app open on another device would then REFUSE every new
+    export, for a change in reading, not in shape).
+  - **(d) The gate is engine fixture 24, and it cannot pass by coincidence.** The round trip
+    is the real one: `serializeState` → the text `exportBuild` writes → `parseBuildFile` →
+    `applyImportedState` → `applyState` → `serializeState`, compared per field on content.
+    **24a asserts the fixture holds every serialized field off its default**; without it, a
+    new field the fixture forgot would survive at its default and the test could never go
+    red. Proven with a probe field: red in 24a, then red in 24b once the fixture carried it,
+    green only once the importer copied it. 24c–24i pin each field's bounds and `pos`.
+    *Rejected:* a new sweep script (a tenth gate line for what `engine.test.js` already
+    stands up); a whole-object byte compare (the importer rebuilds a class row as
+    `{id,clsKey,subKey,level}`, so key order alone would fail it and bury the real report);
+    asserting only the six named fields (the next field added repeats the bug; the test
+    reads `serializeState`'s own keys).
+  - **Enforced by:** src/app.js `applyImportedState` (with pointer comments on it and on
+    `serializeState`), the shim's `serializeState,applyState,buildExportObj,parseBuildFile,
+    applyImportedState`, and **engine fixture 24**. **→ Gotcha. Affects:** D36, D176,
+    D177(b,e), D178, D188, D191, D192(c), D206; CLAUDE.md's verify-gate paragraph; PLAN's
+    dndpaste item (its byte-identical done-when stands on this).
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

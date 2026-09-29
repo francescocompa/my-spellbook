@@ -551,6 +551,7 @@ const blankBuildState=()=>({classes:[],speciesKey:"",backgroundKey:"",feats:[],o
 // (render-side sorts must copy first), and export/import must carry it verbatim.
 // New fields stay at the END of this literal: `save()` diffs stringified forms, and the
 // loadBuilds() migration appends in the same order so an untouched build still compares equal.
+// A new field also needs a copy in applyImportedState, or export → import drops it (D208).
 function serializeState(){ const f=state.filters; return {
   classes:state.classes, speciesKey:state.speciesKey, feats:state.feats, optFeats:state.optFeats,
   featSlots:state.featSlots||{},          // which slot each feat was spent from (D84)
@@ -5793,7 +5794,9 @@ function importBuildText(txt){
   persistBuilds();
   return b;
 }
-// normalise a foreign state blob to this app's shape without trusting any of it
+// normalise a foreign state blob to this app's shape without trusting any of it.
+// It REBUILDS from blankBuildState(), so a field serializeState writes and this never copies
+// is lost on every round trip, silently — engine fixture 24 goes red on it (D208).
 function applyImportedState(st){
   const out=blankBuildState();
   out.classes=(Array.isArray(st.classes)?st.classes:[]).map((r,i)=>({
@@ -5848,11 +5851,30 @@ function applyImportedState(st){
     const m={};
     SWAP_KINDS.forEach(kind=>{const e=n[kind]; if(!e)return;
       const row=idMap.get(+e.row); if(!row)return;
-      m[kind]={row,out:e.out,in:e.in};});
+      m[kind]={...e,row};});               // swapNorm's own fields, `pos` too (D188)
     if(SWAP_KINDS.some(kind=>m[kind]))out.swaps[lvl]=m;});
   // dismissed form offers (D131(g)) — keyed by spell like sbFav, so no renumbering.
   // Strings only: a dismissal it can't read just brings the offer back, which is safe.
   out.sbFavSkip=[...new Set((Array.isArray(st.sbFavSkip)?st.sbFavSkip:[]).map(String).filter(Boolean))];
+  // the character's numbers (N1 · D176–D178). Each keeps only what the app's own writers
+  // could have put there; anything else is dropped, and a blank derives nothing (D176).
+  // Base scores keep the file's key order, so an untouched build compares equal.
+  const ab=(st.abilities&&typeof st.abilities==="object")?st.abilities:{};
+  Object.keys(ab).forEach(a=>{const v=ab[a];
+    if(AB_KEYS.includes(a)&&Number.isInteger(v)&&v>=1&&v<=30)out.abilities[a]=v;});
+  const ob=(st.originBonus&&typeof st.originBonus==="object")?st.originBonus:{};
+  Object.keys(ob).forEach(a=>{if(AB_KEYS.includes(a)&&(ob[a]===1||ob[a]===2))out.originBonus[a]=ob[a];});
+  // a named bonus ADDS (signed) or SETS (a Headband's 19) — exactly one of the two (D177(b))
+  out.scoreBonus=(Array.isArray(st.scoreBonus)?st.scoreBonus:[]).map(b=>{
+    if(!b||typeof b!=="object"||typeof b.name!=="string"||!AB_KEYS.includes(b.ab)||("add" in b)===("set" in b))return null;
+    if("add" in b)return Number.isInteger(b.add)&&Math.abs(b.add)<=30?{name:b.name,ab:b.ab,add:b.add}:null;
+    return Number.isInteger(b.set)&&b.set>=1&&b.set<=30?{name:b.name,ab:b.ab,set:b.set}:null;
+  }).filter(Boolean);
+  if(["type","array","point","roll"].includes(st.scoreMethod))out.scoreMethod=st.scoreMethod;
+  out.scoreOptimize=st.scoreOptimize===true;
+  // stored the way the formula field stores one (renderScoreMenu): no spaces, lower case
+  if(typeof st.rollFormula==="string"&&parseFormula(st.rollFormula))
+    out.rollFormula=st.rollFormula.replace(/\s+/g,"").toLowerCase();
   return out;
 }
 
@@ -12981,6 +13003,8 @@ if(typeof module!=="undefined"&&module.exports){
     abilityScores,featScoreGains,profBonus,castNums,scoreMod,setCreatorMode,fullCreator,featsAt,scoreParts,mainAbilities,saveProfs,fillOrder,fillScores,pointsSpent,originOptions,parseFormula,rollFormula,formulaRange,optimizeScores,
     // storage and digest integrity
     mergeDigests,filterDigest,digestSize,emptyDigest,verLt,
+    // a build survives its own export: the writer, the file, the reader (D208)
+    serializeState,applyState,buildExportObj,parseBuildFile,applyImportedState,
     // the table's filter and sort — a LENS over the rows, never a write (D199)
     tableOpts,tblFiltNew,tblFiltOk,tblFiltNarrowed,rowStatus,tblCmp,TABLE_SORTS,
     // a three-way axis: "empty means all" can say ANY and YES, never NO (D199(i))

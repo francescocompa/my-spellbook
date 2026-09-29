@@ -792,6 +792,17 @@
   (applyState's own healthy path) and `applyState` guards every Set construction with
   `Array.isArray`, so a malformed stored blob heals on load instead of bricking. Stored filter
   state is arrays-or-null, always; only the live `state.filters` holds Sets.
+- **The build importer REBUILDS, so a field it never copies is lost silently (D208).**
+  `applyImportedState` starts from `blankBuildState()` and copies a file's state one field at
+  a time; `applyState` reads a stored blob whole. Teaching `serializeState` and `applyState`
+  a new field therefore works everywhere except export → import, where it falls back to its
+  default and nothing complains. From N1 (v1.5.34) to v1.6.15 that dropped all six score
+  fields, and it dropped D188's swap `pos` from v1.5.46, because the remap spelt the event
+  out as `{row,out,in}` instead of carrying `swapNorm`'s own fields. **A new serialized field
+  goes in `applyImportedState` and in engine fixture 24 in the same commit.** 24a names any
+  field the fixture leaves at its default, which is what keeps 24b able to fail. When a
+  nested record has already been normalised (as `swapNorm`'s output has), carry it whole
+  rather than spelling its keys out a second time.
 - **The pick arrays ARE the acquisition order (E1 · D115(b,h)).** `state.feats`, `state.optFeats`
   and each `state.chosen[rowId].cantrips`/`.spells` list picks in acquisition order; per-level
   truth is a slice of it. Nothing may sort a stored pick array in place — every render-side sort
