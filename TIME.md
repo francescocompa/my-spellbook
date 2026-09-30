@@ -1,5 +1,10 @@
 # Time log
 
+## 2026-10-01
+- 00:26–00:58 (0h32m) — Savant picks, SRD twins and guide notes (D209–D213; v1.6.17 → v1.6.19; /clean)
+
+**Day total: 0h32m**
+
 ## 2026-09-12
 - 15:32–17:37 (2h05m) — The trade compressed, and the level-slot bug family (D204–D207; v1.6.9 → v1.6.15)
 - 12:44–15:24 (2h40m) — The class picker, the import panel, and which printing wins (D201–D203; v1.6.4 → v1.6.8)

@@ -99,7 +99,7 @@ them. Reports in `audits/` (one per pillar + `synthesis.md`), archived once L5 c
   - [ ] **L5.7 · Geometry full retrofit** (D158(g)), measured before/after, own release. Size L.
   - [x] **L5.8 · Ability scores + PB: the decision entry** (D158(c)) — **D176**, 2026-09-05; the
     build is **Phase N · N1** below.
-  - [ ] **L5.9 · Magic items as custom-source prefill**, then rewards (D158(n)). Size M/L + M.
+  - [ ] **L5.9 · Magic items as custom-source prefill**, then rewards (D158(n)). Size M/L + M. Research: `ARCHIVE.md#magic-item-research`.
   - [ ] **L5.10 · Compare two versions** (A-05). Size M/L.
   - [x] **L5.11 · Doc diet** — the 2026-09-05 `/clean`: D115–D175 bodies to `ARCHIVE.md`, DECISIONS.md 3253 → ~1575 lines (D158(q)).
   - Also live, unscheduled (D158(o)): SHADOWED source-aware · `subclassFeature` `_copy` · long-rest
@@ -228,17 +228,6 @@ his call: N1 first, then M3/M4 (settled 2026-09-05).
   switching REWRITES the build's stored key**, which is a D42 question, not a display one; and
   **what happens to a pick already made** from the printing you switch away from. Size M.
   ⚑ (owner: Francesco, 2026-09-12)
-- [x] **CLOSED 2026-10-01, v1.6.19 (D213)** — the in-browser importer never wrote a spell's
-  `srd`, so no Pages import could drop a twin. ⚑ **Hideous Laughter still appears twice** (his report, 2026-09-12, with a screenshot:
-  "Hideous Laughter" and "Tasha's Hideous Laughter" both in the same 1st-level list). He
-  believed D187(b) closed this. **Untouched by today's work** — `spellDedupeId` is the spell's
-  NAME, so the two never meet in `collapseEditions`; the licensed-name twin is `dropSrdTwins`'s
-  job and only its job. First thing to check: that function matches `key(alt, sp.source)`, so
-  it collapses a pair only when **both records carry the same source code** — and it only ever
-  filters the BASE list against the IMPORTED one (`assembleData`), so two records that are both
-  imported, or both baked, never meet it at all. Reproduce with his library, not a clean one.
-  Size S–M. ⚑ (owner: Claude, next session)
-
 - [ ] ⚑ **The light modes are papery and use too little colour — design-system wide.** His
   note on the palette round (D200(f)): every light candidate looked alike because the app's
   light theme spends its colour on text only — paper, panel and panel-2 are three greys of one
@@ -248,11 +237,8 @@ his call: N1 first, then M3/M4 (settled 2026-09-05).
   where). Size M. ⚑ (owner: Francesco, 2026-09-08)
 
 → archived 2026-09-05: 12 closed items — `ARCHIVE.md#flags-closed-by-2026-09-05`
+→ archived 2026-10-01: 3 closed items (the gap bar D195, Hideous Laughter D213, the swapped-away trade D206(d)) — `ARCHIVE.md#flags-closed-by-2026-10-01`
 
-- [x] **The "0 picks" unclearable gap bar** — **CLOSED 2026-09-07, v1.5.52** (**D195**, in
-  `DECISIONS-SETTLED.md`; two GOTCHAS entries; fixtures 17f–17i). A pick whose book is present
-  AND on is not a book problem, so nothing about it reaches the bar; and a subclass's book is
-  the LAST segment of its uid, not the second, which had it asking to *re-import "Wizard"*.
 - [ ] **Is Simplified the right default?** — D192(b) took it on his instruction, and it changes
   what the app looks like on first open for everyone. Wants his eyes on a real build before it
   is settled for good. ⚑ (owner: Francesco, 2026-09-07)
@@ -270,10 +256,6 @@ his call: N1 first, then M3/M4 (settled 2026-09-05).
   landed 2026-09-05, and the D184 / D186–D189 guided-builder sections are appended at the end.**
   The one naming call in the last batch is the trade's **Giving up / Learning instead**.
   ⚑ (owner: Francesco, 2026-09-02, restamped 2026-09-07)
-- [ ] **A trade still offers a spell already swapped away** — his 2026-09-05 report, NOT
-  reproducible here: a Warlock 8 that trades at L7 correctly offers the replacement at L8, and
-  chained trades behave. D188 rebuilt this surface since, so it is worth re-checking before
-  chasing it. Needs his build export to pin. ⚑ (owner: Francesco, 2026-09-07)
 - [ ] **The class row truncates on a WIDE screen too, in the sidebar** — measured while fixing
   the phone case (D197): the Character card sits in the narrow left column, so at 1280px each
   select gets **74.5px** of text room, *less* than at 481px. Every class name and every SRD
@@ -296,31 +278,7 @@ his call: N1 first, then M3/M4 (settled 2026-09-05).
 
 → archived 2026-09-05: 3 closed items — `ARCHIVE.md#queue-items-closed-by-2026-09-05`
 
-- [x] **Magic-item / reward ingestion** — 🔶 **RESEARCHED 2026-08-27, awaiting the call.**
-  The old note said "items carry no structured uses"; that is **wrong** and the audit
-  corrected it.
-  - **Items.** `charges` (282), `recharge` (286, closed enum), `rechargeAmount` (254) and
-    `attachedSpells.charges` (a real cost→spells map, 138 items) map **straight** onto the
-    D55/D95 model. Staff of Fire's record is literally `pool:10 · "1d6+4 at dawn" · costs 1/3/4`.
-  - **The hole:** save DC, attack bonus and casting ability are **prose only** — of 402
-    items with attached spells, **zero** carry a structured DC or attack and only **9** name
-    an ability. Those three fields would always arrive blank and be typed by hand.
-  - **The trap:** *Luck Blade is not a record in `items.json`.* It is a magicvariant template
-    (`requires:{sword:true}`) cross-multiplied against base items. 11 spell-granting
-    templates expand to **115** items, plus 53 `_copy` records (41 with no content of their
-    own). A naive flat read returns 402 and silently drops the rest — porting
-    `_createSpecificVariants` is ~150 lines **into both extractors**.
-  - **Size:** ~120 KB slimmed, ~780 KB with prose — and the prose is the only place the DC lives.
-  - **SRD:** only ~80 of 542 spell-granting items are `srd52`, so the public build gets almost none.
-  - **The cheaper half — `rewards.json`:** 277 charms / blessings / boons / piety traits,
-    **88 with `additionalSpells`** — the *same* schema the extractors already parse for
-    classes, species and feats. No new parsing, no variant cross-product, no prose regex;
-    its `innate`/`known`/`prepared` map onto the app's three modes directly. **Caveat: zero
-    SRD flags**, so it is import-only content.
-  - **Suggested order** (not decided): rewards first as a small self-contained addition,
-    then items as *"prefill a custom source from an item"* rather than a first-class entity,
-    since the DC needs hand-entry regardless. ⚑ (owner: Francesco, 2026-08-27)
-  → **D158(n): items as prefill first, then rewards (L5.9).**
+- → archived 2026-10-01: the magic-item / reward ingestion research (2026-08-27) — the input to **L5.9**, D158(n) — `ARCHIVE.md#magic-item-research`
 
 - [ ] **`SHADOWED` is not source-aware** (D127 agent flag): with XPHB off, 90 reprinted
   subclasses stop being reprint-hidden but only 6 surface — `collapseEditions` still shadows
