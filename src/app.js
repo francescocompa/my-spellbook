@@ -112,6 +112,14 @@ function fillIcons(root){(root||document).querySelectorAll("[data-ico]").forEach
 const ABIL={int:"Intelligence",wis:"Wisdom",cha:"Charisma",str:"Strength",dex:"Dexterity",con:"Constitution"};
 const ABIL_SHORT={int:"Int",wis:"Wis",cha:"Cha",str:"Str",dex:"Dex",con:"Con"};
 const AB_KEYS=["str","dex","con","int","wis","cha"];   // sheet order (D176)
+// D210: the Custom background — pinned atop the picker, a stored KEY with no book behind it.
+// It names all six abilities, so the origin pills stay as free as with no background, and it
+// names no feat, so the origin-feat step offers every one. What it adds over "none" is that
+// the question is ANSWERED — and an optional name of his own (`state.backgroundName`).
+const BG_CUSTOM_KEY="custom";
+const BG_CUSTOM={name:"Custom",source:"",custom:true,abils:AB_KEYS.slice(),feat:null};
+const bgOf=k=>k===BG_CUSTOM_KEY?BG_CUSTOM:BG_BY[k];
+const bgLabel=b=>b&&b.custom?(state.backgroundName||"Custom"):(b?b.name:null);
 // D147 removed the last reader of a bare `CORE`: nothing suppresses a book chip any more,
 // so the code is only ever a member of the 2024 core SET below.
 const CORE_2024=["XPHB","XDMG","XMM"];   // the 2024 core books, for the "2024 core only" shortcut
@@ -541,9 +549,9 @@ let bidSeq=0;
 const newBuildId=()=>"b"+Date.now().toString(36)+(bidSeq++).toString(36);
 const activeBuild=()=>BUILDS.builds[BUILDS.activeId];
 
-const blankBuildState=()=>({classes:[],speciesKey:"",backgroundKey:"",feats:[],optFeats:[],featSlots:{},levelOrder:[],
+const blankBuildState=()=>({classes:[],speciesKey:"",backgroundKey:"",backgroundName:"",feats:[],optFeats:[],featSlots:{},levelOrder:[],
   customSources:[],chosen:{},choices:{},sbFav:{},nextRowId:1,filters:null,
-  currentLevel:null,swaps:{},sbFavSkip:[],abilities:{},originBonus:{},scoreBonus:[],scoreMethod:"type",scoreOptimize:false,rollFormula:"4d6dl1"});
+  currentLevel:null,swaps:{},sbFavSkip:[],abilities:{},originBonus:{},scoreBonus:[],scoreMethod:"type",scoreOptimize:false,scoreFocus:"cast",rollFormula:"4d6dl1"});
 // the live `state` <-> the plain object stored in a build.
 // The ARRAYS ARE THE ACQUISITION ORDER (E1 · D115(b,h)): `feats`, `optFeats` and each
 // row's `chosen[id].cantrips`/`.spells` list picks in the order they were acquired.
@@ -568,8 +576,10 @@ function serializeState(){ const f=state.filters; return {
   scoreBonus:state.scoreBonus||[],        // named per-ability bonuses: {name,ab,add}|{name,ab,set} (D177(b))
   scoreMethod:state.scoreMethod||"type",  // type | array | point | roll (D177(e))
   scoreOptimize:!!state.scoreOptimize,    // keep the six values best-first on the class order
+  scoreFocus:state.scoreFocus||"cast",    // D211 — where a feat's +1 goes when it is taken
   rollFormula:state.rollFormula||"4d6dl1", // dice notation: NdM, kh/kl/dh/dl N, ±N
   backgroundKey:state.backgroundKey||"",  // D191 · N2 — the origin: +2/+1 and the origin feat
+  backgroundName:state.backgroundName||"",   // D210 — a Custom background's own name, optional
 };}
 function applyState(s){ s=s||blankBuildState();
   // the live state must never share sub-objects with the stored build (see save()) —
@@ -585,8 +595,10 @@ function applyState(s){ s=s||blankBuildState();
     scoreBonus:Array.isArray(s.scoreBonus)?s.scoreBonus:[],
     scoreMethod:["type","array","point","roll"].includes(s.scoreMethod)?s.scoreMethod:"type",
     scoreOptimize:!!s.scoreOptimize,
+    scoreFocus:SCORE_FOCI.some(x=>x[0]===s.scoreFocus)?s.scoreFocus:"cast",   // D211
     rollFormula:parseFormula(s.rollFormula)?s.rollFormula:"4d6dl1",
     backgroundKey:typeof s.backgroundKey==="string"?s.backgroundKey:"",   // D191 · N2
+    backgroundName:typeof s.backgroundName==="string"?s.backgroundName:"",   // D210
     currentLevel:typeof s.currentLevel==="number"?s.currentLevel:null,
     // swapsNorm heals as well as reads: a stored map from before swaps split by kind
     // arrives as one event per level and comes out in the two-slot shape
@@ -1564,7 +1576,7 @@ function originOptions(a){
   // +1/+1/+1 budget still decides inside them. With no background they stay free, exactly as
   // v1.5.39 shipped. The HOLDER always keeps its own pill (D179), background or not: a bonus
   // you cannot undo is a trap, and swapping to a background that excludes it would strand it.
-  const bg=BG_BY[state.backgroundKey];
+  const bg=bgOf(state.backgroundKey);
   if(bg&&!(bg.abils||[]).includes(a)){can2=false;can1=false;}
   return [[2,"+2",can2||ob[a]===2],[1,"+1",can1||ob[a]===1],[0,"none",true]];
 }
@@ -1579,6 +1591,36 @@ function fillOrder(){
 }
 function fillScores(pool){const vals=pool.slice().sort((x,y)=>y-x); state.abilities={};
   fillOrder().forEach((a,i)=>{state.abilities[a]=vals[i];});}
+// D211 (his call, 2026-10-01): a feat's ability choice is FILLED when the feat is taken, from
+// the build's focus, and stays an ordinary answer he can change. The foci, in his order.
+const SCORE_FOCI=[["cast","Casting stat"],["phys","Physical primary"],["odd","Round odd up"],
+  ["con","Constitution"],["str","Strength"],["dex","Dexterity"],["int","Intelligence"],
+  ["wis","Wisdom"],["cha","Charisma"]];
+// the order a focus ranks the six in: its own first, then `fillOrder` — so every focus falls
+// back to the casting stat, and "round odd up" with no scores entered IS the casting stat
+function focusOrder(sc){
+  const f=state.scoreFocus||"cast", base=fillOrder(); let first=[];
+  if(f==="phys")state.classes.forEach(r=>{const c=CLS_BY[r.clsKey];
+    ((c&&c.traits&&c.traits.primary)||[]).forEach(a=>{if((a==="str"||a==="dex")&&!first.includes(a))first.push(a);});});
+  else if(f==="odd")first=base.filter(a=>typeof sc[a]==="number"&&sc[a]%2===1);
+  else if(AB_KEYS.includes(f))first=[f];
+  return [...first,...base.filter(a=>!first.includes(a))];
+}
+// fills only a question nobody has answered, and never past 20 where the score is known —
+// taking the feat is the ask; re-focusing later rewrites nothing (D42: his answers are his)
+function autoScoreChoices(fk){
+  if(!fullCreator())return;
+  const f=FEAT_BY[baseKey(fk)]; if(!f)return;
+  const qs=[]; featScoreGains(fk,f,qs); if(!qs.length)return;
+  const sc=abilityScores(state.feats), order=focusOrder(sc);
+  const room=(a,n)=>typeof sc[a]!=="number"||sc[a]+n<=20;
+  qs.forEach(q=>{ if((state.choices[q.id]||[]).length)return;
+    const opts=order.filter(a=>q.options.includes(a));
+    // the ASI's either/or (D176): +2 to the first with room for it, else +1/+1
+    if(q.flex){const a=opts.find(x=>room(x,2));
+      const v=a?[a]:opts.filter(x=>room(x,1)).slice(0,2); if(v.length)state.choices[q.id]=v; return;}
+    const v=opts.filter(x=>room(x,q.amount||1)).slice(0,q.count); if(v.length)state.choices[q.id]=v;});
+}
 // the Optimize switch (D178): while on, any six values are kept best-first on the class order
 function optimizeScores(){ if(!state.scoreOptimize)return;
   const vals=AB_KEYS.map(a=>(state.abilities||{})[a]).filter(v=>typeof v==="number"); if(vals.length===6)fillScores(vals);}
@@ -1818,11 +1860,11 @@ function guideSteps(){
   // so the origin bonus is narrowed before anything asks about a score. Complete only
   // (D192): Simplified has no origin, so the walk never mentions one.
   if(fullCreator()){
-    const bg=BG_BY[state.backgroundKey];
+    const bg=bgOf(state.backgroundKey);
     add({key:"background~1",lv:1,ord:1.8,kind:"background",
-      label:"Background",multiLabel:bg?bg.name:"Background",
+      label:"Background",multiLabel:bg?bgLabel(bg):"Background",
       sections:[gsec({id:"self",kind:"background",label:"Background",done:!!bg,
-        value:bg?bg.name:null})]});
+        value:bg?bgLabel(bg):null})]});
   }
   const race=RACE_BY[state.speciesKey];
   hostBy.set("r@1",add({key:"species~1",lv:1,ord:2,kind:"species",
@@ -1987,11 +2029,17 @@ function guideSteps(){
   // Agonizing Blast's "choose one of your known Warlock cantrips that deals damage" with
   // Eldritch Blast in it. A group still owing a pick keeps its row and its list; only the
   // settled answer folds. A group asking for SEVERAL never folds: its chips are the answer.
+  // D209(a): and several is not only `need>1`. 5etools writes "choose two" as two ONE-spell
+  // picks from one feature (every 2024 school Savant), so folding the first answer left one
+  // row standing and the card read as a feature that offers one spell. Twins — the same
+  // giver asking the same thing — are one group, and none of them folds.
+  const twinOf=x=>x.kind==="cpick"?x.giver+"\u0001"+x.label:null;
   steps.forEach(s=>{
     const host=s.sections.find(x=>x.id==="self"); if(!host)return;
+    const tw=new Map(); s.sections.forEach(x=>{const t=twinOf(x); if(t)tw.set(t,(tw.get(t)||0)+1);});
     s.sections.forEach(x=>{
       if(x===host||x.need>1)return;
-      if(x.kind==="cpick"){ if(x.have>=x.need&&x.value)x.foldedInto=host.id; return; }
+      if(x.kind==="cpick"){ if(tw.get(twinOf(x))<2&&x.have>=x.need&&x.value)x.foldedInto=host.id; return; }
       if(x.kind!=="choice")return;
       const forced=((x.choice&&x.choice.options)||[]).length<=1;
       const answered=x.cid!=null&&state.choices[x.cid]!=null;
@@ -3431,11 +3479,24 @@ const gpickNoun=sec=>sec.kind!=="cpick"&&!secIsCantrip(sec)&&/^Spellbook/.test(s
 // narrows the pool to the row's OWN picks. A granted group is filtered by the FILTER the
 // choice carries — the same `filterSpells` call the Choices card's picker makes, which is
 // what keeps a cantrip out of the 1st-level-spell group.
+// D209(b): one owner's spell picks are ONE pool. A 2024 Savant is nine picks (two at 3, one at
+// 5, 7 …) and each offered what the others already held, so his level-3 list kept offering the
+// spell he took at 5. Only LIVE picks of the same owner token count — a stale answer from a
+// subclass since swapped out must not hide anything — and only picks, since `state.choices`
+// also holds option names and score choices (D189). Read at the FULL build (`guideChoices`):
+// under a previewed level `R.choices` stops short, and the later picks are the point.
+function siblingHeld(cid){
+  const tok=String(cid).split(":")[0], out=new Set();
+  (guideChoices()||[]).forEach(c=>{
+    if(c.id===cid||c.type!=="pick"||c.mark||String(c.id).split(":")[0]!==tok)return;
+    (state.choices[c.id]||[]).forEach(k=>out.add(k));});
+  return out;
+}
 function guideEligible(sec,mode,cap){
   if(sec.kind==="cpick"){
-    const mine=new Set(state.choices[sec.cid]||[]);
+    const mine=new Set(state.choices[sec.cid]||[]), sib=siblingHeld(sec.cid);
     return filterSpells((sec.choice&&sec.choice.filter)||{})
-      .filter(sp=>mode!=="place"||mine.has(key(sp.name,sp.source)));
+      .filter(sp=>{const k=key(sp.name,sp.source); return mode!=="place"?!sib.has(k)||mine.has(k):mine.has(k);});
   }
   const arr=sec.pick==="cantrip"?"cantrips":"spells";
   const mine=new Set(((state.chosen[sec.row]||{})[arr])||[]);
@@ -4912,6 +4973,8 @@ function renderPickList(){
   let base = isClass
     ? [...R.pool.values()].filter(e=>e.takers.some(t=>t.idx===PICK.classIdx)&&!(e.always&&e.always.has(PICK.classIdx))&&e.sp.level>=1&&e.sp.level<=PICK.maxLevel).map(e=>e.sp)
     : filterSpells(PICK.filter);
+  if(!isClass&&PICK.id!=null){const sib=siblingHeld(PICK.id), mine=new Set(state.choices[PICK.id]||[]);   // D209(b)
+    base=base.filter(sp=>{const k=key(sp.name,sp.source); return !sib.has(k)||mine.has(k);});}
   // Magical Secrets draws from the OTHER lists the feature opened, not the class's own
   if(PICK.offList){const rec=R.casters.find(r=>r.idx===PICK.classIdx);
     const own=rec&&rec.listClass?rec.listClass[0].toLowerCase():"";
@@ -5199,6 +5262,21 @@ function renderEntityList(){
   const curSel = ENT.kind==="species"?state.speciesKey
     :ENT.kind==="background"?state.backgroundKey
     :(ENT.kind==="class"&&ENT.lv!=null)?(rowAtLevel(ENT.lv)||{}).clsKey||null:null;
+  // D210: Custom is PINNED above the list — not a record, so no book, no filter and no sort
+  // reaches it; only a search that cannot mean it hides it.
+  if(ENT.kind==="background"&&(!q||"custom".includes(q))){
+    const on=state.backgroundKey===BG_CUSTOM_KEY;
+    const row=el("div","entrow entpin"+(on?" on":""));
+    const main=el("div","entmain");
+    main.append(Object.assign(el("div","entname"),{textContent:"Custom"}));
+    main.append(el("div","entprev","Your own — any +2/+1, any origin feat, a name if you want one"));
+    row.append(main);
+    const btn=el("button","tk ico-only"+(on?" on":"")); btn.append(takeIco(on,true));
+    const blbl=on?"Selected. Click to remove":"Select"; btn.setAttribute("aria-label",blbl); btn.title=blbl;
+    btn.onclick=()=>{state.backgroundKey=on?"":BG_CUSTOM_KEY; if(ENT.owns&&!on)ENT.owns.key=BG_CUSTOM_KEY;
+      save();refreshAll();render();renderEntityList();};
+    row.append(btn); list.append(row);
+  }
   if(!items.length){list.append(el("div","empty","Nothing matches those filters."));return;}
   let sepDone=false;
   const shown=items.slice(0,400);
@@ -5806,6 +5884,8 @@ function applyImportedState(st){
   const idMap=new Map((Array.isArray(st.classes)?st.classes:[]).map((r,i)=>[r.id,i+1]));
   out.speciesKey=String(st.speciesKey||"");
   out.backgroundKey=String(st.backgroundKey||"");   // D191 · N2
+  // D210: a Custom background's name — a string, trimmed, at most 60 characters; else none
+  out.backgroundName=typeof st.backgroundName==="string"?st.backgroundName.trim().slice(0,60):"";
   out.feats=(Array.isArray(st.feats)?st.feats:[]).map(String);
   out.optFeats=(Array.isArray(st.optFeats)?st.optFeats:[]).map(String);
   // which slot each feat was spent from (D84) — keyed by name|source, so no renumbering.
@@ -5872,6 +5952,7 @@ function applyImportedState(st){
   }).filter(Boolean);
   if(["type","array","point","roll"].includes(st.scoreMethod))out.scoreMethod=st.scoreMethod;
   out.scoreOptimize=st.scoreOptimize===true;
+  out.scoreFocus=SCORE_FOCI.some(x=>x[0]===st.scoreFocus)?st.scoreFocus:"cast";   // D211: one of the list, else the default
   // stored the way the formula field stores one (renderScoreMenu): no spaces, lower case
   if(typeof st.rollFormula==="string"&&parseFormula(st.rollFormula))
     out.rollFormula=st.rollFormula.replace(/\s+/g,"").toLowerCase();
@@ -6579,7 +6660,9 @@ function renderGrantedList(){
     h.append(el("span","cgn",`${cur.length}/${c.count}`));
     h.append(Object.assign(el("div","cgcat"),{textContent:cap1(guidePickAsk(c)||fmtDesc(c.desc)||"choose a spell")}));
     box.append(h);
-    let pool=filterSpells(c.filter).filter(sp=>(!q||sp.name.toLowerCase().includes(q))
+    const sib=siblingHeld(c.id);                                         // D209(b)
+    let pool=filterSpells(c.filter).filter(sp=>(!sib.has(key(sp.name,sp.source))||cur.includes(key(sp.name,sp.source)))
+      &&(!q||sp.name.toLowerCase().includes(q))
       &&(!PREP.levelSet.size||PREP.levelSet.has(sp.level))
       &&(!PREP.onlyPicked||cur.includes(key(sp.name,sp.source))));
     pool.sort((a,b)=>a.level-b.level||a.name.localeCompare(b.name));
@@ -11368,20 +11451,36 @@ function refreshBackground(){
   const blk=$("#bgBlock"); if(!blk)return;
   blk.classList.toggle("hidden",!fullCreator());
   if(!fullCreator())return;
-  const b=state.backgroundKey?BG_BY[state.backgroundKey]:null;
+  const b=state.backgroundKey?bgOf(state.backgroundKey):null;
   // a background whose BOOK is off is kept and flagged, like a species (T2, D42) — only one
   // that no longer exists at all goes, and that is `pruneState`'s job, not this one
   if(state.backgroundKey&&!b)state.backgroundKey="";
   const fld=$("#bgFld");
-  if(fld){fld.className="fld";fld.textContent="Background";fldDetail(fld,b,"background");}
+  if(fld){fld.className="fld";fld.textContent="Background";fldDetail(fld,b&&!b.custom?b:null,"background");}
   const lbl=$("#bgBtnLbl");
-  if(lbl){lbl.textContent=b?b.name:"None";
-    const btn=$("#bgBtn"); if(btn)btn.classList.toggle("gapped",!!(b&&!visible(b)));
-    if(b&&!visible(b))lbl.textContent=b.name+" · "+b.source+" is off";}
+  if(lbl){lbl.textContent=b?b.name:"None";   // Custom stays "Custom" here: the name has its own field below
+    const off=!!(b&&!b.custom&&!visible(b));   // D210: Custom has no book to be off
+    const btn=$("#bgBtn"); if(btn)btn.classList.toggle("gapped",off);
+    if(off)lbl.textContent=b.name+" · "+b.source+" is off";}
   // D191(e): the origin feat is OFFERED, never written behind your back. One click takes it
   // into the origin slot; nothing here ever removes or replaces a feat you chose yourself.
   const note=$("#bgNote"); if(!note)return;
+  // the name field is REBUILT only when it is not the element being typed in: refreshAll runs
+  // on every edit, and replacing a focused input drops the caret mid-word (the D190 family)
+  const nameIn=note.querySelector(".bgname");
+  if(b&&b.custom&&nameIn&&document.activeElement===nameIn)return;
   note.innerHTML=""; note.classList.add("hidden");
+  if(b&&b.custom){
+    // D210: his own name for it, optional — empty reads as "Custom" everywhere
+    note.classList.remove("hidden");
+    const inp=el("input","bgname"); inp.type="text"; inp.maxLength=60;
+    inp.placeholder="Name it (optional)"; inp.value=state.backgroundName||"";
+    inp.setAttribute("aria-label","Custom background name");
+    inp.oninput=()=>{state.backgroundName=inp.value.slice(0,60); save();};
+    inp.onchange=()=>{state.backgroundName=inp.value.trim().slice(0,60); inp.value=state.backgroundName;
+      save(); refreshAll(); render();};
+    note.append(inp);
+    return;}
   if(!b||!b.feat)return;
   const ft=FEAT_BY[b.feat]; if(!ft)return;
   if(state.feats.some(x=>sameEnt(x,b.feat))){
@@ -11492,6 +11591,7 @@ function takeFeat(k,slot){
   const cat=slot||"origin", i=featHoleFor(cat);
   if(i>=0)state.feats[i]=k; else state.feats.push(k);
   setFeatSlot(k,slot);
+  autoScoreChoices(k);   // D211
 }
 function takeOpt(k){
   const i=optHoleFor(k);
@@ -12099,7 +12199,7 @@ function renderScoreNums(){
 }
 // the ⋯ menu (D177(e), D178): a fill method, the Optimize switch, the roll's formula
 // behind a chevron, and an ARMED clear. Rows never wrap: the note sits under its label.
-let SCORE_FORM_OPEN=false;
+let SCORE_FORM_OPEN=false, SCORE_FOCUS_OPEN=false;
 function renderScoreMenu(){
   const pop=$("#scoreMenuPop"); if(!pop)return; pop.innerHTML=""; SCORE_ARM=false;
   const m=state.scoreMethod||"type";
@@ -12136,6 +12236,18 @@ function renderScoreMenu(){
   sw.setAttribute("aria-checked",String(!!state.scoreOptimize)); sw.setAttribute("aria-label","Optimize scores");
   sw.onclick=e=>{e.stopPropagation(); state.scoreOptimize=!state.scoreOptimize; optimizeScores(); renderScoreMenu(); refreshAll(); render();};
   orow.append(sw); pop.append(orow);
+  // D211: where a new feat's +1 goes — one row naming the focus, opening its list beneath it
+  // the way the palette row does (D200(g)); a pick closes it
+  const fc=SCORE_FOCI.find(x=>x[0]===(state.scoreFocus||"cast"))||SCORE_FOCI[0];
+  const frow=el("div","mrow");
+  item("Feat bonuses",fc[1],false,()=>{SCORE_FOCUS_OPEN=!SCORE_FOCUS_OPEN; renderScoreMenu();},"",frow);
+  const fch=el("button","mchev"+(SCORE_FOCUS_OPEN?" up":"")); fch.type="button";
+  fch.setAttribute("aria-label","Feat bonus focus"); fch.setAttribute("aria-expanded",String(SCORE_FOCUS_OPEN));
+  fch.append(el("span","lvlcar"+(SCORE_FOCUS_OPEN?" up":"")));
+  fch.onclick=e=>{e.stopPropagation(); SCORE_FOCUS_OPEN=!SCORE_FOCUS_OPEN; renderScoreMenu();};
+  frow.append(fch); pop.append(frow);
+  if(SCORE_FOCUS_OPEN)SCORE_FOCI.forEach(([k,lab])=>item(lab,"",k===fc[0],()=>{
+    state.scoreFocus=k; SCORE_FOCUS_OPEN=false; save(); renderScoreMenu();},"mfocus"));
   const clr=item("Clear scores","",false,()=>{
     if(!SCORE_ARM){SCORE_ARM=true; clr.querySelector(".mlab").textContent="Clear all six?"; return;}
     state.abilities={}; state.originBonus={}; state.scoreBonus=[]; closeMenu(); refreshAll(); render();},"danger");
@@ -12914,7 +13026,7 @@ function pruneState(){
   state.feats=(state.feats||[]).filter(fk=>isHole(fk)||FEAT_BY[baseKey(fk)]||!bookLoaded(baseKey(fk)));
   state.optFeats=(state.optFeats||[]).filter(ok=>isHole(ok)||OPT_BY[baseKey(ok)]||!bookLoaded(baseKey(ok)));
   if(state.speciesKey&&!RACE_BY[state.speciesKey]&&bookLoaded(state.speciesKey))state.speciesKey="";
-  if(state.backgroundKey&&!BG_BY[state.backgroundKey]&&bookLoaded(state.backgroundKey))state.backgroundKey="";
+  if(state.backgroundKey&&!bgOf(state.backgroundKey)&&bookLoaded(state.backgroundKey))state.backgroundKey="";
   // the one invariant worth re-asserting on every load: a TRAILING hole is not a slot.
   // Pruning above can expose one, and so can a file written by an older build.
   trimHoles(state.feats); trimHoles(state.optFeats);
@@ -12994,13 +13106,15 @@ if(typeof module!=="undefined"&&module.exports){
     removeChosen,markTake,guidePickDrop,guidePlace,dropChipOnLevel,
     guideTradeOut,guideTradeIn,guideTradeClear,swapAt,recordSwap,clearSwap,
     guideSteps,guideSwapMax,
+    // a feature's picks are one pool, and twins never fold (D209)
+    guideEligible,siblingHeld,
     // the picker's row filters run only where the menu offers them (D201)
     entRowOk,
     // which printing wins: the book's own date, among the books that are ON (D203)
     srcDate,collapseEditions,buildShadows,visible,
     shadowed:o=>SHADOWED.has(o),
     // ability scores + proficiency bonus (D176)
-    abilityScores,featScoreGains,profBonus,castNums,scoreMod,setCreatorMode,fullCreator,featsAt,scoreParts,mainAbilities,saveProfs,fillOrder,fillScores,pointsSpent,originOptions,parseFormula,rollFormula,formulaRange,optimizeScores,
+    abilityScores,featScoreGains,autoScoreChoices,focusOrder,profBonus,castNums,scoreMod,setCreatorMode,fullCreator,featsAt,scoreParts,mainAbilities,saveProfs,fillOrder,fillScores,pointsSpent,originOptions,parseFormula,rollFormula,formulaRange,optimizeScores,
     // storage and digest integrity
     mergeDigests,filterDigest,digestSize,emptyDigest,verLt,
     // a build survives its own export: the writer, the file, the reader (D208)
@@ -13027,6 +13141,7 @@ if(typeof module!=="undefined"&&module.exports){
       spellBy:v=>{SPELL_BY=v;},         // D146: holeFor asks a spell its LEVEL
       src:v=>{SRC=new Set(v);},           // D195: "the book is on" is half the gap test
       preview:v=>{Object.assign(PREVIEW,v);},
+      r:v=>{R=v;},                        // D209: a stale R from an earlier fixture answers guideChoices
     },
   };
 }

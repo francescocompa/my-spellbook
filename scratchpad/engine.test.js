@@ -874,8 +874,8 @@ const casterLevel = (slots) => {
     abilities: { int: 15, con: 14, dex: 13, wis: 12, str: 10, cha: 8 },
     originBonus: { int: 2, con: 1 },
     scoreBonus: [{ name: "Headband of Intellect", ab: "int", set: 19 }, { name: "Blessing", ab: "wis", add: -1 }],
-    scoreMethod: "array", scoreOptimize: true, rollFormula: "4d6kh3",
-    backgroundKey: "Sage|XPHB",
+    scoreMethod: "array", scoreOptimize: true, scoreFocus: "con", rollFormula: "4d6kh3",
+    backgroundKey: "Sage|XPHB", backgroundName: "Exiled scribe",
   });
   const before = JSON.parse(JSON.stringify(SB.serializeState()));
   eq("24a · the fixture holds every serialized field off its default", same(before, blank), []);
@@ -913,6 +913,64 @@ const casterLevel = (slots) => {
     { 5: { spell: { row: 1, out: "Magic Missile|XPHB", pos: 2 } } });
 
   SB.set.preview({ level: null });   // applyState pointed PREVIEW at 6; leave the harness at top
+}
+
+// ── 25 · a feature's picks are ONE pool, and twins never fold (D209) ────────
+// A 2024 Savant is "choose two" written as two one-spell picks at level 3, then one per new
+// spell level. D187(a) folded the first answer into the subclass and the card read as a
+// feature that offers one; and each pick offered what its siblings already held.
+{
+  const K = (n, s) => n + "|" + s, CB = {}, SUBS = {};
+  data.classes.forEach((c) => { CB[K(c.name, c.source)] = c; });
+  data.subclasses.forEach((c) => { SUBS[K(c.shortName || c.name, c.source)] = c; });
+  SB.set.data(data); SB.set.clsBy(CB); SB.set.subBy(SUBS);
+  SB.set.src(Object.keys(data.sources || {}));
+  SB.set.state({ ...SB.blankBuildState(), filters: { ...SB.FILTER_DEFAULT },
+    classes: [{ id: 1, clsKey: "Wizard|XPHB", subKey: "Diviner|XPHB", level: 5 }],
+    choices: { "s1:pk0": ["Augury|XPHB"], "s1:pk2": ["Clairvoyance|XPHB"] } });
+  SB.set.r(null);   // an earlier fixture's R would answer guideChoices for this build
+  const secs = SB.guideSteps().flatMap((s) => s.sections).filter((x) => x.kind === "cpick");
+  const sec = (cid) => secs.find((x) => x.cid === cid);
+  eq("25a · an answered Savant pick keeps its row beside its twin",
+    [sec("s1:pk0").foldedInto || null, sec("s1:pk1").foldedInto || null], [null, null]);
+  const offers = (cid, k) => SB.guideEligible(sec(cid), "take").some((sp) => K(sp.name, sp.source) === k);
+  eq("25b · a pick does not offer what a sibling pick holds, at any level",
+    [offers("s1:pk1", "Augury|XPHB"), offers("s1:pk2", "Augury|XPHB")], [false, false]);
+  eq("25c · …and still offers its own answer, so it can be undone",
+    [offers("s1:pk0", "Augury|XPHB"), offers("s1:pk2", "Clairvoyance|XPHB")], [true, true]);
+  SB.set.data({ fullMc: data.fullMc, pact: data.pact, sources: {} }); SB.set.clsBy(CLS); SB.set.subBy({});
+}
+
+// ── 26 · a feat's ability choice fills from the focus, and only an empty one (D211) ──
+{
+  SB.setCreatorMode("full");
+  SB.set.featBy({
+    "Ability Score Improvement|XPHB": { name: "Ability Score Improvement", source: "XPHB", category: "G",
+      ability: [{ abils: ["str", "dex", "con", "int", "wis", "cha"], amount: 2, choose: true, hidden: true },
+                { abils: ["str", "dex", "con", "int", "wis", "cha"], amount: 1, choose: true, count: 2, hidden: true }] },
+    "Resilient|XPHB": { name: "Resilient", source: "XPHB", category: "G",
+      ability: [{ abils: ["str", "dex", "con", "int", "wis", "cha"], amount: 1, choose: true }] } });
+  SB.set.clsBy({ ...CLS,
+    "Wizard|XPHB": { name: "Wizard", caster: "full", ability: "int", traits: { primary: ["int"] } },
+    "Paladin|XPHB": { name: "Paladin", caster: "1/2", ability: "cha", traits: { primary: ["str", "cha"] } } });
+  const at = (cls, extra) => ({ classes: [{ id: "r0", clsKey: cls, level: 8, subKey: null }], levelOrder: [],
+    feats: [], optFeats: [], speciesKey: "", customSources: [], chosen: {}, featSlots: {}, choices: {},
+    abilities: {}, originBonus: {}, scoreBonus: [], ...extra });
+  const fill = (st, fk) => { SB.set.state(st); SB.autoScoreChoices(fk); return SB.get.state().choices; };
+  eq("26a · casting focus: Resilient raises the casting stat",
+    fill(at("Paladin|XPHB", { scoreFocus: "cast" }), "Resilient|XPHB")["fResilient|XPHB:ab0"], ["cha"]);
+  eq("26b · physical focus: the class's STR/DEX primary first",
+    fill(at("Paladin|XPHB", { scoreFocus: "phys" }), "Resilient|XPHB")["fResilient|XPHB:ab0"], ["str"]);
+  eq("26c · round odd up: the first odd score in class order",
+    fill(at("Wizard|XPHB", { scoreFocus: "odd", abilities: { int: 16, con: 13, dex: 14 } }), "Resilient|XPHB")["fResilient|XPHB:ab0"], ["con"]);
+  eq("26d · the ASI takes +2 where it fits, and skips a score it would push past 20",
+    fill(at("Paladin|XPHB", { scoreFocus: "cast", abilities: { cha: 19, str: 16 } }), "Ability Score Improvement|XPHB")["fAbility Score Improvement|XPHB:asi"], ["str"]);
+  eq("26e · an answer already given is never rewritten",
+    fill(at("Wizard|XPHB", { choices: { "fResilient|XPHB:ab0": ["wis"] } }), "Resilient|XPHB")["fResilient|XPHB:ab0"], ["wis"]);
+  SB.setCreatorMode("simple");
+  eq("26f · Simplified fills nothing (D192)",
+    fill(at("Wizard|XPHB", {}), "Resilient|XPHB"), {});
+  SB.set.clsBy(CLS); SB.set.featBy({});
 }
 
 console.log(`\n${pass} ok · ${fail} fail`);

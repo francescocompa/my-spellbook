@@ -7,6 +7,14 @@
 > Read this before touching the extractors, the importer, the grants resolution or any
 > DOM handler. Moved out of `STATE.md` on 2026-08-27 (v1.1); nothing was dropped.
 
+- **5etools writes "choose two" as TWO one-spell picks, not one pick of two** (D209). Every
+  2024 school Savant is `known: {3: [{choose…}, {choose…}]}`, so the app sees `pk0` and `pk1`,
+  each `count:1`, same giver, same filter. Anything that treats `need>1` as "a group of
+  several" misses them — D187(a)'s fold did, and the card read as offering one spell. Test for
+  a TWIN (same giver and ask in the step) as well. And one owner's picks are one pool: a pick
+  must subtract what its siblings hold (`siblingHeld`), read at the FULL build — under a
+  previewed level `R.choices` has no later picks, and the later picks are what repeats.
+
 - **A traded SLOT has two occupants, and a surface must say which one it means** (D207).
   The slot is shared (D115(g)): the old spell below the trade, the new one from it on. So any
   per-level surface needs BOTH — the unswapped identity at that level for the eye, the raw

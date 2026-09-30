@@ -1200,6 +1200,9 @@ table.spelltable td.cmp .l.iffy{color:var(--good);cursor:help;
 .entrow{display:flex;align-items:center;gap:10px;padding:8px 8px;border-bottom:1px solid var(--line)}
 /* a row directly above a group box would double its top border — drop the divider */
 .entrow.nodiv{border-bottom:none}
+/* D210: the pinned Custom row is not a record — a stronger rule parts it from the list */
+.entrow.entpin{border-bottom:1px solid var(--line-strong);margin-bottom:4px}
+.entrow.entpin .entname{font-style:italic}
 /* selection tints, hover does not — the fill fought the row dividers exactly as it did
    in the spell list (D72) */
 .entrow.on{background:var(--accent-soft);border-radius:6px}
@@ -3120,6 +3123,7 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
 .scoremenu .mitem,#menuPop .mitem{display:flex;flex-direction:column;align-items:flex-start;gap:1px;width:100%;box-sizing:border-box;padding:6px 11px;white-space:nowrap;overflow:hidden}
 .scoremenu .mitem .mlab,.scoremenu .mitem .msub,#menuPop .mitem .mlab,#menuPop .mitem .msub{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis}
 .scoremenu .mitem.on{background:var(--accent-soft)}
+.scoremenu .mitem.mfocus{padding-left:22px}   /* D211: the focus list sits under its row */
 .scoremenu .msub,#menuPop .msub{font-size:11px;color:var(--muted);font-weight:400;line-height:1.3}
 .scoremenu .mrow{display:flex;align-items:stretch;gap:2px}
 .scoremenu .mrow .mitem{flex:1;min-width:0}
@@ -3229,6 +3233,7 @@ button.pgtile{cursor:pointer}
 .bgnote .linkbtn{border:none;background:none;padding:0;font:inherit;color:var(--accent);
   text-decoration:underline;text-underline-offset:2px;cursor:pointer}
 .bgnote .linkbtn:hover{color:var(--ink)}
+.bgnote .bgname{width:100%;box-sizing:border-box}   /* D210: takes --ctl-h like every field (D198) */
 .bgnote .linkbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
 /* the derive-nothing footnote inside a background's detail (D191(a)) */
 .entnote{font-size:11.5px;color:var(--muted);font-weight:400}

@@ -1158,6 +1158,72 @@ closed one-offs) — is settled and lives in `DECISIONS-SETTLED.md`.
     D177(b,e), D178, D188, D191, D192(c), D206; CLAUDE.md's verify-gate paragraph; PLAN's
     dndpaste item (its byte-identical done-when stands on this).
 
+### Live — his 2026-10-01 notes (D209–D211)
+
+- **D209 (2026-10-01) DECIDED — a feature's picks are ONE pool, and twin picks never fold.**
+  His notes: *"the savant features from wizard subclasses should grant you two spell choices
+  (divination is offering me one)"*, then *"the savant feature also keeps offering spells
+  already taken at later levels"*. The data was right: 5etools writes a 2024 Savant's "choose
+  two" as **two one-spell picks** at level 3, then one per new spell level (nine in all), and
+  `PROSE_GRANTS`' hand-authored `count:2` stands down because the structured feature is there.
+  - **(a) Twins do not fold.** D187(a) folds an answered one-spell group into its giver's
+    answer. With two one-spell groups from one feature, answering the first folded it away and
+    the card read as a feature offering one — his report exactly. A cpick with a TWIN in its
+    step (same giver, same ask) is one half of a several-spell group, and D187(a) already says
+    a group asking for several never folds. *Rejected:* merging twins into one `count:2`
+    section (two stored ids behind one control — every writer and the rail would need to know).
+  - **(b) A pick does not offer what its siblings hold.** `siblingHeld(cid)` — every live pick
+    of the same owner token — is subtracted from the pool in all three pickers (the guide's,
+    the Choices card's `openPick`, the Granted tab), keeping the pick's own answer so it can
+    be undone. Read at the FULL build (`guideChoices`), because under a previewed level the
+    later picks are absent and they are the point. *Rejected:* also subtracting the row's own
+    class picks (a Knowledge cleric choosing a divination spell already prepared for Mind
+    Magic is a legal, even smart, move — only siblings are certainly a waste).
+  - **Found alongside, not taken (→ PLAN ⚑):** every leveled `known`/"always known" grant —
+    Savants, Clockwork Magic, Psionic Spells, Gloom Stalker Magic, 92 grants — renders as an
+    **at will** free cast. It is a known spell cast with slots. A model call, his.
+  - **Enforced by:** src/app.js the fold pass in `guideSteps` (`twinOf`), `siblingHeld`,
+    `guideEligible`, `renderPickList`, `renderGrantedList`; **engine fixture 25** (25a red on
+    the old fold, 25b red on the old pool). **Affects:** D187(a), D79, D126(g).
+
+- **D210 (2026-10-01) DECIDED — a Custom background, pinned atop the picker, with an optional
+  name.** His note: *"background should allow for Custom (pinned option on top)"*; his pick in
+  the interview: **free origin + any feat, plus a name field**.
+  - **(a) The model.** A stored key `custom` with no book behind it, resolved by `bgOf` to a
+    record naming all six abilities and no feat — so the origin pills are as free as with no
+    background (D191(b)'s narrowing becomes a no-op) and nothing is offered (D191(e)). What it
+    adds over "none" is that the question is ANSWERED. `state.backgroundName` (≤60 chars,
+    optional) is the name; the card's select still reads **Custom** and the name has its own
+    field beneath it, the guide's value reads the name. *Rejected:* choosing its own three
+    abilities (the pills already ask it; a second surface for the same question); no name.
+  - **(b) Pinned, not listed.** It is not a record: no book chip, no filter or sort reaches it,
+    and only a search that cannot mean "custom" hides it. A stronger rule parts it from the
+    list. Its book can never be "off" (the card's gap check skips it).
+  - **Enforced by:** src/app.js `BG_CUSTOM`/`bgOf`/`bgLabel`, `renderEntityList`'s pinned row,
+    `refreshBackground`, `pruneState`; `backgroundName` in `serializeState`, `applyState`,
+    `applyImportedState` and **fixture 24** (D208 — 24a went red until the fixture carried it).
+    **Affects:** D191, D192 (Complete only, like every background), D208.
+
+- **D211 (2026-10-01) DECIDED — a feat's ability choice fills itself when the feat is taken,
+  from a per-build focus.** His note: *"auto pick (with different focus) ability scores for
+  feats with multiple choices based on the build"*; his picks: **fill on pick, editable**, and
+  the foci *"in order: casting, physical primary, round up odd, constitution, others"*.
+  - **(a) When.** `takeFeat` — the one writer every feat take goes through — calls
+    `autoScoreChoices`, which fills only a question with NO answer, and never past 20 where the
+    score is known. The ASI's either/or takes +2 where it fits, else +1/+1. Changing the focus
+    later rewrites nothing: taking the feat was the ask, and his answers are his (D42).
+    *Rejected:* a one-click Auto button (one more click per feat); suggest-only.
+  - **(b) The foci**, one per build beside Optimize (`state.scoreFocus`, default `cast`), in his
+    order: Casting stat · Physical primary (the class's STR/DEX primary) · Round odd up (the
+    first odd score, in class order) · Constitution · then each remaining ability by name —
+    **"others" read as the named abilities; confirm.** Every focus falls back to `fillOrder`,
+    so "round odd up" with no scores entered IS the casting stat. The score menu shows one row
+    naming it and opens the list beneath, the palette row's shape (D200(g)).
+  - **(c) Simplified fills nothing** — `fullCreator()` gates it like `featScoreGains` (D192).
+  - **Enforced by:** src/app.js `SCORE_FOCI`, `focusOrder`, `autoScoreChoices`, `takeFeat`, the
+    score menu's Feat bonuses row; `scoreFocus` through D208's three writers and fixture 24;
+    **engine fixture 26**. **Affects:** D176, D177(e), D178, D189, D192, D208.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives
