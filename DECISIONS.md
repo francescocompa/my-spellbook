@@ -1249,6 +1249,26 @@ closed one-offs) — is settled and lives in `DECISIONS-SETTLED.md`.
     `rechargeShort`, the Slots card's `frees`; **engine fixture 27**. **Affects:** D126(e),
     D130(a), D167, D73, D79.
 
+- **D213 (2026-10-01) DECIDED — the importer writes a spell's SRD name, and parity checks it.**
+  His note: *"some srd safe spells persist when the official full version is there (ex nystul
+  magic aura vs arcanist magic aura)"* — on Pages, both rows tagged XPHB. Closes the
+  2026-09-12 ⚑ (*Hideous Laughter still appears twice*).
+  - **(a) The mechanism.** D187(b)'s `dropSrdTwins` drops the bundle's licensed-name record by
+    reading the SRD name off the IMPORTED record (`srd: "Arcanist's Magic Aura"`). `extract.py`
+    has always written it; **`src/extract.js` never wrote `srd` on a spell at all.** Every
+    import made in the browser — Update data, a zip, a folder: all of Pages — arrived without
+    the mapping, so nothing was ever dropped. Every local test used `data.json`, which is
+    extract.py's, and passed.
+  - **(b) Why the gate missed it.** `cparity.js`'s whole-record diff skipped `srd` everywhere,
+    on the stated grounds that "the importer has no use for it" — true when written, false from
+    D187(b) on. It now compares `srd` on spells (proved: 969 diffs without the fix, 0 with).
+    Other arrays keep the skip; nothing reads their `srd` off an import.
+  - **(c) No re-import needed** where the library has its raw stash (K3, D159): the parser
+    fingerprint moved with `extract.js`, so the next load re-reads it. A library older than
+    the stash needs Update data once.
+  - **Enforced by:** src/extract.js's spell record, `scratchpad/cparity.js`'s `canon(v,keepSrd)`.
+    **→ Gotcha. Affects:** D187(b), D159(b), D158(d).
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

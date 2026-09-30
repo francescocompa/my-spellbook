@@ -228,7 +228,8 @@ his call: N1 first, then M3/M4 (settled 2026-09-05).
   switching REWRITES the build's stored key**, which is a D42 question, not a display one; and
   **what happens to a pick already made** from the printing you switch away from. Size M.
   ⚑ (owner: Francesco, 2026-09-12)
-- [ ] ⚑ **Hideous Laughter still appears twice** (his report, 2026-09-12, with a screenshot:
+- [x] **CLOSED 2026-10-01, v1.6.19 (D213)** — the in-browser importer never wrote a spell's
+  `srd`, so no Pages import could drop a twin. ⚑ **Hideous Laughter still appears twice** (his report, 2026-09-12, with a screenshot:
   "Hideous Laughter" and "Tasha's Hideous Laughter" both in the same 1st-level list). He
   believed D187(b) closed this. **Untouched by today's work** — `spellDedupeId` is the spell's
   NAME, so the two never meet in `collapseEditions`; the licensed-name twin is `dropSrdTwins`'s

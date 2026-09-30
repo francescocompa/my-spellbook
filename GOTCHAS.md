@@ -7,6 +7,12 @@
 > Read this before touching the extractors, the importer, the grants resolution or any
 > DOM handler. Moved out of `STATE.md` on 2026-08-27 (v1.1); nothing was dropped.
 
+- **A parity check that SKIPS a field is a promise that nothing reads it** (D213). `cparity.js`
+  skipped `srd` because "the importer has no use for it"; D187(b) then started reading a
+  spell's `srd` off the import, and `src/extract.js` had never written it — so no browser
+  import could drop a licensed-name twin, and every local test (on extract.py's `data.json`)
+  passed. **Before a feature reads a field off imported data, grep `cparity.js` for a skip of
+  it, and check `src/extract.js` writes it.**
 - **5etools writes "choose two" as TWO one-spell picks, not one pick of two** (D209). Every
   2024 school Savant is `known: {3: [{choose…}, {choose…}]}`, so the app sees `pk0` and `pk1`,
   each `count:1`, same giver, same filter. Anything that treats `need>1` as "a group of

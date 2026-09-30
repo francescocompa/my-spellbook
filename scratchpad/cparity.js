@@ -128,11 +128,12 @@ const gkey={classes:e=>e.name+"|"+e.source,
 // access, forms, prereqs); this one catches the NEXT one — monster text, spell scalars,
 // casting fields — without naming it in advance. Canonical form: keys sorted,
 // `undefined` ≡ absent (structured clone keeps it, JSON drops it — the app reads both
-// the same), and extract.py's own `srd` output field (it powers the SRD subset; the
-// importer has no use for it) skipped.
+// the same), and extract.py's own `srd` output field skipped — EXCEPT on a spell (D213):
+// "the importer has no use for it" stopped being true at D187(b), whose twin drop reads a
+// spell's SRD name off the import, and skipping it here is how that hid for a month.
 {
-  const canon=v=>{ if(Array.isArray(v))return "["+v.map(x=>x===undefined?"null":canon(x)).join(",")+"]";
-    if(v&&typeof v==="object")return "{"+Object.keys(v).filter(k=>k!=="srd"&&v[k]!==undefined).sort()
+  const canon=(v,keepSrd)=>{ if(Array.isArray(v))return "["+v.map(x=>x===undefined?"null":canon(x,keepSrd)).join(",")+"]";
+    if(v&&typeof v==="object")return "{"+Object.keys(v).filter(k=>(keepSrd||k!=="srd")&&v[k]!==undefined).sort()
       .map(k=>JSON.stringify(k)+":"+canon(v[k])).join(",")+"}";
     return JSON.stringify(v); };
   const showDiff=(k,a,b)=>{let i=0;while(i<a.length&&a[i]===b[i])i++;
@@ -143,8 +144,8 @@ const gkey={classes:e=>e.name+"|"+e.source,
     feats:e=>e.name+"|"+e.source,races:e=>e.name+"|"+e.source,optfeats:e=>e.name+"|"+e.source};
   Object.keys(rkey).forEach(arr=>{
     const jm={},pm={};
-    (digest[arr]||[]).forEach(e=>{jm[rkey[arr](e)]=canon(e);});
-    (py[arr]||[]).forEach(e=>{pm[rkey[arr](e)]=canon(e);});
+    (digest[arr]||[]).forEach(e=>{jm[rkey[arr](e)]=canon(e,arr==="spells");});
+    (py[arr]||[]).forEach(e=>{pm[rkey[arr](e)]=canon(e,arr==="spells");});
     const shared=Object.keys(jm).filter(k=>k in pm);
     const diff=shared.filter(k=>jm[k]!==pm[k]);
     cmp(`whole-record diff · ${arr} (of ${shared.length})`,diff.length,0);

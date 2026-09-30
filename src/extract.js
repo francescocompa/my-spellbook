@@ -985,7 +985,11 @@ function buildDigest(files){
           comp:components(sp),ritual:!!((sp.meta||{}).ritual),conc:!!dur.concentration,
           dmg:uniqSort(sp.damageInflict),cond:uniqSort(sp.conditionInflict),save:primarySaves(sp),
           atk:!!sp.spellAttack,durTxt:durationText(sp),desc:flattenEntries(sp.entries),
-          higher:flattenEntries(sp.entriesHigherLevel),reprinted:reprinted(sp),supersededBy:supersededBy(sp),page:sp.page??null,cls:[],sub:[],feat:[],race:[],
+          higher:flattenEntries(sp.entriesHigherLevel),reprinted:reprinted(sp),supersededBy:supersededBy(sp),page:sp.page??null,
+          // D213: truthy = in SRD 5.2; a STRING is the licensed name the SRD printed it under.
+          // `dropSrdTwins` (D187(b)) reads it off the IMPORT — without it here, no import made
+          // in the browser could ever drop "Arcanist's Magic Aura". Mirrors extract.py.
+          srd:sp.srd52||false,cls:[],sub:[],feat:[],race:[],
           // raw entries, popped once creature sets are resolved — richStrip eats the
           // {@creature}/{@filter} tags on the way into `desc` (mirrors extract.py)
           _raw:JSON.stringify([sp.entries,sp.entriesHigherLevel])};});
