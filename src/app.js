@@ -3039,6 +3039,13 @@ function guideTakeClass(ck){
   else{const nr={clsKey:ck,subKey:null,level:1,id:state.nextRowId++};state.classes.push(nr);
     state.levelOrder=plan.concat([nr.id]);}
   save();refreshAll();render();
+  // D212(b), his call, amending D126(e) for this one step: confirming the class IS the
+  // answer, so the walk does not park on a finished "Class · Cleric 2" card waiting for a
+  // Next that says nothing new. It steps on exactly as Next would; the class card stays in
+  // the rail for "Change the class".
+  const lv=plan.length+1, ck2="class~"+lv;
+  if(GUIDE.on&&GUIDE.cur===ck2&&R&&R.gsteps){
+    const nx=guideStepAfter(R.gsteps,ck2); if(nx)guideGo(nx);}
 }
 // the subclass control, shared by the open section and the answered one. A COMMAND menu,
 // not a bound field: it always shows its prompt and resets after a pick, so it can never
@@ -8155,6 +8162,10 @@ function rechargeShort(recharge,isCantrip){
   if(/short rest/.test(r))return "1/SR";
   if(/dawn/.test(r))return "1/dawn";
   if(/charge/.test(r))return "chg";
+  // D212(c): "always known" on a LEVELED spell is a spell you know and cast with SLOTS — a
+  // Savant's, Clockwork Magic's, Gloom Stalker Magic's. It read "at will" until 2026-10-01.
+  // (A cantrip never reaches here: the first line already answered it.)
+  if(/always known/.test(r))return "—";
   if(/always/.test(r))return "at will";
   // D95's `total` unit: uses that never come back. Without these the casts list showed a
   // bare "—" for Crook of Rao's Gate, which reads as "no limit" — the exact opposite.
@@ -9613,8 +9624,10 @@ function renderSlots(){
     const t=el("div","note");t.style.flexBasis="100%";t.textContent=`Pact Magic: ${p.num} slot${p.num>1?"s":""} @ level ${p.lvl}, short-rest recharge, separate from the above.`;sr.append(t);}
   if(!R.mcSlots&&!R.pactRec)sr.append(el("div","note","No slots. Add a spellcasting class."));
   const cw=$("#castsWrap");cw.innerHTML="";
-  if(R.freeCasts.length){cw.append(el("label","fld","Free / innate casts"));const box=el("div","casts");
-    R.freeCasts.forEach(c=>{const row=el("div","ct");const n=el("span");
+  // D212(c): a leveled "always known" grant is cast with slots — not a free cast, so not here
+  const frees=R.freeCasts.filter(c=>c.choice||c.level===0||!/always known/i.test(c.recharge||""));
+  if(frees.length){cw.append(el("label","fld","Free / innate casts"));const box=el("div","casts");
+    frees.forEach(c=>{const row=el("div","ct");const n=el("span");
       // a custom source can fix the level it goes off at, and carry its own DC/attack (D65)
       const lv=c.castLv||c.level;
       n.innerHTML=c.choice?esc(c.desc):(esc(c.name)+(lv!=null?` <span style="color:var(--muted)">(${ROMAN[lv]}${c.castLv?" fixed":""})</span>`:""));
@@ -13108,6 +13121,8 @@ if(typeof module!=="undefined"&&module.exports){
     guideSteps,guideSwapMax,
     // a feature's picks are one pool, and twins never fold (D209)
     guideEligible,siblingHeld,
+    // a leveled "always known" grant is cast with slots, not at will (D212(c))
+    rechargeShort,
     // the picker's row filters run only where the menu offers them (D201)
     entRowOk,
     // which printing wins: the book's own date, among the books that are ON (D203)

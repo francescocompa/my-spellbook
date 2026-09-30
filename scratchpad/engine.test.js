@@ -973,5 +973,11 @@ const casterLevel = (slots) => {
   SB.set.clsBy(CLS); SB.set.featBy({});
 }
 
+// ── 27 · "always known" is at will only for a cantrip (D212(c)) ────────────
+eq("27a · a leveled always-known grant is cast with slots",
+  SB.rechargeShort("always known", false), "—");
+eq("27b · …and a cantrip, and a real at-will cast, still read at will",
+  [SB.rechargeShort("always known", true), SB.rechargeShort("at will", false)], ["at will", "at will"]);
+
 console.log(`\n${pass} ok · ${fail} fail`);
 process.exit(fail ? 1 : 0);

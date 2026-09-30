@@ -2492,6 +2492,13 @@ body.gaside .col-left{top:calc(14px + var(--gbh))}
 .gcstep:hover{background:var(--panel-2)}
 .gcstep.cur{border-color:var(--accent);background:var(--accent-soft)}
 .gcstep.cur:hover{background:var(--accent-soft)}
+/* D212 (his pick, rail1 variant A): a step with several sections selects several rows, and
+   two frames 1px apart read as two selections. Consecutive `.cur` rows are ONE frame — the
+   inner edges and the gap go, the corners sit on the first and last. One row is unchanged. */
+.gcstep.cur+.gcstep.cur{margin-top:-1px;border-top-color:transparent;
+  border-top-left-radius:0;border-top-right-radius:0}
+.gcstep.cur:has(+.gcstep.cur){border-bottom-color:transparent;
+  border-bottom-left-radius:0;border-bottom-right-radius:0}
 .gcstep:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 /* the decision stage */
 .gstage{flex:1;min-width:0;overflow-y:auto;padding:20px 26px 34px}

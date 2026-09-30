@@ -1179,7 +1179,7 @@ closed one-offs) — is settled and lives in `DECISIONS-SETTLED.md`.
     later picks are absent and they are the point. *Rejected:* also subtracting the row's own
     class picks (a Knowledge cleric choosing a divination spell already prepared for Mind
     Magic is a legal, even smart, move — only siblings are certainly a waste).
-  - **Found alongside, not taken (→ PLAN ⚑):** every leveled `known`/"always known" grant —
+  - **Found alongside, settled as D212(c):** every leveled `known`/"always known" grant —
     Savants, Clockwork Magic, Psionic Spells, Gloom Stalker Magic, 92 grants — renders as an
     **at will** free cast. It is a known spell cast with slots. A model call, his.
   - **Enforced by:** src/app.js the fold pass in `guideSteps` (`twinOf`), `siblingHeld`,
@@ -1216,13 +1216,38 @@ closed one-offs) — is settled and lives in `DECISIONS-SETTLED.md`.
   - **(b) The foci**, one per build beside Optimize (`state.scoreFocus`, default `cast`), in his
     order: Casting stat · Physical primary (the class's STR/DEX primary) · Round odd up (the
     first odd score, in class order) · Constitution · then each remaining ability by name —
-    **"others" read as the named abilities; confirm.** Every focus falls back to `fillOrder`,
+    **"others" read as the named abilities** (stated to him, not contested). Every focus falls back to `fillOrder`,
     so "round odd up" with no scores entered IS the casting stat. The score menu shows one row
     naming it and opens the list beneath, the palette row's shape (D200(g)).
   - **(c) Simplified fills nothing** — `fullCreator()` gates it like `featScoreGains` (D192).
   - **Enforced by:** src/app.js `SCORE_FOCI`, `focusOrder`, `autoScoreChoices`, `takeFeat`, the
     score menu's Feat bonuses row; `scoreFocus` through D208's three writers and fixture 24;
     **engine fixture 26**. **Affects:** D176, D177(e), D178, D189, D192, D208.
+
+- **D212 (2026-10-01) DECIDED — three calls off the same notes, all his picks.**
+  - **(a) The rail's selection is ONE frame** (`scratchpad/mkrail.py` → `mockups/rail1.html`,
+    variant A). A multi-section step marks several `.gcstep.cur` rows, and two accent frames
+    1px apart read as two selections. Consecutive `.cur` rows merge: the inner edges and the
+    gap go, the corners sit on the first and last row; a single selection is unchanged.
+    *Rejected:* B, a left accent bar with no frame (a second selection vocabulary beside the
+    `.gtchip.nextup` ring D167 chose); C, quieting the open level's accent border (the column
+    loses "which level you are in", D130(a)).
+  - **(b) Confirming a class steps the walk on** — amending D126(e) for this one step. After
+    *"Continue Cleric → 2"* the walk parked on a finished "Class · Cleric 2" card whose only
+    news was the button just pressed. `guideTakeClass` now moves on exactly as Next would, when
+    the walk is standing on that growth step; the class card stays in the rail for "Change the
+    class". *Rejected:* merging the class into the level's first card (restructures the step
+    list for the same gain); skipping every decided class card on Next (changes single-class
+    walks nobody reported).
+  - **(c) A leveled "always known" grant is cast with slots, not at will.** D209's finding:
+    Savants, Clockwork Magic, Psionic Spells, Gloom Stalker Magic — 92 grants — read **at will**
+    in the Casts column and sat in the Slots card's Free / innate casts. `rechargeShort` reads
+    "always known" as "—" on a leveled spell, and the free-cast list skips those. A cantrip, and
+    a real at-will cast (The Third Eye), are unchanged. The table marker ("swap", *swappable on
+    a long rest*) is D73's long-rest-swap backlog item and is not touched here.
+  - **Enforced by:** src/styles.css `.gcstep.cur` merge rules; src/app.js `guideTakeClass`,
+    `rechargeShort`, the Slots card's `frees`; **engine fixture 27**. **Affects:** D126(e),
+    D130(a), D167, D73, D79.
 
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
