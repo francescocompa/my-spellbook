@@ -404,6 +404,30 @@ function subOfRow(row){
   for(const s of list){ if(key(s.name,s.source)===row.subKey)return s; }
   return SUB_BY[row.subKey]||null;
 }
+// D214: a class's own spell list (`classSpells`, written by both extractors) joins the
+// spells it names to that class. A brew or UA class — the 2025 Psion — lists ~125 spells from
+// OTHER books (XPHB mostly), and only the handful new to its own book carry `fromClassList`,
+// so without this the Psion was offered seven spells. It runs at ASSEMBLY, not in the
+// importer, because the class and its spells arrive in different imports and either may be
+// re-read alone. Records are copied, never edited: the bundle's own objects must not carry an
+// imported class once that book is dropped. A spell is matched by name|source, or by the SRD
+// name it carries (D187(b)); a {className} ref reads the other class's list AFTER the named
+// spells, so one list can build on another. The class's book still gates it (`srcOn`).
+function applyClassSpells(spells,classes){
+  const lists=(classes||[]).filter(c=>Array.isArray(c.classSpells)&&c.classSpells.length);
+  if(!lists.length)return spells;
+  const at={},lk=(n,s)=>String(n).toLowerCase()+"|"+String(s||"").toLowerCase();
+  spells.forEach((sp,i)=>{at[lk(sp.name,sp.source)]=i;});
+  spells.forEach((sp,i)=>{if(typeof sp.srd==="string"&&sp.srd.trim()){const k=lk(sp.srd.trim(),sp.source);if(!(k in at))at[k]=i;}});
+  const out=spells.slice();
+  const add=(i,pair)=>{const sp=out[i];
+    if((sp.cls||[]).some(x=>x[0]===pair[0]&&x[1]===pair[1]))return;
+    out[i]=Object.assign({},sp,{cls:(sp.cls||[]).concat([pair])});};
+  lists.forEach(c=>c.classSpells.forEach(x=>{if(typeof x==="string"&&x in at)add(at[x],[c.name,c.source]);}));
+  lists.forEach(c=>c.classSpells.forEach(x=>{if(!Array.isArray(x))return;
+    out.forEach((sp,i)=>{if((sp.cls||[]).some(y=>y[0]===x[0]&&y[1]===x[1]))add(i,[c.name,c.source]);});}));
+  return out;
+}
 // assemble DATA from the three layers and rebuild indexes; call whenever content changes
 // the licensed-name twins an import supersedes (D187(b)). Split out so the gate can hold
 // the rule: a record is dropped ONLY when an imported spell of the same source names it as
@@ -475,6 +499,7 @@ function assembleData(){
     Object.keys(cnt).forEach(c=>{ if(DATA.sources[c])
       DATA.sources[c]=Object.assign({},DATA.sources[c],{counts:cnt[c]}); });
   }
+  DATA.spells=applyClassSpells(DATA.spells,DATA.classes);   // D214
   const csp=(CUSTOM&&CUSTOM.spells)||[];
   if(csp.length){ DATA.spells=DATA.spells.concat(csp);
     DATA.sources[HB_SRC]=Object.assign({name:"Homebrew",group:"other"},DATA.sources[HB_SRC],
@@ -13105,6 +13130,8 @@ if(typeof module!=="undefined"&&module.exports){
     entOwnsSwap,entSlotSpend,takeOpt,optHoleFor,
     // the licensed-name twin an import supersedes (D187(b))
     dropSrdTwins,
+    // a class's own spell list joins the spells it names, from any book (D214)
+    applyClassSpells,
     // a gap is a pick whose BOOK is missing, and a score choice is not a spell (D189);
     // a book that is here and ON is not a gap either, and a subclass's book is last (D195)
     buildGaps,

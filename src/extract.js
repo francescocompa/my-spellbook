@@ -233,6 +233,17 @@ function classTable(groups){const out=[];
   return out;}
 const uniqSort=a=>[...new Set(a||[])].sort();
 const spellKey=(n,s)=>`${String(n).toLowerCase()}|${String(s).toLowerCase()}`;
+// D214: a class's OWN spell list. A brew or UA class (the 2025 Psion) prints it on the class
+// as `classSpells` — "Name|Source" strings (source defaults to PHB, the 5etools UID rule) or
+// {className,classSource} for "every spell on that class's list" — and only the spells new to
+// its own book carry `fromClassList`. Normalised here, resolved at assembly (app.js
+// `applyClassSpells`), because the listed spells live in OTHER books. Group refs
+// ({groupName}) name spell groups the app does not model and are dropped. Mirrors extract.py.
+const classSpellList=lst=>{if(!Array.isArray(lst)||!lst.length)return null;
+  const out=[];lst.forEach(x=>{
+    if(typeof x==="string"){const p=x.split("|"),n=p[0].trim();if(n)out.push(spellKey(n,(p[1]||"").trim()||"PHB"));}
+    else if(x&&typeof x==="object"&&typeof x.className==="string"&&x.className)out.push([x.className,x.classSource||"PHB"]);});
+  return out.length?out:null;};
 const reprinted=o=>!!(o&&o.reprintedAs);
 // The FIRST `reprintedAs` entry, normalized to a plain uid string (D127), or null.
 // 5etools writes the field in TWO shapes: a bare uid ("Aberrant|Sorcerer|XPHB|XPHB") and
@@ -1003,6 +1014,7 @@ function buildDigest(files){
           caster:cp??null,ability:c.spellcastingAbility??null,static:!!(isStatic&&cp),
           subclassLevel:subclassLevel(c)??null,cantrips:c.cantripProgression??null,prepared:(prepared||known)??null,
           spellbook:c.spellsKnownProgressionFixed??null,slots:slotTable(c.classTableGroups)??null,
+          classSpells:classSpellList(c.classSpells),     // D214: resolved at assembly
           grants:parseGrants(c.additionalSpells,clsfeatIdx[c.name+"|"+(c.source||"")]),grantsFightingStyle:null,bonusChoices:[],
           optFeatures:optProgression(c),
           traits:classTraits(c),                        // D148: the Core Traits block

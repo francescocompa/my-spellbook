@@ -979,5 +979,25 @@ eq("27a · a leveled always-known grant is cast with slots",
 eq("27b · …and a cantrip, and a real at-will cast, still read at will",
   [SB.rechargeShort("always known", true), SB.rechargeShort("at will", false)], ["at will", "at will"]);
 
+// ── 28 · a class's own spell list reaches spells in other books (D214) ─────
+{
+  const mk = (name, source, cls, srd) => ({ name, source, level: 1, cls: cls || [], sub: [], srd: srd || false });
+  const base = [mk("Shield", "XPHB", [["Wizard", "XPHB"]]), mk("Arcane Hand", "XPHB", [["Wizard", "XPHB"]], "Arcane Hand"),
+    mk("Bigby's Hand", "XPHB", [["Wizard", "XPHB"]], "Arcane Hand"), mk("Bless", "XPHB", [["Cleric", "XPHB"]]),
+    mk("Mind Thrust", "XUA", [["Psion", "XUA"]])];
+  const psion = { name: "Psion", source: "XUA", classSpells: ["shield|xphb", "mind thrust|xua", "nothing here|xphb"] };
+  const out = SB.applyClassSpells(base, [psion]);
+  const has = (o, n) => o.find(x => x.name === n).cls.some(c => c[0] === "Psion" && c[1] === "XUA");
+  eq("28a · a listed spell from another book joins the class",
+    [has(out, "Shield"), has(out, "Bless")], [true, false]);
+  eq("28b · a spell already on the list is not doubled, and nothing is mutated in place",
+    [out.find(x => x.name === "Mind Thrust").cls.length, base[0].cls.length, out[3] === base[3]], [1, 1, true]);
+  eq("28c · a {className} ref takes that class's whole list, read after the named spells",
+    SB.applyClassSpells(base, [psion, { name: "Mystic", source: "XUA", classSpells: [["Psion", "XUA"]] }])
+      .filter(x => x.cls.some(c => c[0] === "Mystic")).map(x => x.name), ["Shield", "Mind Thrust"]);
+  eq("28d · no list, no copy",
+    SB.applyClassSpells(base, [{ name: "Wizard", source: "XPHB", classSpells: null }]) === base, true);
+}
+
 console.log(`\n${pass} ok · ${fail} fail`);
 process.exit(fail ? 1 : 0);

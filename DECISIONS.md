@@ -697,6 +697,25 @@ closed one-offs) — is settled and lives in `DECISIONS-SETTLED.md`.
   - **Enforced by:** src/extract.js's spell record, `scratchpad/cparity.js`'s `canon(v,keepSrd)`.
     **→ Gotcha. Affects:** D187(b), D159(b), D158(d).
 
+- **D214 (2026-10-21) DECIDED — a class's own spell list (`classSpells`) is read, and
+  resolved at assembly.** His note: *"The psion guided builder isn't showing all options for
+  spells. Fix it and ship it."* The 2025 Psion (XUA2025Psion, XUA2025PsionUpdate) prints its
+  list on the class as ~125 "Name|Source" refs; only the 7 / 17 spells new to its own file
+  carry `fromClassList`, which was the only direction either extractor read.
+  - **(a) Both extractors write `classSpells`** on a class record: lowercase spell keys, the
+    source defaulting to PHB, `[className, classSource]` for a whole-list ref, group refs
+    dropped, `null` when absent (cparity's whole-record diff holds it).
+  - **(b) `applyClassSpells` in `assembleData`** adds `[class, source]` to each named spell's
+    `cls`, matching name|source or the spell's SRD name, then the whole-list refs. Records
+    are COPIED. *Rejected:* resolving in the importer (the spells live in other books and
+    other imports, so a Psion imported alone, or XPHB re-read alone, would lose the link);
+    editing records in place (the bundle's objects would keep a Psion after its book is
+    dropped).
+  - **(c) Not done:** `subclassSpells` (the app's `sub` access is display-only, and the
+    Psion subclasses' lists come through their grants); spell-group refs.
+  - **Enforced by:** src/extract.js `classSpellList`, extract.py `class_spell_list`, src/app.js
+    `applyClassSpells`; **engine fixture 28**. **→ Gotcha. Affects:** D58, D158(d), D187(b).
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

@@ -13,9 +13,12 @@
 > | `CHANGELOG.md` | Versions (the 1.6 line live; older rows archived), and the tag maps |
 > | `ARCHIVE.md` | Bodies of consumed phases, decisions, changelog rows and closed flags |
 
-## TL;DR (2026-10-01 · 0c74e79 · **v1.6.19, main and every tag pushed**)
+## TL;DR (2026-10-21 · **v1.6.20, main and every tag pushed**)
 
-- **State.** His six notes of 2026-10-01 all shipped, v1.6.17 → v1.6.19 (**D209–D213**):
+- **State (2026-10-21).** v1.6.20 — **the Psion gets its whole spell list** (D214): a class's
+  own `classSpells` list is read by both extractors and resolved at assembly; Psion 7 → 126
+  spells (Update 17 → 140).
+- **Before that.** His six notes of 2026-10-01 all shipped, v1.6.17 → v1.6.19 (**D209–D213**):
   a Savant offers two picks and no pick offers what its siblings hold; a Custom background;
   a feat's +1 fills itself from a per-build focus; one rail selection frame; confirming a
   class steps the walk on; leveled "always known" grants cast with slots, not at will; and the
@@ -25,7 +28,8 @@
   (`PLAN.md` → "Next up"). It needs the spec from him first — ask before writing code. The
   done-when is a byte-identical round trip; start from engine **fixture 24** (D208).
 - **Manual for Francesco:**
-  ① **Open Pages once** so the library re-reads itself (D213's fingerprint move); if "Arcanist's
+  ① **Open Pages once** so the library re-reads itself (D213's and D214's fingerprint moves) —
+  then check a Psion in the guide; if it still shows a handful of spells, re-import the Psion file; if "Arcanist's
   Magic Aura" still sits beside Nystul's, run **Update data** once.
   ② **Is this batch 1.7.0?** Everything went out as patches; D209–D213 ship two features
   (Custom background, feat auto-pick) — his call (D140).
@@ -70,8 +74,6 @@
   scale (34 / 28 / 22 / bare). **The header, the class row, an icon-only button:** D196, D197.
 - **…`buildGaps`:** D195. **The guide's pick landing:** D184. **`state.choices`:** D189 (three
   shapes). **The level-up trade:** D188. **Picker hosting:** D185. **The extractors:** D91, D183.
-
-⟳ Rename previous session → "Savant picks, SRD twins and guide notes" · session: local_3ff26a49-6757-4db0-96c3-4907963d2b9f
 
 ## What this is
 

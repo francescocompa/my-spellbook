@@ -64,6 +64,20 @@ def load(path):
 def spell_key(name, source):
     return f"{name.lower()}|{source.lower()}"
 
+# D214: a class's OWN spell list (`classSpells`) — "Name|Source" strings, source defaulting to
+# PHB, or {className, classSource} for "every spell on that class's list". Resolved at
+# assembly by app.js `applyClassSpells`; group refs are dropped. Keep identical to extract.js.
+def class_spell_list(lst):
+    if not isinstance(lst, list) or not lst: return None
+    out = []
+    for x in lst:
+        if isinstance(x, str):
+            p = x.split("|"); n = p[0].strip()
+            if n: out.append(spell_key(n, (p[1].strip() if len(p) > 1 else "") or "PHB"))
+        elif isinstance(x, dict) and isinstance(x.get("className"), str) and x["className"]:
+            out.append([x["className"], x.get("classSource") or "PHB"])
+    return out or None
+
 # A record with no usable name can't be indexed (the app lowercases names at boot) —
 # skip it rather than emit a record that bricks buildIndexes(). Keep identical to
 # extract.js's validName.
@@ -1245,6 +1259,7 @@ for f in glob.glob(os.path.join(MIRROR, "class", "class-*.json")):
             "prepared": prepared or known,      # the per-level count array
             "spellbook": c.get("spellsKnownProgressionFixed"),  # Wizard-style pool
             "slots": slot_table(c.get("classTableGroups")),
+            "classSpells": class_spell_list(c.get("classSpells")),   # D214: resolved at assembly
             "grants": parse_grants(c.get("additionalSpells"),   # Bard Magical Secrets
                                     CLSFEAT_INDEX.get((c["name"], c.get("source", "")))),
             "grantsFightingStyle": None,  # filled below for FS-granting classes

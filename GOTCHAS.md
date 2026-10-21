@@ -7,6 +7,15 @@
 > Read this before touching the extractors, the importer, the grants resolution or any
 > DOM handler. Moved out of `STATE.md` on 2026-08-27 (v1.1); nothing was dropped.
 
+- **A class can own its spell list instead of its spells owning the class** (D214). Site data
+  says who casts a spell through the generated lookup, and a brew spell through its INLINE
+  `classes.fromClassList` (D58). A brew or UA class can do it the other way round: the 2025
+  Psion prints `classSpells` on the class, ~125 "Name|Source" refs into XPHB, and only its 7
+  new spells name it. Read only one direction and the class is offered its own book's spells
+  and nothing else. The list is resolved at ASSEMBLY (`applyClassSpells`), never in the
+  importer, because the class and the spells it names arrive in different imports. A bare
+  name defaults to PHB (the 5etools UID rule). `subclassSpells` is NOT read: the app's `sub`
+  access is display-only, and a subclass's always-prepared spells come through its grants.
 - **A parity check that SKIPS a field is a promise that nothing reads it** (D213). `cparity.js`
   skipped `srd` because "the importer has no use for it"; D187(b) then started reading a
   spell's `srd` off the import, and `src/extract.js` had never written it — so no browser
