@@ -7127,6 +7127,19 @@ function catBooks(){
                      ...Object.keys((DATA&&DATA.sources)||{})]);
   return Object.values(CAT.books).filter(b=>!had.has(b.code));
 }
+// index-sources maps a book's CODE to its file — and that code is the `json` field the
+// digest keys a source by, so the two agree without a translation table. index-meta
+// carries the printed name; a book missing from it falls back to its code.
+async function uaCatalog(repo){
+  const base="https://cdn.jsdelivr.net/gh/"+repo+"@"+UA_REF+"/_generated/";
+  const [src,meta]=await Promise.all([webJson(base+"index-sources.json",true),
+                                      webJson(base+"index-meta.json",true).catch(()=>({}))]);
+  const books={};
+  Object.entries(src||{}).forEach(([code,path])=>{
+    const m=(meta||{})[String(path).split("/").pop()]||{};
+    books[code]={code,path:String(path),name:(m.n&&m.n[0])||code};});
+  return books;
+}
 async function uaFetch(){
   if(WEB_BUSY||SCAN_BUSY)return;
   const rep=$("#importReport"); const repo=uaRepo();
@@ -7134,16 +7147,7 @@ async function uaFetch(){
   try{
     if(navigator.onLine===false)throw new Error("you’re offline. Everything already imported keeps working.");
     rep.textContent="Reading the Unearthed Arcana catalogue…";
-    const base="https://cdn.jsdelivr.net/gh/"+repo+"@"+UA_REF+"/_generated/";
-    // index-sources maps a book's CODE to its file — and that code is the `json` field the
-    // digest keys a source by, so the two agree without a translation table. index-meta
-    // carries the printed name; a book missing from it falls back to its code.
-    const [src,meta]=await Promise.all([webJson(base+"index-sources.json",true),
-                                        webJson(base+"index-meta.json",true).catch(()=>({}))]);
-    const books={};
-    Object.entries(src||{}).forEach(([code,path])=>{
-      const m=(meta||{})[String(path).split("/").pop()]||{};
-      books[code]={code,path:String(path),name:(m.n&&m.n[0])||code};});
+    const books=await uaCatalog(repo);
     if(!Object.keys(books).length)throw new Error("that catalogue lists no books.");
     CAT={repo,ref:UA_REF,books};
     STAGE_FROM={kind:"ua",label:"the Unearthed Arcana repository ("+repo+")"};
@@ -7861,6 +7865,12 @@ async function autoReparse(){
   let healed=[];
   if(behind.some(c=>covered.has(c))&&!SCAN_BUSY&&!WEB_BUSY)
     healed=await reparseFromStash(stash,behind);
+  // D215: a stale brew with NO stash was added before K3 kept copies. If the UA catalogue
+  // holds it, fetch it back — a UA file is tens of KB, not D153's 21 MB — and the apply
+  // stashes it, so the next parser change heals it from the stash like any other brew.
+  const unstashed=staleBooks().filter(c=>!covered.has(c));
+  if(unstashed.length&&navigator.onLine!==false&&!SCAN_BUSY&&!WEB_BUSY)
+    healed=healed.concat(await refetchFromCatalogue(unstashed));
   const left=staleBooks();
   if(!left.length){
     // good news, so it fades — and it cannot repeat: what it healed is not stale any more
@@ -7887,6 +7897,25 @@ async function autoReparse(){
   // the × means "not now", so it must not come back every boot on the same extractors
   const x=n.querySelector(".anx");
   if(x)x.addEventListener("click",()=>{try{localStorage.setItem(LS_PARSER_NAG,key);}catch(_){}});
+}
+// D215: the UA catalogue read back through the same pipeline: stage, build, apply, with the
+// keep-set exactly what is stored — it can only re-stamp books you already have. Returns
+// the codes it healed; any failure (offline, a moved file) leaves the book to the notice.
+async function refetchFromCatalogue(codes){
+  try{
+    const books=await uaCatalog(uaRepo());
+    const want=codes.filter(c=>books[c]); if(!want.length)return [];
+    CAT={repo:uaRepo(),ref:UA_REF,books};
+    IMPORT_STAGE=[]; cancelBuild();
+    if(!await stageCatBooks(want)){CAT=null;IMPORT_STAGE=[];renderImportStage();return [];}
+    buildImport(null,true);
+    if(!PLAN||!Object.keys((PLAN.incoming&&PLAN.incoming.sources)||{}).length){
+      CAT=null; IMPORT_STAGE=[]; renderImportStage(); planFromStage(null,null); return [];}
+    PLAN.keep=new Set(Object.keys((IMPORTED&&IMPORTED.sources)||{}));
+    if(await applyPlan($("#importReport"),true))return [];
+    const still=new Set(staleBooks());
+    return want.filter(c=>!still.has(c));
+  }catch(_){CAT=null;return [];}
 }
 // The stash read back through the same pipeline every other import uses: stage, build, apply.
 // Nothing new is added and nothing is dropped — the keep-set is exactly what is already
@@ -12004,6 +12033,9 @@ function bookOrigin(code){
   const s=((IMPORTED&&IMPORTED.sources)||{})[code];
   if(!s)return "baked";
   if(s.origin)return s.origin;
+  // D215: a brew stored before origins were stamped did not come from the 5etools fetch,
+  // whatever the sync record says — guessing "web" sent it to Update data, which cannot heal it
+  if(s.group==="brew")return "file";
   const rec=webSyncRec();
   return (rec&&rec.version)?"web":"file";
 }

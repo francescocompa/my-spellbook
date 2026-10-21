@@ -716,6 +716,24 @@ closed one-offs) — is settled and lives in `DECISIONS-SETTLED.md`.
   - **Enforced by:** src/extract.js `classSpellList`, extract.py `class_spell_list`, src/app.js
     `applyClassSpells`; **engine fixture 28**. **→ Gotcha. Affects:** D58, D158(d), D187(b).
 
+- **D215 (2026-10-21) DECIDED — a stale UA book with no stash is re-fetched from the
+  catalogue, and an unstamped brew is never "from 5etools online".** His report after D214
+  shipped: *"the psion character still doesn't see any cantrip besides telekinetic fling"*,
+  after Update data. His browser's reading: 9 brews stale, **none stashed** (added before K3)
+  and all reading origin **web** — `bookOrigin`'s fallback guesses web for any unstamped book
+  once a web sync exists, so `autoReparse`'s notice routed them to Update data, which re-reads
+  5etools and can never heal a brew. The notice then counted as answered for this fingerprint.
+  - **(a) `refetchFromCatalogue`**: after the stash pass, a stale book with no stash that the UA
+    catalogue lists is fetched back and applied with the stored keep-set — it re-stamps, never
+    adds — and the apply stashes it, so the next parser change heals it from the stash.
+    *Rejected:* a notice with a "fetch from the catalogue" button (one more ask for a re-read
+    K3 already decided happens unasked; D153's refusal was about 21 MB, a UA file is tens of KB).
+  - **(b) `bookOrigin`**: an unstamped `group:"brew"` book reads **file**, so a brew outside the
+    catalogue (DnDBeyondDrops, from the homebrew repo) is told to be added again, not fetched.
+  - **Enforced by:** src/app.js `uaCatalog`, `refetchFromCatalogue`, `autoReparse`, `bookOrigin`.
+    Verified in the pane on a library forged to his reading. **→ Gotcha. Affects:** D153,
+    D154(d), D159, K3.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

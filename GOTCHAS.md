@@ -7,6 +7,13 @@
 > Read this before touching the extractors, the importer, the grants resolution or any
 > DOM handler. Moved out of `STATE.md` on 2026-08-27 (v1.1); nothing was dropped.
 
+- **A book with no `origin` stamp is GUESSED, and the guess decides who can heal it** (D215).
+  `bookOrigin` fell back to "web" for any unstamped book once a 5etools sync existed, so a
+  pre-K3 UA brew (no origin, no stash) was sent to Update data, which only re-reads 5etools:
+  stale forever, and the notice then counted as answered. Unstamped brews read "file" now, and
+  `autoReparse` re-fetches catalogue books it cannot heal from the stash. **A library that
+  "is still wrong after updating" — read `staleBooks()`, `rawAll()` and `bookOrigin()` in HIS
+  browser first; the pane's fresh library cannot show this.**
 - **A class can own its spell list instead of its spells owning the class** (D214). Site data
   says who casts a spell through the generated lookup, and a brew spell through its INLINE
   `classes.fromClassList` (D58). A brew or UA class can do it the other way round: the 2025

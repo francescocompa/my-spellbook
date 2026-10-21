@@ -13,11 +13,12 @@
 > | `CHANGELOG.md` | Versions (the 1.6 line live; older rows archived), and the tag maps |
 > | `ARCHIVE.md` | Bodies of consumed phases, decisions, changelog rows and closed flags |
 
-## TL;DR (2026-10-21 · **v1.6.20, main and every tag pushed**)
+## TL;DR (2026-10-21 · **v1.6.21, main and every tag pushed**)
 
 - **State (2026-10-21).** v1.6.20 — **the Psion gets its whole spell list** (D214): a class's
   own `classSpells` list is read by both extractors and resolved at assembly; Psion 7 → 126
-  spells (Update 17 → 140).
+  spells (Update 17 → 140). v1.6.21 (D215): UA books added before the stash re-fetch themselves from
+  the catalogue on load — his 9 stale brews were mis-routed to Update data.
 - **Before that.** His six notes of 2026-10-01 all shipped, v1.6.17 → v1.6.19 (**D209–D213**):
   a Savant offers two picks and no pick offers what its siblings hold; a Custom background;
   a feat's +1 fills itself from a per-build focus; one rail selection frame; confirming a
@@ -29,7 +30,8 @@
   done-when is a byte-identical round trip; start from engine **fixture 24** (D208).
 - **Manual for Francesco:**
   ① **Open Pages once** so the library re-reads itself (D213's and D214's fingerprint moves) —
-  then check a Psion in the guide; if it still shows a handful of spells, re-import the Psion file; if "Arcanist's
+  then check a Psion in the guide (v1.6.21 re-fetches the 8 UA books by itself); **DnDBeyondDrops**
+  is from the homebrew repo, so add its file again; if "Arcanist's
   Magic Aura" still sits beside Nystul's, run **Update data** once.
   ② **Is this batch 1.7.0?** Everything went out as patches; D209–D213 ship two features
   (Custom background, feat auto-pick) — his call (D140).
