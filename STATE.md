@@ -13,7 +13,7 @@
 > | `CHANGELOG.md` | Versions (the 1.6 line live; older rows archived), and the tag maps |
 > | `ARCHIVE.md` | Bodies of consumed phases, decisions, changelog rows and closed flags |
 
-## TL;DR (2026-10-21 · **v1.6.22**)
+## TL;DR (2026-10-21 · c8c3011 · **v1.6.22, main and every tag pushed**)
 
 - **State (2026-10-21).** v1.6.20 — **the Psion gets its whole spell list** (D214): a class's
   own `classSpells` list is read by both extractors and resolved at assembly; Psion 7 → 126
@@ -31,10 +31,11 @@
   (`PLAN.md` → "Next up"). It needs the spec from him first — ask before writing code. The
   done-when is a byte-identical round trip; start from engine **fixture 24** (D208).
 - **Manual for Francesco:**
-  ① **Open Pages once** so the library re-reads itself (D213's and D214's fingerprint moves) —
-  then check a Psion in the guide (v1.6.21 re-fetches the 8 UA books by itself); **DnDBeyondDrops**
-  is from the homebrew repo, so add its file again; if "Arcanist's
-  Magic Aura" still sits beside Nystul's, run **Update data** once.
+  ① **DnDBeyondDrops is still stale** (his reading, 2026-10-21) — it is from the homebrew repo,
+  so add its file again. The Psion is confirmed in his browser on v1.6.22 (a deploy needs TWO
+  reloads: the service worker serves the old build on the first). Open follow-ups, his call
+  whether to queue them: D216(c) — a `choose` in a prepared cadence is still free-cast only;
+  Shatter's grant is labelled "Warp Space".
   ② **Is this batch 1.7.0?** Everything went out as patches; D209–D213 ship two features
   (Custom background, feat auto-pick) — his call (D140).
   ③ The three ⚑ from 2026-09-12 in `PLAN.md`: a one-click drop for a spell the build knows it
@@ -66,6 +67,8 @@ Spawned: none
 - **…a class's spell list, or a stale brew that will not heal:** **D214**, **D215** + their GOTCHAS
   entries — read `staleBooks()`, `rawAll()`, `bookOrigin()` in HIS browser (Arc: a console
   snippet; Claude in Chrome cannot open tabs there).
+- **…a subclass `_copy`, or a cadence under `prepared`:** **D216** + its GOTCHAS entries — a
+  cross-book copy is hollow in the digest and filled only in `DATA`.
 - **…a field read off IMPORTED data:** **D213** + its GOTCHAS entry — grep `cparity.js` for a
   skip of that field, and check `src/extract.js` writes it.
 - **…`serializeState` / `applyImportedState`:** **D208** — the importer REBUILDS, so a new field
@@ -84,6 +87,8 @@ Spawned: none
   scale (34 / 28 / 22 / bare). **The header, the class row, an icon-only button:** D196, D197.
 - **…`buildGaps`:** D195. **The guide's pick landing:** D184. **`state.choices`:** D189 (three
   shapes). **The level-up trade:** D188. **Picker hosting:** D185. **The extractors:** D91, D183.
+
+⟳ Rename previous session → "Psi Warper and Dragonmark prepared spells" · session: local_5e6851a9-0c2b-4938-9726-3b008de05eba
 
 ## What this is
 
