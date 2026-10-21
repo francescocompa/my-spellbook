@@ -13,7 +13,7 @@
 > | `CHANGELOG.md` | Versions (the 1.6 line live; older rows archived), and the tag maps |
 > | `ARCHIVE.md` | Bodies of consumed phases, decisions, changelog rows and closed flags |
 
-## TL;DR (2026-10-21 · **v1.6.21, main and every tag pushed**)
+## TL;DR (2026-10-21 · d6215a5 · **v1.6.21, main and every tag pushed**)
 
 - **State (2026-10-21).** v1.6.20 — **the Psion gets its whole spell list** (D214): a class's
   own `classSpells` list is read by both extractors and resolved at assembly; Psion 7 → 126
@@ -53,11 +53,17 @@
   ⑬ Worth one line to him, from D208: **any build exported and re-imported between v1.5.34 and
   v1.6.15 lost its scores in the copy** — the original is intact wherever it came from.
 
+Working set: none (the next action waits on his dndpaste spec)
+Spawned: none
+
 ## Read before touching…
 
 - **…a grant's picks, or anything that treats `need>1` as "several":** **D209** + its GOTCHAS
   entry — 5etools writes "choose two" as two one-spell picks; one owner's picks are one pool
   (`siblingHeld`, read at the FULL build).
+- **…a class's spell list, or a stale brew that will not heal:** **D214**, **D215** + their GOTCHAS
+  entries — read `staleBooks()`, `rawAll()`, `bookOrigin()` in HIS browser (Arc: a console
+  snippet; Claude in Chrome cannot open tabs there).
 - **…a field read off IMPORTED data:** **D213** + its GOTCHAS entry — grep `cparity.js` for a
   skip of that field, and check `src/extract.js` writes it.
 - **…`serializeState` / `applyImportedState`:** **D208** — the importer REBUILDS, so a new field
@@ -76,6 +82,8 @@
   scale (34 / 28 / 22 / bare). **The header, the class row, an icon-only button:** D196, D197.
 - **…`buildGaps`:** D195. **The guide's pick landing:** D184. **`state.choices`:** D189 (three
   shapes). **The level-up trade:** D188. **Picker hosting:** D185. **The extractors:** D91, D183.
+
+⟳ Rename previous session → "Psion class spell lists" · session: local_075fa89a-7e9c-4568-a2bd-88a67af30b96
 
 ## What this is
 

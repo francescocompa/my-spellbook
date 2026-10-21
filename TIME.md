@@ -1,5 +1,10 @@
 # Time log
 
+## 2026-10-21
+- 19:09–19:40 (0h31m) — Psion class spell lists (D214–D215; v1.6.20 → v1.6.21)
+
+**Day total: 0h31m**
+
 ## 2026-10-01
 - 00:26–00:58 (0h32m) — Savant picks, SRD twins and guide notes (D209–D213; v1.6.17 → v1.6.19; /clean)
 
