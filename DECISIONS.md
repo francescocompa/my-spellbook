@@ -734,6 +734,33 @@ closed one-offs) — is settled and lives in `DECISIONS-SETTLED.md`.
     Verified in the pane on a library forged to his reading. **→ Gotcha. Affects:** D153,
     D154(d), D159, K3.
 
+- **D216 (2026-10-21) DECIDED — a cross-book subclass copy is filled at assembly, and a
+  cadence under `prepared` is always prepared too.** His note: *"The psi warper doesn't add
+  all the spells mentioned in its always prepared list to the spellbook, namely misty step and
+  shatter. Same goes for mark of passage, also misty step."* Read in the pane on both Psion
+  books: the first Psion's Psi Warper has all 11 grants, and the **Update's has 0**. The
+  first Psion's class is shadowed by the Update (D203), so the Update's subclass is the one he picks.
+  - **(a) `copyOf`, resolved in `assembleData`.** The Update's Psi Warper is
+    `_copy: {source: XUA2025Psion}`, a parent in another file, which D127's same-file rule
+    leaves unresolved. Both extractors write `copyOf` on such a record (not on a `_mod` copy,
+    which D127 still refuses to half-merge); `applySubclassCopies` gives it every field it left
+    empty from the parent, keeping its own name, book, page, class and printing stamps.
+    Records are copied. *Rejected:* resolving in the importer across the staged files (works
+    only when both books are imported together, and the Update is useless without the first
+    Psion's file); reading `_meta.dependencies` to fetch the parent book (an import that adds
+    a book he did not ask for).
+  - **(b) A named spell in a `prepared` cadence map gets a prepared twin** beside its free cast
+    (`preparedCadence`). 5etools' own key says prepared; the free-cast routing predates every
+    2024 Dragonmark. 54 grants. *Rejected:* a twin for a `choose` ref (two picks for one
+    choice); changing `known` cadences too (4 records, all 2014 species "you know" innate
+    casts, a different reading).
+  - **(c) Not done:** a chosen spell in a prepared cadence (Aberrant Dragonmark, Magic
+    Connoisseur, Boon of Magic School Mastery) is still a free-cast pick only; Shatter's grant
+    is labelled "Warp Space", the level-6 feature that mentions it, not "Psi Warper Spells".
+  - **Enforced by:** src/extract.js `preparedCadence` + the subclass `copyOf`, extract.py
+    `prepared_cadence` + `copyOf`, src/app.js `applySubclassCopies`; **engine fixture 29**
+    (29a and 29e red on a revert). **→ Gotcha. Affects:** D127, D214, D203, D79.
+
 ### Superseded
 - ~~**D14** Level budget = free distribution~~ → **D18.** Free distribution was wrong for
   known/level-swap casters (a Bard learns spells on level-up capped at its top slot); it survives

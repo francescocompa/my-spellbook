@@ -999,5 +999,39 @@ eq("27b · …and a cantrip, and a real at-will cast, still read at will",
     SB.applyClassSpells(base, [{ name: "Wizard", source: "XPHB", classSpells: null }]) === base, true);
 }
 
+// ── 29 · a cross-book subclass copy, and "always prepared + a free cast" (D216) ──
+{
+  const par = { name: "Psi Warper", shortName: "Psi Warper", source: "XUA", className: "Psion", classSource: "XUA",
+    book: "The Psion", page: 8, grants: { fixed: [{ kind: "prepared", atLevel: 3, spell: { name: "Shatter" } }], picks: [] },
+    features: [{ level: 3, name: "Teleportation" }], table: [], optFeatures: [] };
+  const kid = { name: "Psi Warper", shortName: "Psi Warper", source: "XUAU", className: "Psion", classSource: "XUAU",
+    book: "Psion Update", page: 1, grants: { fixed: [], picks: [], expansions: [], ability: null },
+    features: [], table: [{ own: 1 }], optFeatures: [], copyOf: ["Psion", "XUA", "Psi Warper", "XUA"] };
+  const out = SB.applySubclassCopies([par, kid]);
+  eq("29a · a hollow copy takes its parent's spells and features from another book",
+    [out[1].grants.fixed.length, out[1].features.length], [1, 1]);
+  eq("29b · …and keeps its own identity, and any field it carries itself",
+    [out[1].source, out[1].book, out[1].page, out[1].classSource, out[1].table], ["XUAU", "Psion Update", 1, "XUAU", [{ own: 1 }]]);
+  eq("29c · records are copied, never edited; the parent is untouched",
+    [out[1] === kid, kid.grants.fixed.length, out[0] === par], [false, 0, true]);
+  eq("29d · a parent not loaded leaves the copy as it is; no copy, no new array",
+    [SB.applySubclassCopies([kid])[0] === kid, SB.applySubclassCopies([par]).length, (a => SB.applySubclassCopies(a) === a)([par])],
+    [true, 1, true]);
+  // the extractor half: a cadence map under `prepared` is both grants, a `choose` only the cast
+  new Function(require("fs").readFileSync(require("path").join(__dirname, "../src/extract.js"), "utf8"))();
+  const SX = window.SB_extract;
+  const feat = (name, prepared) => ({ name, source: "EFA", category: "D", entries: [], additionalSpells: [{ prepared }] });
+  SX.resetFormRefs();
+  const { digest } = SX.buildDigest([{ name: "feats.json", json: { _meta: { sources: [{ json: "EFA" }] }, feat: [
+    feat("Mark of Passage", { _: { daily: { 1: ["misty step|xphb"] } } }),
+    feat("Aberrant Dragonmark", { _: { rest: { 1: [{ choose: "level=1|class=Sorcerer" }] } } })] } }]);
+  const g = n => digest.feats.find(f => f.name === n).grants;
+  eq("29e · \"always prepared, cast once free\" is a prepared grant AND a free cast",
+    g("Mark of Passage").fixed.map(x => x.kind + " " + x.recharge + " " + x.spell.name),
+    ["prepared prepared (free) Misty Step", "innate per long rest Misty Step"]);
+  eq("29f · a chosen spell asks once, not twice",
+    [g("Aberrant Dragonmark").picks.length, g("Aberrant Dragonmark").fixed.length], [1, 0]);
+}
+
 console.log(`\n${pass} ok · ${fail} fail`);
 process.exit(fail ? 1 : 0);

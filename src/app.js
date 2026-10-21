@@ -428,6 +428,25 @@ function applyClassSpells(spells,classes){
     out.forEach((sp,i)=>{if((sp.cls||[]).some(y=>y[0]===x[0]&&y[1]===x[1]))add(i,[c.name,c.source]);});}));
   return out;
 }
+// D216: a subclass `_copy` whose parent is in ANOTHER book arrives hollow, naming its parent
+// in `copyOf` — Psion Update's Psi Warper is the first Psion's, word for word, and came out
+// with no spells and no features. Filled here at assembly for D214's reason: the two books
+// are separate imports and either may be re-read alone. The record keeps its own identity
+// (name, book, class, printing stamps); every other field it left empty is the parent's.
+// Records are copied, never edited. A parent not loaded leaves the copy as it is.
+const COPY_OWN=new Set(["name","shortName","source","group","book","reprinted","supersededBy",
+  "page","srd","className","classSource","copyOf"]);
+const copyEmpty=v=>v==null||(Array.isArray(v)&&!v.length)
+  ||(v&&typeof v==="object"&&!Array.isArray(v)&&Object.values(v).every(copyEmpty));
+function applySubclassCopies(subs){
+  if(!(subs||[]).some(s=>Array.isArray(s.copyOf)))return subs;
+  const k=a=>a.map(x=>String(x||"").toLowerCase()).join("\u0000"), by={};
+  subs.forEach(s=>{if(!s.copyOf)by[k([s.className,s.classSource,s.shortName||s.name,s.source])]=s;});
+  return subs.map(s=>{const p=Array.isArray(s.copyOf)&&by[k(s.copyOf)]; if(!p)return s;
+    const out=Object.assign({},s);
+    Object.keys(p).forEach(f=>{if(!COPY_OWN.has(f)&&copyEmpty(out[f]))out[f]=p[f];});
+    return out;});
+}
 // assemble DATA from the three layers and rebuild indexes; call whenever content changes
 // the licensed-name twins an import supersedes (D187(b)). Split out so the gate can hold
 // the rule: a record is dropped ONLY when an imported spell of the same source names it as
@@ -500,6 +519,7 @@ function assembleData(){
       DATA.sources[c]=Object.assign({},DATA.sources[c],{counts:cnt[c]}); });
   }
   DATA.spells=applyClassSpells(DATA.spells,DATA.classes);   // D214
+  DATA.subclasses=applySubclassCopies(DATA.subclasses);     // D216
   const csp=(CUSTOM&&CUSTOM.spells)||[];
   if(csp.length){ DATA.spells=DATA.spells.concat(csp);
     DATA.sources[HB_SRC]=Object.assign({name:"Homebrew",group:"other"},DATA.sources[HB_SRC],
@@ -13163,7 +13183,7 @@ if(typeof module!=="undefined"&&module.exports){
     // the licensed-name twin an import supersedes (D187(b))
     dropSrdTwins,
     // a class's own spell list joins the spells it names, from any book (D214)
-    applyClassSpells,
+    applyClassSpells,applySubclassCopies,
     // a gap is a pick whose BOOK is missing, and a score choice is not a spell (D189);
     // a book that is here and ON is not a gap either, and a subclass's book is last (D195)
     buildGaps,

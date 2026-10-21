@@ -7,6 +7,18 @@
 > Read this before touching the extractors, the importer, the grants resolution or any
 > DOM handler. Moved out of `STATE.md` on 2026-08-27 (v1.1); nothing was dropped.
 
+- **A `_copy` can point at ANOTHER book, and only the app can see both** (D216). D127 resolves
+  a subclass copy inside one file; Psion Update's Psi Warper copies the first Psion's, so both
+  extractors emitted it hollow (no grants, no features) and nothing reported it. The extractor
+  now writes `copyOf` (the parent's className, classSource, shortName, source) and
+  `applySubclassCopies` fills it at ASSEMBLY, the D214 reason: the two books are separate
+  imports. A record carrying `copyOf` is still hollow in the digest. **Read it off `DATA`,
+  not off an import.**
+- **A cadence map under `prepared` means "always prepared AND a free cast"** (D216). 5etools
+  writes Mark of Passage as `prepared: {"_": {"daily": {"1": ["misty step|xphb"]}}}`. Routing
+  it to `emitCadence` alone kept the 1/day cast and dropped the preparing, for 54 grants.
+  `preparedCadence` emits both for a NAMED spell; a `choose` ref keeps the free-cast pick only,
+  since a second pick would ask the same question twice.
 - **A book with no `origin` stamp is GUESSED, and the guess decides who can heal it** (D215).
   `bookOrigin` fell back to "web" for any unstamped book once a 5etools sync existed, so a
   pre-K3 UA brew (no origin, no stash) was sent to Update data, which only re-reads 5etools:

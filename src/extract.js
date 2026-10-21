@@ -642,6 +642,19 @@ function emitCadence(b,at,cadmap,feature,feats){
     else if(payload&&typeof payload==="object"){Object.entries(payload).forEach(([freq,arr])=>{const n=numOf(freq)||1;
       const label=n===1?base:`${n}× ${base}`;(Array.isArray(arr)?arr:[arr]).forEach(s=>addSpellEntry(b,"innate",at,label,s,feature,feats));});}});}
 const isCadence=v=>v&&typeof v==="object"&&!Array.isArray(v)&&Object.keys(v).length>0&&Object.keys(v).every(k=>CADENCE_KEYS.has(k));
+// D216: a cadence map under `prepared` is BOTH grants — "You always have the Misty Step spell
+// prepared. You can cast it once without a spell slot" (the EFA Dragonmarks, the Boons,
+// College of Spirits). emitCadence alone kept the free cast and lost the preparing. A NAMED
+// spell gets its always-prepared twin; a `choose` ref does not, since a twin would ask the
+// same question twice as two picks.
+function preparedCadence(b,at,cadmap,feature,feats){
+  const named=new Set();
+  Object.entries(cadmap).forEach(([cadence,payload])=>{
+    const arrs=(cadence==="will"||Array.isArray(payload))?[payload]
+      :(payload&&typeof payload==="object")?Object.values(payload):[];
+    arrs.forEach(arr=>(Array.isArray(arr)?arr:[arr]).forEach(s=>{if(typeof s==="string")named.add(s);}));});
+  named.forEach(s=>addSpellEntry(b,"prepared",at,"prepared (free)",s,feature,feats));
+  emitCadence(b,at,cadmap,feature,feats);}
 // A prepared/known/expanded value has THREE shapes, like `innate` does: a bare list,
 // a cadence map, or a class-requirement group map — {"_":[…]} means "no requirement".
 // The group form fell through to spellRef() as a raw dict and silently discarded its
@@ -758,8 +771,8 @@ function featureList(recs,dropPrefix){
 function parseBlock(block,feats){const ft=block.name;
   const b={fixed:[],picks:[],expansions:[],ability:normAbility(block.ability)};
   Object.entries(block.prepared||{}).forEach(([lvl,arr])=>{const at=numOf(lvl);
-    if(isCadence(arr)){emitCadence(b,at,arr,ft,feats);return;}   // free casting on a cadence (feats)
-    asArr(ungroup(arr)).forEach(s=>{ if(isCadence(s))emitCadence(b,at,s,ft,feats);
+    if(isCadence(arr)){preparedCadence(b,at,arr,ft,feats);return;}   // prepared AND a free cast (D216)
+    asArr(ungroup(arr)).forEach(s=>{ if(isCadence(s))preparedCadence(b,at,s,ft,feats);
       else addSpellEntry(b,"prepared",at,"prepared (free)",s,ft,feats);});});
   Object.entries(block.expanded||{}).forEach(([lvl,arr])=>{const at=SLOT_LEVEL_KEY[String(lvl)]!=null?SLOT_LEVEL_KEY[String(lvl)]:numOf(lvl);
     if(isCadence(arr)){emitCadence(b,at,arr,ft,feats);return;}
@@ -1042,6 +1055,11 @@ function buildDigest(files){
           rec.cantrips=sc.cantripProgression;rec.prepared=sc.preparedSpellsProgression||sc.spellsKnownProgression;
           rec.static=(sc.preparedSpellsChange==="level");
           rec.spellList=null;}      // derived once every subclass is read, below (D130)
+        // D216: a copy whose parent lives in ANOTHER book (Psion Update's Psi Warper → the
+        // first Psion's) cannot be merged here — the two books are separate files and may be
+        // separate imports. Name the parent; assembly fills the hollow record from it.
+        const cp=sc._copy; if(cp&&!cp._mod&&!cp._templates)
+          rec.copyOf=[cp.className||"",cp.classSource||"",cp.shortName||cp.name||"",cp.source||""];
         const _sid=sc.shortName||sc.name||"";
         mergeProseGrants(rec,"subclass",_sid); attachCastMods(rec,"subclass",_sid); subclasses.push(rec);});
       const featCats=(j._meta&&j._meta.featCategories)||null;   // a brew may name its own

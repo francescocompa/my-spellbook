@@ -887,6 +887,22 @@ def emit_cadence(b, at, cadmap, feature=None, feats=None):
                 for s in (arr if isinstance(arr, list) else [arr]):
                     add_spell_entry(b, "innate", at, label, s, feature, feats)
 
+def prepared_cadence(b, at, cadmap, feature=None, feats=None):
+    """D216: a cadence map under `prepared` is BOTH grants — always prepared, plus the free
+       cast. A NAMED spell gets its always-prepared twin; a `choose` ref does not (a twin
+       would ask the same question twice). Mirrors preparedCadence in src/extract.js."""
+    named = []
+    for cadence, payload in cadmap.items():
+        if cadence == "will" or isinstance(payload, list): arrs = [payload]
+        elif isinstance(payload, dict): arrs = list(payload.values())
+        else: arrs = []
+        for arr in arrs:
+            for s in (arr if isinstance(arr, list) else [arr]):
+                if isinstance(s, str) and s not in named: named.append(s)
+    for s in named:
+        add_spell_entry(b, "prepared", at, "prepared (free)", s, feature, feats)
+    emit_cadence(b, at, cadmap, feature, feats)
+
 def is_cadence(v):
     return isinstance(v, dict) and bool(v) and all(k in CADENCE_KEYS for k in v)
 
@@ -918,12 +934,12 @@ def parse_block(block, feats=None):
     b = {"fixed": [], "picks": [], "expansions": [], "ability": norm_ability(block.get("ability"))}
     for lvl, arr in (block.get("prepared") or {}).items():
         at = int(re.sub(r"\D", "", str(lvl)) or 0)
-        if is_cadence(arr):                                 # free casting on a cadence (feats)
-            emit_cadence(b, at, arr, ft, feats)
+        if is_cadence(arr):                                 # prepared AND a free cast (D216)
+            prepared_cadence(b, at, arr, ft, feats)
         else:
             arr = ungroup(arr)
             for s in (arr if isinstance(arr, list) else [arr]):
-                if is_cadence(s): emit_cadence(b, at, s, ft, feats)
+                if is_cadence(s): prepared_cadence(b, at, s, ft, feats)
                 else: add_spell_entry(b, "prepared", at, "prepared (free)", s, ft, feats)
     for lvl, arr in (block.get("expanded") or {}).items():
         at = SLOT_LEVEL_KEY.get(str(lvl), int(re.sub(r"\D", "", str(lvl)) or 0))
@@ -1312,6 +1328,11 @@ for f in glob.glob(os.path.join(MIRROR, "class", "class-*.json")):
             rec["prepared"] = sc.get("preparedSpellsProgression") or sc.get("spellsKnownProgression")
             rec["static"] = (sc.get("preparedSpellsChange") == "level")
             rec["spellList"] = None    # derived once every subclass is read, below (D130)
+        # D216: a copy whose parent is in ANOTHER book names it; the app fills it at assembly
+        cp = sc.get("_copy")
+        if cp and not cp.get("_mod") and not cp.get("_templates"):
+            rec["copyOf"] = [cp.get("className", ""), cp.get("classSource", ""),
+                             cp.get("shortName", cp.get("name", "")), cp.get("source", "")]
         subclasses.append(rec)
 
 # ---- prose-only grants (D79) ----------------------------------------------

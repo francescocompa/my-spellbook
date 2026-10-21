@@ -13,12 +13,14 @@
 > | `CHANGELOG.md` | Versions (the 1.6 line live; older rows archived), and the tag maps |
 > | `ARCHIVE.md` | Bodies of consumed phases, decisions, changelog rows and closed flags |
 
-## TL;DR (2026-10-21 · d6215a5 · **v1.6.21, main and every tag pushed**)
+## TL;DR (2026-10-21 · **v1.6.22**)
 
 - **State (2026-10-21).** v1.6.20 — **the Psion gets its whole spell list** (D214): a class's
   own `classSpells` list is read by both extractors and resolved at assembly; Psion 7 → 126
   spells (Update 17 → 140). v1.6.21 (D215): UA books added before the stash re-fetch themselves from
-  the catalogue on load — his 9 stale brews were mis-routed to Update data.
+  the catalogue on load — his 9 stale brews were mis-routed to Update data. v1.6.22 (D216):
+  Psion Update's Psi Warper (a cross-book `_copy`) is filled from the first Psion's at assembly,
+  and "always prepared + cast once free" (Mark of Passage and 53 more) grants both.
 - **Before that.** His six notes of 2026-10-01 all shipped, v1.6.17 → v1.6.19 (**D209–D213**):
   a Savant offers two picks and no pick offers what its siblings hold; a Custom background;
   a feat's +1 fills itself from a per-build focus; one rail selection frame; confirming a
@@ -82,8 +84,6 @@ Spawned: none
   scale (34 / 28 / 22 / bare). **The header, the class row, an icon-only button:** D196, D197.
 - **…`buildGaps`:** D195. **The guide's pick landing:** D184. **`state.choices`:** D189 (three
   shapes). **The level-up trade:** D188. **Picker hosting:** D185. **The extractors:** D91, D183.
-
-⟳ Rename previous session → "Psion class spell lists" · session: local_075fa89a-7e9c-4568-a2bd-88a67af30b96
 
 ## What this is
 
